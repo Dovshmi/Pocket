@@ -1,5 +1,5 @@
 {
-  "source": "Public illustrative sample commands; not based on a private workbook",
+  "source": "Public illustrative sample commands, not derived from private workplace material",
   "commands": [
     {
       "id": "example:001",
@@ -26,7 +26,7 @@
       "id": "example:004",
       "machine": "Cisco",
       "category": "Diagnostics",
-      "description": "Ping a target",
+      "description": "Ping an address",
       "command": "ping <IP>"
     },
     {

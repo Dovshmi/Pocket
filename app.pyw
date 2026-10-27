@@ -28,6 +28,7 @@ from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
+import subnet_calculator as subnet
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -63,9 +64,41 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
+def normalize_window_position(raw) -> dict | None:
+    """Validate a user-moved window position; missing/invalid means tray default."""
+    if not isinstance(raw, dict):
+        return None
+    x, y = raw.get("x"), raw.get("y")
+    if type(x) is not int or type(y) is not int:
+        return None
+    # Guard against corrupt or malicious JSON giving impossible geometry.
+    if abs(x) > 100000 or abs(y) > 100000:
+        return None
+    return {"x": x, "y": y}
+
+
+def clamp_window_position(x: int, y: int, width: int, height: int,
+                          work_area: tuple[int, int, int, int]) -> tuple[int, int]:
+    """Keep the whole window inside its nearest monitor's usable work area."""
+    left, top, right, bottom = work_area
+    return (max(left, min(x, max(left, right - width))),
+            max(top, min(y, max(top, bottom - height))))
+
+
 def new_note(title="Untitled note", body="", phone="") -> dict:
     return {"id": new_id(), "title": title, "body": body, "phone": phone,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False}
+
+
+def ordered_notes(notes: list[dict]) -> list[dict]:
+    """Pinned notes first; preserve the original order within both groups."""
+    return sorted(notes, key=lambda note: not (note.get("pinned") is True))
+
+
+def duplicate_note(original: dict) -> dict:
+    """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
+    return new_note(f"{original.get('title', 'Untitled note')} (copy)",
+                    original.get('body', ''), original.get('phone', ''))
 
 
 def display_created_at(value: str) -> str:
@@ -128,6 +161,8 @@ def default_data() -> dict:
         ],
         "command_state": ch.safe_prefs({}),
         "custom_commands": [],
+        "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
+        "window_position": None,
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single"},
     }
@@ -152,6 +187,8 @@ def load_data(path: Path) -> dict:
                 note["phone"] = ""
             if not isinstance(note.get("created_at"), str):
                 note["created_at"] = ""
+            # Only genuine boolean values are accepted for the persisted flag.
+            note["pinned"] = note.get("pinned") is True
         links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
@@ -164,9 +201,21 @@ def load_data(path: Path) -> dict:
         tools = data.get("tools")
         if not isinstance(tools, dict):
             tools = default_data()["tools"]
+        subnet_pref = data.get("subnet")
+        if not isinstance(subnet_pref, dict):
+            subnet_pref = {}
+        subnet_pref = {
+            key: value if isinstance(value, str) and len(value) <= 64 else default
+            for key, value, default in (
+                ("ip", subnet_pref.get("ip"), "192.168.1.10"),
+                ("prefix", subnet_pref.get("prefix"), "24"),
+                ("split", subnet_pref.get("split"), "/26"))
+        }
         return {"notes": notes, "active_note": active_id, "links": links,
                 "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
-                "custom_commands": ch.safe_custom_commands(data.get("custom_commands"))}
+                "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
+                "subnet": subnet_pref,
+                "window_position": normalize_window_position(data.get("window_position"))}
     except (OSError, ValueError, TypeError):
         # Keep the damaged data available for manual recovery; don't silently overwrite it.
         backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
@@ -215,6 +264,10 @@ class PocketDesk:
         self.pinned = False
         self.current_tab = "notes"
         self._last_tray_xy = None
+        self._dragging_window = False
+        self._drag_moved = False
+        self._drag_origin = None
+        self._header_context_menu = None
         self.edit_link_id = None
         self._scroll_canvas = None
         self.vendor_file = self.path.parent / "vendors.json"
@@ -227,16 +280,19 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.updating_vendors = False
         self.port_inputs_expanded = True
-        # Prefer an optional private local library; fall back to public examples.
-        command_path = self.bundle_path("commands", "commands.json")
-        if not command_path.exists():
-            command_path = self.bundle_path("commands", "sample_commands.json")
-        self.bundled_commands = ch.load_library(command_path)
+        # Prefer the user's private library if installed locally; public builds use examples.
+        private_commands = self.bundle_path("commands", "commands.json")
+        demo_commands = self.bundle_path("commands", "sample_commands.json")
+        bundled_path = private_commands if private_commands.is_file() else demo_commands
+        self.bundled_commands = ch.load_library(bundled_path)
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
         self.selected_command_id = None
         self.command_mode = "all"
         self.command_draft_id = None
+        self._note_rows = []
+        self.subnet_details = None
+        self.subnet_children = []
 
         # tkinterdnd2 supports native Windows Explorer and browser drops.
         # The app still opens if the optional dependency has not been installed.
@@ -287,19 +343,27 @@ class PocketDesk:
     def _build_shell(self):
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
-        header = tk.Frame(outer, bg=BG, height=77)
+        header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
         header.pack(fill="x", padx=20, pady=(15, 10))
         header.pack_propagate(False)
         icon = tk.Label(header, text="▦", fg="#11131A", bg=ACCENT,
-                        font=(FONT, 17, "bold"), width=3, height=2)
+                        font=(FONT, 17, "bold"), width=3, height=2, cursor="fleur")
         icon.pack(side="left", padx=(0, 12))
-        labels = tk.Frame(header, bg=BG)
+        labels = tk.Frame(header, bg=BG, cursor="fleur")
         labels.pack(side="left", fill="y", expand=True)
-        tk.Label(labels, text="pocketdesk.", font=(FONT, 19, "bold"), fg=WHITE,
-                 bg=BG, anchor="w").pack(anchor="w", pady=(2, 0))
+        app_title = tk.Label(labels, text="pocketdesk.", font=(FONT, 19, "bold"), fg=WHITE,
+                             bg=BG, anchor="w", cursor="fleur")
+        app_title.pack(anchor="w", pady=(2, 0))
         self.shortcut_hint = tk.Label(labels, text="Ctrl+Shift+*  ·  Show / hide",
-                                      font=(FONT, 9), fg=MUTED, bg=BG)
+                                      font=(FONT, 9), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
+        # Dragging on the header behaves like a regular title bar. The PIN and
+        # close controls are intentionally excluded so their clicks work normally.
+        for handle in (header, icon, labels, app_title, self.shortcut_hint):
+            handle.bind("<ButtonPress-1>", self._begin_window_drag)
+            handle.bind("<B1-Motion>", self._continue_window_drag)
+            handle.bind("<ButtonRelease-1>", self._finish_window_drag)
+            handle.bind("<Button-3>", self._show_header_menu)
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
@@ -311,10 +375,11 @@ class PocketDesk:
         tabs.pack_propagate(False)
         self.tab_buttons = {}
         for key, label in (("notes", "NOTES"), ("links", "SHORTCUTS"),
-                           ("ports", "PORTS"), ("mac", "MAC"), ("commands", "COMMANDS")):
+                           ("ports", "PORTS"), ("mac", "MAC"), ("commands", "COMMANDS"),
+                           ("subnet", "SUBNET")):
             button = action_label(tabs, label, lambda k=key: self.show_tab(k),
-                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=7, pady=8, font_size=8)
-            button.pack(side="left", padx=(0, 4))
+                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=5, pady=8, font_size=8)
+            button.pack(side="left", padx=(0, 2))
             self.tab_buttons[key] = button
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 
@@ -324,6 +389,7 @@ class PocketDesk:
         # The reclaimed height gives the Notes body and Shortcuts list more room.
 
     def show_tab(self, which):
+        self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
         self.current_tab = which
@@ -342,7 +408,9 @@ class PocketDesk:
             self._build_mac()
         elif which == "commands":
             self._build_commands()
-        # Keep the popup anchored by the tray on all five tabs.
+        elif which == "subnet":
+            self._build_subnet()
+        # Preserve a user-moved position when changing tabs.
         self._place_popup(self._last_tray_xy)
 
     def _section_title(self, parent, title, desc, button_text, button_action):
@@ -379,6 +447,8 @@ class PocketDesk:
                                     exportselection=False, relief="flat", justify="left")
         self.note_list.pack(fill="both", expand=True, padx=5, pady=(0, 10))
         self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
+        self.note_list.bind("<Button-3>", self._show_note_list_menu)
+        self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
 
         title_row = tk.Frame(details, bg=PANEL)
         title_row.pack(fill="x", padx=12, pady=(12, 5))
@@ -437,6 +507,21 @@ class PocketDesk:
         self.refresh_note_list()
         self._load_selected_note()
 
+    def _flush_current_note(self):
+        """Commit any pending Text widget changes before changing the active note.
+
+        Tk's <<Modified>> notification may not run before a fast click/right-click.
+        """
+        if self._loading_note or self.current_tab != "notes":
+            return
+        note = self.active_note()
+        if note is None or not hasattr(self, "note_body") or not self.note_body.winfo_exists():
+            return
+        text = self.note_body.get("1.0", "end-1c")
+        if note["body"] != text:
+            note["body"] = text
+            self.schedule_save()
+
     def active_note(self):
         for note in self.data["notes"]:
             if note["id"] == self.data["active_note"]:
@@ -447,9 +532,11 @@ class PocketDesk:
         if not hasattr(self, "note_list") or not self.note_list.winfo_exists():
             return
         self._loading_note = True
+        self._note_rows = ordered_notes(self.data["notes"])
         self.note_list.delete(0, tk.END)
-        for i, n in enumerate(self.data["notes"]):
-            self.note_list.insert(tk.END, "  " + (n["title"].strip() or "Untitled")[:19])
+        for i, n in enumerate(self._note_rows):
+            marker = "★ " if n.get("pinned") else "  "
+            self.note_list.insert(tk.END, marker + (n["title"].strip() or "Untitled")[:18])
             if n["id"] == self.data["active_note"]:
                 self.note_list.selection_set(i)
                 self.note_list.activate(i)
@@ -475,9 +562,99 @@ class PocketDesk:
         if self._loading_note:
             return
         indexes = self.note_list.curselection()
-        if not indexes or indexes[0] >= len(self.data["notes"]):
+        if not indexes or indexes[0] >= len(self._note_rows):
             return
-        self.data["active_note"] = self.data["notes"][indexes[0]]["id"]
+        self._flush_current_note()
+        self.data["active_note"] = self._note_rows[indexes[0]]["id"]
+        self._load_selected_note()
+        self.schedule_save()
+
+    def _show_note_list_menu(self, event):
+        """Right-click the exact row under the pointer, not the last active note."""
+        index = self.note_list.nearest(event.y)
+        bounds = self.note_list.bbox(index)
+        if not bounds or not (bounds[1] <= event.y < bounds[1] + bounds[3]):
+            return "break"
+        if index >= len(self._note_rows):
+            return "break"
+        target = self._note_rows[index]
+        self._flush_current_note()
+        self.data["active_note"] = target["id"]
+        self.refresh_note_list()
+        self._load_selected_note()
+        self.schedule_save()
+        menu = self._build_note_list_menu(target["id"])
+        previous = getattr(self, "_note_picker_context_menu", None)
+        if previous is not None and previous.winfo_exists():
+            previous.unpost()
+            previous.destroy()
+        self._note_picker_context_menu = menu
+        was_modal = self._modal
+        self._modal = True
+
+        def on_unmap(_event):
+            if self._note_picker_context_menu is menu:
+                self._modal = was_modal
+
+        menu.bind("<Unmap>", on_unmap)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._modal = was_modal
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def _build_note_list_menu(self, note_id: str):
+        note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE,
+                       bd=1, relief="flat", font=(FONT, 9))
+        if note:
+            menu.add_command(label="Unpin from top" if note.get("pinned") else "Pin to top",
+                             command=lambda: self._toggle_note_pin(note_id))
+            menu.add_command(label="Duplicate note", command=lambda: self._duplicate_note(note_id))
+            menu.add_separator()
+            menu.add_command(label="Delete note…", command=lambda: self._delete_note_by_id(note_id))
+        return menu
+
+    def _toggle_note_pin(self, note_id: str):
+        target = next((n for n in self.data["notes"] if n["id"] == note_id), None)
+        if target is None:
+            return
+        target["pinned"] = not target.get("pinned", False)
+        self.refresh_note_list()
+        self.schedule_save()
+
+    def _duplicate_note(self, note_id: str):
+        self._flush_current_note()
+        for index, note in enumerate(self.data["notes"]):
+            if note["id"] == note_id:
+                copy = duplicate_note(note)
+                self.data["notes"].insert(index + 1, copy)
+                self.data["active_note"] = copy["id"]
+                self.refresh_note_list()
+                self._load_selected_note()
+                self.schedule_save()
+                return
+
+    def _delete_note_by_id(self, note_id: str):
+        if not any(n["id"] == note_id for n in self.data["notes"]):
+            return
+        self._modal = True
+        try:
+            confirmed = messagebox.askyesno("Delete note", "Delete this note permanently?",
+                                            parent=self.root)
+        finally:
+            self._modal = False
+        if not confirmed:
+            return
+        self.data["notes"] = [n for n in self.data["notes"] if n["id"] != note_id]
+        if not self.data["notes"]:
+            self.data["notes"] = [new_note()]
+        if self.data["active_note"] == note_id:
+            self.data["active_note"] = ordered_notes(self.data["notes"])[0]["id"]
+        self.refresh_note_list()
         self._load_selected_note()
         self.schedule_save()
 
@@ -644,6 +821,7 @@ class PocketDesk:
         self.schedule_save()
 
     def add_note(self):
+        self._flush_current_note()
         self.data["notes"].insert(0, new_note())
         self.data["active_note"] = self.data["notes"][0]["id"]
         if self.current_tab != "notes":
@@ -656,21 +834,7 @@ class PocketDesk:
         self.schedule_save()
 
     def delete_note(self):
-        self._modal = True
-        try:
-            confirmed = messagebox.askyesno("Delete note", "Delete this note permanently?", parent=self.root)
-        finally:
-            self._modal = False
-        if not confirmed:
-            return
-        active = self.data["active_note"]
-        self.data["notes"] = [n for n in self.data["notes"] if n["id"] != active]
-        if not self.data["notes"]:
-            self.data["notes"] = [new_note()]
-        self.data["active_note"] = self.data["notes"][0]["id"]
-        self.refresh_note_list()
-        self._load_selected_note()
-        self.schedule_save()
+        self._delete_note_by_id(self.data["active_note"])
 
     def _build_links(self):
         self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
@@ -1538,6 +1702,150 @@ class PocketDesk:
         self._export_results("pocketdesk-ports.csv", ["port", "service", "status", "ms"],
                              sorted(self.port_results, key=lambda item: item["port"]))
 
+    # ---- Offline IPv4 subnet calculator -----------------------------------
+
+    def _build_subnet(self):
+        self._section_title(self.body, "Subnet calculator", "IPv4 · CIDR · Address ranges", "Copy summary", self._copy_subnet_summary)
+        inputs = tk.Frame(self.body, bg=BG)
+        inputs.pack(fill="x", pady=(0, 7))
+        tk.Label(inputs, text="IP ADDRESS", bg=BG, fg=MUTED, font=(FONT, 8, "bold")).grid(row=0, column=0, sticky="w", pady=(0, 5))
+        tk.Label(inputs, text="CIDR / MASK", bg=BG, fg=MUTED, font=(FONT, 8, "bold")).grid(row=0, column=1, sticky="w", padx=(10, 0), pady=(0, 5))
+        prefs = self.data["subnet"]
+        self.subnet_ip_var = tk.StringVar(value=prefs["ip"])
+        self.subnet_prefix_var = tk.StringVar(value=prefs["prefix"])
+        self._entry(inputs, self.subnet_ip_var).grid(row=1, column=0, sticky="ew", ipady=9)
+        self._entry(inputs, self.subnet_prefix_var).grid(row=1, column=1, sticky="ew", padx=(10, 0), ipady=9)
+        inputs.columnconfigure(0, weight=3)
+        inputs.columnconfigure(1, weight=2)
+        for child in inputs.winfo_children():
+            if isinstance(child, tk.Entry):
+                child.bind("<Return>", lambda _e: self._calculate_subnet())
+
+        first_actions = tk.Frame(self.body, bg=BG)
+        first_actions.pack(fill="x", pady=(1, 10))
+        action_label(first_actions, "Calculate", self._calculate_subnet, fg="#121622", bg=ACCENT,
+                     hover="#BBC0FF", padx=12, pady=8, font_size=9).pack(side="left")
+        action_label(first_actions, "Copy network", self._copy_subnet_network, fg=ACCENT,
+                     bg=PANEL, hover=CARD, padx=10, pady=7, font_size=8).pack(side="left", padx=(9, 0))
+        self.subnet_status = tk.Label(first_actions, text="", bg=BG, fg=MUTED, font=(FONT, 8), anchor="e")
+        self.subnet_status.pack(side="right", fill="x", expand=True)
+
+        card = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        card.pack(fill="x")
+        tk.Label(card, text="NETWORK DETAILS", fg=SECONDARY, bg=PANEL,
+                 font=(FONT, 8, "bold")).pack(anchor="w", padx=12, pady=(11, 7))
+        facts = tk.Frame(card, bg=PANEL)
+        facts.pack(fill="x", padx=12, pady=(0, 9))
+        self.subnet_fact_labels = {}
+        rows = (
+            ("Network", "cidr"), ("Mask", "mask"), ("Wildcard", "wildcard"),
+            ("Broadcast", "broadcast"), ("First usable", "first"), ("Last usable", "last"),
+            ("Usable hosts", "usable"), ("Total addresses", "total"),
+        )
+        for i, (name, key) in enumerate(rows):
+            tk.Label(facts, text=name, bg=PANEL, fg=MUTED, font=(FONT, 9), anchor="w").grid(
+                row=i, column=0, sticky="w", pady=3)
+            output = tk.Label(facts, text="—", bg=PANEL, fg=WHITE,
+                              font=(FONT, 9, "bold"), anchor="e")
+            output.grid(row=i, column=1, sticky="e", pady=3)
+            self.subnet_fact_labels[key] = output
+        facts.columnconfigure(1, weight=1)
+
+        tk.Label(self.body, text="SUBDIVIDE THE NETWORK", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(16, 8))
+        subnet_actions = tk.Frame(self.body, bg=BG)
+        subnet_actions.pack(fill="x")
+        tk.Label(subnet_actions, text="New prefix", fg=MUTED, bg=BG,
+                 font=(FONT, 9)).pack(side="left", padx=(0, 8))
+        self.subnet_split_var = tk.StringVar(value=prefs["split"])
+        self.subnet_split_choice = ttk.Combobox(subnet_actions, textvariable=self.subnet_split_var,
+                                                 state="readonly", width=6,
+                                                 values=[f"/{n}" for n in range(24, 33)])
+        self.subnet_split_choice.pack(side="left")
+        action_label(subnet_actions, "Split", self._split_subnet, fg="#121622", bg=ACCENT,
+                     hover="#BBC0FF", padx=9, pady=6, font_size=8).pack(side="left", padx=(9, 0))
+        action_label(subnet_actions, "Copy selected", self._copy_selected_subnet, fg=ACCENT,
+                     bg=PANEL, hover=CARD, padx=7, pady=6, font_size=8).pack(side="right")
+        self.subnet_split_info = tk.Label(self.body, text="", bg=BG, fg=MUTED,
+                                          font=(FONT, 8), anchor="w")
+        self.subnet_split_info.pack(fill="x", pady=(9, 0))
+        self.subnet_tree = self._tree(self.body, ("Subnets", "Hosts", "Usable range"),
+                                       (142, 70, 205), rows=6, aligns=("w", "center", "w"))
+        self.subnet_tree.bind("<Double-1>", lambda _e: self._copy_selected_subnet())
+        self._calculate_subnet()
+
+    def _calculate_subnet(self):
+        try:
+            details = subnet.calculate(self.subnet_ip_var.get(), self.subnet_prefix_var.get())
+        except ValueError as exc:
+            self.subnet_details = None
+            self.subnet_status.config(text="Invalid input", fg=DANGER)
+            self.subnet_split_info.config(text=str(exc), fg=DANGER)
+            for output in self.subnet_fact_labels.values():
+                output.config(text="—")
+            self._clear_subnet_rows()
+            return
+        self.subnet_details = details
+        for key, output in self.subnet_fact_labels.items():
+            value = details[key]
+            output.config(text=f"{value:,}" if isinstance(value, int) else str(value))
+        self.subnet_status.config(text="Calculated locally", fg=ACCENT)
+        available = [f"/{n}" for n in range(details["prefix"], 33)]
+        previously = self.subnet_split_var.get()
+        self.subnet_split_choice.config(values=available)
+        self.subnet_split_var.set(previously if previously in available else available[min(2, len(available)-1)])
+        self._split_subnet()
+        self._remember_subnet()
+
+    def _clear_subnet_rows(self):
+        self.subnet_children = []
+        for iid in self.subnet_tree.get_children():
+            self.subnet_tree.delete(iid)
+
+    def _split_subnet(self):
+        self._clear_subnet_rows()
+        if not self.subnet_details:
+            return
+        try:
+            child = subnet.split_subnets(self.subnet_details["cidr"], self.subnet_split_var.get())
+        except ValueError as exc:
+            self.subnet_split_info.config(text=str(exc), fg=DANGER)
+            return
+        self.subnet_children = child['rows']
+        self._remember_subnet()
+        for row in self.subnet_children:
+            self.subnet_tree.insert("", tk.END,
+                                    values=(row['cidr'], f"{row['usable']:,}", row['range']))
+        count = f"{child['count']:,} subnet(s)"
+        self.subnet_split_info.config(text=(f"{count} · showing first {child['shown']}" if child['truncated']
+                                           else count), fg=MUTED)
+
+    def _remember_subnet(self):
+        self.data["subnet"] = {"ip": self.subnet_ip_var.get(),
+                               "prefix": self.subnet_prefix_var.get(),
+                               "split": self.subnet_split_var.get()}
+        self.schedule_save()
+
+    def _copy_subnet_network(self):
+        if self.subnet_details:
+            self._copy_subnet_text(self.subnet_details['cidr'])
+
+    def _copy_subnet_summary(self):
+        if self.subnet_details:
+            self._copy_subnet_text(subnet.summary_text(self.subnet_details))
+
+    def _copy_selected_subnet(self):
+        selection = self.subnet_tree.selection()
+        if not selection:
+            self.subnet_status.config(text="Choose a subnet first", fg=DANGER)
+            return
+        self._copy_subnet_text(str(self.subnet_tree.item(selection[0], "values")[0]))
+
+    def _copy_subnet_text(self, text: str):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        self.subnet_status.config(text="Copied", fg=ACCENT)
+
     # ---- IEEE bulk MAC address vendor lookup ------------------------------
 
     def _build_mac(self):
@@ -1726,26 +2034,37 @@ class PocketDesk:
                                    parent=self.root)
 
     def _focus_lost(self, _event):
-        if self.preview or self.pinned or self._modal:
+        if self.preview or self.pinned or self._modal or self._dragging_window:
             return
         self.root.after(170, self._maybe_hide)
 
     def _maybe_hide(self):
-        if self.preview or self.pinned or self._modal:
+        if self.preview or self.pinned or self._modal or self._dragging_window:
             return
         if self.root.state() == "normal" and self.root.focus_displayof() is None:
             self.hide()
 
-    def _place_popup(self, xy):
-        """Give all tabs the same tall popup; fit it above the Windows taskbar.
+    def _screen_work_area(self, x: int, y: int) -> tuple[int, int, int, int]:
+        if sys.platform == "win32":
+            return monitor_work_area(x, y)
+        return (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
 
-        On smaller displays the results table yields space first, leaving
-        the Command editor and the Copy button accessible.
+    def _place_popup(self, xy):
+        """Restore the user's position, or anchor to the tray until first drag.
+
+        Clamp to the nearest available monitor after screen/resolution changes.
+        All tabs use the same height, so changing tabs won't move the window.
         """
         self.root.update_idletasks()
-        if xy and sys.platform == "win32":
+        saved = normalize_window_position(self.data.get("window_position"))
+        if saved is not None:
+            px, py = saved["x"], saved["y"]
+            left, top, right, bottom = self._screen_work_area(px + WIDTH // 2, py + HEIGHT // 2)
+            height = min(HEIGHT, max(420, bottom - top - 16))
+            px, py = clamp_window_position(px, py, WIDTH, height, (left, top, right, bottom))
+        elif xy and sys.platform == "win32":
             x, y = xy
-            left, top, right, bottom = monitor_work_area(x, y)
+            left, top, right, bottom = self._screen_work_area(x, y)
             height = min(HEIGHT, max(420, bottom - top - 16))
             px = max(left + 8, min(x - WIDTH + 32, right - WIDTH - 8))
             py = (bottom - height - 9) if y > (top + bottom) / 2 else (top + 9)
@@ -1756,10 +2075,64 @@ class PocketDesk:
             py = max(0, screen_h - height - 85)
         if self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            # Aim for ~7-8 results on large screens, fewer on short laptops.
             visible_rows = max(2, min(8, 8 + (height - HEIGHT) // 27))
             self.command_tree.configure(height=visible_rows)
-        self.root.geometry(f"{WIDTH}x{height}+{px}+{py}")
+        self.root.geometry(f"{WIDTH}x{height}{px:+d}{py:+d}")
+
+    def _begin_window_drag(self, event):
+        self._dragging_window = True
+        self._drag_moved = False
+        self._drag_origin = (event.x_root, event.y_root,
+                             self.root.winfo_x(), self.root.winfo_y())
+
+    def _continue_window_drag(self, event):
+        if not self._dragging_window or self._drag_origin is None:
+            return
+        start_x, start_y, left, top = self._drag_origin
+        dx, dy = event.x_root - start_x, event.y_root - start_y
+        if not self._drag_moved and max(abs(dx), abs(dy)) < 3:
+            return
+        self._drag_moved = True
+        px, py = left + dx, top + dy
+        self.root.geometry(f"{px:+d}{py:+d}")
+
+    def _finish_window_drag(self, event):
+        if not self._dragging_window:
+            return
+        try:
+            self._continue_window_drag(event)
+            if self._drag_moved:
+                px, py = self.root.winfo_x(), self.root.winfo_y()
+                area = self._screen_work_area(event.x_root, event.y_root)
+                px, py = clamp_window_position(px, py, self.root.winfo_width(),
+                                                self.root.winfo_height(), area)
+                self.root.geometry(f"{px:+d}{py:+d}")
+                self.data["window_position"] = {"x": px, "y": py}
+                self._flush_current_note()
+                self._write_now()
+        finally:
+            self._drag_origin = None
+            self._drag_moved = False
+            self._dragging_window = False
+
+    def reset_window_position(self):
+        """Restore the original tray-anchored placement, including after monitor changes."""
+        self.data["window_position"] = None
+        self._place_popup(self._last_tray_xy)
+        self._flush_current_note()
+        self._write_now()
+
+    def _show_header_menu(self, event):
+        if self._header_context_menu is None:
+            self._header_context_menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                                                activebackground=ACCENT_DARK, activeforeground=WHITE,
+                                                bd=1, relief="flat")
+            self._header_context_menu.add_command(label="Reset window position",
+                                                  command=self.reset_window_position)
+        try:
+            self._header_context_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self._header_context_menu.grab_release()
 
     def show(self, xy=None):
         self._last_tray_xy = xy

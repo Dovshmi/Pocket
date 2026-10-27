@@ -1,126 +1,142 @@
-<div align="center">
-
 # PocketDesk
 
-**A compact Windows system-tray dashboard for notes, shortcuts, and everyday network checks.**
+**A compact Windows system-tray toolbox for notes, shortcuts, network checks, and CLI commands.** Click its icon beside the clock to open a small popup instead of keeping another window on your desktop.
 
-![Version](https://img.shields.io/badge/version-1.6-blue) ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6) ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB)
+**Version 1.10** · Windows 10/11 · Python 3.10+ · Local-first · No account required
 
-No account, server, or caller-lookup API required.
+> **Public repository:** This source distribution includes a small synthetic CLI example library. The larger, workplace-derived command catalog from the private release is **not included**. The app supports that catalog locally when you supply it yourself.
 
-</div>
-
-## Preview
-
-| Notes | Shortcuts |
-|:--:|:--:|
-| ![Notes](screenshots/notes.png) | ![Shortcuts](screenshots/shortcuts.png) |
-
-| TCP port checker | MAC vendor checker |
-|:--:|:--:|
-| ![TCP checker](screenshots/ports.png) | ![MAC vendors](screenshots/mac.png) |
+![PocketDesk Command Helper with a taller results table](preview-commands-layout.png)
 
 ## Features
 
-### 📝 Notes
-- Create, edit, and delete multiple notes inside a small popup.
-- Automatic local persistence between launches.
-- Optional phone number on each note, with a **Copy** button that normalizes spaces and punctuation.
-- **No reverse-phone lookup, Truecaller integration, or external contact service.**
+| Tab | Features |
+| --- | --- |
+| **Notes** | Multiple autosaved notes, a phone-number field per note, and one-click number copying. No caller-identification lookup. |
+| **Shortcuts** | Launch websites, local files, or folders from the same popup. |
+| **Ports** | Check individual or selected TCP ports for an IPv4/IPv6 target and export results to CSV. |
+| **MAC** | Bulk MAC vendor lookup using public IEEE registries cached locally, with CSV import/export. |
+| **Commands** | Machine-aware CLI references with searches across commands **and what they do**, temporary editing before copying, local custom commands, favorites, and recent copies. |
 
-### 🔗 Shortcuts
-- Save quick links to **websites, local files, or folders**.
-- Add/edit shortcuts with a local file/folder picker.
-- Open each shortcut directly from the dashboard.
+## Unified tall layout — new in v1.10
 
-### 🔌 TCP Port Checker
-- Check a TCP port on an IPv4 address, IPv6 address, or hostname.
-- Select common ports or enter additional ports/ranges, up to **128** per run.
-- See **OPEN, CLOSED, TIMEOUT,** or **ERROR**, and export results to CSV.
-- Tests TCP connection reachability; this is not a full network vulnerability scanner or a UDP checker.
+All five tabs now share the **850 px-tall** popup on a full-size display. This means more visible notes, shortcuts, port-check results, MAC results, and command entries. Switching tabs no longer changes the window size or shifts the popup on the desktop.
 
-### 🏷️ Bulk MAC Vendor Checker
-- Paste many MAC addresses in common formats (colon, hyphen, dotted, or compact).
-- Download the public IEEE MA-L, MA-M, and MA-S assignment files or import the CSV files manually.
-- Look up vendor assignments **offline** once the local database is populated.
-- Export lookup results to CSV. Vendor prefix assignments do not prove a device's manufacturer or owner.
+- The Commands tab keeps **Command on the left** and **Purpose / Description on the right** (right-aligned for Hebrew).
+- The **Edit before copying** box is now **six lines high**, making it practical to adjust multi-line commands or command sequences before pressing **Copy edited**.
+- On smaller screens, the popup automatically clamps to the available screen height; the command results list shrinks first, and the edit box can reduce to five lines so its buttons remain reachable.
+- The selected command is **never executed**: only the contents of the editor are copied to your clipboard. Selecting a new command or pressing Reset discards your temporary changes.
 
-## Quick start — Windows
+![PocketDesk Commands tab with larger six-line edit box](preview-commands-layout.png)
 
-1. Install **Python 3.10 or later** from [python.org](https://www.python.org/downloads/windows/). Tkinter is normally bundled with the Windows installer.
-2. Download or clone this repository:
-   ```powershell
-   git clone https://github.com/Dovshmi/Pocket.git
-   cd Pocket
-   ```
-3. Double-click **`run.bat`** (or run `pyw -3 app.pyw`).
-4. Click the PocketDesk icon in the notification area near the Windows clock. You might need to expand the `^` hidden icons menu.
+## Command Helper — editing and saved commands
 
-> Source-mode operation uses Python's standard library. You do not need the build dependencies unless you're creating an EXE.
+### 1. Modify a command before copying it
 
-## Build a standalone EXE
+1. Open **COMMANDS** and pick a machine, or choose **All machines**.
+2. Search by command text or description. Hebrew and English descriptions are supported.
+3. Select a matching result to display its **editable command box**.
+4. Replace placeholders such as `<INTERFACE>`, `<IP>`, or `<VLAN>` with actual values, or modify the CLI command however you need.
+5. Click **Copy edited** (or press **Ctrl+Enter** when the editor is focused). The exact text in the editor is copied to your clipboard. **PocketDesk does not execute it.**
+6. **Reset** restores the saved original command.
 
-On **Windows**, double-click **`build-exe.bat`**. The script installs the pinned-range PyInstaller dependency and generates:
+Edits to the copy box are **temporary**. They do **not** change the imported reference or save automatically; choosing a different result resets the editor. This makes it safe to reuse a known command template repeatedly.
 
-```text
-dist\PocketDesk.exe
-```
+### 2. Add commands to a machine
 
-You can distribute that EXE to a compatible Windows machine without installing Python. No compiled EXE is stored in the source repository. Builds and native tray behavior **have not been independently verified on Windows**; if a build fails, run the script in a terminal to inspect the error output.
+1. Select the machine from the dropdown (for example **Cisco** or **Fortigate**) and click **+ New**.
+2. Supply a **purpose/description**, **category**, and **command** (multiple lines are supported).
+3. Click **Save command**. The command appears in the selected machine's search results immediately and is saved to your PC.
+4. To create a new machine category, choose **All machines**, click **+ New**, then type a new machine name in the Machine field.
+5. To change your own saved command permanently, select it and click **Edit saved**. To remove it, use **Delete** (with confirmation).
 
-## Data storage & privacy
+Add commands with the **+ New** button in the Commands tab.
 
-User data is stored outside the repository under:
+**Searchability:** Custom commands use the same filters as the original catalog. They are searchable by their command text, purpose/description, machine, and category; they also support **★ Saved** and **Recent**. Editing a custom command retains its identity and favorite status.
 
-| Path | What it holds |
-|---|---|
-| `%APPDATA%\PocketDesk\data.json` | Notes, optional phone numbers, shortcuts, port-check settings |
-| `%APPDATA%\PocketDesk\vendors.json` | Downloaded IEEE MAC vendor data |
+**Original commands stay read-only.** The starter command pack from the private workbook is not overwritten. Temporary edits don't affect it; creating or editing a personal command is a deliberate separate action.
 
-Notes and phone numbers are stored locally; copying a phone number uses the clipboard and makes **no network request**. The app accesses the network only when you open a URL shortcut, check a network port, or download IEEE vendor data. Avoid committing or publicly sharing your local data files.
+### 3. Useful keyboard controls
 
-Upgrading from earlier PocketDesk versions keeps existing notes and shortcuts; older phone lookup configuration files, if present, are simply not used.
+- `Ctrl+F` — focus the command search field while on the Commands tab
+- `Ctrl+Enter` — copy the current edited command when editing
+- `Ctrl+A` — select all text in the command editor
+- `Ctrl+S` — save application data immediately
+- `Esc` — hide the popup, or close the New/Edit command dialog
 
-## Project layout
+## Installation
 
-```text
-Pocket/
-├── app.pyw                  # System tray & four-tab Tkinter interface
-├── shortcut_utils.py        # Phone formatting; URL/file/folder shortcuts
-├── network_tools.py         # TCP checks and IEEE vendor lookup
-├── assets/                  # Tray icon resources
-├── screenshots/             # README illustrations
-├── run.bat                  # Launch silently using pythonw
-├── build-exe.bat            # Windows PyInstaller build
-├── requirements-build.txt   # Build-only dependency
-├── test_*.py                # Unit tests
-└── smoke_*.py               # Optional GUI smoke tests
-```
+1. Clone the repository with `git clone https://github.com/Dovshmi/Pocket.git` (or download and extract its source ZIP).
+2. Install [Python 3.10+ for Windows](https://www.python.org/downloads/windows/) (the normal Windows installer includes Tkinter).
+3. Run **`run.bat`**.
+4. Click the PocketDesk icon in the notification area next to the clock. If you don't see it, open the `^` hidden-icons menu.
+
+To build a standalone **PocketDesk.exe**, double-click **`build-exe.bat`** on Windows. The executable appears in `dist\PocketDesk.exe`. The public build bundles sample commands. If you placed a private `commands/commands.json` file in your local checkout, the build script uses it instead; **do not publicly distribute the resulting EXE without reviewing that data**.
+
+The app uses the Python standard library at runtime. PyInstaller is used only to build the EXE.
+
+## Data, privacy, and upgrades
+
+PocketDesk saves your data under **`%APPDATA%\PocketDesk\`**:
+
+| File | Contents |
+| --- | --- |
+| `data.json` | Notes, optional phone numbers, shortcuts, port preferences, **personal custom commands**, favorites, and command-history preferences |
+| `vendors.json` | IEEE vendor-prefix cache for MAC lookups, if downloaded |
+
+Existing data from previous releases, including v1.6 and v1.7, is loaded with backward-compatible defaults. The v1.10 updater does not remove saved notes or shortcuts.
+
+The public repository includes `commands/example_commands.json`, a **small generic offline example library**. The private release contains a separate `commands/commands.json` file derived from a workplace workbook (573 curated entries, 30 equipment categories). That file is **not committed to GitHub**. The original workbook is not distributed. Both read-only libraries work with the same editor and search features. See [`commands/README.md`](commands/README.md).
+
+**Important:** The workbook originally contained workplace credentials and operational information. Although the private command pack was filtered and many identifiers generalized, it has **not been certified free of confidential operational data**. Keep the private ZIP and any EXE built with that pack private; `.gitignore` excludes `commands/commands.json`. **Do not publish this command pack to GitHub.** The custom commands in `data.json` are stored in plain text locally; don't put passwords, tokens, or private keys in them or in CLI clipboard drafts.
+
+PocketDesk does not upload your commands, search history, notes, or custom entries. It makes network requests only when you start a TCP port check or an IEEE vendor-database update. A copied command can be read by other software accessing the system clipboard.
 
 ## Testing
 
-Run the unit tests from the repository root:
+From the project folder on Windows:
 
 ```powershell
 py -3 -m unittest discover -v
 ```
 
-**17 unit tests passed** in the supplied development environment, including local TCP test connections, phone number normalization, data migration, and file/folder shortcut validation. Desktop UI checks have been performed on Linux/Xvfb. Native Windows EXE and system-tray behavior still need to be verified on a real Windows system.
+Graphical checks (optional, require Tkinter and Pillow) include `smoke_commands.py`, `smoke_custom_commands.py`, `smoke_command_layout.py`, `smoke_unified_layout.py`, and `smoke_ui.py`. The new layout smoke test checks the reversed columns, Hebrew alignment, larger six-line editor, and consistent window height across all five tabs using synthetic test data. The command tools have been tested on a Linux graphical virtual display, including editing a command before copying, saving/reloading custom commands, editing favorites, and deleting custom entries. **Native Windows system-tray behavior and the Windows EXE remain to be tested on Windows itself.**
+
+## Project layout
+
+```text
+PocketDesk/
+├── app.pyw                # System-tray dashboard and five tabs
+├── command_helper.py      # Command filtering, validation, custom-command handling
+├── commands/
+│   ├── example_commands.json # Public, generic example references
+│   ├── commands.json      # Optional PRIVATE catalog; ignored by Git
+│   └── README.md
+├── network_tools.py       # TCP port check and MAC vendor logic
+├── shortcut_utils.py      # Local and web shortcut handling
+├── assets/                 # Tray icon
+├── run.bat                 # Launch on Windows with Python
+├── build-exe.bat           # Build a standalone Windows EXE
+├── requirements-build.txt # PyInstaller
+├── test_*.py               # Automated tests
+├── smoke_*.py              # Optional GUI checks
+└── .gitignore              # Protect private/data files and build output
+```
 
 ## Troubleshooting
 
-- **No tray icon:** Look under the `^` hidden notification icons near the clock; confirm Python was installed with Tkinter.
-- **Nothing happens when launching:** Run `py -3 app.pyw` from PowerShell to see startup errors.
-- **Port shows CLOSED/TIMEOUT:** Check routing, host firewalls, service availability, and the selected TCP port; a timeout does not necessarily mean the service is down.
-- **MAC vendor missing:** First use **Update IEEE DB** or import the IEEE CSV registry files. Locally administered/randomized MACs may not resolve to a vendor.
-- **Old notes missing:** Check the existing `%APPDATA%\PocketDesk\data.json` under the Windows account running the app.
+**I can't see my new command.** Choose the correct machine, change the view to **All**, set the category to **All categories**, and clear the search.
 
-## Security & responsible use
+**The popup looks too tall on my screen.** PocketDesk clamps all five tabs to the usable display height. On the Commands tab, the results table can be scrolled and yields space to the editor on smaller screens.
 
-Only run port checks against systems you own or are explicitly authorized to test. The app's local file/folder shortcuts launch paths you select; review shortcuts before opening files from untrusted sources.
+**The editor changed, but my stored command did not.** Edits in the copy box are intentionally temporary. For your own custom commands, use **Edit saved** to make a permanent change.
 
-## Version history
+**My commands disappear after restarting.** Check whether `%APPDATA%\PocketDesk\data.json` can be written by your Windows account. Personal commands are stored there, not next to the EXE.
 
-**v1.6 (current):** Removed all caller-lookup services and browser integrations. Notes retain an optional phone number and **Copy** button. Keeps Notes, Shortcuts, Port Checker, and MAC Vendor Checker.
+**The Commands tab has no built-in commands.** Verify that `commands/example_commands.json` is present alongside `app.pyw` when running from source. Optionally, place your private `commands/commands.json` locally to load it instead. The build script bundles the selected library in the EXE.
 
-Earlier iterations experimented with phone lookup, but those components are **not part of this release**.
+**No icon in the tray?** Check the hidden `^` tray icons and whether `run.bat` is running. Launch `py -3 app.pyw --preview` for a regular window when troubleshooting.
+
+## License
+
+Code usage follows the license in the GitHub repository. The **private command pack is not offered for redistribution** under that license; review it separately and obtain authorization before sharing it.

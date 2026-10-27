@@ -1,25 +1,27 @@
-# Python
+# The command pack was derived from a private operational workbook.
+# Never publish it to GitHub without reviewing and explicitly authorizing its contents.
+commands/*.json
+!commands/example_commands.json
+*.xlsm
+*.xlsx
+*.xls
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12
+
+# User files, caches and packaged builds
 __pycache__/
 *.py[cod]
-.venv/
-venv/
-.pytest_cache/
-
-# PyInstaller and local build output
 build/
 dist/
 *.spec
-
-# Local editor files
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-# User data / exported results (never commit private notes or phone numbers)
-data.json
-vendors.json
-contacts.json
-lookup_config.json
-*.csv
+.venv/
+venv/
 *.log
+**/data.json
+**/contacts.json
+**/lookup_config.json
+**/vendors.json

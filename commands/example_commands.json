@@ -1,0 +1,116 @@
+{
+  "commands": [
+    {
+      "id": "public-sample:001",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Show the IPv4 routing table / הצגת טבלת ניתוב",
+      "command": "show ip route",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:002",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Show interface brief status",
+      "command": "show ip interface brief",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:003",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Show interface information",
+      "command": "show interfaces <INTERFACE>",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:004",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "List VLANs",
+      "command": "show vlan brief",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:005",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Display MAC address table",
+      "command": "show mac address-table",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:006",
+      "machine": "Cisco",
+      "category": "Connectivity",
+      "description": "Ping a destination",
+      "command": "ping <IP_ADDRESS>",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:007",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:008",
+      "machine": "FortiGate",
+      "category": "System",
+      "description": "Display FortiOS system status",
+      "command": "get system status",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:009",
+      "machine": "FortiGate",
+      "category": "Interfaces",
+      "description": "List configured interfaces",
+      "command": "show system interface",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:010",
+      "machine": "FortiGate",
+      "category": "Routing",
+      "description": "Display routing table",
+      "command": "get router info routing-table all",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:011",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Display routing information",
+      "command": "show route",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:012",
+      "machine": "Juniper",
+      "category": "Interfaces",
+      "description": "Display interface brief status",
+      "command": "show interfaces terse",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:013",
+      "machine": "Nokia SR OS",
+      "category": "Interfaces",
+      "description": "View port information",
+      "command": "show port",
+      "origin": "bundled"
+    },
+    {
+      "id": "public-sample:014",
+      "machine": "Nokia SR OS",
+      "category": "Routing",
+      "description": "Display route table",
+      "command": "show router route-table",
+      "origin": "bundled"
+    }
+  ]
+}

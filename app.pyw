@@ -23,9 +23,10 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
+import command_helper as ch
 
 APP_NAME = "PocketDesk"
-WIDTH, HEIGHT = 480, 668
+WIDTH, HEIGHT = 480, 850  # Unified popup height across every tab.
 BG = "#11131A"
 PANEL = "#1A1D27"
 CARD = "#222635"
@@ -70,6 +71,8 @@ def default_data() -> dict:
             new_link("YouTube", "https://www.youtube.com"),
             new_link("Gmail", "https://mail.google.com"),
         ],
+        "command_state": ch.safe_prefs({}),
+        "custom_commands": [],
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single"},
     }
@@ -104,7 +107,8 @@ def load_data(path: Path) -> dict:
         if not isinstance(tools, dict):
             tools = default_data()["tools"]
         return {"notes": notes, "active_note": active_id, "links": links,
-                "tools": tools}
+                "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
+                "custom_commands": ch.safe_custom_commands(data.get("custom_commands"))}
     except (OSError, ValueError, TypeError):
         # Keep the damaged data available for manual recovery; don't silently overwrite it.
         backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
@@ -152,6 +156,7 @@ class PocketDesk:
         self._modal = False
         self.pinned = False
         self.current_tab = "notes"
+        self._last_tray_xy = None
         self.edit_link_id = None
         self._scroll_canvas = None
         self.vendor_file = self.path.parent / "vendors.json"
@@ -164,6 +169,14 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.updating_vendors = False
         self.port_inputs_expanded = True
+        private_pack = self.bundle_path("commands", "commands.json")
+        public_examples = self.bundle_path("commands", "example_commands.json")
+        self.bundled_commands = ch.load_library(private_pack if private_pack.is_file() else public_examples)
+        self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
+        self.command_filtered = []
+        self.selected_command_id = None
+        self.command_mode = "all"
+        self.command_draft_id = None
 
         self.root = tk.Tk()
         self.root.title("PocketDesk")
@@ -194,8 +207,12 @@ class PocketDesk:
             self.root.after(50, lambda: self._place_popup(None))
 
     @staticmethod
+    def bundle_path(*parts):
+        return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)).joinpath(*parts)
+
+    @staticmethod
     def asset_path(name):
-        return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "assets" / name
+        return PocketDesk.bundle_path("assets", name)
 
     def _build_shell(self):
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
@@ -210,7 +227,7 @@ class PocketDesk:
         labels.pack(side="left", fill="y", expand=True)
         tk.Label(labels, text="pocketdesk.", font=(FONT, 19, "bold"), fg=WHITE,
                  bg=BG, anchor="w").pack(anchor="w", pady=(2, 0))
-        tk.Label(labels, text="Notes, shortcuts and network tools.",
+        tk.Label(labels, text="Your desktop utility tray.",
                  font=(FONT, 9), fg=MUTED, bg=BG).pack(anchor="w", pady=(1, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
@@ -223,9 +240,9 @@ class PocketDesk:
         tabs.pack_propagate(False)
         self.tab_buttons = {}
         for key, label in (("notes", "NOTES"), ("links", "SHORTCUTS"),
-                           ("ports", "PORT CHECK"), ("mac", "MAC VENDORS")):
+                           ("ports", "PORTS"), ("mac", "MAC"), ("commands", "COMMANDS")):
             button = action_label(tabs, label, lambda k=key: self.show_tab(k),
-                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=9, pady=8, font_size=9)
+                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=7, pady=8, font_size=8)
             button.pack(side="left", padx=(0, 4))
             self.tab_buttons[key] = button
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
@@ -244,7 +261,7 @@ class PocketDesk:
                  fg=MUTED, bg=BG).pack(side="right")
 
     def show_tab(self, which):
-        if which in ("ports", "mac"):
+        if which in ("ports", "mac", "commands"):
             self.footer.pack_forget()  # Network tools benefit from additional results space.
         elif not self.footer.winfo_manager():
             self.footer.pack(fill="x", padx=20)
@@ -264,6 +281,10 @@ class PocketDesk:
             self._build_ports()
         elif which == "mac":
             self._build_mac()
+        elif which == "commands":
+            self._build_commands()
+        # Keep the popup anchored by the tray on all five tabs.
+        self._place_popup(self._last_tray_xy)
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         heading = tk.Frame(parent, bg=BG)
@@ -578,7 +599,7 @@ class PocketDesk:
                      bg=PANEL, hover=CARD, font_size=9).pack(side="left", padx=7)
         action_label(actions, "Save shortcut", lambda: self._save_link(title_var.get(), target_var.get(), kind_var.get()),
                      fg="#121622", bg=ACCENT, hover="#BBC0FF", font_size=9).pack(side="left")
-        self.root.after(30, title_entry.focus_set)
+        self.root.after(30, lambda: title_entry.focus_set() if title_entry.winfo_exists() else None)
 
     def _browse_shortcut(self, kind_var, target_var, title_var):
         kind = kind_var.get()
@@ -650,7 +671,7 @@ class PocketDesk:
                      relief="flat", font=(FONT, 10), width=width or 1)
         return e
 
-    def _tree(self, parent, columns, widths):
+    def _tree(self, parent, columns, widths, *, rows=4, aligns=None):
         style = ttk.Style(self.root)
         style.configure("Pocket.Treeview", background=PANEL, foreground=WHITE,
                         fieldbackground=PANEL, rowheight=27, borderwidth=0,
@@ -661,16 +682,414 @@ class PocketDesk:
                   foreground=[("selected", WHITE)])
         container = tk.Frame(parent, bg=BG)
         container.pack(fill="both", expand=True, pady=(8, 0))
-        tree = ttk.Treeview(container, columns=columns, show="headings", height=4,
+        tree = ttk.Treeview(container, columns=columns, show="headings", height=rows,
                             style="Pocket.Treeview")
-        for col, width in zip(columns, widths):
-            tree.heading(col, text=col)
-            tree.column(col, width=width, minwidth=50, anchor="w", stretch=True)
+        if aligns is None:
+            aligns = ("w",) * len(columns)
+        for col, width, align in zip(columns, widths, aligns):
+            tree.heading(col, text=col, anchor=align)
+            tree.column(col, width=width, minwidth=50, anchor=align, stretch=True)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         return tree
+
+    def _build_commands(self):
+        self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
+        prefs = self.data["command_state"]
+        names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library)
+        machine = prefs.get("machine")
+        self.machine_var = tk.StringVar(value=machine if machine in names else ch.ALL_MACHINES)
+        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+                                           state="readonly", font=(FONT, 10), height=18)
+        self.machine_picker.pack(fill="x", ipady=4, pady=(0, 8))
+        self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+
+        self.command_query = tk.StringVar()
+        search_box = tk.Frame(self.body, bg=BG)
+        search_box.pack(fill="x", pady=(0, 7))
+        self.command_search_entry = self._entry(search_box, self.command_query)
+        self.command_search_entry.config(font=(FONT, 10), fg=MUTED)
+        self._command_placeholder = "Search command or purpose  (e.g. ping, ניתוב)"
+        self._command_placeholder_active = True
+        self.command_search_entry.insert(0, self._command_placeholder)
+        self.command_search_entry.bind('<FocusIn>', self._command_focus_in)
+        self.command_search_entry.bind('<FocusOut>', self._command_focus_out)
+        self.command_search_entry.pack(fill="x", expand=True, ipady=9)
+        self.command_query.trace_add('write', lambda *_: self._refresh_command_results())
+        self.root.bind('<Control-f>', self._focus_command_search)
+
+        filterrow = tk.Frame(self.body, bg=BG)
+        filterrow.pack(fill="x", pady=(0, 2))
+        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
+        self.command_category_picker = ttk.Combobox(
+            filterrow, textvariable=self.command_category_var, state="readonly", width=19,
+            values=[ch.ALL_CATEGORIES]+ch.categories_for(self.command_library, self.machine_var.get()),
+            font=(FONT, 9))
+        self.command_category_picker.pack(side="left", fill="x", expand=True, ipady=3, padx=(0, 7))
+        self.command_category_picker.bind('<<ComboboxSelected>>', lambda _event:self._refresh_command_results())
+        self.command_modes = {}
+        for mode,label in [('all','All'),('favorites','★ Saved'),('recent','Recent')]:
+            btn = action_label(filterrow, label, lambda m=mode:self._set_command_mode(m),
+                               fg=SECONDARY, bg=PANEL, hover=CARD, padx=7, pady=7, font_size=8)
+            btn.pack(side="left", padx=(0, 3))
+            self.command_modes[mode] = btn
+
+        result_head = tk.Frame(self.body, bg=BG)
+        result_head.pack(fill="x", pady=(3, 2))
+        self.command_count = tk.Label(result_head, text="", bg=BG, fg=MUTED,
+                                      font=(FONT, 8), anchor="w")
+        self.command_count.pack(side="left")
+        tk.Label(result_head, text="Select → edit → copy", bg=BG, fg=MUTED,
+                 font=(FONT, 8)).pack(side="right")
+        details = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER,
+                           highlightthickness=1)
+        details.pack(side="bottom", fill="x", pady=(6, 0))
+        line = tk.Frame(details, bg=PANEL)
+        line.pack(fill="x", padx=11, pady=(7, 1))
+        self.command_machine_tag = tk.Label(line, text="SELECT A COMMAND", fg=ACCENT, bg=PANEL,
+                                            font=(FONT, 8, 'bold'))
+        self.command_machine_tag.pack(side='left')
+        self.command_category_tag = tk.Label(line, text="", fg=MUTED, bg=PANEL,
+                                             font=(FONT, 8))
+        self.command_category_tag.pack(side='right')
+        self.command_description_label = tk.Label(details, text="Select a result to view its command.",
+                                                   fg=WHITE, bg=PANEL, font=(FONT, 9),
+                                                   wraplength=410, justify='left', anchor='w')
+        self.command_description_label.pack(fill='x', padx=11, pady=(2, 4))
+        tk.Label(details, text='EDIT BEFORE COPYING  ·  CHANGES HERE ARE TEMPORARY',
+                 fg=MUTED, bg=PANEL, font=(FONT, 7, 'bold'), anchor='w').pack(fill='x', padx=11, pady=(1, 4))
+        self.command_code = tk.Text(details, height=6, wrap='word', undo=True, bg=INPUT, fg='#D3E4FF',
+                                    font=('Consolas', 9), bd=0, padx=9, pady=5,
+                                    highlightthickness=1, highlightbackground=BORDER)
+        self.command_code.pack(fill='x', padx=11)
+        self.command_code.bind('<Control-a>', self._command_select_all)
+        self.command_code.bind('<Control-Return>', lambda _e: (self._copy_command(), 'break')[1])
+        bottom = tk.Frame(details, bg=PANEL)
+        bottom.pack(fill='x', padx=8, pady=(4, 6))
+        self.command_star = action_label(bottom, '☆ Save', self._toggle_command_favorite,
+                                         fg=SECONDARY, bg=PANEL, hover=CARD, font_size=8, padx=5, pady=4)
+        self.command_star.pack(side='left')
+        self.command_edit = action_label(bottom, 'Edit saved', self._edit_custom_command,
+                                         fg=ACCENT, bg=PANEL, hover=CARD, font_size=8, padx=5, pady=4)
+        self.command_edit.pack(side='left')
+        self.command_delete = action_label(bottom, 'Delete', self._delete_custom_command,
+                                           fg=DANGER, bg=PANEL, hover=CARD, font_size=8, padx=5, pady=4)
+        self.command_delete.pack(side='left')
+        self.command_reset = action_label(bottom, 'Reset', self._reset_command_draft,
+                                          fg=SECONDARY, bg=PANEL, hover=CARD, font_size=8, padx=5, pady=4)
+        self.command_reset.pack(side='left')
+        action_label(bottom, 'Copy edited', self._copy_command, fg='#121622', bg=ACCENT,
+                     hover='#BBC0FF', font_size=9, padx=8, pady=4).pack(side='right')
+        self.command_feedback = tk.Label(details, text='Offline · Nothing is executed',
+                                         fg=MUTED, bg=PANEL, font=(FONT, 8))
+        self.command_feedback.pack(anchor='w', padx=12, pady=(0, 5))
+        # Command first (left), description second (right); align Hebrew purposes to the right.
+        self.command_tree = self._tree(self.body, ('Command', 'Purpose / Description'),
+                                       (230, 185), rows=8, aligns=('w', 'e'))
+        self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
+        self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())
+        self.command_tree.bind('<Return>', lambda _event: self._focus_command_editor())
+        self._style_command_modes()
+        self._refresh_command_results()
+
+    def _command_focus_in(self, _event=None):
+        if self._command_placeholder_active:
+            self._command_placeholder_active = False
+            self.command_query.set('')
+            self.command_search_entry.config(fg=WHITE)
+
+    def _command_focus_out(self, _event=None):
+        if not self.command_query.get():
+            self._command_placeholder_active = True
+            self.command_search_entry.config(fg=MUTED)
+            self.command_query.set(self._command_placeholder)
+
+    def _actual_command_query(self):
+        return '' if self._command_placeholder_active and self.command_query.get() == self._command_placeholder else self.command_query.get()
+
+    def _focus_command_search(self, _event=None):
+        if self.current_tab == 'commands' and self.command_search_entry.winfo_exists():
+            self.command_search_entry.focus_set()
+            return 'break'
+
+    def _clear_command_search(self):
+        self.command_query.set('')
+        self._focus_command_search()
+
+    def _change_machine(self, _event=None):
+        machine = self.machine_var.get()
+        self.data['command_state']['machine'] = machine
+        self.command_category_picker['values'] = [ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, machine)
+        self.command_category_var.set(ch.ALL_CATEGORIES)
+        self._refresh_command_results()
+        self.schedule_save()
+
+    def _set_command_mode(self, mode):
+        self.command_mode = mode
+        self._style_command_modes()
+        self._refresh_command_results()
+
+    def _style_command_modes(self):
+        for mode, button in self.command_modes.items():
+            button.config(fg=ACCENT if self.command_mode == mode else SECONDARY,
+                          bg=ACCENT_DARK if self.command_mode == mode else PANEL)
+
+    def _refresh_command_results(self):
+        if self.current_tab != 'commands' or not hasattr(self,'command_tree') or not self.command_tree.winfo_exists():
+            return
+        prefs = self.data['command_state']
+        matches = ch.find_commands(self.command_library, query=self._actual_command_query(),
+                                    machine=self.machine_var.get(), category=self.command_category_var.get(),
+                                    mode=self.command_mode, favorites=prefs['favorites'], recent=prefs['recent'])
+        self.command_filtered = matches[:ch.MAX_RESULTS]
+        self.command_count.config(text=f"{len(matches)} results" +
+                                  (f" · first {ch.MAX_RESULTS}" if len(matches)>ch.MAX_RESULTS else ''))
+        selected = self.selected_command_id
+        for iid in self.command_tree.get_children():
+            self.command_tree.delete(iid)
+        for item in self.command_filtered:
+            desc = item['description'].replace('\n',' ')
+            cmd = item['command'].replace('\n','  /  ')
+            if self.machine_var.get() == ch.ALL_MACHINES:
+                desc = f"{item['machine']} · {desc}"
+            self.command_tree.insert('', 'end', iid=item['id'], values=(cmd, desc))
+        if selected and self.command_tree.exists(selected):
+            self.command_tree.selection_set(selected)
+        elif self.command_filtered:
+            self.command_tree.selection_set(self.command_filtered[0]['id'])
+            self.selected_command_id = self.command_filtered[0]['id']
+        else:
+            self.selected_command_id = None
+        self._render_command_details()
+
+    def _select_command(self, _event=None):
+        selection = self.command_tree.selection()
+        if selection:
+            self.selected_command_id = selection[0]
+            self._render_command_details()
+
+    def _selected_command(self):
+        for entry in self.command_filtered:
+            if entry['id'] == self.selected_command_id:
+                return entry
+        return None
+
+    def _command_select_all(self, _event=None):
+        self.command_code.tag_add('sel', '1.0', 'end-1c')
+        return 'break'
+
+    def _focus_command_editor(self):
+        if self._selected_command():
+            self.command_code.focus_set()
+            self.command_code.mark_set('insert', 'end-1c')
+
+    def _reset_command_draft(self):
+        item = self._selected_command()
+        if item:
+            self.command_code.delete('1.0', tk.END)
+            self.command_code.insert('1.0', item['command'])
+            self.command_feedback.config(text='Restored the saved command', fg=MUTED)
+            self.command_code.focus_set()
+
+    def _render_command_details(self):
+        item = self._selected_command()
+        self.command_code.delete('1.0', tk.END)
+        if item:
+            self.command_machine_tag.config(text=item['machine'] + ('  ·  MY COMMAND' if item.get('origin') == 'custom' else ''))
+            self.command_category_tag.config(text=item['category'])
+            self.command_description_label.config(text=item['description'])
+            self.command_code.insert('1.0', item['command'])
+            favorite = item['id'] in self.data['command_state']['favorites']
+            self.command_star.config(text='★ Saved' if favorite else '☆ Save')
+            if item.get('origin') == 'custom':
+                self.command_edit.pack(side='left', after=self.command_star)
+                self.command_delete.pack(side='left', after=self.command_edit)
+            else:
+                self.command_edit.pack_forget()
+                self.command_delete.pack_forget()
+        else:
+            self.command_machine_tag.config(text='NO RESULTS')
+            self.command_category_tag.config(text='')
+            self.command_description_label.config(text='Try another machine, keyword or category.')
+            self.command_star.config(text='☆ Save')
+            self.command_edit.pack_forget()
+            self.command_delete.pack_forget()
+        self.command_draft_id = item['id'] if item else None
+        self.command_feedback.config(text='Edits in this box are temporary · Copy does not execute', fg=MUTED)
+
+    def _toggle_command_favorite(self):
+        item=self._selected_command()
+        if not item:
+            return
+        favs=self.data['command_state']['favorites']
+        if item['id'] in favs:
+            favs.remove(item['id'])
+        else:
+            favs.append(item['id'])
+        self.schedule_save()
+        if self.command_mode == 'favorites':
+            self._refresh_command_results()
+        else:
+            self.command_star.config(text='★ Saved' if item['id'] in favs else '☆ Save')
+
+    def _copy_command(self):
+        item = self._selected_command() if self.current_tab == 'commands' else None
+        if not item:
+            return
+        text = self.command_code.get('1.0', 'end-1c')
+        if not text.strip():
+            self._warning('Empty command', 'Enter command text before copying.')
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(text)
+        prefs=self.data['command_state']
+        prefs['recent']=ch.updated_recent(prefs['recent'],item['id'])
+        self.schedule_save()
+        self.command_feedback.config(text='Copied EDITED text · Not executed', fg=ACCENT)
+        # Do not rebuild Recent results here: that would discard the edit after copying.
+
+    def _refresh_command_catalog(self, *, machine=None, select_id=None):
+        self.command_library = ch.merged_commands(self.bundled_commands, self.data['custom_commands'])
+        self.machine_picker['values'] = [ch.ALL_MACHINES] + ch.machines_for(self.command_library)
+        if machine is not None:
+            self.machine_var.set(machine)
+            self.data['command_state']['machine'] = machine
+        self.command_category_picker['values'] = [ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get())
+        self.command_category_var.set(ch.ALL_CATEGORIES)
+        if hasattr(self, 'command_search_entry'):
+            self._command_placeholder_active = False
+            self.command_search_entry.config(fg=WHITE)
+            self.command_query.set('')
+        self.command_mode = 'all'
+        self._style_command_modes()
+        self.selected_command_id = select_id
+        self._refresh_command_results()
+        self.schedule_save()
+
+    def _add_custom_command(self):
+        self._show_custom_editor()
+
+    def _edit_custom_command(self):
+        item = self._selected_command()
+        if item and item.get('origin') == 'custom':
+            self._show_custom_editor(item)
+
+    def _delete_custom_command(self):
+        item = self._selected_command()
+        if not item or item.get('origin') != 'custom':
+            return
+        self._modal = True
+        try:
+            yes = messagebox.askyesno('Delete custom command',
+                f"Delete this command from {item['machine']}?\n\n{item['description']}\n\nThis cannot be undone.", parent=self.root)
+        finally:
+            self._modal = False
+        if not yes:
+            return
+        self.data['custom_commands'] = [row for row in self.data['custom_commands'] if row['id'] != item['id']]
+        prefs = self.data['command_state']
+        prefs['favorites'] = [x for x in prefs['favorites'] if x != item['id']]
+        prefs['recent'] = [x for x in prefs['recent'] if x != item['id']]
+        self._refresh_command_catalog(machine=item['machine'])
+
+    def _show_custom_editor(self, entry=None):
+        # Dialog protects the tray popup against disappearing when the form gains focus.
+        if len(self.data['custom_commands']) >= ch.MAX_CUSTOM_COMMANDS and entry is None:
+            self._warning('Command limit', 'Maximum custom commands reached.')
+            return
+        current_machine = self.machine_var.get()
+        self._modal = True
+        dialog = tk.Toplevel(self.root)
+        dialog.title('Edit my command' if entry else 'Add command')
+        dialog.configure(bg=BG)
+        dialog.geometry('460x485')
+        dialog.minsize(440, 460)
+        left = max(0, min(self.root.winfo_rootx() + 10, self.root.winfo_screenwidth() - 460))
+        top = max(0, min(self.root.winfo_rooty() + 65, self.root.winfo_screenheight() - 485 - 30))
+        dialog.geometry(f'+{left}+{top}')
+        dialog.transient(self.root)
+        try:
+            dialog.iconbitmap(str(self.asset_path('app.ico')))
+        except (OSError, tk.TclError):
+            pass
+        dialog.grab_set()
+        pane = tk.Frame(dialog, bg=BG)
+        pane.pack(fill='both', expand=True, padx=18, pady=14)
+        tk.Label(pane, text='EDIT MY COMMAND' if entry else 'NEW MACHINE COMMAND', bg=BG, fg=WHITE,
+                 font=(FONT, 13, 'bold')).pack(anchor='w', pady=(0, 6))
+        tk.Label(pane, text='Stored only on this computer · Never executed', bg=BG, fg=MUTED,
+                 font=(FONT, 9)).pack(anchor='w', pady=(0, 11))
+
+        def labelled(text):
+            tk.Label(pane, text=text, bg=BG, fg=SECONDARY, font=(FONT, 8, 'bold')).pack(anchor='w', pady=(6, 3))
+        labelled('MACHINE')
+        device = tk.StringVar(value=entry['machine'] if entry else (current_machine if current_machine != ch.ALL_MACHINES else ''))
+        picker = ttk.Combobox(pane, textvariable=device, state='normal', font=(FONT, 10),
+                              values=ch.machines_for(self.command_library))
+        picker.pack(fill='x', ipady=3)
+        labelled('PURPOSE / DESCRIPTION  (also searchable)')
+        purpose = tk.StringVar(value=entry['description'] if entry else '')
+        purpose_input = self._entry(pane, purpose)
+        purpose_input.pack(fill='x', ipady=6)
+        labelled('CATEGORY')
+        category = tk.StringVar(value=entry['category'] if entry else 'Custom')
+        category_picker = ttk.Combobox(pane, textvariable=category, state='normal', font=(FONT, 10),
+                                       values=ch.categories_for(self.command_library, device.get()) or ['Custom'])
+        category_picker.pack(fill='x', ipady=3)
+        labelled('COMMAND  (multiline allowed)')
+        command_box = tk.Text(pane, wrap='word', height=4, undo=True, bg=INPUT, fg=WHITE,
+                              font=('Consolas', 10), insertbackground=ACCENT, bd=0,
+                              highlightbackground=BORDER, highlightthickness=1, padx=8, pady=7)
+        command_box.pack(fill='both', expand=True)
+        if entry:
+            # Start from the current on-screen draft so edits can be saved intentionally.
+            visible_draft = (self.command_code.get('1.0', 'end-1c')
+                             if self.command_draft_id == entry['id'] else entry['command'])
+            command_box.insert('1.0', visible_draft)
+        tk.Label(pane, text='Avoid storing passwords, private keys or secrets in commands.',
+                 bg=BG, fg=MUTED, font=(FONT, 8)).pack(anchor='w', pady=(7, 0))
+        actions = tk.Frame(pane, bg=BG)
+        actions.pack(fill='x', pady=(9, 0))
+
+        def close():
+            if dialog.winfo_exists():
+                try:
+                    dialog.grab_release()
+                except tk.TclError:
+                    pass
+                dialog.destroy()
+            self._modal = False
+            try:
+                self.root.focus_force()
+            except tk.TclError:
+                pass
+
+        def store():
+            try:
+                record = ch.validate_custom_command(device.get(), category.get(), purpose.get(),
+                    command_box.get('1.0', 'end-1c'), identifier=entry['id'] if entry else None)
+            except ValueError as exc:
+                messagebox.showwarning('Check command details', str(exc), parent=dialog)
+                return
+            if entry:
+                for pos, row in enumerate(self.data['custom_commands']):
+                    if row['id'] == entry['id']:
+                        self.data['custom_commands'][pos] = record
+                        break
+            else:
+                self.data['custom_commands'].append(record)
+            close()
+            self._refresh_command_catalog(machine=record['machine'], select_id=record['id'])
+
+        dialog.protocol('WM_DELETE_WINDOW', close)
+        dialog.bind('<Escape>', lambda _e: close())
+        action_label(actions, 'Cancel', close, bg=PANEL, fg=SECONDARY,
+                     padx=12, pady=7).pack(side='right', padx=(8, 0))
+        action_label(actions, 'Save command', store, bg=ACCENT, fg='#121622',
+                     padx=12, pady=7).pack(side='right')
+        dialog.after(40, lambda: purpose_input.focus_set() if purpose_input.winfo_exists() else None)
 
     def _build_ports(self):
         self._section_title(self.body, "TCP port checker", "Check one IP and selected TCP ports", "Export CSV", self._export_ports)
@@ -1022,19 +1441,32 @@ class PocketDesk:
             self.hide()
 
     def _place_popup(self, xy):
+        """Give all tabs the same tall popup; fit it above the Windows taskbar.
+
+        On smaller displays the results table yields space first, leaving
+        the Command editor and the Copy button accessible.
+        """
         self.root.update_idletasks()
         if xy and sys.platform == "win32":
             x, y = xy
-            area = monitor_work_area(x, y)
-            left, top, right, bottom = area
+            left, top, right, bottom = monitor_work_area(x, y)
+            height = min(HEIGHT, max(420, bottom - top - 16))
             px = max(left + 8, min(x - WIDTH + 32, right - WIDTH - 8))
-            py = (bottom - HEIGHT - 9) if y > (top + bottom) / 2 else (top + 9)
+            py = (bottom - height - 9) if y > (top + bottom) / 2 else (top + 9)
         else:
+            screen_h = self.root.winfo_screenheight()
+            height = min(HEIGHT, max(420, screen_h - 85))
             px = max(0, self.root.winfo_screenwidth() - WIDTH - 35)
-            py = max(0, self.root.winfo_screenheight() - HEIGHT - 85)
-        self.root.geometry(f"{WIDTH}x{HEIGHT}+{px}+{py}")
+            py = max(0, screen_h - height - 85)
+        if self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+            self.command_code.configure(height=6 if height >= 770 else 5)
+            # Aim for ~7-8 results on large screens, fewer on short laptops.
+            visible_rows = max(2, min(8, 8 + (height - HEIGHT) // 27))
+            self.command_tree.configure(height=visible_rows)
+        self.root.geometry(f"{WIDTH}x{height}+{px}+{py}")
 
     def show(self, xy=None):
+        self._last_tray_xy = xy
         self._place_popup(xy)
         self.root.deiconify()
         self.root.lift()

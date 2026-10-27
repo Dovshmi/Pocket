@@ -1,0 +1,89 @@
+{
+  "source": "Public illustrative sample commands; not based on a private workbook",
+  "commands": [
+    {
+      "id": "example:001",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Display IPv4 routing table",
+      "command": "show ip route"
+    },
+    {
+      "id": "example:002",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Show interface status",
+      "command": "show interfaces status"
+    },
+    {
+      "id": "example:003",
+      "machine": "Cisco",
+      "category": "General",
+      "description": "Show system version",
+      "command": "show version"
+    },
+    {
+      "id": "example:004",
+      "machine": "Cisco",
+      "category": "Diagnostics",
+      "description": "Ping a target",
+      "command": "ping <IP>"
+    },
+    {
+      "id": "example:005",
+      "machine": "Cisco",
+      "category": "VLANs",
+      "description": "List VLANs",
+      "command": "show vlan brief"
+    },
+    {
+      "id": "example:006",
+      "machine": "FortiGate",
+      "category": "General",
+      "description": "Display system status",
+      "command": "get system status"
+    },
+    {
+      "id": "example:007",
+      "machine": "FortiGate",
+      "category": "Interfaces",
+      "description": "List interfaces",
+      "command": "show system interface"
+    },
+    {
+      "id": "example:008",
+      "machine": "FortiGate",
+      "category": "Routing",
+      "description": "Display routing table",
+      "command": "get router info routing-table all"
+    },
+    {
+      "id": "example:009",
+      "machine": "Juniper",
+      "category": "Interfaces",
+      "description": "Show concise interface information",
+      "command": "show interfaces terse"
+    },
+    {
+      "id": "example:010",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Show route table",
+      "command": "show route"
+    },
+    {
+      "id": "example:011",
+      "machine": "Juniper",
+      "category": "General",
+      "description": "Show device version",
+      "command": "show version"
+    },
+    {
+      "id": "example:012",
+      "machine": "Nokia",
+      "category": "General",
+      "description": "Display system information",
+      "command": "show system information"
+    }
+  ]
+}

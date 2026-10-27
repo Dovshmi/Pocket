@@ -67,7 +67,7 @@ class CustomCommandTests(unittest.TestCase):
 
     def test_not_written_into_private_pack(self):
         custom = ch.validate_custom_command('Cisco', 'Custom', 'My new test command', 'show fake custom')
-        packaged = ch.load_library(ROOT/'commands'/'example_commands.json')
+        packaged = ch.load_library(ROOT/'commands'/'commands.json')
         self.assertNotIn(custom['id'], [x['id'] for x in packaged])
         self.assertEqual(len(ch.merged_commands(packaged, [custom])), len(packaged)+1)
 

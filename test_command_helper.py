@@ -11,7 +11,7 @@ run_app = runpy.run_path(str(ROOT / 'app.pyw'), run_name='test_import_command')
 class CommandHelperTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.entries = ch.load_library(ROOT / 'commands' / 'example_commands.json')
+        cls.entries = ch.load_library(ROOT / 'commands' / 'sample_commands.json')
 
     def test_bundle_exists_and_excludes_original_workbook(self):
         self.assertGreaterEqual(len(self.entries), 10)
@@ -20,7 +20,7 @@ class CommandHelperTests(unittest.TestCase):
 
     def test_finds_commands_by_description_and_command(self):
         self.assertTrue(ch.find_commands(self.entries, 'show ip route', machine='Cisco'))
-        self.assertTrue(ch.find_commands(self.entries, 'טבלת ניתוב', machine='Cisco'))
+        self.assertTrue(ch.find_commands(self.entries, 'routing table', machine='Cisco'))
         self.assertEqual(ch.find_commands(self.entries, 'no-such-cmd-998'), [])
 
     def test_machine_filter(self):

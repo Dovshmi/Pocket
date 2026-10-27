@@ -1,142 +1,143 @@
 # PocketDesk
 
-**A compact Windows system-tray toolbox for notes, shortcuts, network checks, and CLI commands.** Click its icon beside the clock to open a small popup instead of keeping another window on your desktop.
+**A lightweight Windows system-tray toolbox: notes, quick shortcuts, TCP port checks, MAC vendor lookups, and a searchable CLI command helper.**
 
-**Version 1.10** · Windows 10/11 · Python 3.10+ · Local-first · No account required
+![PocketDesk Notes right-click actions](preview-note-context-menu.png)
 
-> **Public repository:** This source distribution includes a small synthetic CLI example library. The larger, workplace-derived command catalog from the private release is **not included**. The app supports that catalog locally when you supply it yourself.
+PocketDesk lives beside the Windows clock. Click the tray icon or press **Ctrl + Shift + \*** to show and hide it. All five panels use the same compact, tall popup; no cloud account or telemetry is required.
 
-![PocketDesk Command Helper with a taller results table](preview-commands-layout.png)
+**Current version: 1.16** · Windows 10/11 · Python 3.10+ · local-first
 
 ## Features
 
-| Tab | Features |
+| Tab | What you can do |
 | --- | --- |
-| **Notes** | Multiple autosaved notes, a phone-number field per note, and one-click number copying. No caller-identification lookup. |
-| **Shortcuts** | Launch websites, local files, or folders from the same popup. |
-| **Ports** | Check individual or selected TCP ports for an IPv4/IPv6 target and export results to CSV. |
-| **MAC** | Bulk MAC vendor lookup using public IEEE registries cached locally, with CSV import/export. |
-| **Commands** | Machine-aware CLI references with searches across commands **and what they do**, temporary editing before copying, local custom commands, favorites, and recent copies. |
+| **Notes** | Autosaved plain-text notes, titles, optional phone number with a Copy button, original creation timestamp, and an All Notes picker above a full-width editor. |
+| **Shortcuts** | Save and launch websites, local files, or folders. Drag an item onto the drop zone to prefill a draft; review the suggested name and target before saving. |
+| **Ports** | Test a target IPv4/IPv6 address against one TCP port or a selected list/range, view connection outcomes, and export CSV. |
+| **MAC** | Paste many MAC addresses, identify assigned vendors using locally cached IEEE CSV datasets, and export results. |
+| **Commands** | Filter by device, category, command syntax, or English/Hebrew description. Edit before copying, save favorites, view recent commands, and add/edit/delete custom commands. |
 
-## Unified tall layout — new in v1.10
+### Notes: full-width editor with a smart right-click menu
 
-All five tabs now share the **850 px-tall** popup on a full-size display. This means more visible notes, shortcuts, port-check results, MAC results, and command entries. Switching tabs no longer changes the window size or shifts the popup on the desktop.
+![Notes layout](preview-notes-v115.png)
 
-- The Commands tab keeps **Command on the left** and **Purpose / Description on the right** (right-aligned for Hebrew).
-- The **Edit before copying** box is now **six lines high**, making it practical to adjust multi-line commands or command sequences before pressing **Copy edited**.
-- On smaller screens, the popup automatically clamps to the available screen height; the command results list shrinks first, and the edit box can reduce to five lines so its buttons remain reachable.
-- The selected command is **never executed**: only the contents of the editor are copied to your clipboard. Selecting a new command or pressing Reset discards your temporary changes.
+The title and phone number share the **top-left panel**. The **note picker sits on the upper right**, and the note body takes up the **full width below them**.
 
-![PocketDesk Commands tab with larger six-line edit box](preview-commands-layout.png)
+Right-click inside the note body to access:
 
-## Command Helper — editing and saved commands
+- **Undo / Redo**, **Cut / Copy / Paste**, **Select all**
+- **Copy entire note**, **Insert date & time**, **Open in Notepad**
+- **Check selected IP** — recognizes a highlighted IPv4 or IPv6 address and moves to the Ports tab with the address filled in. It **does not automatically scan**.
+- **Find selection in Commands** — searches the selected text across all devices in the Command Helper. It **does not execute a command**.
 
-### 1. Modify a command before copying it
+New notes store their creation date/time in UTC; the interface shows that timestamp in local time. Notes created in older versions before timestamps existed show **Created: unknown**, rather than an invented date. Changes are saved locally.
 
-1. Open **COMMANDS** and pick a machine, or choose **All machines**.
-2. Search by command text or description. Hebrew and English descriptions are supported.
-3. Select a matching result to display its **editable command box**.
-4. Replace placeholders such as `<INTERFACE>`, `<IP>`, or `<VLAN>` with actual values, or modify the CLI command however you need.
-5. Click **Copy edited** (or press **Ctrl+Enter** when the editor is focused). The exact text in the editor is copied to your clipboard. **PocketDesk does not execute it.**
-6. **Reset** restores the saved original command.
+**Open in Notepad** opens a **new `.txt` snapshot** of the currently selected note. Edits saved in Windows Notepad do **not** synchronize back into PocketDesk; copy them back if needed. Exported snapshots are in `%APPDATA%\PocketDesk\notepad_exports\`.
 
-Edits to the copy box are **temporary**. They do **not** change the imported reference or save automatically; choosing a different result resets the editor. This makes it safe to reuse a known command template repeatedly.
+### Shortcuts: drag, review, save
 
-### 2. Add commands to a machine
+![Shortcuts: drag to add](preview-shortcuts-drop.png)
 
-1. Select the machine from the dropdown (for example **Cisco** or **Fortigate**) and click **+ New**.
-2. Supply a **purpose/description**, **category**, and **command** (multiple lines are supported).
-3. Click **Save command**. The command appears in the selected machine's search results immediately and is saved to your PC.
-4. To create a new machine category, choose **All machines**, click **+ New**, then type a new machine name in the Machine field.
-5. To change your own saved command permanently, select it and click **Edit saved**. To remove it, use **Delete** (with confirmation).
+1. Open **Shortcuts** and press **PIN** so the popup stays visible when you switch to Explorer or your browser.
+2. Drag a website address, a file, or a folder onto the drop area; alternatively use **+ Add** and **Browse**.
+3. PocketDesk detects the target type and suggests a name. Review/edit it in the **New Shortcut** form.
+4. Click **Save shortcut**. Dragging alone does not save or open the item.
 
-Add commands with the **+ New** button in the Commands tab.
+The saved shortcut list appears immediately underneath the drop zone. v1.12 fixed the blank gap that could appear after saving or cancelling an edit.
 
-**Searchability:** Custom commands use the same filters as the original catalog. They are searchable by their command text, purpose/description, machine, and category; they also support **★ Saved** and **Recent**. Editing a custom command retains its identity and favorite status.
+![Saved shortcuts](preview-shortcuts-fixed.png)
 
-**Original commands stay read-only.** The starter command pack from the private workbook is not overwritten. Temporary edits don't affect it; creating or editing a personal command is a deliberate separate action.
+### Commands: offline reference, editable copying
 
-### 3. Useful keyboard controls
+Choose a machine, search by CLI syntax **or what the command does**, and select a result. **Command** appears on the left and **Description** on the right. The six-line editor lets you replace placeholders (for example `<IP>`, `<INTERFACE>`, `<VLAN>`) **before** clicking **Copy edited**. Editing the copy box does not change the saved reference; **Reset** restores it.
 
-- `Ctrl+F` — focus the command search field while on the Commands tab
-- `Ctrl+Enter` — copy the current edited command when editing
-- `Ctrl+A` — select all text in the command editor
-- `Ctrl+S` — save application data immediately
-- `Esc` — hide the popup, or close the New/Edit command dialog
+Use **+ New** to save a command for an existing or new device; locally saved commands can be edited/deleted and searched. The public repo includes only **generic demonstration commands**. It **does not include private workplace reference material**. You can optionally place your own appropriately reviewed command catalog at `commands/commands.json` on your computer; that path is ignored by Git. When it is absent, the app loads `commands/sample_commands.json` instead.
 
-## Installation
+**Commands are never executed by PocketDesk.** They are copied to the clipboard for your own review and use.
 
-1. Clone the repository with `git clone https://github.com/Dovshmi/Pocket.git` (or download and extract its source ZIP).
-2. Install [Python 3.10+ for Windows](https://www.python.org/downloads/windows/) (the normal Windows installer includes Tkinter).
-3. Run **`run.bat`**.
-4. Click the PocketDesk icon in the notification area next to the clock. If you don't see it, open the `^` hidden-icons menu.
+### Ports and MAC vendor tools
 
-To build a standalone **PocketDesk.exe**, double-click **`build-exe.bat`** on Windows. The executable appears in `dist\PocketDesk.exe`. The public build bundles sample commands. If you placed a private `commands/commands.json` file in your local checkout, the build script uses it instead; **do not publicly distribute the resulting EXE without reviewing that data**.
+- **Port Check:** TCP connect tests (open, closed, timeout, error), single ports or chosen/custom groups, CSV export. Results reflect reachability *from your computer* and do not establish the status of UDP ports. Only test hosts you own or are authorized to test.
+- **MAC Vendors:** Supports common MAC formats and bulk entry; import/download public IEEE OUI registries once, then look up vendors locally. A vendor assignment identifies a registered prefix, **not necessarily the actual device or owner**.
 
-The app uses the Python standard library at runtime. PyInstaller is used only to build the EXE.
+## Installation on Windows
 
-## Data, privacy, and upgrades
+1. Download this repository as a ZIP (GitHub **Code → Download ZIP**) or clone it:
 
-PocketDesk saves your data under **`%APPDATA%\PocketDesk\`**:
+   ```powershell
+   git clone https://github.com/Dovshmi/Pocket.git
+   cd Pocket
+   ```
 
-| File | Contents |
+2. Install [Python 3.10 or newer](https://www.python.org/downloads/windows/) and make sure the Windows Python Launcher (`py`) and Tkinter are available.
+3. Double-click **`install.bat`** to install the optional native drag-and-drop package, or double-click **`run.bat`**, which attempts to install it if missing.
+4. Look for the PocketDesk icon near the Windows clock (possibly under **^** in the notification area). Click it to open the popup.
+
+You can still run Notes, Ports, MAC, and Commands without drag-and-drop support, but dropping files and URLs will require the `tkinterdnd2` package.
+
+## Global keyboard shortcut
+
+While PocketDesk is running in the system tray, **Ctrl + Shift + \*** toggles the popup:
+
+- On common keyboards, use **Ctrl+Shift+8** for `*` above the 8 key.
+- **Ctrl+Shift+Numpad \*** is also registered where supported.
+- Pressing the same combination again hides the popup, including when pinned.
+
+It uses the Windows `RegisterHotKey` mechanism rather than recording every keystroke. If another app already owns the key combination, PocketDesk remains accessible from the tray. Some keyboard layouts may require using the numpad combination.
+
+## Build a standalone Windows executable
+
+From a Windows computer with Python installed, double-click **`build-exe.bat`**. The script installs PyInstaller/build dependencies and generates:
+
+```text
+dist\PocketDesk.exe
+```
+
+The public EXE bundles the **sample command library**. A private `commands/commands.json` file in the source directory is **not included** by the standard public build script. The standalone binary has not been independently verified on a Windows host; test its tray icon, hotkey, drag-and-drop, and Notepad export on your own computer.
+
+## Local data & privacy
+
+| Location | Content |
 | --- | --- |
-| `data.json` | Notes, optional phone numbers, shortcuts, port preferences, **personal custom commands**, favorites, and command-history preferences |
-| `vendors.json` | IEEE vendor-prefix cache for MAC lookups, if downloaded |
+| `%APPDATA%\PocketDesk\data.json` | Notes, phone fields, shortcuts, custom commands, favorites, preferences |
+| `%APPDATA%\PocketDesk\vendors.json` | Downloaded IEEE vendor data |
+| `%APPDATA%\PocketDesk\notepad_exports\` | Exported note snapshots opened in Notepad |
+| `commands/sample_commands.json` | Public demonstration reference bundled with source |
+| `commands/commands.json` | Optional **private** local reference (Git-ignored) |
 
-Existing data from previous releases, including v1.6 and v1.7, is loaded with backward-compatible defaults. The v1.10 updater does not remove saved notes or shortcuts.
-
-The public repository includes `commands/example_commands.json`, a **small generic offline example library**. The private release contains a separate `commands/commands.json` file derived from a workplace workbook (573 curated entries, 30 equipment categories). That file is **not committed to GitHub**. The original workbook is not distributed. Both read-only libraries work with the same editor and search features. See [`commands/README.md`](commands/README.md).
-
-**Important:** The workbook originally contained workplace credentials and operational information. Although the private command pack was filtered and many identifiers generalized, it has **not been certified free of confidential operational data**. Keep the private ZIP and any EXE built with that pack private; `.gitignore` excludes `commands/commands.json`. **Do not publish this command pack to GitHub.** The custom commands in `data.json` are stored in plain text locally; don't put passwords, tokens, or private keys in them or in CLI clipboard drafts.
-
-PocketDesk does not upload your commands, search history, notes, or custom entries. It makes network requests only when you start a TCP port check or an IEEE vendor-database update. A copied command can be read by other software accessing the system clipboard.
+No account, hosted database, Truecaller integration, automatic command execution, or phone lookup service is included. Avoid committing notes, personal phone numbers, exported notes, internal commands, API keys, or sensitive information. Some exported note snapshots may contain private content; remove them locally when no longer needed.
 
 ## Testing
 
-From the project folder on Windows:
+Run unit tests from the project folder:
 
 ```powershell
 py -3 -m unittest discover -v
 ```
 
-Graphical checks (optional, require Tkinter and Pillow) include `smoke_commands.py`, `smoke_custom_commands.py`, `smoke_command_layout.py`, `smoke_unified_layout.py`, and `smoke_ui.py`. The new layout smoke test checks the reversed columns, Hebrew alignment, larger six-line editor, and consistent window height across all five tabs using synthetic test data. The command tools have been tested on a Linux graphical virtual display, including editing a command before copying, saving/reloading custom commands, editing favorites, and deleting custom entries. **Native Windows system-tray behavior and the Windows EXE remain to be tested on Windows itself.**
-
-## Project layout
-
-```text
-PocketDesk/
-├── app.pyw                # System-tray dashboard and five tabs
-├── command_helper.py      # Command filtering, validation, custom-command handling
-├── commands/
-│   ├── example_commands.json # Public, generic example references
-│   ├── commands.json      # Optional PRIVATE catalog; ignored by Git
-│   └── README.md
-├── network_tools.py       # TCP port check and MAC vendor logic
-├── shortcut_utils.py      # Local and web shortcut handling
-├── assets/                 # Tray icon
-├── run.bat                 # Launch on Windows with Python
-├── build-exe.bat           # Build a standalone Windows EXE
-├── requirements-build.txt # PyInstaller
-├── test_*.py               # Automated tests
-├── smoke_*.py              # Optional GUI checks
-└── .gitignore              # Protect private/data files and build output
-```
+Optional graphical smoke scripts (`smoke_*.py`) exercise individual interfaces and need a desktop display; some require Pillow. Unit tests do not substitute for checking native Windows tray/drag-and-drop behavior.
 
 ## Troubleshooting
 
-**I can't see my new command.** Choose the correct machine, change the view to **All**, set the category to **All categories**, and clear the search.
+- **Tray icon invisible:** check the notification area under the **^** arrow.
+- **Drag/drop not available:** run `install.bat` and restart PocketDesk; press **PIN** before dragging from another window.
+- **Hotkey not responding:** confirm the app is still running and another application has not claimed the combination.
+- **No MAC vendor result:** download or import the official IEEE CSV files in the MAC tab.
+- **No custom command entries:** use **+ New** to create them; by default GitHub includes only a sample catalog.
+- **Old notes lack dates:** creation timestamps were introduced in v1.14 and cannot be reconstructed from older records.
+- **Notepad edits don't appear in PocketDesk:** Notepad works on a separate export. Copy/paste edits back manually.
 
-**The popup looks too tall on my screen.** PocketDesk clamps all five tabs to the usable display height. On the Commands tab, the results table can be scrolled and yields space to the editor on smaller screens.
+## Version highlights
 
-**The editor changed, but my stored command did not.** Edits in the copy box are intentionally temporary. For your own custom commands, use **Edit saved** to make a permanent change.
-
-**My commands disappear after restarting.** Check whether `%APPDATA%\PocketDesk\data.json` can be written by your Windows account. Personal commands are stored there, not next to the EXE.
-
-**The Commands tab has no built-in commands.** Verify that `commands/example_commands.json` is present alongside `app.pyw` when running from source. Optionally, place your private `commands/commands.json` locally to load it instead. The build script bundles the selected library in the EXE.
-
-**No icon in the tray?** Check the hidden `^` tray icons and whether `run.bat` is running. Launch `py -3 app.pyw --preview` for a regular window when troubleshooting.
+- **1.16:** context-aware Notes right-click menu with IP-to-Ports and selection-to-Commands actions.
+- **1.15:** title/phone and note selector at top, full-width note editor below.
+- **1.14:** timestamps, compact phone field, selected-note export to Notepad.
+- **1.13:** global Ctrl+Shift+* show/hide hotkey.
+- **1.12:** fixed shortcut list blank gap after Save/Cancel.
+- **1.11:** drag-and-drop shortcut draft flow.
+- **1.10:** same tall popup size on all tabs, six-line Commands editor.
 
 ## License
 
-Code usage follows the license in the GitHub repository. The **private command pack is not offered for redistribution** under that license; review it separately and obtain authorization before sharing it.
+See the repository's existing [LICENSE](LICENSE). Contributions and issue reports are welcome.

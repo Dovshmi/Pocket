@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as folder:
     os.environ['APPDATA']=folder
     app=PocketDesk(preview=True)
     app.show_tab('commands'); app.root.update()
-    assert len(app.command_library)>=10
+    assert len(app.command_library)>400
     app.machine_var.set('Cisco');app._change_machine();app.command_query.set('טבלת ניתוב')
     app.root.update()
     assert app._selected_command()['command']=='show ip route'
@@ -85,6 +85,6 @@ with tempfile.TemporaryDirectory() as folder:
         app._delete_custom_command()
     assert not app.data['custom_commands']
     assert item['id'] not in app.data['command_state']['favorites']
-    assert len(app.bundled_commands)>=10
+    assert len(app.bundled_commands)>400
     app._write_now();shutdown(app)
 print('PASS: editable clipboard, reset, add, restart, edit, favorite, delete')

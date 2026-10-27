@@ -1,9 +1,7 @@
-# The command pack was derived from a private operational workbook.
-# Never publish it to GitHub without reviewing and explicitly authorizing its contents.
-commands/*.json
-!commands/example_commands.json
-*.xlsm
+# Local command files and workbooks: never commit to this public repository
+commands/commands.json
 *.xlsx
+*.xlsm
 *.xls
 .env
 .env.*
@@ -12,16 +10,17 @@ commands/*.json
 *.pfx
 *.p12
 
-# User files, caches and packaged builds
+# User data / caches
 __pycache__/
 *.py[cod]
+.venv/
+venv/
 build/
 dist/
 *.spec
-.venv/
-venv/
 *.log
 **/data.json
 **/contacts.json
 **/lookup_config.json
 **/vendors.json
+**/notepad_exports/

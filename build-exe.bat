@@ -9,17 +9,11 @@ if errorlevel 1 (
 )
 py -3 -m pip install -r requirements-build.txt
 if errorlevel 1 (
-  echo Could not install build dependencies.
+  echo Could not install build dependencies. Verify your connection.
   pause
   exit /b 1
 )
-if exist "commands\commands.json" (
-  echo Building with locally installed private command pack. Do not distribute the resulting EXE publicly.
-  py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --add-data "assets\app.ico;assets" --add-data "commands\commands.json;commands" app.pyw
-) else (
-  echo Building with public example commands.
-  py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --add-data "assets\app.ico;assets" --add-data "commands\example_commands.json;commands" app.pyw
-)
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --add-data "commands\sample_commands.json;commands" app.pyw
 if errorlevel 1 (
   echo Build failed; check the output above.
   pause

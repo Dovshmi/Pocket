@@ -14,7 +14,7 @@ with tempfile.TemporaryDirectory() as d:
     app.show_tab('commands')
     for _ in range(8):app.root.update();time.sleep(.06)
     print('Command count:',len(app.command_library))
-    assert len(app.command_library)>=10
+    assert len(app.command_library)>=400
     app.machine_var.set('Cisco')
     app._change_machine()
     app.command_query.set('טבלת ניתוב')

@@ -7,6 +7,9 @@ Use --preview to show the popup without the tray, for testing and screenshots.
 from __future__ import annotations
 
 import ctypes
+import ipaddress
+from datetime import datetime, timezone
+import re
 import json
 import os
 from pathlib import Path
@@ -19,11 +22,18 @@ import uuid
 import webbrowser
 from urllib.parse import urlsplit
 import shortcut_utils as shortcuts
+import shortcut_drop
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
+
+try:
+    from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
+except ImportError:
+    DND_FILES = DND_TEXT = None
+    TkinterDnD = None
 
 APP_NAME = "PocketDesk"
 WIDTH, HEIGHT = 480, 850  # Unified popup height across every tab.
@@ -54,7 +64,52 @@ def new_id() -> str:
 
 
 def new_note(title="Untitled note", body="", phone="") -> dict:
-    return {"id": new_id(), "title": title, "body": body, "phone": phone}
+    return {"id": new_id(), "title": title, "body": body, "phone": phone,
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+
+
+def display_created_at(value: str) -> str:
+    """Show genuine creation timestamps in local time; never invent legacy dates."""
+    if not value:
+        return "Created: unknown (older note)"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            return "Created: unknown"
+        return "Created: " + parsed.astimezone().strftime("%d %b %Y, %H:%M")
+    except (ValueError, TypeError, OverflowError):
+        return "Created: unknown"
+
+
+def export_note_for_notepad(note: dict, output_dir: Path) -> Path:
+    """Save a one-off UTF-8 copy of the selected note for Windows Notepad.
+
+    A fresh snapshot avoids overwriting previous edits made in Notepad.
+    Notepad snapshots do not synchronize edits back to the application's data.
+    """
+    title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", note.get("title", "Note"))
+    title = title.strip(" .")[:40] or "Note"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"PocketDesk_{title}_{stamp}_{uuid.uuid4().hex[:8]}.txt"
+    target = output_dir / filename
+    with target.open("x", encoding="utf-8-sig", newline="") as stream:
+        stream.write(note.get("body", ""))
+    return target
+
+
+def note_selection_ip(selected: str) -> str | None:
+    """Return a literal selected IP, with no hostname resolution or network call."""
+    selected = selected.strip()
+    try:
+        return str(ipaddress.ip_address(selected))
+    except ValueError:
+        return None
+
+
+def note_command_query(selected: str) -> str:
+    """Compact a selection for Commands search, avoiding accidental huge queries."""
+    return " ".join(selected.split())[:250]
 
 
 def new_link(title, url, kind="url") -> dict:
@@ -90,10 +145,13 @@ def load_data(path: Path) -> dict:
         if not isinstance(notes, list) or not isinstance(links, list):
             raise ValueError("Notes and links must be lists")
         notes = [n for n in notes if isinstance(n, dict) and all(isinstance(n.get(k), str) for k in ("id", "title", "body"))]
-        # v1.1 data had no phone field or shortcut kind. Upgrade it in memory.
+        # Older notes have no recorded creation time. Keep it unknown instead of
+        # pretending that the migration/first load was when they were created.
         for note in notes:
             if not isinstance(note.get("phone"), str):
                 note["phone"] = ""
+            if not isinstance(note.get("created_at"), str):
+                note["created_at"] = ""
         links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
@@ -169,16 +227,28 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.updating_vendors = False
         self.port_inputs_expanded = True
-        private_pack = self.bundle_path("commands", "commands.json")
-        public_examples = self.bundle_path("commands", "example_commands.json")
-        self.bundled_commands = ch.load_library(private_pack if private_pack.is_file() else public_examples)
+        # Prefer an optional private local library; fall back to public examples.
+        command_path = self.bundle_path("commands", "commands.json")
+        if not command_path.exists():
+            command_path = self.bundle_path("commands", "sample_commands.json")
+        self.bundled_commands = ch.load_library(command_path)
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
         self.selected_command_id = None
         self.command_mode = "all"
         self.command_draft_id = None
 
-        self.root = tk.Tk()
+        # tkinterdnd2 supports native Windows Explorer and browser drops.
+        # The app still opens if the optional dependency has not been installed.
+        self.dnd_available = False
+        if TkinterDnD is not None:
+            try:
+                self.root = TkinterDnD.Tk()
+                self.dnd_available = True
+            except (tk.TclError, RuntimeError):
+                self.root = tk.Tk()
+        else:
+            self.root = tk.Tk()
         self.root.title("PocketDesk")
         self.root.configure(bg=BG)
         self.root.geometry(f"{WIDTH}x{HEIGHT}")
@@ -227,8 +297,9 @@ class PocketDesk:
         labels.pack(side="left", fill="y", expand=True)
         tk.Label(labels, text="pocketdesk.", font=(FONT, 19, "bold"), fg=WHITE,
                  bg=BG, anchor="w").pack(anchor="w", pady=(2, 0))
-        tk.Label(labels, text="Your desktop utility tray.",
-                 font=(FONT, 9), fg=MUTED, bg=BG).pack(anchor="w", pady=(1, 0))
+        self.shortcut_hint = tk.Label(labels, text="Ctrl+Shift+*  ·  Show / hide",
+                                      font=(FONT, 9), fg=MUTED, bg=BG)
+        self.shortcut_hint.pack(anchor="w", pady=(1, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
@@ -249,22 +320,10 @@ class PocketDesk:
 
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=17, pady=(17, 8))
-        tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
-        footer = tk.Frame(outer, bg=BG, height=59)
-        self.footer = footer
-        footer.pack(fill="x", padx=20)
-        footer.pack_propagate(False)
-        action_label(footer, "Open Windows Notepad  ↗", self.open_notepad,
-                     fg=SECONDARY, bg=BG, hover=PANEL, font_size=9, padx=6, pady=6,
-                     bold=False).pack(side="left", pady=11)
-        tk.Label(footer, text="LOCAL & PRIVATE", font=(FONT, 8, "bold"),
-                 fg=MUTED, bg=BG).pack(side="right")
+        # No shared footer: its former Notepad action lives in the Notes editor.
+        # The reclaimed height gives the Notes body and Shortcuts list more room.
 
     def show_tab(self, which):
-        if which in ("ports", "mac", "commands"):
-            self.footer.pack_forget()  # Network tools benefit from additional results space.
-        elif not self.footer.winfo_manager():
-            self.footer.pack(fill="x", padx=20)
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
         self.current_tab = which
@@ -300,8 +359,17 @@ class PocketDesk:
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
         main = tk.Frame(self.body, bg=BG)
         main.pack(fill="both", expand=True, pady=(0, 5))
-        sidebar = tk.Frame(main, bg=PANEL, width=144, highlightbackground=BORDER, highlightthickness=1)
-        sidebar.pack(side="left", fill="y", padx=(0, 10))
+
+        # Top row: note details on the left, note picker on the right.
+        top_row = tk.Frame(main, bg=BG)
+        top_row.pack(fill="x")
+
+        details = tk.Frame(top_row, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        details.pack(side="left", fill="x", expand=True)
+
+        sidebar = tk.Frame(top_row, bg=PANEL, width=144, height=154,
+                           highlightbackground=BORDER, highlightthickness=1)
+        sidebar.pack(side="right", fill="y", padx=(10, 0))
         sidebar.pack_propagate(False)
         tk.Label(sidebar, text="ALL NOTES", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(anchor="w", padx=11, pady=(14, 9))
@@ -311,32 +379,41 @@ class PocketDesk:
                                     exportselection=False, relief="flat", justify="left")
         self.note_list.pack(fill="both", expand=True, padx=5, pady=(0, 10))
         self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
-        editor = tk.Frame(main, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        editor.pack(side="left", fill="both", expand=True)
-        tk.Label(editor, text="TITLE", font=(FONT, 8, "bold"), fg=MUTED,
-                 bg=PANEL).pack(anchor="w", padx=12, pady=(14, 5))
+
+        title_row = tk.Frame(details, bg=PANEL)
+        title_row.pack(fill="x", padx=12, pady=(12, 5))
+        tk.Label(title_row, text="TITLE", font=(FONT, 8, "bold"), fg=MUTED,
+                 bg=PANEL).pack(side="left")
+        self.created_label = tk.Label(title_row, text="", font=(FONT, 7), fg=MUTED,
+                                      bg=PANEL, anchor="e")
+        self.created_label.pack(side="right")
         self.title_var = tk.StringVar()
-        self.title_entry = tk.Entry(editor, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
         self.title_entry.pack(fill="x", padx=12, ipady=9)
         self.title_var.trace_add("write", self._change_note_title)
-        tk.Label(editor, text="PHONE NUMBER", font=(FONT, 8, "bold"), fg=MUTED,
-                 bg=PANEL).pack(anchor="w", padx=12, pady=(11, 4))
-        phone_row = tk.Frame(editor, bg=PANEL)
-        phone_row.pack(fill="x", padx=12)
+
+        phone_row = tk.Frame(details, bg=PANEL)
+        phone_row.pack(fill="x", padx=12, pady=(8, 12))
+        tk.Label(phone_row, text="PHONE", font=(FONT, 8, "bold"), fg=MUTED,
+                 bg=PANEL).pack(side="left", padx=(0, 7))
         self.phone_var = tk.StringVar()
         self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 9), width=8)
-        self.phone_entry.pack(side="left", fill="x", expand=True, ipady=8)
+        self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
-                     padx=12, pady=8, font_size=9).pack(side="left", padx=(6, 0))
+                     padx=9, pady=4, font_size=8).pack(side="left", padx=(6, 0))
         self.phone_var.trace_add("write", self._change_note_phone)
+
+        # Bottom block: full-width note editor.
+        editor = tk.Frame(main, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        editor.pack(fill="both", expand=True, pady=(10, 0))
         tk.Label(editor, text="NOTE", font=(FONT, 8, "bold"), fg=MUTED,
-                 bg=PANEL).pack(anchor="w", padx=12, pady=(9, 5))
+                 bg=PANEL).pack(anchor="w", padx=12, pady=(10, 5))
         self.note_body = tk.Text(editor, wrap="word", undo=True, bg=INPUT, fg="#D7DAE6",
                                  insertbackground=ACCENT, selectbackground=ACCENT_DARK,
                                  relief="flat", bd=0, font=(FONT, 10), height=1, width=1,
@@ -344,12 +421,19 @@ class PocketDesk:
                                  highlightcolor=ACCENT, padx=10, pady=12)
         self.note_body.pack(fill="both", expand=True, padx=12)
         self.note_body.bind("<<Modified>>", self._change_note_body)
+        self.note_body.bind("<Button-3>", self._show_note_context_menu)
+        # Right-click with a trackpad/alternate mouse mappings.
+        self.note_body.bind("<Control-Button-1>", self._show_note_context_menu)
+        self.note_body.bind("<Control-a>", self._select_all_note_text)
         editor_footer = tk.Frame(editor, bg=PANEL)
         editor_footer.pack(fill="x", padx=10, pady=9)
         self.save_status = tk.Label(editor_footer, text="Autosaved", font=(FONT, 8), fg=MUTED, bg=PANEL)
         self.save_status.pack(side="left")
         action_label(editor_footer, "Delete", self.delete_note, fg=DANGER, bg=PANEL,
-                     hover=CARD, padx=6, pady=4, font_size=8).pack(side="right")
+                     hover=CARD, padx=5, pady=4, font_size=8).pack(side="right")
+        action_label(editor_footer, "Open in Notepad ↗", self.open_notepad,
+                     fg=ACCENT, bg=PANEL, hover=CARD,
+                     padx=5, pady=4, font_size=8).pack(side="right", padx=(0, 4))
         self.refresh_note_list()
         self._load_selected_note()
 
@@ -379,6 +463,7 @@ class PocketDesk:
             return
         self._loading_note = True
         self.title_var.set(n["title"])
+        self.created_label.config(text=display_created_at(n.get("created_at", "")))
         self.phone_var.set(n.get("phone", ""))
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
@@ -422,6 +507,125 @@ class PocketDesk:
         self.root.clipboard_clear()
         self.root.clipboard_append(number)
         self.save_status.config(text="Number copied", fg=ACCENT)
+
+    def _selected_note_text(self) -> str:
+        try:
+            return self.note_body.get("sel.first", "sel.last")
+        except tk.TclError:
+            return ""
+
+    def _select_all_note_text(self, _event=None):
+        self.note_body.tag_add("sel", "1.0", "end-1c")
+        self.note_body.mark_set("insert", "1.0")
+        self.note_body.see("insert")
+        return "break"
+
+    def _note_edit_action(self, operation: str):
+        """Use Tk editing primitives, which preserve the editor's undo history."""
+        try:
+            if operation == "undo":
+                self.note_body.edit_undo()
+            elif operation == "redo":
+                self.note_body.edit_redo()
+            elif operation in ("cut", "copy", "paste"):
+                self.note_body.event_generate(f"<<{operation.capitalize()}>>")
+        except tk.TclError:
+            # An empty undo/redo history is normal.
+            pass
+
+    def _copy_entire_note(self):
+        content = self.note_body.get("1.0", "end-1c")
+        self.root.clipboard_clear()
+        self.root.clipboard_append(content)
+        self.save_status.config(text="Note copied", fg=ACCENT)
+
+    def _insert_note_timestamp(self):
+        self.note_body.insert("insert", datetime.now().strftime("%Y-%m-%d %H:%M"))
+        self.note_body.focus_set()
+
+    def _check_selected_note_ip(self, ip: str):
+        """Open a prepared port check; never initiate a network scan."""
+        self.show_tab("ports")
+        self.host_var.set(ip)
+        self.root.after_idle(self.root.focus_force)
+
+    def _find_selected_note_command(self, query: str):
+        """Search across all machine models, not only the previously selected one."""
+        self.show_tab("commands")
+        self.machine_var.set(ch.ALL_MACHINES)
+        self.command_category_var.set(ch.ALL_CATEGORIES)
+        self.command_mode = "all"
+        self._style_command_modes()
+        self._command_placeholder_active = False
+        self.command_search_entry.config(fg=WHITE)
+        self.command_query.set(query)
+        self.command_search_entry.focus_set()
+        self.command_search_entry.icursor(tk.END)
+
+    def _build_note_context_menu(self):
+        """Build menu from the current selection; also used by UI regression tests."""
+        selected = self._selected_note_text()
+        valid_ip = note_selection_ip(selected)
+        lookup = note_command_query(selected)
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE,
+                       bd=1, relief="flat", font=(FONT, 9))
+        for title, key, action in (
+            ("Undo", "Ctrl+Z", lambda: self._note_edit_action("undo")),
+            ("Redo", "Ctrl+Y", lambda: self._note_edit_action("redo")),
+        ):
+            menu.add_command(label=f"{title}     {key}", command=action)
+        menu.add_separator()
+        menu.add_command(label="Cut     Ctrl+X", state="normal" if selected else "disabled",
+                         command=lambda: self._note_edit_action("cut"))
+        menu.add_command(label="Copy     Ctrl+C", state="normal" if selected else "disabled",
+                         command=lambda: self._note_edit_action("copy"))
+        try:
+            self.root.clipboard_get()
+            paste_ready = True
+        except tk.TclError:
+            paste_ready = False
+        menu.add_command(label="Paste     Ctrl+V", state="normal" if paste_ready else "disabled",
+                         command=lambda: self._note_edit_action("paste"))
+        menu.add_command(label="Select all     Ctrl+A", command=self._select_all_note_text)
+        menu.add_separator()
+        menu.add_command(label="Copy entire note", command=self._copy_entire_note)
+        menu.add_command(label="Insert date & time", command=self._insert_note_timestamp)
+        menu.add_command(label="Open in Notepad", command=self.open_notepad)
+        if valid_ip or lookup:
+            menu.add_separator()
+        if valid_ip:
+            menu.add_command(label=f"Check selected IP  ({valid_ip})",
+                             command=lambda target=valid_ip: self._check_selected_note_ip(target))
+        if lookup:
+            menu.add_command(label="Find selection in Commands",
+                             command=lambda text=lookup: self._find_selected_note_command(text))
+        return menu
+
+    def _show_note_context_menu(self, event):
+        """Post the menu without destroying it before Windows can render it."""
+        old = getattr(self, "_note_context_menu", None)
+        if old is not None and old.winfo_exists():
+            old.unpost()
+            old.destroy()
+
+        menu = self._build_note_context_menu()
+        self._note_context_menu = menu
+        was_modal = self._modal
+        self._modal = True  # Prevent focus-loss auto-hide while menu is shown.
+
+        def on_unmap(_event):
+            if self._note_context_menu is menu:
+                self._modal = was_modal
+
+        menu.bind("<Unmap>", on_unmap)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._modal = was_modal
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _change_note_body(self, _event=None):
         if not self.note_body.edit_modified():
@@ -471,7 +675,24 @@ class PocketDesk:
     def _build_links(self):
         self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
         self.form_holder = tk.Frame(self.body, bg=BG)
-        self.form_holder.pack(fill="x")
+        # Explicit drop area: nothing is saved until the user confirms the form.
+        self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
+                                   highlightthickness=1, height=74)
+        self.drop_panel.pack(fill="x", pady=(0, 12))
+        self.drop_panel.pack_propagate(False)
+        self.drop_title = tk.Label(self.drop_panel, text="↓  DROP WEBSITE, FILE OR FOLDER HERE",
+                                   font=(FONT, 9, 'bold'), fg=ACCENT, bg=PANEL)
+        self.drop_title.pack(pady=(12, 3))
+        self.drop_hint = tk.Label(self.drop_panel, text=(
+            "PIN the popup before dragging from Explorer or your browser" if self.dnd_available
+            else "Drag & drop unavailable · Install tkinterdnd2 (see README)"),
+            font=(FONT, 8), fg=MUTED, bg=PANEL)
+        self.drop_hint.pack()
+        for widget in (self.drop_panel, self.drop_title, self.drop_hint):
+            self._register_shortcut_drop(widget)
+        # The form is NOT packed until it is shown. An empty packed form can
+        # retain its former requested height after Save/Cancel on Tk 8.6,
+        # leaving a large blank gap above the shortcut cards.
         frame = tk.Frame(self.body, bg=BG)
         frame.pack(fill="both", expand=True)
         canvas = tk.Canvas(frame, bg=BG, highlightthickness=0, bd=0)
@@ -481,12 +702,59 @@ class PocketDesk:
         scroll.pack(side="right", fill="y")
         self._scroll_canvas = canvas
         self.links_stack = tk.Frame(canvas, bg=BG)
+        self._register_shortcut_drop(canvas)
+        self._register_shortcut_drop(self.links_stack)
         win = canvas.create_window((0, 0), window=self.links_stack, anchor="nw")
         self.links_stack.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.bind("<Configure>", lambda e: canvas.itemconfigure(win, width=e.width))
         canvas.bind("<Enter>", lambda _e: canvas.bind_all("<MouseWheel>", self._mousewheel))
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
         self.refresh_links()
+
+    def _register_shortcut_drop(self, widget):
+        """Register both Explorer file drops and browser URL/text drops."""
+        if not self.dnd_available:
+            return
+        try:
+            widget.drop_target_register(DND_FILES, DND_TEXT)
+            widget.dnd_bind('<<DropEnter>>', self._drop_enter, add='+')
+            widget.dnd_bind('<<DropLeave>>', self._drop_leave, add='+')
+            widget.dnd_bind('<<Drop>>', self._shortcut_dropped, add='+')
+        except tk.TclError:
+            # Unsupported native TkDnD runtime; regular shortcut creation works.
+            self.dnd_available = False
+            if hasattr(self, 'drop_hint') and self.drop_hint.winfo_exists():
+                self.drop_hint.config(text='Drag & drop unavailable · Install tkinterdnd2 (see README)')
+
+    def _drop_enter(self, _event):
+        if self.current_tab == 'links' and self.drop_panel.winfo_exists():
+            self.drop_panel.config(highlightbackground=ACCENT, bg=ACCENT_DARK)
+            self.drop_title.config(bg=ACCENT_DARK)
+            self.drop_hint.config(bg=ACCENT_DARK)
+        return 'copy'
+
+    def _drop_leave(self, _event):
+        if self.current_tab == 'links' and self.drop_panel.winfo_exists():
+            self.drop_panel.config(highlightbackground=ACCENT_DARK, bg=PANEL)
+            self.drop_title.config(bg=PANEL)
+            self.drop_hint.config(bg=PANEL)
+
+    def _shortcut_dropped(self, event):
+        """A native drop opens an editable draft; it never writes the data file."""
+        if self.current_tab != 'links':
+            return 'refuse_drop'
+        self._drop_leave(event)
+        try:
+            suggestion = shortcut_drop.guess_shortcut(event.data, splitlist=self.root.tk.splitlist)
+        except (ValueError, OSError) as exc:
+            self._warning('Shortcut drop', str(exc))
+            return 'refuse_drop'
+        self._toggle_link_form(None, draft=suggestion)
+        self.drop_title.config(text='✓  READY TO SAVE — REVIEW BELOW')
+        self.drop_hint.config(text='Edit the suggested name or target, then click Save shortcut')
+        if self._scroll_canvas and self._scroll_canvas.winfo_exists():
+            self._scroll_canvas.yview_moveto(0)
+        return 'copy'
 
     def _mousewheel(self, event):
         if self._scroll_canvas and self._scroll_canvas.winfo_exists():
@@ -520,6 +788,8 @@ class PocketDesk:
         tk.Label(desc, text=f"{kind.upper()}  •  {summary[:28]}", anchor="w", fg=MUTED, bg=PANEL,
                  font=(FONT, 8)).pack(fill="x")
         title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
+        self._register_shortcut_drop(tile)
+        self._register_shortcut_drop(title)
         actions = tk.Frame(tile, bg=PANEL)
         actions.pack(side="right", padx=(0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
@@ -551,18 +821,21 @@ class PocketDesk:
         self.refresh_links()
         self.schedule_save()
 
-    def _toggle_link_form(self, item):
+    def _toggle_link_form(self, item, *, draft=None):
         for child in self.form_holder.winfo_children():
             child.destroy()
         self.edit_link_id = item["id"] if item else None
+        # Insert the form above the scrollable cards only while editing.
+        # Packing a blank holder permanently causes a ~280px stale-height gap.
+        self.form_holder.pack(fill="x", before=self._scroll_canvas.master)
         panel = tk.Frame(self.form_holder, bg=PANEL, highlightthickness=1,
                          highlightbackground=ACCENT_DARK)
         panel.pack(fill="x", pady=(0, 13))
         tk.Label(panel, text="EDIT SHORTCUT" if item else "NEW SHORTCUT", fg=ACCENT, bg=PANEL,
                  font=(FONT, 9, "bold")).pack(anchor="w", padx=14, pady=(12, 6))
-        title_var = tk.StringVar(value=item["title"] if item else "")
-        target_var = tk.StringVar(value=item["url"] if item else "")
-        kind_var = tk.StringVar(value=item.get("kind", "url") if item else "url")
+        title_var = tk.StringVar(value=item["title"] if item else (draft or {}).get('title', ''))
+        target_var = tk.StringVar(value=item["url"] if item else (draft or {}).get('url', ''))
+        kind_var = tk.StringVar(value=item.get("kind", "url") if item else (draft or {}).get('kind', 'url'))
         kinds = tk.Frame(panel, bg=PANEL)
         kinds.pack(fill="x", padx=11, pady=(0, 6))
         for value, label in (("url", "Website"), ("file", "File"), ("folder", "Folder")):
@@ -621,7 +894,19 @@ class PocketDesk:
     def _close_form(self):
         for child in self.form_holder.winfo_children():
             child.destroy()
+        # Crucial: remove the holder itself from the pack layout. Simply
+        # deleting its children leaves an empty space on some Tk builds.
+        self.form_holder.pack_forget()
         self.edit_link_id = None
+        if self.drop_title.winfo_exists():
+            self.drop_title.config(text="↓  DROP WEBSITE, FILE OR FOLDER HERE")
+        if self.drop_hint.winfo_exists():
+            self.drop_hint.config(text=(
+                "PIN the popup before dragging from Explorer or your browser"
+                if self.dnd_available else
+                "Drag & drop unavailable · Install tkinterdnd2 (see README)"))
+        if self._scroll_canvas and self._scroll_canvas.winfo_exists():
+            self._scroll_canvas.yview_moveto(0)
 
     def _save_link(self, title, target, kind="url"):
         title = title.strip()
@@ -1388,13 +1673,24 @@ class PocketDesk:
             self.hide()
 
     def open_notepad(self):
-        if sys.platform == "win32":
-            try:
-                subprocess.Popen(["notepad.exe"])
-            except OSError as exc:
-                messagebox.showerror("Notepad", str(exc), parent=self.root)
-        else:
-            messagebox.showinfo("Windows only", "This launches Notepad on Windows.", parent=self.root)
+        """Open a fresh export of the currently selected note, not a blank Notepad."""
+        if sys.platform != "win32":
+            messagebox.showinfo("Windows only", "Opening notes in Windows Notepad requires Windows.",
+                                parent=self.root)
+            return
+        note = self.active_note()
+        if not note:
+            return
+        # A Tk Text <<Modified>> event may still be queued; read the editor
+        # directly so the export always includes the user's latest keystrokes.
+        if self.current_tab == "notes":
+            note["body"] = self.note_body.get("1.0", "end-1c")
+            self.schedule_save()
+        try:
+            snapshot = export_note_for_notepad(note, self.path.parent / "notepad_exports")
+            subprocess.Popen(["notepad.exe", str(snapshot)])
+        except OSError as exc:
+            messagebox.showerror("Notepad", str(exc), parent=self.root)
 
     def toggle_pin(self):
         self.pinned = not self.pinned
@@ -1482,7 +1778,9 @@ class PocketDesk:
             self.root.withdraw()
 
     def toggle(self, xy=None):
-        if self.root.state() == "withdrawn":
+        # The tray icon and global hotkey use the same action. The latter
+        # must also reopen an iconified window if the tray is unavailable.
+        if self.root.state() in ("withdrawn", "iconic"):
             self.show(xy)
         else:
             self.hide()
@@ -1496,8 +1794,8 @@ class PocketDesk:
                     self.toggle(xy)
                 elif name == "show":
                     self.show(xy)
-                elif name == "notepad":
-                    self.open_notepad()
+                elif name == "hotkey_error":
+                    self.shortcut_hint.config(text="Hotkey unavailable · use tray icon", fg=DANGER)
                 elif name == "port_result":
                     token, result = xy
                     if token == self.scan_token:
@@ -1568,12 +1866,34 @@ def monitor_work_area(x, y):
     return (0, 0, u.GetSystemMetrics(0), u.GetSystemMetrics(1))
 
 
+# RegisterHotKey makes the combination available even while another app has
+# focus. Shift+8 is '*' on standard layouts; VK_MULTIPLY supports numpad '*'.
+# Registration is per running process and cannot override another program's
+# existing registration of the same key combination.
+HOTKEY_MODIFIERS = 0x0002 | 0x0004 | 0x4000  # CONTROL | SHIFT | NOREPEAT
+TOGGLE_HOTKEY_BINDINGS = ((0xB10, 0x38), (0xB11, 0x6A))  # 8 and NUMPAD MULTIPLY
+
+
+def register_toggle_hotkeys(register, hwnd):
+    """Register supported key combinations; return only successful IDs.
+
+    This helper can be tested without Win32. A failed binding never prevents
+    the normal tray icon from starting.
+    """
+    registered = set()
+    for hotkey_id, virtual_key in TOGGLE_HOTKEY_BINDINGS:
+        if register(hwnd, hotkey_id, HOTKEY_MODIFIERS, virtual_key):
+            registered.add(hotkey_id)
+    return registered
+
+
 class WindowsTray:
-    """Tiny Windows Shell_NotifyIcon wrapper; no pip packages required."""
+    """Tiny Windows Shell_NotifyIcon + global hotkey wrapper; no pip packages required."""
 
     WM_TRAY = 0x8000 + 37
     WM_CLOSE = 0x0010
     WM_DESTROY = 0x0002
+    WM_HOTKEY = 0x0312
     WM_LBUTTONUP = 0x0202
     WM_LBUTTONDBLCLK = 0x0203
     WM_RBUTTONUP = 0x0205
@@ -1591,6 +1911,7 @@ class WindowsTray:
         self.hwnd = None
         self._proc = None
         self._thread = None
+        self.hotkey_ids = set()
 
     def start(self):
         self._thread = threading.Thread(target=self._main, name="PocketDeskTray", daemon=True)
@@ -1658,6 +1979,10 @@ class WindowsTray:
         user.GetCursorPos.restype = wintypes.BOOL
         user.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
         user.PostMessageW.restype = wintypes.BOOL
+        user.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
+        user.RegisterHotKey.restype = wintypes.BOOL
+        user.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
+        user.UnregisterHotKey.restype = wintypes.BOOL
         user.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
         user.GetMessageW.restype = wintypes.BOOL
         user.AppendMenuW.argtypes = [wintypes.HMENU, wintypes.UINT, ctypes.c_size_t, wintypes.LPCWSTR]
@@ -1678,7 +2003,7 @@ class WindowsTray:
         nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP
         nid.uCallbackMessage = self.WM_TRAY
         nid.hIcon = hicon
-        nid.szTip = "PocketDesk — Notes, Shortcuts & Network Tools"
+        nid.szTip = "PocketDesk — Ctrl+Shift+* to toggle"
 
         def cursor():
             point = wintypes.POINT()
@@ -1690,15 +2015,14 @@ class WindowsTray:
             if not menu:
                 return
             try:
-                user.AppendMenuW(menu, 0x0, 101, "Open dashboard")
-                user.AppendMenuW(menu, 0x0, 102, "Open Windows Notepad")
+                user.AppendMenuW(menu, 0x0, 101, "Open dashboard   (Ctrl+Shift+*)")
                 user.AppendMenuW(menu, 0x800, 0, None)  # separator
                 user.AppendMenuW(menu, 0x0, 103, "Exit PocketDesk")
                 x, y = cursor()
                 user.SetForegroundWindow(hwnd)
                 cmd = user.TrackPopupMenu(menu, 0x100 | 0x2, x, y, 0, hwnd, None)
                 if cmd:
-                    self.events.put(({101: "show", 102: "notepad", 103: "quit"}[cmd], (x, y)))
+                    self.events.put(({101: "show", 103: "quit"}[cmd], (x, y)))
                     user.PostMessageW(hwnd, 0, 0, 0)
             finally:
                 user.DestroyMenu(menu)
@@ -1707,6 +2031,11 @@ class WindowsTray:
         def window_proc(hwnd, msg, wp, lp):
             if msg == taskbar_created:
                 shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid))
+                return 0
+            if msg == self.WM_HOTKEY:
+                if int(wp) in self.hotkey_ids:
+                    # Tkinter must be touched only by its main thread.
+                    self.events.put(("toggle", None))
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -1718,6 +2047,10 @@ class WindowsTray:
                     popup_menu(hwnd)
                 return 0
             if msg == self.WM_DESTROY:
+                for hotkey_id in tuple(self.hotkey_ids):
+                    user.UnregisterHotKey(hwnd, hotkey_id)
+                self.hotkey_ids.clear()
+                self.hwnd = None
                 shell.Shell_NotifyIconW(self.NIM_DELETE, ctypes.byref(nid))
                 user.PostQuitMessage(0)
                 return 0
@@ -1736,7 +2069,11 @@ class WindowsTray:
             raise ctypes.WinError()
         self.hwnd = hwnd
         nid.hWnd = hwnd
+        self.hotkey_ids = register_toggle_hotkeys(user.RegisterHotKey, hwnd)
+        if not self.hotkey_ids:
+            self.events.put(("hotkey_error", None))
         if not shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):
+            user.DestroyWindow(hwnd)  # also unregisters the hotkeys
             raise ctypes.WinError()
         try:
             msg = wintypes.MSG()
@@ -1744,6 +2081,10 @@ class WindowsTray:
                 user.TranslateMessage(ctypes.byref(msg))
                 user.DispatchMessageW(ctypes.byref(msg))
         finally:
+            # DestroyWindow triggers WM_DESTROY and UnregisterHotKey on the
+            # tray thread; do not leave a global shortcut registered on exit.
+            if self.hwnd:
+                user.DestroyWindow(hwnd)
             user.DestroyIcon(hicon)
             self.hwnd = None
 

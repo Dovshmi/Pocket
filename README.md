@@ -6,7 +6,7 @@
 
 A compact Windows tray utility for quick notes, saved shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.24** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.25** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -57,11 +57,11 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
 | **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
-| **Clipboard** | Opt-in session-only clipboard history for text, with search, pin, copy-back, clear and delete. No captured content is saved to disk. |
+| **Clipboard** | Menu-visibility-controlled session-only clipboard history for text, with search, pin, copy-back, clear and delete. No captured content is saved to disk. |
 
 ### Personalize the workspace
 
-**Settings (⚙)** lets you enable or disable clipboard capture and Windows notifications and choose which tool tabs are visible. Hidden tabs do not delete their data; extra tools appear under **MORE**. Clipboard capture is off by default and checks for new text while Pocket runs.
+**Settings (⚙)** controls which tool tabs are visible. Adding **Clipboard** starts monitoring copied text while Pocket runs; hiding it stops monitoring. There is no separate clipboard switch. Hidden tabs keep their saved data; extra tools appear under **MORE**. Copied text is only stored in memory.
 
 | Feature | How it works |
 |:---|:---|
@@ -70,7 +70,7 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Move and remember** | Drag the header to move the popup. The position is saved and restored. Right-click the header → **Reset window position**. |
 | **PIN mode** | Keep Pocket visible when you switch to another app — useful for copying information and dragging shortcuts. |
 | **System tray** | Click the tray icon to show/hide Pocket. The close button hides the popup; it doesn't erase your notes. |
-| **Windows notifications** | Optional tray notifications for completed TCP checks, IEEE updates and command backups/restores. Toggle in Settings. |
+| **Note reminders** | In Notes, check **Notify me…** for an individual note, choose the local date and time, and receive a Windows tray notification when due. Clicking it opens the note. Pocket must be running; overdue reminders fire after restart. |
 | **Menu visibility** | Show/hide individual tool tabs under Settings, without removing any saved data. |
 
 **Note on icons:** The live window and system-tray icons change with your selected theme. The compiled EXE retains its **blue embedded icon**, and Windows can cache desktop/taskbar shortcut artwork.
@@ -201,7 +201,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.24** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
+| **v1.25** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
 | **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |
 | **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |
 | **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |

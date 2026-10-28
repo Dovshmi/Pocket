@@ -348,7 +348,9 @@ class PocketDesk:
 
     @staticmethod
     def _apply_palette(name):
-        globals().update(themes.palette(name))
+        colors = themes.palette(name)
+        globals().update(colors)
+        action_label.__kwdefaults__.update(fg=colors["WHITE"], bg=colors["CARD"], hover=colors["CARD_HOVER"])
 
     def _choose_theme(self, name):
         name = themes.valid_theme(name)
@@ -377,13 +379,15 @@ class PocketDesk:
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         for key in themes.THEME_ORDER:
             menu.add_command(label=("● " if key == self.theme else "    ") + themes.THEMES[key]["name"],
-                             command=lambda chosen=key: self._choose_theme(chosen))
+                             command=lambda chosen=key: self.root.after_idle(self._choose_theme, chosen))
+        self._modal = True
         try:
             x = event.x_root if event else self.header_icon.winfo_rootx()
             y = event.y_root if event else self.header_icon.winfo_rooty()+self.header_icon.winfo_height()
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
+            self._modal = False
 
     def _build_shell(self):
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)

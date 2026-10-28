@@ -6,7 +6,7 @@
 
 A compact, customizable Windows desktop toolbox that lives in your system tray. Open it when you need it, keep your tools close, and get back to work.
 
-**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.20** · **GPL-3.0** · **Local-first**
+**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.21** · **GPL-3.0** · **Local-first**
 
 [Explore the app](#screenshots) · [Features](#features) · [Get started](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Version history](#version-history)
 
@@ -174,7 +174,7 @@ Pocket saves user data under:
 
 ### Private CLI commands
 
-The public repository ships with a small **example command library** for Cisco, FortiGate, Juniper and Nokia. To maintain your own reference collection, create:
+The public repository ships with a **118-entry public command library** for Cisco, FortiGate, Juniper and Nokia SR OS. To maintain your own reference collection, create:
 
 ```text
 commands/commands.json
@@ -214,7 +214,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
+| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
 | **v1.19** | 2026-10-28 | Six saved themes and matching live app/tray icons. |
 | **v1.18** | 2026-10-27 | Movable popup with persistent positioning and reset action. |
 | **v1.17** | 2026-10-27 | Subnet calculator and note pin/duplicate/delete actions; integrated into the v1.18 commit. |
@@ -234,7 +234,7 @@ py -3 -m unittest discover -v
 
 The project includes tests for data storage/migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnet calculations, command management, note actions and network utilities.
 
-GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository does not currently claim a verified Windows CI release pipeline.**
+GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository does not currently claim a verified Windows CI release pipeline.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
 
 ## Contributing and feedback
 

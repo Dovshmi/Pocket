@@ -1,137 +1,100 @@
 # PocketDesk
 
-**A compact, movable Windows system-tray toolbox.** Keep notes, open shortcuts, check TCP ports, identify MAC vendors, search network CLI commands, and calculate IPv4 subnets from a single lightweight popup.
+**Your everyday tools, one click away.** PocketDesk is a compact, movable **Windows system-tray utility** for notes, shortcuts, network diagnostics, CLI references, and subnet calculations — without opening six separate apps.
 
-![PocketDesk notes and saved window position](preview-window-position.png)
+![PocketDesk — Notes view](preview-window-position.png)
 
-> **Version 1.18** · Windows 10/11 · Python 3.10+ · Local-first · No account required
->
-> This public repository contains **generic example CLI commands only**. Private operational command libraries and user data are not included.
+**Current version:** `v1.18` · **Platform:** Windows 10/11 · **Built with:** Python 3.10+ / Tkinter · **Data:** Local-first, no account required
 
-## What it can do
+## Features
 
-| Tab | What you get |
+| Tool | What it does |
 | --- | --- |
-| **Notes** | Autosaved text notes with titles, phone numbers, creation timestamps, pinned notes, duplicate/delete actions, a full-width editor, and right-click actions. |
-| **Shortcuts** | Quick-launch websites, folders and files; drag a URL or Explorer item to prefill a new shortcut and review before saving. |
-| **Ports** | Test one TCP port or a selection/range against an IPv4 or IPv6 target; copy/export the results. |
-| **MAC** | Bulk IEEE OUI vendor lookups; download or import registries and export CSV results. |
-| **Commands** | Search CLI reference text and its description by machine; temporarily edit before copying; create your own saved commands and favorites. |
-| **Subnet** | Calculate IPv4 CIDR/netmask, network/broadcast, wildcard, usable range and subnet splits; copy details or individual networks. |
+| 📝 **Notes** | Autosaving notes with a title, phone number, creation timestamp and full-width editor. Pin, duplicate or delete notes from the note list. Right-click the editor for standard text actions, date/time insertion, Notepad export, IP lookup or CLI search. |
+| 🔗 **Shortcuts** | Save and launch websites, files and folders. Add shortcuts manually or drag a URL/File Explorer item into the app, review the details, then save. |
+| 🔌 **TCP Ports** | Test a single TCP port, common presets, or custom port lists/ranges against IPv4/IPv6 targets. View open/closed/timeout/error results and copy or export them. |
+| 🖥️ **MAC Lookup** | Identify vendors from MAC addresses using IEEE OUI data. Supports multiple addresses, registry download/import and CSV export. |
+| ⌨️ **Commands** | Search network CLI commands and descriptions by device/vendor and category, edit commands before copying, and save custom commands and favorites. Examples cover Cisco, FortiGate, Juniper and Nokia. **Commands are copied, never executed.** |
+| 🧮 **Subnet Calculator** | Calculate IPv4 networks from CIDR or subnet masks: network/broadcast, wildcard, address counts, usable host range and smaller subnet splits. Supports `/31` and `/32`. |
 
-### New in v1.18: move the window and remember its position
+### App-wide conveniences
 
-PocketDesk still starts as a notification-area popup, but **you can drag the header** (logo/title area) to move it like a normal window. Its position saves automatically on mouse release and is restored when you reopen the app, switch tabs, or use the keyboard toggle.
+- **System tray:** click the tray icon to show or hide the popup; closing the window hides it rather than erasing data.
+- **Global hotkey:** `Ctrl + Shift + *` (including `Ctrl+Shift+8` and numpad `*`, where available).
+- **Movable window:** drag the header; PocketDesk remembers its position and keeps it on-screen when possible. Right-click the header to **Reset window position**.
+- **PIN mode:** keep the popup visible while working in other windows.
+- **Local persistence:** your notes, shortcuts, custom commands and preferences are saved on your PC.
 
-**Right-click the header → Reset window position** to return to its original location near the tray. Window coordinates are stored locally in `%APPDATA%\PocketDesk\data.json`. If display/monitor dimensions change, PocketDesk attempts to keep the window visible rather than restore it off-screen.
+## The app at a glance
 
-### New since v1.16
+Click any screenshot to see it at full size.
 
-**v1.17 — Subnet & note management:** A dedicated IPv4 subnet tab with subnet splits and clipboard actions. Right-click an item in **All Notes** to **Pin/Unpin**, **Duplicate**, or **Delete**. Pinned notes appear first, and duplicates get a new ID and creation timestamp. Notes are flushed before switching or duplicating so the most recent edit is retained.
+<table>
+<tr>
+<td align="center"><a href="preview-notes-pinned-v117.png"><img src="preview-notes-pinned-v117.png" width="220" alt="Notes tab"></a><br><b>Notes</b></td>
+<td align="center"><a href="preview-shortcuts-fixed.png"><img src="preview-shortcuts-fixed.png" width="220" alt="Shortcuts tab"></a><br><b>Shortcuts</b></td>
+<td align="center"><a href="preview-ports.png"><img src="preview-ports.png" width="220" alt="TCP Ports tab"></a><br><b>TCP Ports</b></td>
+</tr>
+<tr>
+<td align="center"><a href="preview-mac.png"><img src="preview-mac.png" width="220" alt="MAC Lookup tab"></a><br><b>MAC Lookup</b></td>
+<td align="center"><a href="preview-commands-layout.png"><img src="preview-commands-layout.png" width="220" alt="Commands tab"></a><br><b>Commands</b></td>
+<td align="center"><a href="preview-subnet-v117.png"><img src="preview-subnet-v117.png" width="220" alt="Subnet tab"></a><br><b>Subnet Calculator</b></td>
+</tr>
+</table>
 
-**v1.18 — Movable window:** Drag the header, reopen at the saved position, and reset from the header context menu. The PIN button and global shortcut continue to work.
+## Install & run
 
-![IPv4 subnet calculator](preview-subnet-v117.png)
-
-![Pinned notes in All Notes](preview-notes-pinned-v117.png)
-
-## Install and run on Windows
-
-1. Download the repository ZIP using **Code → Download ZIP**, or clone it:
+1. Install **Python 3.10+** on Windows (with Tkinter).
+2. [Download this repository](https://github.com/Dovshmi/Pocket/archive/refs/heads/main.zip) and extract it, or clone it:
    ```powershell
    git clone https://github.com/Dovshmi/Pocket.git
    cd Pocket
    ```
-2. Install [Python 3.10 or newer](https://www.python.org/downloads/windows/) with Tkinter (part of the usual Windows installer).
-3. Double-click **`run.bat`**. The script installs Python dependencies when needed.
-4. Find the PocketDesk icon beside the Windows clock; it may be under the **`^`** hidden-icons menu. Click to show/hide PocketDesk.
+3. Double-click **`run.bat`**. It installs missing Python dependencies and starts the app.
+4. Open PocketDesk from the notification area near the Windows clock (check the **^** overflow menu).
 
-For manual installation, run `install.bat` before launching `app.pyw`. Native drag-and-drop uses `tkinterdnd2`; the app can run without it, but native file/folder drops may be unavailable. The global shortcut and tray behavior require Windows.
+**Optional:** use `install.bat` to install dependencies separately, then launch `app.pyw`. Native drag-and-drop uses `tkinterdnd2`; the tray and global hotkey require Windows.
 
-### Global keyboard shortcut
+### Build a Windows executable
 
-Press **`Ctrl + Shift + *`** to toggle the popup while PocketDesk is running. The standard `*` above **8** (`Ctrl+Shift+8`) and **numpad multiply** are supported where Windows can register them. If another app holds the hotkey, use the tray icon.
+Run **`build-exe.bat`** on Windows to package the app with PyInstaller. Output: `dist\PocketDesk.exe`.
 
-**PIN** keeps the popup visible when another app gains focus, which helps when dragging from File Explorer or a browser. **X** hides the popup to the tray; it does not delete notes.
+> **Build safely:** A local `commands/commands.json` file can be bundled into the EXE. Build public distributions from a clean checkout containing **only** the sample commands. This repository does **not** provide a prebuilt EXE; native packaging and multi-monitor behavior still need real-Windows verification.
 
-## Using the tabs
+## Version history
 
-### Notes
-
-The **title and compact phone field** sit in the top-left block; **All Notes** is top-right; the editable note text fills the lower portion. New notes receive a creation timestamp. Older imported notes without a stored creation time display *unknown* rather than a guessed date.
-
-Right-click **a note in All Notes** to pin it to the top, duplicate it, or delete it with confirmation. Right-click **inside the text editor** for Undo/Redo/Cut/Copy/Paste/Select All, Copy Entire Note, Insert Date & Time, or Open in Notepad. Highlight an IP address for **Check selected IP** (fills the Ports target without starting a scan), or select CLI text for **Find in Commands**.
-
-**Open in Notepad** creates a new `.txt` snapshot of the selected note in `%APPDATA%\PocketDesk\notepad_exports\`. Edits made in Windows Notepad are **not** synchronized back to PocketDesk.
-
-### Shortcuts
-
-Add a Website, File, or Folder manually, or click **PIN** and drag one item onto the Shortcuts drop zone. PocketDesk proposes a type, name and target; nothing is saved until you click **Save shortcut**. You can edit or cancel the draft. Saving or canceling closes the form completely, leaving no extra gap above the shortcut cards.
-
-![Shortcuts drag-to-add](preview-shortcuts-drop.png)
-
-![Shortcut list after saving](preview-shortcuts-fixed.png)
-
-### TCP Ports
-
-Enter a target, choose a single port, preset group or custom port list/range, then run a **TCP connection test**. Results may say OPEN, CLOSED, TIMEOUT or ERROR. A timeout does not prove a port is closed; filtering and network conditions can affect results. **Only test hosts you own or have authorization to check.**
-
-### MAC Vendors
-
-Paste MAC addresses in common formats, optionally download/import public IEEE assignment CSV files, then view and export vendor matches. The IEEE vendor label identifies a registered address block; it is **not proof of the individual device owner**. Lookup works offline after the prefix database is populated.
-
-### Commands
-
-Choose a machine or **All machines**, search by CLI syntax or description (including Hebrew), select a result, and adjust the editable command box before clicking **Copy edited**. This only puts text on the clipboard; it **never runs commands**.
-
-Use **+ New** to create your own commands, machines, categories and descriptions. Custom commands, favorites and recently copied items remain on your computer. The public package ships with a small demonstration library for Cisco/FortiGate/Juniper/Nokia, **not** workplace-specific operational information.
-
-To use a private command library, keep `commands/commands.json` in your *local* installation only. PocketDesk prefers that file when present and falls back to `commands/sample_commands.json` otherwise. **Do not commit private command packs.** The `.gitignore` excludes `commands/commands.json`.
-
-### Subnet
-
-Enter an IPv4 address and `/prefix` or dotted-decimal netmask, then calculate network, broadcast, first/last usable address, wildcard and address counts. Use the split controls for smaller CIDR blocks. `/31` and `/32` have special handling. All calculations are local; the calculator does not connect to target hosts.
-
-## Build a standalone `.exe`
-
-Double-click **`build-exe.bat`** on Windows. It uses PyInstaller and bundles the icon, TkDnD files, and the available command library. The output is `dist\PocketDesk.exe`.
-
-**Important:** If you build on a PC containing `commands/commands.json`, the generated EXE can contain that **private** library. Build public releases from a clean checkout without the private file. The public GitHub checkout bundles the example library only.
-
-The executable is not prebuilt in this repository; native Windows packaging and multi-monitor behavior still need independent verification on Windows.
-
-## Data and privacy
-
-PocketDesk stores data in `%APPDATA%\PocketDesk\`:
-
-| Path | Purpose |
+| Version | What's new |
 | --- | --- |
-| `data.json` | Notes, phones, shortcuts, favorite/custom CLI commands, tab preferences and saved window coordinates. |
-| `vendors.json` | Downloaded/imported IEEE MAC vendor registry cache. |
-| `notepad_exports\` | Snapshots of notes opened in Windows Notepad. |
+| **v1.18** · Oct 27, 2026 | Drag-to-move window, saved/restored position and reset option. |
+| **v1.17** · Oct 27, 2026 | IPv4 subnet calculator; pin, duplicate and delete notes. *(Included in the v1.18 GitHub commit.)* |
+| **v1.16** · Oct 27, 2026 | Full-width Notes editor, note context menus and shortcut fixes. |
+| **v1.10** · Oct 27, 2026 | Consistent taller tab layout and multiline command editor. |
+| **v1.6** · Oct 26, 2026 | Windows tray app, notes, shortcuts, CLI reference and network tools. |
 
-- Notes, phone numbers, and user-created commands are stored locally in **plain text**, not encrypted. Do not store passwords or secrets unless you secure your Windows account and files accordingly.
-- Copy actions use the clipboard. PocketDesk does not send note text or copied CLI commands to a caller-lookup API.
-- MAC registry updates and network port checks do use the network when you request them.
-- User data files, private command files, virtual environments and build products are excluded by `.gitignore`.
+See the [commit history](https://github.com/Dovshmi/Pocket/commits/main/) for implementation details. This table tracks significant milestones, not every intermediate iteration.
 
-## Development and tests
+## Storage, privacy & safety
+
+PocketDesk stores personal data locally under `%APPDATA%\PocketDesk\`:
+
+- `data.json` — notes, shortcuts, preferences, custom commands and window position.
+- `vendors.json` — imported/downloaded MAC vendor data.
+- `notepad_exports\` — text snapshots opened in Windows Notepad (**changes in Notepad do not sync back**).
+
+**Data is stored in plain text, not encrypted.** Don't save passwords or other secrets without protecting your PC. Port checks and IEEE registry updates access the network only when you request them. **Only scan systems you own or are authorized to test.**
+
+The public repository includes **sample CLI commands only**. Your private command library belongs in `commands/commands.json` on your local PC and is excluded from Git; never commit proprietary or workplace-specific commands.
+
+## Development
+
+Run the unit tests:
 
 ```powershell
 py -3 -m unittest discover -v
 ```
 
-Tests cover storage, subnet arithmetic, note pin/duplicate/delete, window-position normalization/persistence/clamping, keyboard hotkey logic, command reference, URLs and TCP/MAC tools. GUI smoke scripts require a working desktop/display and are **not** the same as verifying real Win32 tray interaction on Windows.
-
-### Troubleshooting
-
-- **No tray icon:** Check the notification-area `^` menu, then verify that PocketDesk is still running.
-- **Drag and drop fails:** Run `install.bat`, relaunch, click PIN, and drag one item at a time. Some browser drag types are unsupported; paste the URL manually instead.
-- **Shortcut hotkey does nothing:** Another app may own that hotkey, or PocketDesk may not be running. Click the tray icon.
-- **Popup is off-screen:** Right-click the header and choose **Reset window position**; it also attempts to constrain saved positions when monitor layouts change.
-- **No CLI reference results:** Make sure `commands/sample_commands.json` exists, select **All machines**, and clear the search/category filters.
-- **Cannot build EXE:** Verify Python and Windows PyInstaller dependencies, then run `build-exe.bat` in a terminal to see the error.
+The repository also contains GUI smoke-test scripts. Passing those tests does not replace verification of native Windows tray behavior.
 
 ## License
 
-See the existing [LICENSE](LICENSE) file for licensing terms.
+See [LICENSE](LICENSE).

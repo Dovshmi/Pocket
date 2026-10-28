@@ -149,7 +149,7 @@ dist\PocketDesk.exe
 The generated executable name remains **PocketDesk.exe**, while the window header says **Pocket**.
 
 > [!WARNING]
-> **Do not publish an EXE built with a private command library.** The build script uses `commands/commands.json` if it exists locally, which can bundle that file inside the executable. Build public artifacts from a clean checkout containing only `commands/sample_commands.json`. No prebuilt EXE is included in this repository.
+> **Do not publish an EXE built with a private command library.** The build script uses `commands/commands.json` if it exists locally, which can bundle that file inside the executable. Build public artifacts without a private `commands/commands.json`. No prebuilt EXE is included in this repository.
 
 **Packaging caveat:** Native Windows tray interaction, hotkey registration, icon refresh and multi-monitor behavior should be tested on a Windows machine before distributing a build. Passing headless tests alone does not validate those integrations.
 
@@ -172,48 +172,37 @@ Pocket saves user data under:
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
 - **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner.
 
-### Private CLI commands
+### Private CLI command library
 
-The public repository ships with a **150-entry public command library** for Cisco, FortiGate, Juniper and Nokia SR OS. To maintain your own reference collection, create:
+The app loads **one local reference library**: `commands/commands.json`. It is not included in this public repository and should **never be committed** if it contains workplace-specific information. To start, copy the format shown in [`commands/example_commands.json`](commands/example_commands.json) into your own `commands/commands.json`. An optional `machines` array can populate device categories even without command entries.
 
-```text
-commands/commands.json
-```
+Search the library in the **Commands** tab, then add, edit, copy or delete commands through the interface. The latest command-library changes use atomic writes and timestamped backups to reduce the risk of losing edits. Your local data is never uploaded automatically.
 
-Pocket now combines that local file with the built-in `commands/sample_commands.json` and `commands/public_additions.json` libraries. Machine categories are populated from `commands/machine_catalog.json` even when no verified command exists for a category. The private path is ignored by Git. **Do not commit workplace commands, passwords, IP inventories or sensitive operational data.**
-
-See [commands/README.md](commands/README.md) for the command-library convention.
-
-
-### Your command library (single-file mode)
-
-Pocket uses **only one command reference file**: `commands/commands.json` in your Pocket folder. It does not install or load any public command library. For a packaged EXE, place the same file next to the EXE under `commands/commands.json`; the app also supports a separately supplied local file in your AppData folder. The optional `machines` array in this JSON makes equipment categories visible even when they have no CLI entries. Commands added inside the app are stored locally in `data.json` as before.
-
-**Never publish this file** if it includes workplace-specific operational data. The public GitHub source does not include your workbook or uploaded private command reference. To build an EXE, copy your private `commands.json` into the `commands` folder first; the EXE build will bundle it, so do not distribute that EXE publicly without reviewing its content.
+> **Packaging caution:** Review the source library before building an EXE: a local `commands/commands.json` may be bundled inside it. Do not distribute a build containing private commands.
 
 ## Project structure
 
 ```text
 Pocket/
-├── app.pyw                 # Tkinter interface, notes, tabs, Windows tray
-├── icon_themes.py          # Six color palettes and icon generation
-├── hotkey_settings.py      # Custom hotkey mapping and shortcut filtering
-├── command_helper.py       # CLI reference search and user commands\n├── machine_catalog.py      # Full machine selector and library merging
-├── network_tools.py        # TCP checks and MAC vendor lookup
-├── subnet_calculator.py    # IPv4 network calculations
+├── app.pyw                 # Desktop UI, notes, tabs and tray
+├── icon_themes.py          # Theme palettes and generated icons
+├── hotkey_settings.py      # Configurable popup shortcut
+├── command_helper.py       # Command search and editing
+├── machine_catalog.py      # Machine categories
+├── network_tools.py        # Port tests and MAC lookup
+├── subnet_calculator.py    # IPv4 calculations
 ├── shortcut_utils.py       # Shortcut handling
-├── shortcut_drop.py        # Drag-and-drop parsing
+├── shortcut_drop.py        # Drag-and-drop support
 ├── commands/
-│   ├── sample_commands.json\n│   ├── public_additions.json\n│   └── machine_catalog.json
-├── assets/                 # App assets and default icon
-├── install.bat             # Dependency installation
-├── run.bat                 # Start the application
-├── build-exe.bat           # Build a Windows EXE
+│   ├── example_commands.json   # Example format only
+│   └── README.md
+├── install.bat / run.bat   # Set up and launch
+├── build-exe.bat           # Package a Windows executable
 ├── test_*.py               # Unit tests
-└── smoke_*.py              # Optional GUI smoke tests
+└── smoke_*.py              # Optional GUI smoke checks
 ```
 
-**Stack:** Python, Tkinter/ttk, native Win32 APIs via `ctypes`, Pillow, `tkinterdnd2`, PyInstaller for packaging. Pocket does not require a separate backend.
+**Stack:** Python, Tkinter/ttk, Win32 APIs via `ctypes`, Pillow, `tkinterdnd2` and PyInstaller.
 
 ## Version history
 
@@ -221,7 +210,10 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.23** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |\n| **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |\n| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
+| **v1.23** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
+| **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |
+| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |
+| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
 | **v1.19** | 2026-10-28 | Six saved themes and matching live app/tray icons. |
 | **v1.18** | 2026-10-27 | Movable popup with persistent positioning and reset action. |
 | **v1.17** | 2026-10-27 | Subnet calculator and note pin/duplicate/delete actions; integrated into the v1.18 commit. |

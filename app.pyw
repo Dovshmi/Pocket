@@ -30,6 +30,7 @@ import network_tools as net
 import command_helper as ch
 import subnet_calculator as subnet
 import icon_themes as themes
+import hotkey_settings as hk
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -165,6 +166,7 @@ def default_data() -> dict:
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
         "theme": "blue",
+        "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single"},
     }
@@ -218,7 +220,8 @@ def load_data(path: Path) -> dict:
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
-                "theme": themes.valid_theme(data.get("theme"))}
+                "theme": themes.valid_theme(data.get("theme")),
+                "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
     except (OSError, ValueError, TypeError):
         # Keep the damaged data available for manual recovery; don't silently overwrite it.
         backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
@@ -263,6 +266,8 @@ class PocketDesk:
         self._apply_palette(self.theme)
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
         self.events = queue.Queue()
+        self.hotkey = hk.normalize_hotkey(self.data.get("hotkey"))
+        self.hotkey_available = True
         self.tray = None
         self._save_job = None
         self._loading_note = False
@@ -311,7 +316,7 @@ class PocketDesk:
                 self.root = tk.Tk()
         else:
             self.root = tk.Tk()
-        self.root.title("PocketDesk")
+        self.root.title("Pocket")
         self.root.configure(bg=BG)
         self.root.geometry(f"{WIDTH}x{HEIGHT}")
         self.root.resizable(False, False)
@@ -332,7 +337,7 @@ class PocketDesk:
         self.root.after(120, self._poll_events)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
-            self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events)
+            self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -389,6 +394,92 @@ class PocketDesk:
             menu.grab_release()
             self._modal = False
 
+    def _hotkey_hint(self):
+        return hk.hotkey_label(self.hotkey) + "  ·  Show / hide  ✎"
+
+    def _open_hotkey_picker(self, _event=None):
+        if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():
+            self._hotkey_picker.lift()
+            return "break"
+        self._modal = True
+        dialog = tk.Toplevel(self.root)
+        self._hotkey_picker = dialog
+        dialog.title("Pocket · Popup shortcut")
+        dialog.configure(bg=BG)
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.geometry(f"380x360+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
+        selected = self.hotkey.copy()
+        flags = {key: tk.BooleanVar(value=selected[key]) for key in ("ctrl","shift","alt","win")}
+        key_var = tk.StringVar(value=selected["key"])
+        tk.Label(dialog, text="Choose a popup shortcut", font=(FONT, 14, "bold"),
+                 fg=WHITE, bg=BG).pack(anchor="w", padx=18, pady=(18, 4))
+        tk.Label(dialog, text="Choose modifiers and click a key below.",
+                 fg=MUTED, bg=BG).pack(anchor="w", padx=18)
+        mods = tk.Frame(dialog, bg=BG)
+        mods.pack(fill="x", padx=16, pady=(14, 8))
+        for key, label in (("ctrl","Ctrl"),("shift","Shift"),("alt","Alt"),("win","Win")):
+            tk.Checkbutton(mods, text=label, variable=flags[key], bg=BG, fg=WHITE,
+                           activebackground=BG, activeforeground=ACCENT, selectcolor=PANEL,
+                           font=(FONT, 9)).pack(side="left")
+        keys = tk.Frame(dialog, bg=BG)
+        keys.pack(fill="both", expand=True, padx=15)
+        options = ("*", "P", "K", "N", "Space", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12")
+        options = tuple(k for k in options if k in hk.KEYS)
+        buttons = {}
+        def select(key):
+            key_var.set(key)
+            for name, button in buttons.items():
+                button.config(bg=ACCENT_DARK if name == key else CARD,
+                              fg=ACCENT if name == key else WHITE)
+        for i, key in enumerate(options):
+            button = tk.Button(keys, text=key, command=lambda k=key: select(k),
+                               bg=CARD, fg=WHITE, relief="flat", width=5, cursor="hand2")
+            button.grid(row=i//6, column=i%6, padx=3, pady=4, sticky="ew")
+            buttons[key] = button
+        select(key_var.get())
+        tk.Label(dialog, text="For another letter or digit, click a key below:",
+                 fg=MUTED, bg=BG, font=(FONT, 8)).pack(anchor="w", padx=18)
+        letters = tk.Frame(dialog, bg=BG)
+        letters.pack(fill="x", padx=18, pady=(2, 4))
+        key_choices = ttk.Combobox(letters, values=hk.KEYS, state="readonly",
+                                   textvariable=key_var, width=8)
+        key_choices.pack(side="left")
+        status = tk.Label(dialog, text="", fg=DANGER, bg=BG, font=(FONT, 8))
+        status.pack(anchor="w", padx=18)
+        actions = tk.Frame(dialog, bg=BG)
+        actions.pack(fill="x", padx=18, pady=(6, 14))
+        def close():
+            self._modal = False
+            dialog.destroy()
+        def save():
+            candidate = {name: var.get() for name,var in flags.items()}
+            candidate["key"] = key_var.get()
+            if not (candidate["ctrl"] or candidate["alt"] or candidate["win"]):
+                status.config(text="Select Ctrl, Alt or Win to avoid bare global keys.")
+                return
+            if candidate == self.hotkey:
+                close()
+                return
+            if self.tray and not self.tray.error:
+                # Windows registration is checked by the tray thread first.
+                self.tray.set_hotkey(candidate)
+                status.config(text="Applying shortcut…", fg=ACCENT)
+                close()
+            else:
+                self.hotkey = candidate
+                self.data["hotkey"] = candidate.copy()
+                self.shortcut_hint.config(text=self._hotkey_hint(), fg=MUTED)
+                self._write_now()
+                close()
+        tk.Button(actions, text="Cancel", command=close, bg=CARD, fg=WHITE,
+                  relief="flat", padx=12).pack(side="right")
+        tk.Button(actions, text="Save shortcut", command=save, bg=ACCENT, fg="#10131C",
+                  relief="flat", padx=12).pack(side="right", padx=(0,8))
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.grab_set()
+        return "break"
+
     def _build_shell(self):
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
@@ -403,15 +494,17 @@ class PocketDesk:
         icon.pack(side="left", padx=(0, 12))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
         labels.pack(side="left", fill="y", expand=True)
-        app_title = tk.Label(labels, text="pocketdesk.", font=(FONT, 19, "bold"), fg=WHITE,
+        app_title = tk.Label(labels, text="Pocket", font=(FONT, 19, "bold"), fg=WHITE,
                              bg=BG, anchor="w", cursor="fleur")
         app_title.pack(anchor="w", pady=(2, 0))
-        self.shortcut_hint = tk.Label(labels, text="Ctrl+Shift+*  ·  Show / hide",
+        self.shortcut_hint = tk.Label(labels, text=self._hotkey_hint(),
                                       font=(FONT, 9), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
-        for handle in (header, labels, app_title, self.shortcut_hint):
+        self.shortcut_hint.config(cursor="hand2")
+        self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
+        for handle in (header, labels, app_title):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
@@ -890,6 +983,16 @@ class PocketDesk:
 
     def _build_links(self):
         self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
+        search_row = tk.Frame(self.body, bg=BG)
+        search_row.pack(fill="x", pady=(0, 8))
+        tk.Label(search_row, text="⌕", bg=BG, fg=MUTED, font=(FONT, 14)).pack(side="left", padx=(0, 6))
+        self.link_query = tk.StringVar()
+        search = self._entry(search_row, self.link_query)
+        search.config(font=(FONT, 9))
+        search.pack(side="left", fill="x", expand=True, ipady=5)
+        self.link_query.trace_add("write", lambda *_: self.refresh_links())
+        tk.Label(search_row, text="Search shortcuts", fg=MUTED, bg=BG,
+                 font=(FONT, 8)).pack(side="right", padx=(8, 0))
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
@@ -981,10 +1084,11 @@ class PocketDesk:
             return
         for child in self.links_stack.winfo_children():
             child.destroy()
-        if not self.data["links"]:
-            tk.Label(self.links_stack, text="No shortcuts yet. Add a website, file or folder above.",
+        matches = hk.filter_shortcuts(self.data["links"], self.link_query.get())
+        if not matches:
+            tk.Label(self.links_stack, text=("No matching shortcuts." if self.data["links"] else "No shortcuts yet. Add a website, file or folder above."),
                      fg=SECONDARY, bg=BG, font=(FONT, 10), wraplength=360).pack(pady=25)
-        for link in self.data["links"]:
+        for link in matches:
             self._link_tile(link)
 
     def _link_tile(self, link):
@@ -2220,7 +2324,16 @@ class PocketDesk:
                 elif name == "show":
                     self.show(xy)
                 elif name == "hotkey_error":
-                    self.shortcut_hint.config(text="Hotkey unavailable · use tray icon", fg=DANGER)
+                    self.hotkey_available = False
+                    self.shortcut_hint.config(text="Hotkey unavailable · click to change", fg=DANGER)
+                elif name == "hotkey_changed":
+                    self.hotkey_available = True
+                    self.hotkey = hk.normalize_hotkey(xy)
+                    self.data["hotkey"] = self.hotkey.copy()
+                    self.shortcut_hint.config(text=self._hotkey_hint(), fg=MUTED)
+                    self.schedule_save()
+                elif name == "hotkey_conflict":
+                    self._warning("Shortcut unavailable", "That keyboard shortcut is already in use. Your previous shortcut remains active.")
                 elif name == "port_result":
                     token, result = xy
                     if token == self.scan_token:
@@ -2331,7 +2444,9 @@ class WindowsTray:
     NIF_ICON = 0x2
     NIF_TIP = 0x4
 
-    def __init__(self, icon_path: Path, events):
+    WM_HOTKEY_CHANGE = 0x8000 + 39
+
+    def __init__(self, icon_path: Path, events, hotkey=None):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -2340,6 +2455,8 @@ class WindowsTray:
         self._thread = None
         self.hotkey_ids = set()
         self._pending_icon = None
+        self.hotkey = hk.normalize_hotkey(hotkey)
+        self._pending_hotkey = None
 
     def start(self):
         self._thread = threading.Thread(target=self._main, name="PocketDeskTray", daemon=True)
@@ -2349,6 +2466,11 @@ class WindowsTray:
         self._pending_icon = path
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_ICON_UPDATE, 0, 0)
+
+    def set_hotkey(self, value):
+        self._pending_hotkey = hk.normalize_hotkey(value)
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_HOTKEY_CHANGE, 0, 0)
 
     def stop(self):
         if self.hwnd:
@@ -2436,7 +2558,7 @@ class WindowsTray:
         nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP
         nid.uCallbackMessage = self.WM_TRAY
         nid.hIcon = hicon
-        nid.szTip = "PocketDesk — Ctrl+Shift+* to toggle"
+        nid.szTip = "Pocket — " + hk.hotkey_label(self.hotkey) + " to toggle"
 
         def cursor():
             point = wintypes.POINT()
@@ -2448,9 +2570,9 @@ class WindowsTray:
             if not menu:
                 return
             try:
-                user.AppendMenuW(menu, 0x0, 101, "Open dashboard   (Ctrl+Shift+*)")
+                user.AppendMenuW(menu, 0x0, 101, "Open Pocket   (" + hk.hotkey_label(self.hotkey) + ")")
                 user.AppendMenuW(menu, 0x800, 0, None)  # separator
-                user.AppendMenuW(menu, 0x0, 103, "Exit PocketDesk")
+                user.AppendMenuW(menu, 0x0, 103, "Exit Pocket")
                 x, y = cursor()
                 user.SetForegroundWindow(hwnd)
                 cmd = user.TrackPopupMenu(menu, 0x100 | 0x2, x, y, 0, hwnd, None)
@@ -2478,6 +2600,27 @@ class WindowsTray:
                         else:
                             nid.hIcon = old_icon
                             user.DestroyIcon(new_icon)
+                return 0
+            if msg == self.WM_HOTKEY_CHANGE:
+                candidate = self._pending_hotkey
+                if candidate:
+                    # Validate the new combination before dropping the working one.
+                    bindings = hk.bindings(candidate, 0xB20)
+                    new_ids = set()
+                    for hotkey_id, mods, key in bindings:
+                        if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                            new_ids.add(hotkey_id)
+                    if new_ids:
+                        for old in tuple(self.hotkey_ids):
+                            user.UnregisterHotKey(hwnd, old)
+                        self.hotkey_ids = new_ids
+                        self.hotkey = candidate
+                        nid.szTip = "Pocket — " + hk.hotkey_label(candidate) + " to toggle"
+                        shell.Shell_NotifyIconW(self.NIM_MODIFY, ctypes.byref(nid))
+                        self.events.put(("hotkey_changed", candidate))
+                    else:
+                        self.events.put(("hotkey_conflict", None))
+                self._pending_hotkey = None
                 return 0
             if msg == self.WM_HOTKEY:
                 if int(wp) in self.hotkey_ids:
@@ -2516,7 +2659,10 @@ class WindowsTray:
             raise ctypes.WinError()
         self.hwnd = hwnd
         nid.hWnd = hwnd
-        self.hotkey_ids = register_toggle_hotkeys(user.RegisterHotKey, hwnd)
+        self.hotkey_ids = set()
+        for hotkey_id, mods, key in hk.bindings(self.hotkey):
+            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                self.hotkey_ids.add(hotkey_id)
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

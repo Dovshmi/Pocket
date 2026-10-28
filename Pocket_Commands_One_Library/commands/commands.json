@@ -1,0 +1,4627 @@
+{
+  "schema": 1,
+  "source": "Curated, sanitized CLI command-only extraction. Credentials and workbook are excluded.",
+  "commands": [
+    {
+      "id": "b77fa6372063372c",
+      "machine": "7750",
+      "description": "לראות שיוך פורט פיזי ל LAG",
+      "command": "show lag port",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "989a0f5ff0f51c59",
+      "machine": "7750",
+      "description": "לראות תיאור לאיזה MT או מבואה מוביל החיבור ב7750.",
+      "command": "show lag description",
+      "category": "Routing",
+      "source_row": 8
+    },
+    {
+      "id": "549cc4daaf86c7f9",
+      "machine": "7750",
+      "description": "לראות תיאור של פורטים.",
+      "command": "show port description",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "d0fb6ec501b91516",
+      "machine": "ACX",
+      "description": "Command reference",
+      "command": "commit",
+      "category": "Configuration",
+      "source_row": 10
+    },
+    {
+      "id": "ff499232a251f4df",
+      "machine": "ACX",
+      "description": "Command reference",
+      "command": "deactivate protocols ptp",
+      "category": "Other",
+      "source_row": 9
+    },
+    {
+      "id": "92e3e928a1bf1a21",
+      "machine": "ACX",
+      "description": "Command reference",
+      "command": "edit private",
+      "category": "Configuration",
+      "source_row": 8
+    },
+    {
+      "id": "df4226ff70316de4",
+      "machine": "ACX",
+      "description": "Command reference",
+      "command": "exit",
+      "category": "Other",
+      "source_row": 13
+    },
+    {
+      "id": "89420c474b00d2a1",
+      "machine": "ACX",
+      "description": "Command reference",
+      "command": "show version",
+      "category": "System",
+      "source_row": 7
+    },
+    {
+      "id": "17c8642d330f1d58",
+      "machine": "ADB",
+      "description": "Command reference",
+      "command": "(diagnostics)#ping x.x.x.x (IP)",
+      "category": "Diagnostics",
+      "source_row": 8
+    },
+    {
+      "id": "c093279e2a40482c",
+      "machine": "ADB",
+      "description": "Command reference",
+      "command": "(diagnostics)#telnet x.x.x.x (IP)",
+      "category": "Other",
+      "source_row": 19
+    },
+    {
+      "id": "ded4b7cb1f701b57",
+      "machine": "ADB",
+      "description": "הצגת טבלת ARP",
+      "command": "#show hosts",
+      "category": "VLAN / L2",
+      "source_row": 20
+    },
+    {
+      "id": "09ad0024e5ec7049",
+      "machine": "ADB",
+      "description": "צפייה בNAT",
+      "command": "#show ip nat",
+      "category": "Other",
+      "source_row": 22
+    },
+    {
+      "id": "0dd0482b19919a6d",
+      "machine": "ADB",
+      "description": "צפייה בטבלת ניתוב",
+      "command": "#show ip route",
+      "category": "Routing",
+      "source_row": 11
+    },
+    {
+      "id": "4705757e2769a148",
+      "machine": "ADB",
+      "description": "צפייה בלוגים",
+      "command": "#show driver-log",
+      "category": "Diagnostics",
+      "source_row": 13
+    },
+    {
+      "id": "afde057d90749c14",
+      "machine": "ADB",
+      "description": "צפייה בנתוני WIFI",
+      "command": "#show wireless",
+      "category": "Other",
+      "source_row": 12
+    },
+    {
+      "id": "b629565ace1b277a",
+      "machine": "ADB",
+      "description": "צפייה בקונפיגורציה",
+      "command": "#showRunningConfigScript full",
+      "category": "Routing",
+      "source_row": 17
+    },
+    {
+      "id": "c09f49318254a21f",
+      "machine": "ADB",
+      "description": "צפייה על MAC של הציוד",
+      "command": "#show deviceinfo",
+      "category": "VLAN / L2",
+      "source_row": 14
+    },
+    {
+      "id": "0aa5aa85fb2445e0",
+      "machine": "ADB",
+      "description": "צפייה על ממשק בודד",
+      "command": "#show ip interface x (Int-Name)",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "bd281a019fb36d04",
+      "machine": "ADB",
+      "description": "צפייה על ממשקים פיזיים",
+      "command": "#show phy-interface",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "45311b800724c843",
+      "machine": "ADB",
+      "description": "שליחת פינג",
+      "command": "#diagnostics",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "31779fa45bba6da1",
+      "machine": "ALCATEL 6465 + 6860",
+      "description": "מראה את הVLANS עם הפורטים",
+      "command": "show vlan members",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "30b355fb37deb1a0",
+      "machine": "ALCATEL 6465 + 6860",
+      "description": "מראה את הגירסה וup-TIME",
+      "command": "show system",
+      "category": "System",
+      "source_row": 9
+    },
+    {
+      "id": "e3ddaf2fb08a652a",
+      "machine": "ALCATEL 6465 + 6860",
+      "description": "מראה את הפורטים וכתובות הMAC שנלמדו",
+      "command": "SHOW MAC LEARNING",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "ba8b1985eb3219fe",
+      "machine": "ALCATEL 6465 + 6860",
+      "description": "מראה את כתובות הMAC שנלמדו על VLAN SPECIFIC",
+      "command": "show mac-learning domain vlan vlan (VLAN-ID)",
+      "category": "VLAN / L2",
+      "source_row": 10
+    },
+    {
+      "id": "b1566c05f82c935f",
+      "machine": "ALCATEL 6465 + 6860",
+      "description": "מראה רמה אופטית לפורט ספציפי",
+      "command": "show interfaces 1/1/12 ddm",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "27036fc062041615",
+      "machine": "B-Cam",
+      "description": "Command reference",
+      "command": "TYPE 5 SOM + מטרו 1",
+      "category": "Other",
+      "source_row": 38
+    },
+    {
+      "id": "b406c9f6502e0239",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "killall FW",
+      "category": "Other",
+      "source_row": 43
+    },
+    {
+      "id": "b49c7d5b9f8e1472",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "reboot",
+      "category": "Other",
+      "source_row": 47
+    },
+    {
+      "id": "874928f181400bc5",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "rm $FWDIR/database/cpeps/*",
+      "category": "Other",
+      "source_row": 44
+    },
+    {
+      "id": "5c46da235c182b73",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "rm $FWDIR/database/cpeps_flash/*",
+      "category": "Other",
+      "source_row": 45
+    },
+    {
+      "id": "30e309470d979cee",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "sfwd_start",
+      "category": "Other",
+      "source_row": 46
+    },
+    {
+      "id": "16428a2ca914e1a3",
+      "machine": "CheckPoint",
+      "description": "Command reference",
+      "command": "sfwd_stop",
+      "category": "Other",
+      "source_row": 42
+    },
+    {
+      "id": "bd123b3359dd64ed",
+      "machine": "CheckPoint",
+      "description": "בדיקת בליידים",
+      "command": "configload_status",
+      "category": "Configuration",
+      "source_row": 40
+    },
+    {
+      "id": "3c3e7cabebfdd632",
+      "machine": "CheckPoint",
+      "description": "בדיקת שגיאות על ממשקים פיזיים",
+      "command": "ifconfig",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "bee56ebeb16ab772",
+      "machine": "CheckPoint",
+      "description": "הפעלה / כיבוי חייגן",
+      "command": "set internet-connection name disable / enable",
+      "category": "Configuration",
+      "source_row": 17
+    },
+    {
+      "id": "0923740fdef095b5",
+      "machine": "CheckPoint",
+      "description": "הפעלת מוניטור על תעבורה בFW",
+      "command": "fw monitor",
+      "category": "Other",
+      "source_row": 20
+    },
+    {
+      "id": "b148a1568ec82684",
+      "machine": "CheckPoint",
+      "description": "הצגת SSID",
+      "command": "iwconfig",
+      "category": "Configuration",
+      "source_row": 18
+    },
+    {
+      "id": "25b511f0ff2fb7b1",
+      "machine": "CheckPoint",
+      "description": "הצגת חייגנים פעילים",
+      "command": "show internet-connections table",
+      "category": "Other",
+      "source_row": 16
+    },
+    {
+      "id": "41732fef5de29dff",
+      "machine": "CheckPoint",
+      "description": "הצגת טבלת ניתוב",
+      "command": "ip route",
+      "category": "Routing",
+      "source_row": 19
+    },
+    {
+      "id": "237092eca2a2f801",
+      "machine": "CheckPoint",
+      "description": "הצגת ממשקים",
+      "command": "show interfeces",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "52903bd429ab4cd8",
+      "machine": "CheckPoint",
+      "description": "הצגת קונפיגורציה",
+      "command": "show configuration",
+      "category": "Configuration",
+      "source_row": 34
+    },
+    {
+      "id": "230e2147ac1138bc",
+      "machine": "CheckPoint",
+      "description": "הצגת שעון",
+      "command": "show clock",
+      "category": "Other",
+      "source_row": 35
+    },
+    {
+      "id": "fee048eedb3c7e34",
+      "machine": "CheckPoint",
+      "description": "כל התעבורה בIP ופורט מסוים",
+      "command": "tcpdump -ni any host <IP> and port 1521",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "1865f8f973699cca",
+      "machine": "CheckPoint",
+      "description": "כל התעבורה בפורט מוסוים",
+      "command": "tcpdump -ni any port 1521",
+      "category": "Interfaces",
+      "source_row": 30
+    },
+    {
+      "id": "a60afd345eee6193",
+      "machine": "CheckPoint",
+      "description": "כל התעבורה שפורט היעד הוא 1521",
+      "command": "tcpdump -ni any dst port 1521",
+      "category": "Interfaces",
+      "source_row": 31
+    },
+    {
+      "id": "7318f06412877809",
+      "machine": "CheckPoint",
+      "description": "כל התעבורה שפורט המקור הוא 1521",
+      "command": "tcpdump -ni any src port 1521",
+      "category": "Interfaces",
+      "source_row": 32
+    },
+    {
+      "id": "a86c21bc5cba5be6",
+      "machine": "CheckPoint",
+      "description": "לבדוק האם ציוד מאזין לפורט מסוים במידה וההפניה קיימת בCP",
+      "command": "telnet [ip פנימי]:[PORT NUMBER]",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "8d0171bbcafdf6fe",
+      "machine": "CheckPoint",
+      "description": "לחזור תיקייה למעלה",
+      "command": "cd ..",
+      "category": "Other",
+      "source_row": 26
+    },
+    {
+      "id": "017ac73c1ab66041",
+      "machine": "CheckPoint",
+      "description": "לראות מה נפל ולמה",
+      "command": "fw ctl zdebug drop",
+      "category": "Diagnostics",
+      "source_row": 49
+    },
+    {
+      "id": "a45439fe57b70c5a",
+      "machine": "CheckPoint",
+      "description": "לראות מספר סיריאלי של הCP",
+      "command": "cpstat os",
+      "category": "Other",
+      "source_row": 36
+    },
+    {
+      "id": "ce2632c45b7b558e",
+      "machine": "CheckPoint",
+      "description": "לראות סטטוס חיבורים",
+      "command": "cpstat fw",
+      "category": "Other",
+      "source_row": 48
+    },
+    {
+      "id": "f43fe98719d2d8b2",
+      "machine": "CheckPoint",
+      "description": "מחיקת טבלת ARP",
+      "command": "ip -s -s neigh flush all",
+      "category": "VLAN / L2",
+      "source_row": 33
+    },
+    {
+      "id": "535b467a5fe9dc1e",
+      "machine": "CheckPoint",
+      "description": "פינג עם סורס לוודא גישה לכתובת פנימית מהLAN",
+      "command": "ping [ip lan] -I [ip WAN]",
+      "category": "Diagnostics",
+      "source_row": 38
+    },
+    {
+      "id": "af2d530e8fb6640d",
+      "machine": "CheckPoint",
+      "description": "צפייה בטבלת ARP",
+      "command": "arp",
+      "category": "VLAN / L2",
+      "source_row": 27
+    },
+    {
+      "id": "8f27dd8d7d657494",
+      "machine": "CheckPoint",
+      "description": "צפייה בלוגים של נפילות",
+      "command": "fw ctl zdebug + drop | grep x.x.x.x",
+      "category": "Diagnostics",
+      "source_row": 22
+    },
+    {
+      "id": "9113da228d0a00c3",
+      "machine": "CheckPoint",
+      "description": "צפייה במעבד",
+      "command": "top",
+      "category": "Other",
+      "source_row": 23
+    },
+    {
+      "id": "00c5d05a9d21070d",
+      "machine": "CheckPoint",
+      "description": "צפייה בקבצים למשל בקובץ הגדרת DHCP",
+      "command": "cat flash/dhcpd.leases.[LAN SWITCH NAME]",
+      "category": "Configuration",
+      "source_row": 25
+    },
+    {
+      "id": "cb93f1a6df73b8df",
+      "machine": "CheckPoint",
+      "description": "שינוי פורט התחברות עבור SSL VPN",
+      "command": "set vpn remote-access advanced-settings port visitor-mode-port port (num)",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "fb4691087ea9efa8",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "conf t - > boot system flash 900-universalk9-mz.SPA.158-3.M6.bin",
+      "category": "System",
+      "source_row": 69
+    },
+    {
+      "id": "882be5c9ebc25289",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "interface Ethernet0.103  ip route cache",
+      "category": "Routing",
+      "source_row": 57
+    },
+    {
+      "id": "1f6d9fbb4502830e",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "interface vlan 10 \nip flow ingress\n ip flow egress   show ip flow top-talkers",
+      "category": "Interfaces",
+      "source_row": 56
+    },
+    {
+      "id": "f1f572ba9856725d",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "show cellular 0 profile",
+      "category": "Other",
+      "source_row": 45
+    },
+    {
+      "id": "66a3d6d1e8895a21",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "show ip cache flow",
+      "category": "Other",
+      "source_row": 59
+    },
+    {
+      "id": "48ba2e5fbb452ab1",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "show platform hardware throughput level",
+      "category": "System",
+      "source_row": 16
+    },
+    {
+      "id": "dd002901e8b5e8e1",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "terminal monitor",
+      "category": "Other",
+      "source_row": 58
+    },
+    {
+      "id": "95748c884067b7c6",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "test cellular 0 modem-power-cycle",
+      "category": "Other",
+      "source_row": 46
+    },
+    {
+      "id": "f7ee1e34fcac51df",
+      "machine": "Cisco",
+      "description": "Command reference",
+      "command": "write memory",
+      "category": "System",
+      "source_row": 67
+    },
+    {
+      "id": "2e006e17cb7f1a9b",
+      "machine": "Cisco",
+      "description": "אתחול חלוקת DHCP",
+      "command": "clear ip dhcp binding *",
+      "category": "Other",
+      "source_row": 49
+    },
+    {
+      "id": "8c7d5f4416eb2598",
+      "machine": "Cisco",
+      "description": "אתחול ללמידת BGP",
+      "command": "clear ip bgp * soft",
+      "category": "Routing",
+      "source_row": 51
+    },
+    {
+      "id": "71004cdc7e6b485a",
+      "machine": "Cisco",
+      "description": "אתחול למידת ARP עבור כתובת או POOL שלם באמצעות כתובת הרשת",
+      "command": "clear ip arp [<IP>] / clear ip arp [<IP>]",
+      "category": "VLAN / L2",
+      "source_row": 50
+    },
+    {
+      "id": "6ce77ca0bf1c8db8",
+      "machine": "Cisco",
+      "description": "בדיקה שTUNNELים למעלה",
+      "command": "show dmvpn",
+      "category": "Diagnostics",
+      "source_row": 20
+    },
+    {
+      "id": "840f392192131150",
+      "machine": "Cisco",
+      "description": "ביטול",
+      "command": "terminal no monitor",
+      "category": "Other",
+      "source_row": 64
+    },
+    {
+      "id": "8a179ebd6f99e2fb",
+      "machine": "Cisco",
+      "description": "ביצוע שינויים בקונפיגורציה",
+      "command": "conf t",
+      "category": "Other",
+      "source_row": 30
+    },
+    {
+      "id": "4af757b8e37e1f69",
+      "machine": "Cisco",
+      "description": "דרך נוספת לעשות CLEAR לARP לפי ממשק",
+      "command": "clear arp interface gigabitEthernet 0/0/1.70",
+      "category": "Interfaces",
+      "source_row": 48
+    },
+    {
+      "id": "e8a2a2f3906fbd59",
+      "machine": "Cisco",
+      "description": "הגבלת חלוקת DHCP",
+      "command": "ip dhcp excluded-address x.x.x.x (start) x.x.x.x (end)",
+      "category": "Other",
+      "source_row": 34
+    },
+    {
+      "id": "b85d5f8e0f94fcce",
+      "machine": "Cisco",
+      "description": "הוספת ניתוב",
+      "command": "(config)#ip route x.x.x.x/x (Lan) x.x.x.x (Wan)",
+      "category": "Routing",
+      "source_row": 33
+    },
+    {
+      "id": "e817f45fc600f18f",
+      "machine": "Cisco",
+      "description": "הפיכת ממשק לACCESS",
+      "command": "switchport mode access",
+      "category": "Interfaces",
+      "source_row": 27
+    },
+    {
+      "id": "e626129a7c997977",
+      "machine": "Cisco",
+      "description": "הפיכת ממשק לTRUNK",
+      "command": "switchport mode trunk",
+      "category": "Interfaces",
+      "source_row": 26
+    },
+    {
+      "id": "8b2b851abfe2f3c0",
+      "machine": "Cisco",
+      "description": "הפניית פורטים DNAT",
+      "command": "ip nat inside source static tcp x.x.x.x (Lan) num (Port) x.x.x.x (Wan) num (Port)",
+      "category": "Interfaces",
+      "source_row": 36
+    },
+    {
+      "id": "780c1e889e55d502",
+      "machine": "Cisco",
+      "description": "הצגת CPU",
+      "command": "show processes cpu",
+      "category": "System",
+      "source_row": 19
+    },
+    {
+      "id": "4f64defce662668d",
+      "machine": "Cisco",
+      "description": "הצגת DHCP",
+      "command": "show dhcp server",
+      "category": "Other",
+      "source_row": 15
+    },
+    {
+      "id": "9a885d88ed116c57",
+      "machine": "Cisco",
+      "description": "הצגת Vlan בAccess",
+      "command": "show vlan switch",
+      "category": "VLAN / L2",
+      "source_row": 24
+    },
+    {
+      "id": "ee6e9303fee6d02e",
+      "machine": "Cisco",
+      "description": "הצגת Vlan בTrunk",
+      "command": "show interface trunk",
+      "category": "Interfaces",
+      "source_row": 25
+    },
+    {
+      "id": "123bc1f13b003ef5",
+      "machine": "Cisco",
+      "description": "הצגת גירסא  + כמה זמן הראוטר למעלה",
+      "command": "show version",
+      "category": "System",
+      "source_row": 21
+    },
+    {
+      "id": "44eaa3ed549e3c09",
+      "machine": "Cisco",
+      "description": "הצגת טבלת ARP",
+      "command": "show arp",
+      "category": "VLAN / L2",
+      "source_row": 10
+    },
+    {
+      "id": "40e42ffb14a6d54f",
+      "machine": "Cisco",
+      "description": "הצגת טבלת MAC",
+      "command": "show mac-address-table",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "04771636001f4390",
+      "machine": "Cisco",
+      "description": "הצגת טבלת ניתוב",
+      "command": "show ip route",
+      "category": "Routing",
+      "source_row": 8
+    },
+    {
+      "id": "66be92ddf271186f",
+      "machine": "Cisco",
+      "description": "הצגת סטטוס של הפורטים",
+      "command": "show interface status",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "38a9a6e100cc9c19",
+      "machine": "Cisco",
+      "description": "הצגת קונפיגורציה",
+      "command": "show run",
+      "category": "Other",
+      "source_row": 11
+    },
+    {
+      "id": "5716088ff1b1a66c",
+      "machine": "Cisco",
+      "description": "הצגת שיוך IP לממשק",
+      "command": "show ip interface brief",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "7de7f07f32d9e3e4",
+      "machine": "Cisco",
+      "description": "הצגת שיוך ממשק לVlan",
+      "command": "show vlan-switch",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "c713e2f33f4462c3",
+      "machine": "Cisco",
+      "description": "הצגת תיאור על ממשקים",
+      "command": "show ip interface description",
+      "category": "Routing",
+      "source_row": 22
+    },
+    {
+      "id": "586486cac62636c2",
+      "machine": "Cisco",
+      "description": "הקשחת MAC לIP",
+      "command": "ip dhcp pool name",
+      "category": "VLAN / L2",
+      "source_row": 37
+    },
+    {
+      "id": "51021be46349cc8d",
+      "machine": "Cisco",
+      "description": "לבדוק עוצמות סלולר, להתייחס לRSSI",
+      "command": "show cellular 0 radio",
+      "category": "Other",
+      "source_row": 43
+    },
+    {
+      "id": "5e6969d09e0bf426",
+      "machine": "Cisco",
+      "description": "לראות SMS שנשלחו",
+      "command": "show cellular 0 sms",
+      "category": "Other",
+      "source_row": 54
+    },
+    {
+      "id": "a2701b06828b7ec3",
+      "machine": "Cisco",
+      "description": "לראות איזה כתובות חילקתי בDHCP",
+      "command": "show ip dhcp binding",
+      "category": "Other",
+      "source_row": 14
+    },
+    {
+      "id": "a716904b39d93c84",
+      "machine": "Cisco",
+      "description": "לראות לוגים זמן אמת",
+      "command": "terminal monitor -> debug snmp packet",
+      "category": "Diagnostics",
+      "source_row": 62
+    },
+    {
+      "id": "bf3abca6afe4e0e8",
+      "machine": "Cisco",
+      "description": "לראות לוגים של המכונה - לאיתור נפילות תקשורת",
+      "command": "show log",
+      "category": "Diagnostics",
+      "source_row": 9
+    },
+    {
+      "id": "3812d6b20ddf1717",
+      "machine": "Cisco",
+      "description": "לראות מי הספק הסלולרי",
+      "command": "show cellular 0 network",
+      "category": "Other",
+      "source_row": 44
+    },
+    {
+      "id": "9fab776dce65cd95",
+      "machine": "Cisco",
+      "description": "לראות שגיאות על הממשק",
+      "command": "show controllers vdSL 0",
+      "category": "Interfaces",
+      "source_row": 12
+    },
+    {
+      "id": "2e8d7f45c549301f",
+      "machine": "Cisco",
+      "description": "מאפשר העברת מידע דרך VLAN גם אם כל הממשקים בDOWN",
+      "command": "conf t -> interface vlan 20 ->   no autostate",
+      "category": "Interfaces",
+      "source_row": 42
+    },
+    {
+      "id": "38c275b6a498db3b",
+      "machine": "Cisco",
+      "description": "מחיקת טבלת ARP",
+      "command": "clear ip arp",
+      "category": "VLAN / L2",
+      "source_row": 35
+    },
+    {
+      "id": "a8a0d9a61b5ef0c9",
+      "machine": "Cisco",
+      "description": "עדכון גרסא לסיסקו",
+      "command": "show file systems",
+      "category": "System",
+      "source_row": 66
+    },
+    {
+      "id": "911363fbf4cbbc76",
+      "machine": "Cisco",
+      "description": "קרדיט:",
+      "command": "write memory - > reload",
+      "category": "System",
+      "source_row": 70
+    },
+    {
+      "id": "da2a7c901222b221",
+      "machine": "Cisco",
+      "description": "שיוך לVlan בAccess",
+      "command": "switchport access vlan + num",
+      "category": "Interfaces",
+      "source_row": 32
+    },
+    {
+      "id": "3fc4838809ce82bf",
+      "machine": "Cisco",
+      "description": "שיוך לVlan בTrunk",
+      "command": "switchport trunk allow vlan add + num / all / re",
+      "category": "Interfaces",
+      "source_row": 31
+    },
+    {
+      "id": "bd7ea94d8f5a66a0",
+      "machine": "Fortigate",
+      "description": "2FA עבור",
+      "command": "diagnose debug reset\ndiagnose debug console timestamp enable\ndiagnose debug application alertmail -1\ndiagnose debug enable",
+      "category": "Diagnostics",
+      "source_row": 53
+    },
+    {
+      "id": "d9987aa78b6bd814",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "config log memory global-setting ->set max-size",
+      "category": "Diagnostics",
+      "source_row": 17
+    },
+    {
+      "id": "1967c9bc8c8cbf3f",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "config system interface\nedin Lan_Sw\nset l2forward enable\nset stpforward enable\nend",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "fff1502d7aa576a0",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "End",
+      "category": "Other",
+      "source_row": 65
+    },
+    {
+      "id": "4295c04fe0b459a3",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "execute test-email alertmail <recipient_email>",
+      "category": "Other",
+      "source_row": 54
+    },
+    {
+      "id": "54d75be694f76a2b",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "execute traceroute-options source <IP>\nexecute traceroute <IP>",
+      "category": "Routing",
+      "source_row": 11
+    },
+    {
+      "id": "3f94069b34ea968b",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "get log memory global-setting",
+      "category": "Diagnostics",
+      "source_row": 16
+    },
+    {
+      "id": "cad9e76dc315b238",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "security events -> right side -> web filter",
+      "category": "Other",
+      "source_row": 59
+    },
+    {
+      "id": "187c21a075bcb41d",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "Set email-to 050*******@b-sms.co.il",
+      "category": "Configuration",
+      "source_row": 64
+    },
+    {
+      "id": "91fe54425b410696",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "Set two-factor email",
+      "category": "Configuration",
+      "source_row": 63
+    },
+    {
+      "id": "0f1078fca72b0c69",
+      "machine": "Fortigate",
+      "description": "Command reference",
+      "command": "WEB-FILTER  -> STATIC URL FILTER",
+      "category": "Other",
+      "source_row": 60
+    },
+    {
+      "id": "e973c7ff1a47babc",
+      "machine": "Fortigate",
+      "description": "אם קיימת טבלת SESSION  - FULL  אין צורך בפוליסה חזור",
+      "command": "diagnose sys session list",
+      "category": "Diagnostics",
+      "source_row": 36
+    },
+    {
+      "id": "d01cbef9db3aba01",
+      "machine": "Fortigate",
+      "description": "בדיקה האם תחנה מאזינה לפורט מסוים",
+      "command": "execute telnet (internal ip - כתובת של מחשב פנימי) (portnumber מספר פורט פנימי)",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "e3e4b3def2ac808d",
+      "machine": "Fortigate",
+      "description": "בדיקת שגיאות על ממשק",
+      "command": "diagnose netlink interface list internalx",
+      "category": "Interfaces",
+      "source_row": 37
+    },
+    {
+      "id": "fcd9843fbcdc124a",
+      "machine": "Fortigate",
+      "description": "בדיקת שגיאות על ממשק Wan",
+      "command": "diagnose netlink interface list wan",
+      "category": "Interfaces",
+      "source_row": 34
+    },
+    {
+      "id": "ecab5b69a795c627",
+      "machine": "Fortigate",
+      "description": "הגדרת מספר חזרות לפינג",
+      "command": "execute ping-options repeat-count x (num)",
+      "category": "Diagnostics",
+      "source_row": 10
+    },
+    {
+      "id": "129abe5597049896",
+      "machine": "Fortigate",
+      "description": "הוספת שירות ניתוב",
+      "command": "edit 2 \nset dst <IP> <IP>\nset gateway  <IP> \nset device [uplink interface - wan]",
+      "category": "Routing",
+      "source_row": 68
+    },
+    {
+      "id": "c7aac43a270f59e2",
+      "machine": "Fortigate",
+      "description": "הצגת IP על ממשקים",
+      "command": "show system interface physical",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "847332897e8877a0",
+      "machine": "Fortigate",
+      "description": "הצגת MAC של הציוד",
+      "command": "get hardware nic",
+      "category": "VLAN / L2",
+      "source_row": 47
+    },
+    {
+      "id": "af43dbaa39badb2d",
+      "machine": "Fortigate",
+      "description": "הצגת גירסא",
+      "command": "get system status",
+      "category": "System",
+      "source_row": 46
+    },
+    {
+      "id": "e0f9606f3bbc36b8",
+      "machine": "Fortigate",
+      "description": "הצגת הגדרות BGP",
+      "command": "get router info bgp summery",
+      "category": "Routing",
+      "source_row": 39
+    },
+    {
+      "id": "d63fe4cde3c0153a",
+      "machine": "Fortigate",
+      "description": "הצגת הגדרות DHCP",
+      "command": "show full-configuration system dhcp server",
+      "category": "System",
+      "source_row": 22
+    },
+    {
+      "id": "73e9ce81bbaecc85",
+      "machine": "Fortigate",
+      "description": "הצגת הגדרות מלאות לפי ממשק",
+      "command": "show full-configuration system interface interface",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "80468c4acf111d35",
+      "machine": "Fortigate",
+      "description": "הצגת הגדרות ניתוב סטטי",
+      "command": "show router static",
+      "category": "Routing",
+      "source_row": 18
+    },
+    {
+      "id": "1e77cdcf6d50806c",
+      "machine": "Fortigate",
+      "description": "הצגת טבלת ARP",
+      "command": "get system arp | grep 192.168.50.X ||  -v [exclude something]",
+      "category": "Interfaces",
+      "source_row": 27
+    },
+    {
+      "id": "3810817cb320a347",
+      "machine": "Fortigate",
+      "description": "הצגת טבלת ניתוב BGP",
+      "command": "show router info bgp network",
+      "category": "Routing",
+      "source_row": 44
+    },
+    {
+      "id": "eaf188ba1a012729",
+      "machine": "Fortigate",
+      "description": "הצגת ממשקים",
+      "command": "diagnose hardware deviceinfo nic int",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "e2f353228d243fe1",
+      "machine": "Fortigate",
+      "description": "הצגת ניתוב סטטי",
+      "command": "show full-configuration router static",
+      "category": "Routing",
+      "source_row": 19
+    },
+    {
+      "id": "b1453caaef2992cb",
+      "machine": "Fortigate",
+      "description": "הצגת ניתוב שהתקבל מהשכן",
+      "command": "get router info bgp neighbour x.x.x.x adv-route",
+      "category": "Routing",
+      "source_row": 42
+    },
+    {
+      "id": "cf2da1022fb0d2ad",
+      "machine": "Fortigate",
+      "description": "הצגת ניתוב שמפורסם לשכן",
+      "command": "get router info bgp neighbour x.x.x.x routes",
+      "category": "Routing",
+      "source_row": 41
+    },
+    {
+      "id": "239ceaa52cd0734d",
+      "machine": "Fortigate",
+      "description": "הצגת נתונים על BGP",
+      "command": "get router info bgp network",
+      "category": "Routing",
+      "source_row": 72
+    },
+    {
+      "id": "d3d4de10b2888c63",
+      "machine": "Fortigate",
+      "description": "הצגת קונפיגורציה מלאה",
+      "command": "show system global",
+      "category": "System",
+      "source_row": 33
+    },
+    {
+      "id": "81352be64a4a219c",
+      "machine": "Fortigate",
+      "description": "הצגת שכנות BGP",
+      "command": "get router info bgp neighbour",
+      "category": "Routing",
+      "source_row": 40
+    },
+    {
+      "id": "67864cd006a9c04a",
+      "machine": "Fortigate",
+      "description": "כניסה למצה CONFIG",
+      "command": "config router static",
+      "category": "Routing",
+      "source_row": 66
+    },
+    {
+      "id": "16f76a77fff3e1b9",
+      "machine": "Fortigate",
+      "description": "לאתחל את כל הסשנים במכונה, ניתן גם לפלטר רק עבור IP מסוים",
+      "command": "diagnose sys session clear",
+      "category": "Diagnostics",
+      "source_row": 35
+    },
+    {
+      "id": "97153eb723f9a6fe",
+      "machine": "Fortigate",
+      "description": "לבדוק האם רשיונות בתוקף בפורטי",
+      "command": "diagnose autoupdate versions",
+      "category": "Interfaces",
+      "source_row": 57
+    },
+    {
+      "id": "87314173113d027d",
+      "machine": "Fortigate",
+      "description": "לבטל חלוקה של DHCP עבור כתובת ספציפית",
+      "command": "execute dhcp lease-clear <IP>",
+      "category": "Other",
+      "source_row": 49
+    },
+    {
+      "id": "625bea5d40319e7e",
+      "machine": "Fortigate",
+      "description": "להפעיל לוגים עבור שליחת 2FA",
+      "command": "diag debug enable",
+      "category": "Diagnostics",
+      "source_row": 26
+    },
+    {
+      "id": "ebdfe5c87ced524f",
+      "machine": "Fortigate",
+      "description": "לחדש את חלוקת הDHCP של ממשק מסוים",
+      "command": "execute dhcp  lease-clear ???",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "a0c902fd425bce3f",
+      "machine": "Fortigate",
+      "description": "לראות איזה כתובות חילקנו בDHCP",
+      "command": "execute dhcp lease-list",
+      "category": "Other",
+      "source_row": 48
+    },
+    {
+      "id": "259b9903c479fd0a",
+      "machine": "Fortigate",
+      "description": "לראות איך נלמד ניתוב",
+      "command": "get router info routing-table  details <IP>",
+      "category": "Routing",
+      "source_row": 24
+    },
+    {
+      "id": "1d25fbbc20ccf899",
+      "machine": "Fortigate",
+      "description": "לראות את כל הניתובים בפורטי",
+      "command": "get router info routing-table all",
+      "category": "Routing",
+      "source_row": 43
+    },
+    {
+      "id": "29f9ba371941ab13",
+      "machine": "Fortigate",
+      "description": "לראות האם קיים פורט לניהול",
+      "command": "show full-configuration | grep sport",
+      "category": "Interfaces",
+      "source_row": 69
+    },
+    {
+      "id": "50f31e65a7e72cb6",
+      "machine": "Fortigate",
+      "description": "לראות הפניות פורטים",
+      "command": "show firewall vip",
+      "category": "Interfaces",
+      "source_row": 67
+    },
+    {
+      "id": "a35d397c5cf00a31",
+      "machine": "Fortigate",
+      "description": "לראות לוגים על שליחת 2FA",
+      "command": "diag debug application alertmail -1",
+      "category": "Diagnostics",
+      "source_row": 25
+    },
+    {
+      "id": "1131aefc256adb84",
+      "machine": "Fortigate",
+      "description": "לראות לוגים על תחנה מסוימת",
+      "command": "diagnose sniffer packet any 'host <IP>'",
+      "category": "Diagnostics",
+      "source_row": 50
+    },
+    {
+      "id": "b6f91ff3a6246750",
+      "machine": "Fortigate",
+      "description": "לראות ציודים נוספים שמחוברים לפורטי",
+      "command": "diagnose lldprx neighbor details | grep addr",
+      "category": "Routing",
+      "source_row": 51
+    },
+    {
+      "id": "b582565acca2b4df",
+      "machine": "Fortigate",
+      "description": "מחיקת טבלת ARP וקבלת DHCP מחדש",
+      "command": "execute clear system arp table",
+      "category": "VLAN / L2",
+      "source_row": 38
+    },
+    {
+      "id": "7315acb730e7c1b1",
+      "machine": "Fortigate",
+      "description": "שולח פינגים רצופים למחשב שמחובר לסוויץ שנרדם",
+      "command": "config system link-monitor -> set server [IP של מחשב שמחובר לסוויץ ]",
+      "category": "System",
+      "source_row": 56
+    },
+    {
+      "id": "b34d8fde74c8f62d",
+      "machine": "Fortigate",
+      "description": "שינוי מהירות על ממשק פיזי",
+      "command": "config system interface - show - edit [interface] - set speed [auto]",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "ac89d226686f5cea",
+      "machine": "Fortigate",
+      "description": "שליחת פינג",
+      "command": "execute ping x.x.x.x",
+      "category": "Diagnostics",
+      "source_row": 7
+    },
+    {
+      "id": "e8633250f9e6c298",
+      "machine": "Fortigate",
+      "description": "שליחת פינג עם סורס",
+      "command": "execute ping-options source x.x.x.x",
+      "category": "Diagnostics",
+      "source_row": 9
+    },
+    {
+      "id": "b110bfd04c042954",
+      "machine": "HP",
+      "description": "Command reference",
+      "command": "display interface brief",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "dceae3f4f31981ee",
+      "machine": "HP",
+      "description": "הגדרת ממשק בACCESS",
+      "command": "interface GigabitEthernet1/0/24\nport link-mode bridge\ndescription to_customer_switch\nport access vlan 2000\ncombo enable copper",
+      "category": "Routing",
+      "source_row": 9
+    },
+    {
+      "id": "9235d9635858f1d9",
+      "machine": "HP",
+      "description": "הגדרת ממשק בTRUNK",
+      "command": "interface GigabitEthernet1/0/24\ntagged 20-30",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "f0b7f6a3438502e0",
+      "machine": "HP",
+      "description": "כניסה למצב עריכה",
+      "command": "system view",
+      "category": "System",
+      "source_row": 8
+    },
+    {
+      "id": "0130c1787d30904a",
+      "machine": "HP",
+      "description": "לראות הגדרות קיימות כמו SHOW RUN",
+      "command": "display current-configuration",
+      "category": "Configuration",
+      "source_row": 7
+    },
+    {
+      "id": "5ad114484a35c086",
+      "machine": "HP",
+      "description": "לראות לוגים",
+      "command": "display logbuffer",
+      "category": "Diagnostics",
+      "source_row": 12
+    },
+    {
+      "id": "0cb99177db87d3ed",
+      "machine": "HT",
+      "description": "Command reference",
+      "command": "show wifi-channel",
+      "category": "Other",
+      "source_row": 31
+    },
+    {
+      "id": "a2077651fe491b24",
+      "machine": "HT",
+      "description": "האם מופעל UPNP או לא",
+      "command": "show upnp",
+      "category": "Other",
+      "source_row": 14
+    },
+    {
+      "id": "fce82516351c27e4",
+      "machine": "HT",
+      "description": "כל הפקודות המוגדרות בציוד",
+      "command": "showRunningConfigScript",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "c9305c074e189eb5",
+      "machine": "HT",
+      "description": "מציג VLAN-ים עם הכתובות IP + תיוג",
+      "command": "show vlans",
+      "category": "VLAN / L2",
+      "source_row": 25
+    },
+    {
+      "id": "0b37ec988855473d",
+      "machine": "HT",
+      "description": "מציג אירועים שהתרחשו בנתב",
+      "command": "Show syslog",
+      "category": "Diagnostics",
+      "source_row": 10
+    },
+    {
+      "id": "a80715f305bdd4a6",
+      "machine": "HT",
+      "description": "מציג את ה-Devices שמחוברים לנתב (IP / mac / סוג הציוד והאם ב- True או False).",
+      "command": "show hosts",
+      "category": "VLAN / L2",
+      "source_row": 18
+    },
+    {
+      "id": "0740b0ee751141c0",
+      "machine": "HT",
+      "description": "מציג את הגדרות ה- DHCP (סטטוס, Range וכו')",
+      "command": "show dhcp",
+      "category": "Configuration",
+      "source_row": 21
+    },
+    {
+      "id": "38d62106aec075ed",
+      "machine": "HT",
+      "description": "מציג את הזיכרון בשימוש וכמה נשאר לשימוש",
+      "command": "show memory",
+      "category": "System",
+      "source_row": 11
+    },
+    {
+      "id": "79f0c2ee5d0cf143",
+      "machine": "HT",
+      "description": "מציג את הממשקים שמופעל עליהם NAT",
+      "command": "show nat",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "c676e21d3ff94b6b",
+      "machine": "HT",
+      "description": "מציג את הנתונים של הממשק הפיזי",
+      "command": "show phy-interfaces",
+      "category": "Interfaces",
+      "source_row": 24
+    },
+    {
+      "id": "50417c7e8777ab6f",
+      "machine": "HT",
+      "description": "מציג את טבלת ARP",
+      "command": "show arp",
+      "category": "VLAN / L2",
+      "source_row": 17
+    },
+    {
+      "id": "2d550d3ce9eca034",
+      "machine": "HT",
+      "description": "מציג את מצב ונתוני הסנכרון + uptime",
+      "command": "Show xdsl info",
+      "category": "System",
+      "source_row": 27
+    },
+    {
+      "id": "437a71aa00a18f20",
+      "machine": "HT",
+      "description": "מציג את נתוני ה- Wi-Fi (SSID, סטטוס הממשק, סוג הצפנה)",
+      "command": "show wireless",
+      "category": "Interfaces",
+      "source_row": 32
+    },
+    {
+      "id": "fcf093c807225cc0",
+      "machine": "HT",
+      "description": "מציג את נתוני הממשקים (IP / Link State / Duplex /speed)",
+      "command": "show int-briefs",
+      "category": "Interfaces",
+      "source_row": 19
+    },
+    {
+      "id": "11a16d777c36ee41",
+      "machine": "HT",
+      "description": "מציג את נתוני הממשקים פעיל / לא פעיל וסטטוס",
+      "command": "show interfaces",
+      "category": "Interfaces",
+      "source_row": 22
+    },
+    {
+      "id": "1b02ebc22ed525ee",
+      "machine": "HT",
+      "description": "מציג את שיוך הממשקים בהתאמה LAN / WAN",
+      "command": "show bridge",
+      "category": "Interfaces",
+      "source_row": 26
+    },
+    {
+      "id": "65ab63a317a635bc",
+      "machine": "HT",
+      "description": "מציג גרסה המודם של ה-DSL",
+      "command": "show xdsl --version",
+      "category": "System",
+      "source_row": 28
+    },
+    {
+      "id": "4f5da50b31f96aa5",
+      "machine": "HT",
+      "description": "מציג גרסה חומרה ותוכנה",
+      "command": "show version",
+      "category": "System",
+      "source_row": 9
+    },
+    {
+      "id": "15dbba11e4af0f63",
+      "machine": "HT",
+      "description": "מציג הגדרות SNMP",
+      "command": "show snmp",
+      "category": "Configuration",
+      "source_row": 13
+    },
+    {
+      "id": "d173fe4c43b59f92",
+      "machine": "HT",
+      "description": "מציג הגדרות של ממשק ספציפי + crc/ drop וכו' (interval של 30 שניות)",
+      "command": "show interface \"interface-name\"",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "9949192ffe6d350a",
+      "machine": "HT",
+      "description": "מציג טבלת ניתוב",
+      "command": "show route",
+      "category": "Routing",
+      "source_row": 20
+    },
+    {
+      "id": "c2673dfec7ceacf0",
+      "machine": "HT",
+      "description": "מציג כמה זמן הנתב דלוק",
+      "command": "show uptime",
+      "category": "System",
+      "source_row": 12
+    },
+    {
+      "id": "bdd7ae255ec685bc",
+      "machine": "HT",
+      "description": "מציג נתונים של הנתב (גרסה, זיכרון ועוד)",
+      "command": "show deviceinfo",
+      "category": "System",
+      "source_row": 8
+    },
+    {
+      "id": "41602f32623c47ec",
+      "machine": "HT",
+      "description": "מציג שעה והתאריך המוגדרים בנתב",
+      "command": "show date / date-time",
+      "category": "Other",
+      "source_row": 15
+    },
+    {
+      "id": "98570267f61585d9",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "exit",
+      "category": "Other",
+      "source_row": 29
+    },
+    {
+      "id": "260b945dfd27ca19",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show chassis mac-addresses",
+      "category": "VLAN / L2",
+      "source_row": 38
+    },
+    {
+      "id": "eee4771352e14fe6",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show configuration interfaces | display set | match V2059 (vlan name)",
+      "category": "Interfaces",
+      "source_row": 39
+    },
+    {
+      "id": "b90a05195a9f3c83",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show configuration vlans | display set | match 2059",
+      "category": "VLAN / L2",
+      "source_row": 37
+    },
+    {
+      "id": "b3089ad723e82a67",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show configuration | compare",
+      "category": "Configuration",
+      "source_row": 43
+    },
+    {
+      "id": "af160eaee3384dc5",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show configuration | display set",
+      "category": "Configuration",
+      "source_row": 11
+    },
+    {
+      "id": "c0204bb88d96464e",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show interface [ ממשק פיזי ]",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "4bbe19ea8b4ab985",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show interfaces terse | match 9",
+      "category": "Interfaces",
+      "source_row": 41
+    },
+    {
+      "id": "b78efaa1fbc32665",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show lldp neighbors",
+      "category": "Routing",
+      "source_row": 35
+    },
+    {
+      "id": "7d9d2d37d05dea5b",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show lldp neighbors interface xe-0/2/1",
+      "category": "Routing",
+      "source_row": 36
+    },
+    {
+      "id": "fd9819f1a25d09a1",
+      "machine": "Juniper SRX",
+      "description": "Command reference",
+      "command": "show system snapshot media internal",
+      "category": "System",
+      "source_row": 44
+    },
+    {
+      "id": "fd57b164773dc993",
+      "machine": "Juniper SRX",
+      "description": "אם לא עובד חץ למעלה",
+      "command": "set cli terminal vt100",
+      "category": "Configuration",
+      "source_row": 40
+    },
+    {
+      "id": "33e77075d9ee6a3c",
+      "machine": "Juniper SRX",
+      "description": "דומה לshow VLAN PORT",
+      "command": "show ethernet-switching table vlan-name V354 | match [VLAN / MAC  ]",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "38231612715ee187",
+      "machine": "Juniper SRX",
+      "description": "הגדרת שרת NTP - שעון של המכונה",
+      "command": "set system ntp server [IP ADDRESS]",
+      "category": "System",
+      "source_row": 33
+    },
+    {
+      "id": "bd03fe120f7d34c1",
+      "machine": "Juniper SRX",
+      "description": "הקמת LOOPBACK",
+      "command": "set interfaces irb unit 1323 family inet address <IP>/30 ||  set vlans Line_82-<ID> l3-interface irb.1323",
+      "category": "Interfaces",
+      "source_row": 17
+    },
+    {
+      "id": "bb3a13bc13485b8e",
+      "machine": "Juniper SRX",
+      "description": "הקשחת מאקים בSRX 300",
+      "command": "set system services dhcp static-binding mac address fixed-address ip address",
+      "category": "Interfaces",
+      "source_row": 27
+    },
+    {
+      "id": "5272de03325da1ab",
+      "machine": "Juniper SRX",
+      "description": "השתלטות מהPE",
+      "command": "ssh routin-instance [vrf] bezeq@[IP MANAGE]",
+      "category": "Other",
+      "source_row": 31
+    },
+    {
+      "id": "3ce37e0278ebd198",
+      "machine": "Juniper SRX",
+      "description": "כניסה למצב עריכה (כמו CONF T)",
+      "command": "edit private -> commit",
+      "category": "Configuration",
+      "source_row": 26
+    },
+    {
+      "id": "72f0396e2c226862",
+      "machine": "Juniper SRX",
+      "description": "לבדוק SFP במכונה",
+      "command": "show chassis hardware\nshow chassis pic pic-slot 0 fpc-slot 0",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "5759d7660216f74d",
+      "machine": "Juniper SRX",
+      "description": "לראות את ה ZONES במכונה ( פוליסות שמאופשרות )",
+      "command": "show configuration security zones  | display set",
+      "category": "Configuration",
+      "source_row": 21
+    },
+    {
+      "id": "6349985dd0c6be2a",
+      "machine": "Juniper SRX",
+      "description": "לראות את כל הוילאנים במכונה",
+      "command": "show vlans brief",
+      "category": "VLAN / L2",
+      "source_row": 15
+    },
+    {
+      "id": "b98b57041a3a4bbc",
+      "machine": "Juniper SRX",
+      "description": "לראות את כל הממשקים במכונה",
+      "command": "show interface terse/ descriptions",
+      "category": "Routing",
+      "source_row": 10
+    },
+    {
+      "id": "384bc6d3beb7565a",
+      "machine": "Juniper SRX",
+      "description": "לראות חוקים של ZONES   (פוליסות)",
+      "command": "show configuration security policies  | display set",
+      "category": "Configuration",
+      "source_row": 20
+    },
+    {
+      "id": "e59da32e0f2d47bc",
+      "machine": "Juniper SRX",
+      "description": "לראות טבלת ARP",
+      "command": "show arp no-resolve",
+      "category": "VLAN / L2",
+      "source_row": 19
+    },
+    {
+      "id": "687a08f8ef9625f0",
+      "machine": "Juniper SRX",
+      "description": "לראות טבלת ניתוב",
+      "command": "show route",
+      "category": "Routing",
+      "source_row": 13
+    },
+    {
+      "id": "ea57e52e5edbc5c5",
+      "machine": "Juniper SRX",
+      "description": "לראות לוגים  זמן אמת",
+      "command": "show security flow session ||  show log messages",
+      "category": "Diagnostics",
+      "source_row": 24
+    },
+    {
+      "id": "22181c0d837f1af3",
+      "machine": "Juniper SRX",
+      "description": "לראות לוגים לאחר שליחת פינג",
+      "command": "show security flow session",
+      "category": "Other",
+      "source_row": 32
+    },
+    {
+      "id": "5d8c6e8843489dc7",
+      "machine": "Juniper SRX",
+      "description": "לראות ממשקי LAYER 3  בלבד",
+      "command": "show interface terse | match inet",
+      "category": "Interfaces",
+      "source_row": 12
+    },
+    {
+      "id": "e61171535490dc15",
+      "machine": "Juniper SRX",
+      "description": "לראות ממשקים LAYER 2",
+      "command": "show ethernet-switching interface",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "c1893bfc160f6c6e",
+      "machine": "Juniper SRX",
+      "description": "לראות ניתובים שהוגדרו ידנית",
+      "command": "show configuration routing-options",
+      "category": "Routing",
+      "source_row": 23
+    },
+    {
+      "id": "26f3f79ee3a5ceb2",
+      "machine": "Juniper SRX",
+      "description": "לראות שיוך פורט לVLAN",
+      "command": "show configuration interfaces | display set",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "1c89ae6e5149fea1",
+      "machine": "Juniper SRX",
+      "description": "מחיקת LOOPBACK",
+      "command": "delete vlans Line_82-<ID> l3-interface irb.1323 || delete interfaces irb unit 1323",
+      "category": "Interfaces",
+      "source_row": 18
+    },
+    {
+      "id": "5dc3d3e2967ac155",
+      "machine": "Juniper SRX",
+      "description": "מחיקת סשיין פתוח",
+      "command": "file delete /var/home/Full_Prov/.ssh/known_hosts",
+      "category": "Other",
+      "source_row": 28
+    },
+    {
+      "id": "43a8736ef7560ad3",
+      "machine": "Juniper SRX",
+      "description": "מציאת קווים  בPE",
+      "command": "show arp no-resolve vpn [vrf]",
+      "category": "VLAN / L2",
+      "source_row": 30
+    },
+    {
+      "id": "dcb8035182d6c694",
+      "machine": "Juniper SRX",
+      "description": "מראה שיוך VLAN לפורט",
+      "command": "show configuration vlans | match VLAN | display set",
+      "category": "Interfaces",
+      "source_row": 34
+    },
+    {
+      "id": "47034a747df618cd",
+      "machine": "Juniper SRX",
+      "description": "פינג עם סורס",
+      "command": "ping x.x.x.x. source",
+      "category": "Diagnostics",
+      "source_row": 25
+    },
+    {
+      "id": "a42a1ac951bfead1",
+      "machine": "LNS",
+      "description": "Command reference",
+      "command": "show configuration interface loopback",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "0315929efa4e0fe6",
+      "machine": "LNS",
+      "description": "Command reference",
+      "command": "show configuration routing-instances shoam-2 | display set",
+      "category": "Routing",
+      "source_row": 8
+    },
+    {
+      "id": "f3da8c1c4799605c",
+      "machine": "LNS",
+      "description": "Command reference",
+      "command": "show subscribers routing-instance [domain]",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "08c759084c9195bb",
+      "machine": "LNS",
+      "description": "ביפו לבדוק אם יש כמה ניתובים ללאן של הלקוח, אם יש ססולר בסדר 2",
+      "command": "show ip bgp vpnv4 vrf {vrf} {LAN}",
+      "category": "Routing",
+      "source_row": 15
+    },
+    {
+      "id": "7247bad52442b1d6",
+      "machine": "M500",
+      "description": "ביצוע Telnet",
+      "command": "telnet x.x.x.x 23 source data source-address interface vlan y",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "d3e1d664dd493444",
+      "machine": "M500",
+      "description": "ביצוע Trace Route",
+      "command": "traceroute x.x.x.x source-address interface int",
+      "category": "Routing",
+      "source_row": 30
+    },
+    {
+      "id": "21f990818b046ee2",
+      "machine": "M500",
+      "description": "ד",
+      "command": "show data ip arp",
+      "category": "VLAN / L2",
+      "source_row": 12
+    },
+    {
+      "id": "50f6ca2e8acbc730",
+      "machine": "M500",
+      "description": "הגדרת DHCP Relay",
+      "command": "configure data\ninterface VLAN X (our LAN interface vlan)\nip dhcp-server X.X.X.X (dhcp server ip)\n\nבנוסף יש להגדיר תחת הממשק\nip dhcp-source-address x.x.x.x",
+      "category": "Interfaces",
+      "source_row": 36
+    },
+    {
+      "id": "fe93aeac7a6971b9",
+      "machine": "M500",
+      "description": "הגדרת DNS",
+      "command": "ip dhcp-server dns-server <IP> <IP>",
+      "category": "Configuration",
+      "source_row": 28
+    },
+    {
+      "id": "945e94cda06f7e96",
+      "machine": "M500",
+      "description": "הגדרת Option 43",
+      "command": "ip dhcp-server option 43 hex hex string (לפי בקר מתאים)",
+      "category": "Configuration",
+      "source_row": 41
+    },
+    {
+      "id": "ba1bf826de4c457c",
+      "machine": "M500",
+      "description": "הגדרת טווח כתובות עבור DHCP",
+      "command": "ip dhcp-server network x.x.x.x (start) x.x.x.x (end) y.y.y.y (mask)",
+      "category": "Configuration",
+      "source_row": 27
+    },
+    {
+      "id": "4945291fb30413bf",
+      "machine": "M500",
+      "description": "הצגת הגדרות BGP",
+      "command": "show data ip bgp",
+      "category": "Routing",
+      "source_row": 17
+    },
+    {
+      "id": "688a832ee84720fc",
+      "machine": "M500",
+      "description": "הצגת הגדרות סלולאר",
+      "command": "show data cellular config",
+      "category": "Configuration",
+      "source_row": 18
+    },
+    {
+      "id": "3b95e574f65fc730",
+      "machine": "M500",
+      "description": "הצגת הגדרות על ממשק ספציפי או על כל הממשקים",
+      "command": "show data interfaces [interface]",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "a765a6ecb22b5676",
+      "machine": "M500",
+      "description": "הצגת טבלת ניתוב",
+      "command": "show data ip route",
+      "category": "Routing",
+      "source_row": 16
+    },
+    {
+      "id": "b5c075876282763d",
+      "machine": "M500",
+      "description": "הצגת ממשק אופטי (עוצמות אופטיות)",
+      "command": "show data interfaces fiber x/x",
+      "category": "Interfaces",
+      "source_row": 22
+    },
+    {
+      "id": "f6fe1275c1998862",
+      "machine": "M500",
+      "description": "הצגת ממשקים",
+      "command": "show data interfaces description",
+      "category": "Routing",
+      "source_row": 14
+    },
+    {
+      "id": "222722ea0109140b",
+      "machine": "M500",
+      "description": "הצגת נתוני Bridge",
+      "command": "show data bridge-configuration",
+      "category": "VLAN / L2",
+      "source_row": 24
+    },
+    {
+      "id": "e6c816424bae3bd0",
+      "machine": "M500",
+      "description": "הצגת סטטוס סלולאר",
+      "command": "show data cellular status",
+      "category": "Other",
+      "source_row": 19
+    },
+    {
+      "id": "2872a9099ab9f6dd",
+      "machine": "M500",
+      "description": "הצגת סטטוס פורטים",
+      "command": "show data interfaces status",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "49a5be3f1bd22a5c",
+      "machine": "M500",
+      "description": "הצגת פירוט על פורטים",
+      "command": "show data interfaces switchport",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "318b7484215fb2a7",
+      "machine": "M500",
+      "description": "הצגת קונפיגורציה",
+      "command": "show run data/voip",
+      "category": "Other",
+      "source_row": 10
+    },
+    {
+      "id": "62bcc90f2d2414e4",
+      "machine": "M500",
+      "description": "הצגת שיוך IP לממשק",
+      "command": "show data ip interface brief",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "26e4523f26200835",
+      "machine": "M500",
+      "description": "הקשחת כתובת IP לכתובת MAC",
+      "command": "ip dhcp-server static-host hostname\nip x.x.x.x\nmac XX:XX:XX:XX:XX:XX\nhostname any\nexit",
+      "category": "VLAN / L2",
+      "source_row": 31
+    },
+    {
+      "id": "6a15e333cbee5b66",
+      "machine": "M500",
+      "description": "טבלת MAC לפי VLAN",
+      "command": "show data mac-address-table vlan 20",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "434c503de935bd5a",
+      "machine": "M500",
+      "description": "כניסה למצב ניהול",
+      "command": "enable",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "f7260cf8847b1b24",
+      "machine": "M500",
+      "description": "כניסה למצב קונפיגורציה",
+      "command": "conf data",
+      "category": "Other",
+      "source_row": 25
+    },
+    {
+      "id": "84003af90ec9c79b",
+      "machine": "M500",
+      "description": "לאחר שדרוג גרסא חובה לבצע את הפקודה הזו",
+      "command": "copy startup-script from running-config",
+      "category": "Routing",
+      "source_row": 46
+    },
+    {
+      "id": "616e09e73b8b89a7",
+      "machine": "M500",
+      "description": "לראות הגדרות על ממשק",
+      "command": "show run data interface [interface]",
+      "category": "Interfaces",
+      "source_row": 43
+    },
+    {
+      "id": "725fc7189732d6fb",
+      "machine": "M500",
+      "description": "לראות כמה זמן למעלה",
+      "command": "show system uptime",
+      "category": "System",
+      "source_row": 11
+    },
+    {
+      "id": "3d9ae06d71fabb06",
+      "machine": "M500",
+      "description": "עריכת ממשקים",
+      "command": "configure data",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "73c9b0cf8e19915d",
+      "machine": "M500",
+      "description": "פינג בתוך VRF עבור Bcam בקו קימונעי",
+      "command": "ping <IP> source data vrf bezeq",
+      "category": "Diagnostics",
+      "source_row": 42
+    },
+    {
+      "id": "31ca6c69159a8f5d",
+      "machine": "M500",
+      "description": "שליחת Ping",
+      "command": "ping x.x.x.x source data source-address interface vlan x",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "c67b378a60ff63cd",
+      "machine": "M500",
+      "description": "שמירת הגדרות",
+      "command": "write",
+      "category": "Configuration",
+      "source_row": 44
+    },
+    {
+      "id": "bd7c855421e1c02b",
+      "machine": "MRV",
+      "description": "Command reference",
+      "command": "show lt port all tag 1611",
+      "category": "Interfaces",
+      "source_row": 33
+    },
+    {
+      "id": "85b76e7a72a9250c",
+      "machine": "MRV",
+      "description": "Command reference",
+      "command": "tag x (Vlan)",
+      "category": "VLAN / L2",
+      "source_row": 19
+    },
+    {
+      "id": "22cb6975447a6c35",
+      "machine": "MRV",
+      "description": "בדיקת שגיאות על הפורט",
+      "command": "show port statistics",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "06314e41a924f6c5",
+      "machine": "MRV",
+      "description": "הגדרת Duplex לממשק",
+      "command": "port duplex x (half / full) y (Port-Num)",
+      "category": "Interfaces",
+      "source_row": 24
+    },
+    {
+      "id": "79e95d8c3dc9e0b2",
+      "machine": "MRV",
+      "description": "הגדרת MTU בפורט",
+      "command": "port mtu-size all 9100",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "6108c8e880047d18",
+      "machine": "MRV",
+      "description": "הגדרת Q-In-Q",
+      "command": "port tag-outbound-mode q-in-q x (Port-Num) y (Vlan)",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "8d8fecba7317a999",
+      "machine": "MRV",
+      "description": "הגדרת Trunk",
+      "command": "port tag-outbound-mode trunk x (Port-Num)",
+      "category": "Interfaces",
+      "source_row": 25
+    },
+    {
+      "id": "a113f8a9b2edbe62",
+      "machine": "MRV",
+      "description": "הגדרת מהירות לממשק",
+      "command": "port speed x (10/100/1000) y (Port-Num)",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "a4e007960efc1873",
+      "machine": "MRV",
+      "description": "הגדרת ממשק Vlan",
+      "command": "interface vlan vifx (Vlan)",
+      "category": "Interfaces",
+      "source_row": 17
+    },
+    {
+      "id": "963372951281b715",
+      "machine": "MRV",
+      "description": "הגדרת סוג חיבור לממשק",
+      "command": "port media-select (copper / sfp) (Port-Num)",
+      "category": "Interfaces",
+      "source_row": 22
+    },
+    {
+      "id": "510cf308c931f186",
+      "machine": "MRV",
+      "description": "הגדרת פרוטוקולי L2",
+      "command": "port l2protocol-tunnel all x (Port-Num)",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "ea98dab8d4e1c872",
+      "machine": "MRV",
+      "description": "הצגת MAC מפורט",
+      "command": "show lt port",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "7981ad4e3ea71765",
+      "machine": "MRV",
+      "description": "הצגת גרסא וUPTIME",
+      "command": "show version",
+      "category": "System",
+      "source_row": 27
+    },
+    {
+      "id": "8cdef2b61cb3c58d",
+      "machine": "MRV",
+      "description": "הצגת טבלת MAC",
+      "command": "show lt",
+      "category": "VLAN / L2",
+      "source_row": 12
+    },
+    {
+      "id": "2d84f6e42d78f7fd",
+      "machine": "MRV",
+      "description": "הצגת פורט",
+      "command": "show port x",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "aa6c30df05f1426c",
+      "machine": "MRV",
+      "description": "הצגת פרטים על פורט",
+      "command": "show port stat x",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "5873150151580098",
+      "machine": "MRV",
+      "description": "הצגת קונפיגורציה",
+      "command": "show run",
+      "category": "Other",
+      "source_row": 8
+    },
+    {
+      "id": "b1eeccff110ef444",
+      "machine": "MRV",
+      "description": "הצגת תיאור על הפורט",
+      "command": "show port details",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "602d0eb39eef85a2",
+      "machine": "MRV",
+      "description": "הצגת תיוגים על פורט",
+      "command": "show port tag",
+      "category": "Interfaces",
+      "source_row": 31
+    },
+    {
+      "id": "bad1e1eb786a6531",
+      "machine": "MRV",
+      "description": "כניסה למצב Configuration",
+      "command": "conf t",
+      "category": "Configuration",
+      "source_row": 15
+    },
+    {
+      "id": "2ec5bb5526649eaa",
+      "machine": "MRV",
+      "description": "כניסה למצב Enable",
+      "command": "enable",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "3eb6926d996bd967",
+      "machine": "MRV",
+      "description": "מחיקת טבלת MAC",
+      "command": "clear lt",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "019d339e6d493249",
+      "machine": "MRV",
+      "description": "שגצןמ",
+      "command": "show port sfp-diag",
+      "category": "Interfaces",
+      "source_row": 26
+    },
+    {
+      "id": "b5755e742c535d15",
+      "machine": "MRV",
+      "description": "שמירת הגדרות",
+      "command": "write memory",
+      "category": "System",
+      "source_row": 32
+    },
+    {
+      "id": "ee0b33d5be485c56",
+      "machine": "MSAG Adtran",
+      "description": "בדיקת שגיאות על פורט ב-MSAG",
+      "command": "show port statistics ethernet *port*",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "c6db24883823fb98",
+      "machine": "MSAG Adtran",
+      "description": "למצוא כפילו מדוייקת.",
+      "command": "show run | include {VLAN}",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "71094e9f3b4c2281",
+      "machine": "MSAG Adtran",
+      "description": "לנקות את כל MAC",
+      "command": "enable --> conf t --> bridge --> clear mac *svlan*",
+      "category": "VLAN / L2",
+      "source_row": 12
+    },
+    {
+      "id": "dbed204a7e1c85ef",
+      "machine": "MSAG Adtran",
+      "description": "לראות איזה פורטים עובדים EVM",
+      "command": "show run | inc hidd",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "a8a42191fff99f43",
+      "machine": "MSAG Adtran",
+      "description": "לראות את כל הפורטים עם CVLAN מסויים",
+      "command": "show bridgeport | inc *cvlan*",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "4863f95a70d63241",
+      "machine": "MSAG Adtran",
+      "description": "לראות למידת MAC מSVALN מסויים",
+      "command": "show mac vlan *svlan* all",
+      "category": "VLAN / L2",
+      "source_row": 10
+    },
+    {
+      "id": "339f20debf9e4ce7",
+      "machine": "MSAG Adtran",
+      "description": "לראות למידת MAC מפורט מסויים",
+      "command": "show mac port *port*",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "a1ed50d9f438c91c",
+      "machine": "MT 6850",
+      "description": "ביטול הגדרת Auto Negotiation לפורט",
+      "command": "interface x/x autoneg disable",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "26be4d51e2f5cfad",
+      "machine": "MT 6850",
+      "description": "גילוי מה פורט גיבוי ומה ראשי",
+      "command": "show linkagg port",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "b3f77779c80d1225",
+      "machine": "MT 6850",
+      "description": "גילוי פורט לכיוון MSAG  בתשתית נחושת",
+      "command": "show interface port",
+      "category": "Interfaces",
+      "source_row": 25
+    },
+    {
+      "id": "523b747f1d08d90e",
+      "machine": "MT 6850",
+      "description": "הגדרת Description",
+      "command": "interfaces x/x alias xx-xxxxxxx",
+      "category": "Routing",
+      "source_row": 18
+    },
+    {
+      "id": "056afb10ddaf2844",
+      "machine": "MT 6850",
+      "description": "הגדרת MTU",
+      "command": "interfaces gigaethernet x/x max frame x (num)",
+      "category": "Interfaces",
+      "source_row": 19
+    },
+    {
+      "id": "8f9932d2a54f5c43",
+      "machine": "MT 6850",
+      "description": "הגדרת מצב Duplex לפורט",
+      "command": "interface x/x duplex full/half",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "819c8b5c35ecab38",
+      "machine": "MT 6850",
+      "description": "הצגת טבלת Mac",
+      "command": "show mac-address-table",
+      "category": "VLAN / L2",
+      "source_row": 15
+    },
+    {
+      "id": "86deb7d806e8f5ef",
+      "machine": "MT 6850",
+      "description": "הצגת כל הממשקים",
+      "command": "show vlan port",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "ce2def1f5263611b",
+      "machine": "MT 6850",
+      "description": "הצגת לוגים",
+      "command": "show log swlog",
+      "category": "Diagnostics",
+      "source_row": 17
+    },
+    {
+      "id": "32b45d2504a2b191",
+      "machine": "MT 6850",
+      "description": "הצגת ממשק ספציפי",
+      "command": "show interface x/x",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "a6e9459d9b2baa89",
+      "machine": "MT 6850",
+      "description": "הצגת עוצמות אופטיות לכיוון הלקוח",
+      "command": "show interfaces x/x transceiver",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "86d285ded18c7f9a",
+      "machine": "MT 6850",
+      "description": "הצגת קונפיגורציה",
+      "command": "show configuration snapshot",
+      "category": "Configuration",
+      "source_row": 12
+    },
+    {
+      "id": "80d333d1073876f9",
+      "machine": "MT 6850",
+      "description": "הצגת תעבורה על פורט",
+      "command": "show interfaces x/x counters",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "ea630fc9a409bf32",
+      "machine": "MT 6850",
+      "description": "הקשחת מהירות לפורט",
+      "command": "interface x/x speed 10/100/1000",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "b47a402646eed1a0",
+      "machine": "MT 6850",
+      "description": "לראות SVLAN",
+      "command": "show ethernet-service port linkagg 2",
+      "category": "Interfaces",
+      "source_row": 24
+    },
+    {
+      "id": "988e438abd7b1764",
+      "machine": "MT 6850",
+      "description": "לראות פרטים על SVLAN",
+      "command": "show ethernet-service svlan [svlan]",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "9e6d7510f11dbc1c",
+      "machine": "MT 6850",
+      "description": "לראות פרטים על פורט פיזי",
+      "command": "show ethernet-service port [x/x]",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "90cf18c1d6ea164d",
+      "machine": "MT 6850",
+      "description": "לראות שיוך לפורטים פיזיים",
+      "command": "show linkagg [Agg number] port",
+      "category": "Interfaces",
+      "source_row": 26
+    },
+    {
+      "id": "c2d6432783b8ee91",
+      "machine": "MT 6850",
+      "description": "ניקוי שגיאות על פורט",
+      "command": "interfaces x/x no l2 statistics cli",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "59376dde8c7762fb",
+      "machine": "MT 6860",
+      "description": "#NAME?",
+      "command": "show vlan members port X/X/X",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "bf5f9982a8d9e55e",
+      "machine": "MT 6860",
+      "description": "בדיקת רמות אופטיות",
+      "command": "show interface port [port] ddm",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "3610508f59ba1328",
+      "machine": "MT 6860",
+      "description": "גילוי מה פורט גיבוי ומה ראשי",
+      "command": "show linkagg port",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "fbee41c2af02db9c",
+      "machine": "MT 6860",
+      "description": "גילוי פורט לכיוון MSAG  בתשתית נחושת",
+      "command": "show interface port",
+      "category": "Interfaces",
+      "source_row": 22
+    },
+    {
+      "id": "1e1b5ae44d3c3a3d",
+      "machine": "MT 6860",
+      "description": "להוריד AUTONEG בממשק  לכיוון לקוח",
+      "command": "interfaces 1/1/26 autoneg disable",
+      "category": "Interfaces",
+      "source_row": 17
+    },
+    {
+      "id": "35ff8ce699b5af77",
+      "machine": "MT 6860",
+      "description": "לראות MAC לפי SVLAN מהOMF מסויים",
+      "command": "show mac-learning domain vlan vlan SVLAN",
+      "category": "VLAN / L2",
+      "source_row": 7
+    },
+    {
+      "id": "b1f9e6663ff33e6e",
+      "machine": "MT 6860",
+      "description": "לראות SVLAN",
+      "command": "show ethernet-service port linkagg 2",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "d60c0287277db1f1",
+      "machine": "MT 6860",
+      "description": "לראות SVLAN וסוג העברה לפי פורט",
+      "command": "show vlan members",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "f5bc9b1d07ea714d",
+      "machine": "MT 6860",
+      "description": "לראות איזה Vlan ואיזה פורט לומדים את ה כתובת MAC",
+      "command": "show mac-learning mac-address {MAC-Address}",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "8737060f38c46903",
+      "machine": "MT 6860",
+      "description": "לראות את מצב הפורט",
+      "command": "show interface port [port[",
+      "category": "Interfaces",
+      "source_row": 12
+    },
+    {
+      "id": "f942e6c36092fcc6",
+      "machine": "MT 6860",
+      "description": "לראות על איזה פורט נמצא ה Svlan",
+      "command": "show ethernet-service port x/x/x",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "650aecc6a73c8f8b",
+      "machine": "MT 6860",
+      "description": "לראות פרטים על SVLAN (מזהה MT)",
+      "command": "show ethernet-service svlan SVLAN",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "d7afcbdd273ef7dc",
+      "machine": "MT 6860",
+      "description": "לראות שיוך לפורטים פיזיים",
+      "command": "show linkagg [Agg number] port",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "902eeb2dd50aef24",
+      "machine": "MT 6860",
+      "description": "לראות תיאור של ממשקים",
+      "command": "show interfaces alias",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "39cc1e0889a60bf3",
+      "machine": "MT 6860",
+      "description": "לרות MAC מפורט מסוים",
+      "command": "show mac-learning port x/x/x",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "af2b7e0986183482",
+      "machine": "MX",
+      "description": "Command reference",
+      "command": "clear arp vpn acc-mgt hostname <IP>",
+      "category": "VLAN / L2",
+      "source_row": 17
+    },
+    {
+      "id": "185e8cf90138ee7a",
+      "machine": "MX",
+      "description": "Command reference",
+      "command": "deactivate interfaces ge-0/0/1 unit 2713",
+      "category": "Interfaces",
+      "source_row": 19
+    },
+    {
+      "id": "1c6eb22fe0c1ac2a",
+      "machine": "MX",
+      "description": "Command reference",
+      "command": "file delete /var/home/Full_Prov_L3/.ssh/known_hosts",
+      "category": "Other",
+      "source_row": 18
+    },
+    {
+      "id": "b272ad87e8fa38f6",
+      "machine": "MX",
+      "description": "Command reference",
+      "command": "show configuration policy-options policy-statement ?",
+      "category": "Configuration",
+      "source_row": 20
+    },
+    {
+      "id": "75b49348e427acb6",
+      "machine": "MX",
+      "description": "Command reference",
+      "command": "show interfaces ge-0/0/2 extensive",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "60d354212d564475",
+      "machine": "MX",
+      "description": "למידת MAC מממשק",
+      "command": "show bridge mac-table interface ge-0/1/6 | match [VLAN]",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "4e9d6c5bdf7a6318",
+      "machine": "MX",
+      "description": "למידת MAC מפורט עם 4003",
+      "command": "show vpls mac-table interface ge-1/1/8",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "ddae033589563744",
+      "machine": "MX",
+      "description": "למצוא MX ניהולים",
+      "command": "show vpls connections instance [ VRF ניהול]",
+      "category": "VLAN / L2",
+      "source_row": 15
+    },
+    {
+      "id": "a7c6682b32f2cf97",
+      "machine": "MX",
+      "description": "למצוא ממשק",
+      "command": "show interfaces terse | match 0/0/2",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "7439dfe86b45cda8",
+      "machine": "MX",
+      "description": "לראות את השעון של המכונה",
+      "command": "show system uptime",
+      "category": "System",
+      "source_row": 7
+    },
+    {
+      "id": "7ee796b79e5d1845",
+      "machine": "MX",
+      "description": "לראות מצב של ממשק",
+      "command": "show interfaces ge-X/X/X",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "6756aee2c54f664f",
+      "machine": "MX",
+      "description": "לראות ראשי גיבוי",
+      "command": "show vrrp brief",
+      "category": "Other",
+      "source_row": 16
+    },
+    {
+      "id": "048f0cb8c0f0fd26",
+      "machine": "MX",
+      "description": "עבור פלאפון",
+      "command": "ping routing-instance pelephone-csc <IP> source <IP>",
+      "category": "Routing",
+      "source_row": 12
+    },
+    {
+      "id": "b49cb5aa6f0b1514",
+      "machine": "MX",
+      "description": "רמות אופטיות",
+      "command": "show interfaces diagnostics optics ge-0/0/2 | match db | except th",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "63d773f2d9276cda",
+      "machine": "Nokia 7210",
+      "description": "LOG",
+      "command": "show log log-id 100",
+      "category": "Diagnostics",
+      "source_row": 21
+    },
+    {
+      "id": "bd8cfad4ad52299f",
+      "machine": "Nokia 7210",
+      "description": "LOG",
+      "command": "show log log-id 99",
+      "category": "Diagnostics",
+      "source_row": 22
+    },
+    {
+      "id": "e43bcaf37d9c3a82",
+      "machine": "Nokia 7210",
+      "description": "בדיקת פורט",
+      "command": "show port x/x/x",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "e946c78b8c1834ec",
+      "machine": "Nokia 7210",
+      "description": "גילוי MAC לפי SVLAN",
+      "command": "show service id [service ID CVLAN \"vpls-xxxxxxxx\"] fdb detail",
+      "category": "VLAN / L2",
+      "source_row": 8
+    },
+    {
+      "id": "2b904ef6422ac8e7",
+      "machine": "Nokia 7210",
+      "description": "לבדוק MAC",
+      "command": "show service fdb-mac | match <MAC>",
+      "category": "VLAN / L2",
+      "source_row": 14
+    },
+    {
+      "id": "ac3df53563796b88",
+      "machine": "Nokia 7210",
+      "description": "למידת ARP",
+      "command": "show router arp",
+      "category": "Routing",
+      "source_row": 26
+    },
+    {
+      "id": "9bdb3523894cab58",
+      "machine": "Nokia 7210",
+      "description": "לראות MAC לפי  SERVICE (VLAN) או לפי השם של הservice",
+      "command": "show service id [mt number  + 0 + svlan / SVLAN] fdb detail",
+      "category": "VLAN / L2",
+      "source_row": 12
+    },
+    {
+      "id": "5940ee218b1fc8eb",
+      "machine": "Nokia 7210",
+      "description": "לראות uptime",
+      "command": "show system information",
+      "category": "System",
+      "source_row": 20
+    },
+    {
+      "id": "7310400a16d793da",
+      "machine": "Nokia 7210",
+      "description": "לראות פרטים על UPLINK של מכונה",
+      "command": "show lag 28 description",
+      "category": "Routing",
+      "source_row": 18
+    },
+    {
+      "id": "5f98d33f5c728e4c",
+      "machine": "Nokia 7210",
+      "description": "לראות רמות אופטיות לכיוון תשתית",
+      "command": "show port X/X/X optical",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "2d3d4e185665501e",
+      "machine": "Nokia 7210",
+      "description": "לראות תיאור ותצורה של SERVICE (VLAN)",
+      "command": "show service service-using [vlan]",
+      "category": "VLAN / L2",
+      "source_row": 11
+    },
+    {
+      "id": "387d20f135d53fcf",
+      "machine": "Nokia 7210",
+      "description": "לראות תיאור של פורטים פיזיים",
+      "command": "show port description",
+      "category": "Routing",
+      "source_row": 9
+    },
+    {
+      "id": "b89f81295b9f1586",
+      "machine": "Nokia 7210",
+      "description": "לראות תעבורה על ממשק זמן אמת",
+      "command": "monitor port 1/1/12",
+      "category": "Interfaces",
+      "source_row": 17
+    },
+    {
+      "id": "b52bdd602c41a3e1",
+      "machine": "Nokia 7210",
+      "description": "מחיקת LOOPBACK",
+      "command": "/configure service ies 17 shutdown\n/configure service ies 17 interface \"test-ping1\" shutdown\n/configure service ies 17 interface \"test-ping1\" no vpls\n/configure service ies 17 no interface \"test-ping1\"\n/configure service no ies 17",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "03e5ab78a2f74696",
+      "machine": "Nokia 7210",
+      "description": "רואה את הSVLAN עבודה ואת הפורט לכיוון OS",
+      "command": "show service sap-using | match [port from OMF]",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "d89977dc11a3b2c5",
+      "machine": "Nokia 7210",
+      "description": "תיאור לשירות",
+      "command": "show system cpu",
+      "category": "System",
+      "source_row": 19
+    },
+    {
+      "id": "94e84408ccfcef2c",
+      "machine": "Nokia CL",
+      "description": "(חובה לשים METRIC  - מייצג את מספר הקפיצות מהנתב שמפיץ ליעד הניתוב)",
+      "command": "redistribute [משהו] metric 2",
+      "category": "Routing",
+      "source_row": 31
+    },
+    {
+      "id": "63ea33c71c1ebba9",
+      "machine": "Nokia CL",
+      "description": "*הפצת ניתוב דיפולטיבי לשכן - הגדרה תחת הממשק שפונה לשכן*",
+      "command": "ip summary-address eigrp [LOCAL AS] <IP> <IP>",
+      "category": "Routing",
+      "source_row": 11
+    },
+    {
+      "id": "b4a14987fa747602",
+      "machine": "Nokia CL",
+      "description": "1. הקמת ACL",
+      "command": "ip access-list standard NAT_PERMIT\n permit <IP> <IP> (LAN מקומי)",
+      "category": "Other",
+      "source_row": 60
+    },
+    {
+      "id": "eeedc8302a87089a",
+      "machine": "Nokia CL",
+      "description": "2. הגדרת ממשק שפונה אל ה LAN (פנימה) (ניתן גם על VLAN)",
+      "command": "interface GigabitEthernet0/0\n ip nat inside",
+      "category": "Interfaces",
+      "source_row": 61
+    },
+    {
+      "id": "4a8c278c2b6719ac",
+      "machine": "Nokia CL",
+      "description": "3. הגדרת ממשק שפונה אל ה WAN (החוצה) (ניתן גם על VLAN)",
+      "command": "interface GigabitEthernet0/1\n ip nat outside",
+      "category": "Interfaces",
+      "source_row": 62
+    },
+    {
+      "id": "1316c4a2dda51589",
+      "machine": "Nokia CL",
+      "description": "4. הגדרת התירגום ממשק שמתויג כפנימי עם הכתובות האלו אל ממשק חיצוני",
+      "command": "ip nat inside source list NAT_PERMIT interface GigabitEthernet0/1 overload",
+      "category": "Interfaces",
+      "source_row": 63
+    },
+    {
+      "id": "8694107ed6994a2a",
+      "machine": "Nokia CL",
+      "description": "Command reference",
+      "command": "network <IP> <IP> area 0",
+      "category": "Other",
+      "source_row": 33
+    },
+    {
+      "id": "81700d60a6ba8c30",
+      "machine": "Nokia CL",
+      "description": "הכרזה",
+      "command": "router bgp 65500\n no auto-summary\nredistribute static\n\n no synchronization",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "a3da4be931d2e707",
+      "machine": "Nokia CL",
+      "description": "הכרזה",
+      "command": "router eigrp 35\n no auto-summary",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "38232668d24e864d",
+      "machine": "Nokia CL",
+      "description": "הכרזה",
+      "command": "router ospf 10\nrouter-id <IP>",
+      "category": "Routing",
+      "source_row": 30
+    },
+    {
+      "id": "600004911b563c48",
+      "machine": "Nokia CL",
+      "description": "הכרזה",
+      "command": "router rip\nversion 2\n no auto-summary",
+      "category": "Routing",
+      "source_row": 29
+    },
+    {
+      "id": "7d7e7d2e1d72e74f",
+      "machine": "Nokia CL",
+      "description": "הכרזה על שכן",
+      "command": "neighbor <IP> FastEthernet1/0",
+      "category": "Routing",
+      "source_row": 10
+    },
+    {
+      "id": "582bb215c1abc678",
+      "machine": "Nokia CL",
+      "description": "הפניית כל התעבורה מכתובת לכתובת",
+      "command": "ip nat inside source static [local-ip] [global-ip] extendable",
+      "category": "Other",
+      "source_row": 67
+    },
+    {
+      "id": "c854c8bdec436ac3",
+      "machine": "Nokia CL",
+      "description": "הפניית כל התעבורה ממשק לממשק",
+      "command": "ip nat inside source static [inside-address] interface [outside interface]",
+      "category": "Interfaces",
+      "source_row": 66
+    },
+    {
+      "id": "b45be8ae66454917",
+      "machine": "Nokia CL",
+      "description": "הפניית פורט (PAT)",
+      "command": "ip nat inside source static tcp [local-ip] [local-port] interface [WAN INTERFACE/IP] [WAN INTERFACE/IP-port]",
+      "category": "Interfaces",
+      "source_row": 65
+    },
+    {
+      "id": "cf4f833a7a71c387",
+      "machine": "Nokia CL",
+      "description": "הפעלת הפרוטוקול על ממשקים עם הIP הזה",
+      "command": "network <IP> <IP>",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "683396e1fe1c6bb0",
+      "machine": "Nokia CL",
+      "description": "הפצת ניתוב",
+      "command": "network <IP>",
+      "category": "Routing",
+      "source_row": 8
+    },
+    {
+      "id": "ec89a1d84a4c7517",
+      "machine": "Nokia CL",
+      "description": "הפצת ניתוב דיפולטיבי <IP>/0",
+      "command": "default-information originate",
+      "category": "Routing",
+      "source_row": 9
+    },
+    {
+      "id": "6ce8b7d1eb8df33c",
+      "machine": "Nokia CL",
+      "description": "הקמת HSRP",
+      "command": "standby 1 ip [VIRTUAL IP - GATEWAY FOR COMPUTERS]\n standby 1 priority 110 (DEFAULT 100, יותר גבוה מנצח)\n standby 1 preempt\n standby 1 track 1 decrement 10 (אופציונלי)",
+      "category": "Other",
+      "source_row": 55
+    },
+    {
+      "id": "e257c3f8b452d623",
+      "machine": "Nokia CL",
+      "description": "הקמת ROUTE MAP",
+      "command": "ip access-list standard DEFAULT-ROUTE\n permit any\n\n neighbor SNIFFIM route-map BACKUP out\nroute-map BACKUP permit 10\n match ip address DEFAULT-ROUTE SERVER-ROUTE\n set as-path prepend 65500 65500",
+      "category": "Routing",
+      "source_row": 12
+    },
+    {
+      "id": "c810a3c03f8a41d5",
+      "machine": "Nokia CL",
+      "description": "הקמת TRACK",
+      "command": "ip sla 1\n icmp-echo <IP> (ניתן להוסיף SOURCE לפינג) \n  frequency 5\n  timeout 1000\nexit",
+      "category": "Other",
+      "source_row": 56
+    },
+    {
+      "id": "b52740ea31b56f38",
+      "machine": "Nokia CL",
+      "description": "הקמת TRACK",
+      "command": "ip sla schedule 1 life forever start-time now",
+      "category": "Other",
+      "source_row": 57
+    },
+    {
+      "id": "560d2812ff6daa41",
+      "machine": "Nokia CL",
+      "description": "הקמת TRACK",
+      "command": "track 1 ip sla 1 reachability\n delay down 15 up 10",
+      "category": "Other",
+      "source_row": 58
+    },
+    {
+      "id": "13b7ed5f17de8847",
+      "machine": "Nokia CL",
+      "description": "הקמת קבוצת שכנים",
+      "command": "neighbor SNIFFIM peer-group\n neighbor SNIFFIM remote-as 65505\n neighbor SNIFFIM next-hop-self\n neighbor SNIFFIM soft-reconfiguration inbound",
+      "category": "Routing",
+      "source_row": 10
+    },
+    {
+      "id": "2f2bcf0b8a74e394",
+      "machine": "Nokia CL",
+      "description": "להגיד לממשק מסוים לא להשתתף בפרוטוקול",
+      "command": "passive-interface [interface]",
+      "category": "Interfaces",
+      "source_row": 32
+    },
+    {
+      "id": "7d2372cf10bee131",
+      "machine": "Nokia CL",
+      "description": "שיוך שכנים לקבוצה",
+      "command": "neighbor <IP> peer-group SNIFFIM\n neighbor <IP> peer-group SNIFFIM\n neighbor <IP> peer-group SNIFFIM\n neighbor <IP> peer-group SNIFFIM",
+      "category": "Routing",
+      "source_row": 11
+    },
+    {
+      "id": "3e837bfea09d6de7",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ethernet-service sap num cvlan all",
+      "category": "Interfaces",
+      "source_row": 32
+    },
+    {
+      "id": "7ec25afa873636fd",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ethernet-service sap num service-name \"קוד קו\"",
+      "category": "Interfaces",
+      "source_row": 30
+    },
+    {
+      "id": "996acea7301c7a8e",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ethernet-service sap num uni x/x",
+      "category": "Interfaces",
+      "source_row": 31
+    },
+    {
+      "id": "0ff3e84b2f106d39",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ethernet-service sap-profile \"קוד קו\"",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "7b6aea6cab4d6dd2",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ip interface \"Management\" address [ip manage] mask <IP> vlan 4003",
+      "category": "Interfaces",
+      "source_row": 55
+    },
+    {
+      "id": "15d533db5b4e7980",
+      "machine": "OS-6450",
+      "description": "Command reference",
+      "command": "ip static-route <IP>/0 gateway <IP>",
+      "category": "Routing",
+      "source_row": 50
+    },
+    {
+      "id": "37b08112ca7dfeb9",
+      "machine": "OS-6450",
+      "description": "MTU",
+      "command": "interfaces 1/1/9 max-frame-size /  interfaces 1/2 max frame",
+      "category": "Interfaces",
+      "source_row": 42
+    },
+    {
+      "id": "575a9a811850277a",
+      "machine": "OS-6450",
+      "description": "אם בסוף עדיין לא נשמר",
+      "command": "reload from working no rollback-timeout",
+      "category": "Other",
+      "source_row": 65
+    },
+    {
+      "id": "0ef9e1d1e5e4072d",
+      "machine": "OS-6450",
+      "description": "אם לא נשמר לנסות פקודה",
+      "command": "copy running certified",
+      "category": "Other",
+      "source_row": 63
+    },
+    {
+      "id": "4e1813ec26f633b9",
+      "machine": "OS-6450",
+      "description": "בדיקה של מה הפרופילים מאפשרים",
+      "command": "show ethernet-service uni-profile",
+      "category": "Interfaces",
+      "source_row": 61
+    },
+    {
+      "id": "c196a60df95d3474",
+      "machine": "OS-6450",
+      "description": "בידקת פרופילים משוייכים לפורטים לפרוטוקול LAYER2",
+      "command": "show ethernet-service uni",
+      "category": "Interfaces",
+      "source_row": 60
+    },
+    {
+      "id": "26e5b4b125a58186",
+      "machine": "OS-6450",
+      "description": "ביטול הקשחת Duplex",
+      "command": "interface x/x duplex auto",
+      "category": "Interfaces",
+      "source_row": 22
+    },
+    {
+      "id": "a6cad94339498bf1",
+      "machine": "OS-6450",
+      "description": "ביטול הקשחת מהירות",
+      "command": "interface x/x speed auto",
+      "category": "Interfaces",
+      "source_row": 26
+    },
+    {
+      "id": "9019ea287f58a4f3",
+      "machine": "OS-6450",
+      "description": "ביצוע SSH",
+      "command": "ssh <IP>",
+      "category": "Other",
+      "source_row": 14
+    },
+    {
+      "id": "fd018e84128ed7b9",
+      "machine": "OS-6450",
+      "description": "במידה ולא קיים פרופיל מתאים בMT",
+      "command": "ethernet-service uni-profile \"uni-tunnel-all\" l2-protocol 802.1ab tunnel 802.1x tunnel amap tunnel 802.3ad tunnel lacpmarker tunnel oam tunnel pagp tunnel udld tunnel vtp tunnel dtp tunnel cdp tunnel pvst tunnel vlan tunnel uplink tunnel",
+      "category": "Interfaces",
+      "source_row": 38
+    },
+    {
+      "id": "15e49ea76b277de6",
+      "machine": "OS-6450",
+      "description": "הגדרת Auto Negotiation",
+      "command": "interface x/x autoneg enable/disable",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "fe4859580c2efb1e",
+      "machine": "OS-6450",
+      "description": "הגדרת IP Helper",
+      "command": "ip helper address x.x.x.x x.x.x.x",
+      "category": "Configuration",
+      "source_row": 59
+    },
+    {
+      "id": "130d3eee2bb94980",
+      "machine": "OS-6450",
+      "description": "הגדרת LAYER 2 לאפשור כל פרוטוקלי LAYER2",
+      "command": "ethernet-service uni 1/10 uni-profile ieee-fwd-all",
+      "category": "Interfaces",
+      "source_row": 62
+    },
+    {
+      "id": "6d20e543e8904de8",
+      "machine": "OS-6450",
+      "description": "הגדרת LOOPBACK חדש במכונה",
+      "command": "ip interface \"test\" address \"<IP>\" mask \"<IP>\" vlan <vlan>",
+      "category": "Interfaces",
+      "source_row": 25
+    },
+    {
+      "id": "bf2eecb0f1a89016",
+      "machine": "OS-6450",
+      "description": "הגדרת הקשחת Duplex",
+      "command": "interface x/x duplex full/half",
+      "category": "Interfaces",
+      "source_row": 21
+    },
+    {
+      "id": "3b8f787ae9642bf3",
+      "machine": "OS-6450",
+      "description": "הגדרת הקשחת מהירות",
+      "command": "interface x/x speed 10/100/1000",
+      "category": "Interfaces",
+      "source_row": 23
+    },
+    {
+      "id": "bed77dcff01d5179",
+      "machine": "OS-6450",
+      "description": "הגדרת מהירות מקסימלית לפורט",
+      "command": "interface x/x flood rate num",
+      "category": "Interfaces",
+      "source_row": 35
+    },
+    {
+      "id": "41d2a57ece446797",
+      "machine": "OS-6450",
+      "description": "הגדרת ממשק Loopback",
+      "command": "ip interface \"x\" address x.x.x.x mask x.x.x.x vlan x ifindex x",
+      "category": "Interfaces",
+      "source_row": 39
+    },
+    {
+      "id": "7d305f0dbffae977",
+      "machine": "OS-6450",
+      "description": "הגדרת ניתוב",
+      "command": "ip static-route x.x.x.x/x gateway מה שרשום בניתובים אחרים metric 1",
+      "category": "Routing",
+      "source_row": 46
+    },
+    {
+      "id": "73a14b5fd3c08a69",
+      "machine": "OS-6450",
+      "description": "הגדרת פורט Q-in-Q",
+      "command": "ethernet-service service-name \"קוד קו\" svlan x",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "f9877973a00721f0",
+      "machine": "OS-6450",
+      "description": "הגדרת פורט בACCESS רגיל",
+      "command": "vlan 10 enable name \"lan\"\nvlan 10 port default 1/1",
+      "category": "Interfaces",
+      "source_row": 33
+    },
+    {
+      "id": "516cb31a194e31d9",
+      "machine": "OS-6450",
+      "description": "הגדרת פורט בTrunk",
+      "command": "ethernet-service svlan x nni x/x",
+      "category": "Interfaces",
+      "source_row": 27
+    },
+    {
+      "id": "80b0d38bcf97fb04",
+      "machine": "OS-6450",
+      "description": "הגדרת פרופיל מותאם למעבר פרוטוקולים L2",
+      "command": "ethernet-service uni x/x uni-profile ieee-fwd-all",
+      "category": "Interfaces",
+      "source_row": 36
+    },
+    {
+      "id": "0db507b504a85a3d",
+      "machine": "OS-6450",
+      "description": "הצגת STP",
+      "command": "show spantree",
+      "category": "Other",
+      "source_row": 48
+    },
+    {
+      "id": "e225afce0b6f4156",
+      "machine": "OS-6450",
+      "description": "הצגת הגדרות מערכת",
+      "command": "show cmm",
+      "category": "Configuration",
+      "source_row": 15
+    },
+    {
+      "id": "3c665d4d0d821e40",
+      "machine": "OS-6450",
+      "description": "הצגת הגדרות על Vlan",
+      "command": "show ethernet-service svlan x",
+      "category": "Interfaces",
+      "source_row": 18
+    },
+    {
+      "id": "eefc355e32128c71",
+      "machine": "OS-6450",
+      "description": "הצגת טבלת MAC",
+      "command": "show mac-address-table x/x / x",
+      "category": "VLAN / L2",
+      "source_row": 11
+    },
+    {
+      "id": "75d48d6c606b81f6",
+      "machine": "OS-6450",
+      "description": "הצגת טבלת ניתוב",
+      "command": "show ip route",
+      "category": "Routing",
+      "source_row": 44
+    },
+    {
+      "id": "075ba522fcada2ff",
+      "machine": "OS-6450",
+      "description": "הצגת לוגים",
+      "command": "show log swlog",
+      "category": "Diagnostics",
+      "source_row": 52
+    },
+    {
+      "id": "2918494fd1979074",
+      "machine": "OS-6450",
+      "description": "הצגת מהירות מקסימלית לפורט",
+      "command": "show interface x/x flood rate",
+      "category": "Interfaces",
+      "source_row": 19
+    },
+    {
+      "id": "970a9b8859f05a2e",
+      "machine": "OS-6450",
+      "description": "הצגת נתוני DHCP",
+      "command": "show configuration snapshot dhcp-server",
+      "category": "Configuration",
+      "source_row": 51
+    },
+    {
+      "id": "4fca909144f3e788",
+      "machine": "OS-6450",
+      "description": "הצגת נתוני מערכת",
+      "command": "show system",
+      "category": "System",
+      "source_row": 45
+    },
+    {
+      "id": "c9b441dd3e76900d",
+      "machine": "OS-6450",
+      "description": "הצגת עוצמות אופטיות על פורט לכיוון תשתית",
+      "command": "show interface x/x transceiver",
+      "category": "Interfaces",
+      "source_row": 12
+    },
+    {
+      "id": "a46b5c4c67d4f891",
+      "machine": "OS-6450",
+      "description": "הצגת פורט ספציפי ובדיקה האם שגיאות נצברות לכיוון לקוח או תשתית",
+      "command": "show interface x/x",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "a1e82675d5730ab3",
+      "machine": "OS-6450",
+      "description": "הצגת פורטים",
+      "command": "show interface port",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "c03379694f991445",
+      "machine": "OS-6450",
+      "description": "הצגת ציודים מחוברים בזק MT עם LLDP",
+      "command": "show lldp remote-system",
+      "category": "System",
+      "source_row": 43
+    },
+    {
+      "id": "299fa5be2c1d1894",
+      "machine": "OS-6450",
+      "description": "הצגת קונפיגורציה   // לראות שורה עבור הגדרת LOOPBACK",
+      "command": "show configuration snapshot  // ip",
+      "category": "Configuration",
+      "source_row": 17
+    },
+    {
+      "id": "985c9ee81eba45bf",
+      "machine": "OS-6450",
+      "description": "הצגת שיוך Vlan לפורט",
+      "command": "show vlan port",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "af621593ff0243e2",
+      "machine": "OS-6450",
+      "description": "הצגת תעבורה על פורט בזמן אמת",
+      "command": "show interface x/x counters",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "c365a07b544cfe23",
+      "machine": "OS-6450",
+      "description": "יצירת VLAN חדש כל מנת להתחיל הגדרות",
+      "command": "ethernet-service svlan ,<vlan> name <name>",
+      "category": "Interfaces",
+      "source_row": 24
+    },
+    {
+      "id": "6f06f92d4a7f2d42",
+      "machine": "OS-6450",
+      "description": "לראות כתובת MAC של המכונה",
+      "command": "show chassis",
+      "category": "VLAN / L2",
+      "source_row": 10
+    },
+    {
+      "id": "05977955c62c60fb",
+      "machine": "OS-6450",
+      "description": "לראות סנכרון בין הגדרות קיימות לבין מה ששמור על הציוד",
+      "command": "show running-directory",
+      "category": "Configuration",
+      "source_row": 16
+    },
+    {
+      "id": "be95046b4d621292",
+      "machine": "OS-6450",
+      "description": "לשים לב - יש לשייך את הפרופיל גם בMT",
+      "command": "ethernet-service uni x/x/x uni-profile \"uni-tunnel-all\"",
+      "category": "Interfaces",
+      "source_row": 37
+    },
+    {
+      "id": "e9f9960debc27ec4",
+      "machine": "OS-6450",
+      "description": "ניקוי רישום שגיאות בפורט",
+      "command": "interface x/x no l2 statistics cli",
+      "category": "Interfaces",
+      "source_row": 40
+    },
+    {
+      "id": "48003b6e9756bafb",
+      "machine": "OS-6450",
+      "description": "עדיין לא נשמר",
+      "command": "copy certified run make-running-directory",
+      "category": "Other",
+      "source_row": 64
+    },
+    {
+      "id": "0f985da56e2ac5f7",
+      "machine": "OS-6450",
+      "description": "שמירת הגדרות",
+      "command": "write memory flash-synchro",
+      "category": "System",
+      "source_row": 47
+    },
+    {
+      "id": "349bd08ffb45f42e",
+      "machine": "OS-6450",
+      "description": "שמירת הגדרות אם הרגיל לא עובד",
+      "command": "copy certified working ///////////////// copy certified working make-running-directory",
+      "category": "Configuration",
+      "source_row": 57
+    },
+    {
+      "id": "632751ae844113c0",
+      "machine": "PE",
+      "description": "-",
+      "command": "show configuration interfaces ge-0/0/1 | match unit | last 10",
+      "category": "Interfaces",
+      "source_row": 30
+    },
+    {
+      "id": "1f3bed3c5b7e1f99",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "clear arp vpn acc-mgt hostname <IP>",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "2747285cfd91997b",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "monitor interface ge-x/x/x.num (Vlan) / xe-x/x/x.num (Vlan)",
+      "category": "Interfaces",
+      "source_row": 33
+    },
+    {
+      "id": "84255967822d4e7a",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "set routing-instances [VRF] routing-options static route [LAN] next-hop [WAN]",
+      "category": "Routing",
+      "source_row": 35
+    },
+    {
+      "id": "c460eaa985d945da",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "show bgp summary instance *vrf*",
+      "category": "Routing",
+      "source_row": 16
+    },
+    {
+      "id": "a9f132b809214965",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "show configuration policy-options policy-statement ?",
+      "category": "Configuration",
+      "source_row": 37
+    },
+    {
+      "id": "9a31a1af1dadd042",
+      "machine": "PE",
+      "description": "Command reference",
+      "command": "show route table vrf.inet.0 [wan] recieved-protocol bgp",
+      "category": "Routing",
+      "source_row": 17
+    },
+    {
+      "id": "69392a71345fdd21",
+      "machine": "PE",
+      "description": "ביצעו התחברות מה PE ללקוח עם SSH:",
+      "command": "show configuration policy-options policy-statement",
+      "category": "Configuration",
+      "source_row": 25
+    },
+    {
+      "id": "25d5b7547ed33860",
+      "machine": "PE",
+      "description": "הורדת ממשק ( הופך את ההגדרות ללא פעילות ולא מוריד את הממשק הפיזי)",
+      "command": "delete interfaces ge-0/0/1 unit 2674",
+      "category": "Interfaces",
+      "source_row": 28
+    },
+    {
+      "id": "454fc605cafee3dc",
+      "machine": "PE",
+      "description": "הפעלת מוניטור על ממשק -   Current delta  - זמן אמת",
+      "command": "show configuration logical-systems ls-vp5066 routing-instances dmr-zahal",
+      "category": "Routing",
+      "source_row": 32
+    },
+    {
+      "id": "fec9fd396fe9ddb4",
+      "machine": "PE",
+      "description": "הצגת הגדרות לממשק",
+      "command": "show configuration interface ge-x/x/x.num (Vlan) / xe-x/x/x.num (Vlan)",
+      "category": "Interfaces",
+      "source_row": 9
+    },
+    {
+      "id": "c2563960760353ca",
+      "machine": "PE",
+      "description": "הצגת טבלת ARP לפי ממשק",
+      "command": "show arp no-resolve interface ge-x/x/x.num (Vlan) / xe-x/x/x.num (Vlan)",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "f1ecfab0f73aa5a0",
+      "machine": "PE",
+      "description": "הצגת טבלת ניתוב בPE לפי VRF",
+      "command": "show route table name (VRF).inet.0",
+      "category": "Routing",
+      "source_row": 8
+    },
+    {
+      "id": "5998aed8e7d032f3",
+      "machine": "PE",
+      "description": "הצגת כל הסניפים בPE לפי VRF",
+      "command": "show configuration routing-instances name (VRF)",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "e93a1bf3a0025e39",
+      "machine": "PE",
+      "description": "הצגת נתוני ממשק",
+      "command": "show interface ge-x/x/x.num (Vlan) / xe-x/x/x.num (Vlan)",
+      "category": "Interfaces",
+      "source_row": 10
+    },
+    {
+      "id": "7ceb575fd2b27e9c",
+      "machine": "PE",
+      "description": "התחברות בTelnet",
+      "command": "telnet routing-instance  (VRF) x.x.x.x (IP WAN)",
+      "category": "Routing",
+      "source_row": 15
+    },
+    {
+      "id": "5d8cf112f6ad64ed",
+      "machine": "PE",
+      "description": "לבדוק SFP במכונה",
+      "command": "show chassis hardware\nshow chassis pic pic-slot 0 fpc-slot 0",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "dea4be808520bcef",
+      "machine": "PE",
+      "description": "לראות מה אנחנו מלמדים את הסניף",
+      "command": "show bgp summary instance [VRF]",
+      "category": "Routing",
+      "source_row": 21
+    },
+    {
+      "id": "51ad563859030d83",
+      "machine": "PE",
+      "description": "לראות מה הסניף מלמד אותנו",
+      "command": "show route table [VRF].inet.0 advertising-protocol bgp [WAN  בסניף ]",
+      "category": "Routing",
+      "source_row": 22
+    },
+    {
+      "id": "20b31762d3bc5577",
+      "machine": "PE",
+      "description": "לראות מצב של BGP מול סניף",
+      "command": "show route table  (VRF).inet.0 receive-protocol bgp / rip / ospf x.x.x.x (IP - Reflector)",
+      "category": "Routing",
+      "source_row": 20
+    },
+    {
+      "id": "0de1c49bbd792d75",
+      "machine": "PE",
+      "description": "מחיקת ממשק ( חשוב להקפיד על מספר UNIT)",
+      "command": "ping router-instance {VRF} {IP} count {Numbrt} size {Number = 1400} rapid",
+      "category": "Routing",
+      "source_row": 27
+    },
+    {
+      "id": "4a0648cb10a18749",
+      "machine": "PE",
+      "description": "מציאת UNIT פנוי עבור הפעלה",
+      "command": "deactivate interfaces ge-0/0/1 unit 2713",
+      "category": "Interfaces",
+      "source_row": 29
+    },
+    {
+      "id": "a20f00880b43d267",
+      "machine": "PE",
+      "description": "מציאת ניהול לפי MAC",
+      "command": "show route table [VRF].inet.0 receive-protocol bgp [WAN  בסניף ]",
+      "category": "Routing",
+      "source_row": 23
+    },
+    {
+      "id": "97f41d56c43ae058",
+      "machine": "PE",
+      "description": "מראה את כל הקווים שנמצאים על אותו הVRF",
+      "command": "show configuration routing-instances {VRF} | display set",
+      "category": "Routing",
+      "source_row": 18
+    },
+    {
+      "id": "866f804a39927a0d",
+      "machine": "PE",
+      "description": "עבור PE גיבוי",
+      "command": "show vrf brief | include [pais]",
+      "category": "Other",
+      "source_row": 31
+    },
+    {
+      "id": "d82b562047e0c3a9",
+      "machine": "PE",
+      "description": "עבור הפצת ניתובים",
+      "command": "show arp no-resolve vpn acc-mgt | match [MAC]",
+      "category": "Routing",
+      "source_row": 24
+    },
+    {
+      "id": "d6e27a673e1f41bd",
+      "machine": "PE",
+      "description": "פינג",
+      "command": "ping routing-instance  (VRF) x.x.x.x (IP)",
+      "category": "Routing",
+      "source_row": 12
+    },
+    {
+      "id": "d8095c2bdebc7dd9",
+      "machine": "PE",
+      "description": "פינג עומס",
+      "command": "ssh bezeqnet@{IP} router-instance {VRF}",
+      "category": "Routing",
+      "source_row": 26
+    },
+    {
+      "id": "aea5e41dfd049dc8",
+      "machine": "PE",
+      "description": "תשאול Reflector טבלת ניתוב לפי VRF ופרוטוקול ניתוב",
+      "command": "show route table vrf.inet.0 [wan] advertised-protocol bgp",
+      "category": "Routing",
+      "source_row": 19
+    },
+    {
+      "id": "27947ae32f2d5470",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "address-family ipv4 vrf name",
+      "category": "Other",
+      "source_row": 16
+    },
+    {
+      "id": "ebd1e4db8360a54c",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "ip vrf name",
+      "category": "Other",
+      "source_row": 10
+    },
+    {
+      "id": "254096e817bf51a7",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "no ip vrf name",
+      "category": "Other",
+      "source_row": 20
+    },
+    {
+      "id": "8c8acdeb1982dcf8",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "rd xxxx (Customer) : 10 xxxx (Router ID) xxx (VPN ID)",
+      "category": "Routing",
+      "source_row": 12
+    },
+    {
+      "id": "66659b4448eb248c",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "redistribute connected",
+      "category": "Other",
+      "source_row": 17
+    },
+    {
+      "id": "117d0bca11e81910",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "redistribute static",
+      "category": "Other",
+      "source_row": 18
+    },
+    {
+      "id": "191909ea36b34b54",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "route-target xxxx (Customer) : 10 xxx (VPN ID) 1000",
+      "category": "Routing",
+      "source_row": 13
+    },
+    {
+      "id": "84043bfc19272c50",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "router bgp 6810",
+      "category": "Routing",
+      "source_row": 15
+    },
+    {
+      "id": "0cff68f545b38483",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "show ip nat translations vrf maniv-reshon6",
+      "category": "Other",
+      "source_row": 26
+    },
+    {
+      "id": "f59ed58bdcb4c732",
+      "machine": "PE - Jaffo",
+      "description": "Command reference",
+      "command": "Show ip route vrf  [VRF] [IP]",
+      "category": "Routing",
+      "source_row": 23
+    },
+    {
+      "id": "ae47e96230cf08bf",
+      "machine": "PE - Jaffo",
+      "description": "finding if nat exist for inband customer's router management",
+      "command": "show run | include  [IP WAN CUSTOMER]",
+      "category": "Routing",
+      "source_row": 25
+    },
+    {
+      "id": "c5fe84c02e98335a",
+      "machine": "PE - Jaffo",
+      "description": "בדיקת כפילות כתובת IP לפי VRF",
+      "command": "show ip bgp vpnv4 vrf shufersal_camera <IP> [LAN בסניף]",
+      "category": "Routing",
+      "source_row": 21
+    },
+    {
+      "id": "936a3490627cf326",
+      "machine": "PE - Jaffo",
+      "description": "הגדרת VRF חדש",
+      "command": "conf t",
+      "category": "Configuration",
+      "source_row": 9
+    },
+    {
+      "id": "d6ec488a75acc801",
+      "machine": "PE - Jaffo",
+      "description": "הוספת NAT עבור כתובת ניהול INBAND",
+      "command": "no  //  ip nat inside source static [WAN] [IP MANAGE]  vrf [VRF]",
+      "category": "Other",
+      "source_row": 27
+    },
+    {
+      "id": "2eee42b688b0c9f1",
+      "machine": "PE - Jaffo",
+      "description": "הצגת טבלת ניתוב לפי VRF",
+      "command": "show ip route vrf name",
+      "category": "Routing",
+      "source_row": 7
+    },
+    {
+      "id": "087da59246c6f01d",
+      "machine": "PE - Jaffo",
+      "description": "הצגת נתונים על VRF",
+      "command": "show run vrf name",
+      "category": "Other",
+      "source_row": 28
+    },
+    {
+      "id": "18eae2d5071d469c",
+      "machine": "PE - Jaffo",
+      "description": "הצגת קונפיגורציה עם סינון",
+      "command": "show run | include x",
+      "category": "Other",
+      "source_row": 8
+    },
+    {
+      "id": "ddcd2029abfb4fbf",
+      "machine": "PE - Jaffo",
+      "description": "מציאת PE ניהול",
+      "command": "show ip route vrf acc-mgt [ip ניהול] (( PE 172.23.4/6/8.254 /29 ))",
+      "category": "Routing",
+      "source_row": 24
+    },
+    {
+      "id": "7b632750546d7e7f",
+      "machine": "PE - Jaffo",
+      "description": "מציאת כל הVRFים  ביפו מסוים",
+      "command": "show vrf brief | include [pais]",
+      "category": "Other",
+      "source_row": 22
+    },
+    {
+      "id": "0a7ba7592b8786b7",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "get lldp neighbors",
+      "category": "Routing",
+      "source_row": 16
+    },
+    {
+      "id": "7cc0c68a31d5b344",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "get version",
+      "category": "System",
+      "source_row": 10
+    },
+    {
+      "id": "49d2f4c6120b9cab",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "get wlaninfo",
+      "category": "Other",
+      "source_row": 8
+    },
+    {
+      "id": "bdd4103d79a1b696",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "show clock",
+      "category": "Other",
+      "source_row": 18
+    },
+    {
+      "id": "0a380cc0b8b51b19",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "show log",
+      "category": "Diagnostics",
+      "source_row": 17
+    },
+    {
+      "id": "0f3c78180e7e9f3e",
+      "machine": "Ruckus Switch",
+      "description": "Command reference",
+      "command": "show poe",
+      "category": "Other",
+      "source_row": 22
+    },
+    {
+      "id": "d1bdefe6c755f5aa",
+      "machine": "Ruckus Switch",
+      "description": "אתחול",
+      "command": "reboot",
+      "category": "Other",
+      "source_row": 12
+    },
+    {
+      "id": "8c81fb4c31a0f754",
+      "machine": "Ruckus Switch",
+      "description": "הגדרה ידנית של הIP של הבקר במקום באמצעות OPTION43",
+      "command": "set scg ip [<IP> כתובת הבקר אליו אמור להירשום]",
+      "category": "Configuration",
+      "source_row": 15
+    },
+    {
+      "id": "3a92e4ea5a72459d",
+      "machine": "Ruckus Switch",
+      "description": "התחברות מתוך סיסקו כאשר אין VRF",
+      "command": "ssh -l bezeqnet <IP>",
+      "category": "Other",
+      "source_row": 13
+    },
+    {
+      "id": "6ac5ae8ccb035475",
+      "machine": "Ruckus Switch",
+      "description": "כשאין SSH אל RUCKUS APעבור SSH עם פורט 22  אל הניהול הרגיל של הציוד",
+      "command": "conf t\ninterface [wan]\nip nat outside\nexit\ninterface [AP-MANAGE]\nip nat inside\nexit\n\n\nip nat inside source static tcp [AP INTERNAL IP] 22 interface [IP WAN] 22",
+      "category": "Interfaces",
+      "source_row": 19
+    },
+    {
+      "id": "59c778526db2e1f1",
+      "machine": "Ruckus Switch",
+      "description": "לאחר שינוי OPTION - לבצע הגדרה של הגדרות מפעל ואתחול",
+      "command": "set factory - > reboot",
+      "category": "Configuration",
+      "source_row": 11
+    },
+    {
+      "id": "9fb50615dd7a629a",
+      "machine": "Ruckus Switch",
+      "description": "לראות את הSSID שהAP מפיץ",
+      "command": "get wlanlist",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "c7b5bebb6dd821c6",
+      "machine": "Ruckus Switch",
+      "description": "לראות חיבור לבקר",
+      "command": "get scg",
+      "category": "Other",
+      "source_row": 14
+    },
+    {
+      "id": "09ce87dc280707e1",
+      "machine": "Ruckus Switch",
+      "description": "לראות מכשירים שמחוברים ואת הקליטה שלהם RSSI",
+      "command": "get station wlan33 list",
+      "category": "Other",
+      "source_row": 9
+    },
+    {
+      "id": "bd1520a989496656",
+      "machine": "SDH",
+      "description": "Command reference",
+      "command": "Test-NetConnection <IP> -TraceRoute",
+      "category": "Routing",
+      "source_row": 20
+    },
+    {
+      "id": "76340714bc82c2ff",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "show inventory",
+      "category": "Other",
+      "source_row": 18
+    },
+    {
+      "id": "40ff84495fe5013c",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "show ip arp vrf 20",
+      "category": "VLAN / L2",
+      "source_row": 11
+    },
+    {
+      "id": "18e5e6f023d13c3a",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "show ip arp vrf 21",
+      "category": "VLAN / L2",
+      "source_row": 12
+    },
+    {
+      "id": "52d6cc2633b712d0",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "telnet <IP> /vrf 20",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "db1f75ec2f5d3202",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "TYPE 1 - סיסקו פיזי 1",
+      "category": "Other",
+      "source_row": 24
+    },
+    {
+      "id": "fc6b6e547d80d719",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "TYPE 3 -  סיסקו פיזי 1",
+      "category": "Other",
+      "source_row": 22
+    },
+    {
+      "id": "1693d23ca20c1db5",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "TYPE 4 - מטרו 1 + מטרו 2",
+      "category": "Other",
+      "source_row": 21
+    },
+    {
+      "id": "62bb996f271e85d8",
+      "machine": "SDWAN",
+      "description": "Command reference",
+      "command": "TYPE 5 - SOM + מטרו 1",
+      "category": "Other",
+      "source_row": 20
+    },
+    {
+      "id": "93001705c4b2b7c9",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server config state enabled",
+      "category": "Configuration",
+      "source_row": 32
+    },
+    {
+      "id": "cee86541281fcc5a",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server option instlist name=opt43",
+      "category": "Other",
+      "source_row": 16
+    },
+    {
+      "id": "88d744cc1c9b5a00",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server pool add name name",
+      "category": "Other",
+      "source_row": 28
+    },
+    {
+      "id": "ecab2fb0b49cd1f1",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server pool config name name poolstart x.x.x.x poolend x.x.x.x leasetime time intf name",
+      "category": "Configuration",
+      "source_row": 29
+    },
+    {
+      "id": "33a3e68d7510bcfc",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server pool config name name primdns x.x.x.x secdns x.x.x.x gateway x.x.x.x",
+      "category": "Configuration",
+      "source_row": 30
+    },
+    {
+      "id": "682f26c0e1eb2680",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "dhcp server pool config name name server x.x.x.x netmask prefix state enabled",
+      "category": "Configuration",
+      "source_row": 31
+    },
+    {
+      "id": "b5c6b5220b579aa3",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "eth ifadd intf=name",
+      "category": "Interfaces",
+      "source_row": 37
+    },
+    {
+      "id": "49bd085efc8b481b",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "eth ifattach intf name",
+      "category": "Interfaces",
+      "source_row": 39
+    },
+    {
+      "id": "1c90356b318f9bb4",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "eth ifconfig intf=name dest=name wan=enabled vlan=name",
+      "category": "Interfaces",
+      "source_row": 38
+    },
+    {
+      "id": "2e4965abc0bfeecf",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ip ifadd intf=name dest=name",
+      "category": "Other",
+      "source_row": 40
+    },
+    {
+      "id": "66fa420227c3a01d",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ip ifconfig intf=name linksensing=enabled",
+      "category": "Configuration",
+      "source_row": 42
+    },
+    {
+      "id": "d9899e3f98c86849",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ip ipadd    / ip ipdelete",
+      "category": "Other",
+      "source_row": 49
+    },
+    {
+      "id": "468aec109f98704b",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ip ipadd intf=name addr=x.x.x.x/prefix addroute=enabled",
+      "category": "Routing",
+      "source_row": 43
+    },
+    {
+      "id": "1b7a34b630fc135f",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ip rtdelete / ip rtadd",
+      "category": "Other",
+      "source_row": 50
+    },
+    {
+      "id": "52eb1ddafb4cb42d",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "nat ifconfig intf=name translation=enabled",
+      "category": "Configuration",
+      "source_row": 55
+    },
+    {
+      "id": "abd9396bfa6b164d",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "nat ifconfig intf=name translation=transparent",
+      "category": "Configuration",
+      "source_row": 54
+    },
+    {
+      "id": "fdb0a8a236657a68",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "nat tmpladd intf=name outside_addr=x.x.x.x inside_addr=x.x.x.x (Wan)",
+      "category": "Other",
+      "source_row": 53
+    },
+    {
+      "id": "5d7a0b5970b19f6d",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ppp ifattach intf name",
+      "category": "Other",
+      "source_row": 24
+    },
+    {
+      "id": "5aef03b9cec8f47c",
+      "machine": "TG670",
+      "description": "Command reference",
+      "command": "ppp ifdetach intf name",
+      "category": "Other",
+      "source_row": 22
+    },
+    {
+      "id": "39a160d4b86a32f9",
+      "machine": "TG670",
+      "description": "בדיקת שגיאות ב  LAYER 3",
+      "command": "ip debug stats proto=ip",
+      "category": "Diagnostics",
+      "source_row": 17
+    },
+    {
+      "id": "2e41a64fa910a9fd",
+      "machine": "TG670",
+      "description": "בידקה אם פועל NAT",
+      "command": "nat iflist",
+      "category": "Other",
+      "source_row": 18
+    },
+    {
+      "id": "a4940ee705ac6742",
+      "machine": "TG670",
+      "description": "ביצוע פינג עם סורס",
+      "command": "ping addr {IP Destination} srcaddr {IP Source}",
+      "category": "Diagnostics",
+      "source_row": 48
+    },
+    {
+      "id": "fa85febd1b4258ec",
+      "machine": "TG670",
+      "description": "הגדרת DHCP",
+      "command": "dhcp server config state disabled",
+      "category": "Configuration",
+      "source_row": 27
+    },
+    {
+      "id": "e10c2fb1f9c0aab6",
+      "machine": "TG670",
+      "description": "הגדרת Loopback בקו ללא EVM",
+      "command": "ip ipadd intf=name addr=x.x.x.x/prefix",
+      "category": "Configuration",
+      "source_row": 35
+    },
+    {
+      "id": "f46d7362a356a977",
+      "machine": "TG670",
+      "description": "הגדרת Loopback בקו עם EVM",
+      "command": "eth bridge vlan ifadd name=name intf=name",
+      "category": "Interfaces",
+      "source_row": 36
+    },
+    {
+      "id": "c113112ddc327c89",
+      "machine": "TG670",
+      "description": "הגדרת NAT",
+      "command": "nat flush",
+      "category": "Configuration",
+      "source_row": 52
+    },
+    {
+      "id": "4e5119a12efd41c8",
+      "machine": "TG670",
+      "description": "הגדרת Vlan",
+      "command": "eth vlan add name=name vid=num brname=bridge",
+      "category": "Interfaces",
+      "source_row": 33
+    },
+    {
+      "id": "0db39c7885d5db43",
+      "machine": "TG670",
+      "description": "הגדרת הפניית פורטים",
+      "command": "nat mapadd intf=name type=napt outside_addr=x.x.x.x (Wan) inside_addr=x.x.x.x (Lan) protocol=tcp/udp outside_port=name inside_port=name mode=auto",
+      "category": "Interfaces",
+      "source_row": 44
+    },
+    {
+      "id": "900ec74946c6546e",
+      "machine": "TG670",
+      "description": "הצגת הפניית פורטים",
+      "command": "nat maplist",
+      "category": "Interfaces",
+      "source_row": 45
+    },
+    {
+      "id": "fad48cd5c35650e8",
+      "machine": "TG670",
+      "description": "הצגת זמן של המכשיר + UpTime",
+      "command": "system settime",
+      "category": "System",
+      "source_row": 47
+    },
+    {
+      "id": "6d1435ef49a9cceb",
+      "machine": "TG670",
+      "description": "הצגת טבלת ARP",
+      "command": "ip arplist",
+      "category": "VLAN / L2",
+      "source_row": 10
+    },
+    {
+      "id": "828d539c8c97ba70",
+      "machine": "TG670",
+      "description": "הצגת טבלת ניתוב",
+      "command": "ip rtlist",
+      "category": "Routing",
+      "source_row": 9
+    },
+    {
+      "id": "6767c2aae69b804b",
+      "machine": "TG670",
+      "description": "הצגת כתובות MAC",
+      "command": "eth bridge maclist",
+      "category": "Interfaces",
+      "source_row": 13
+    },
+    {
+      "id": "943dda4e1d63544d",
+      "machine": "TG670",
+      "description": "הצגת ממשקים",
+      "command": "ip iflist",
+      "category": "Interfaces",
+      "source_row": 20
+    },
+    {
+      "id": "ce2f9ea903600b19",
+      "machine": "TG670",
+      "description": "הצגת ממשקים שמוגדרים Bridge",
+      "command": "eth bridge list",
+      "category": "Interfaces",
+      "source_row": 12
+    },
+    {
+      "id": "d49ed15ecaf06f98",
+      "machine": "TG670",
+      "description": "הצגת פורטים",
+      "command": "eth device iflist",
+      "category": "Interfaces",
+      "source_row": 11
+    },
+    {
+      "id": "fe7a465a40456e91",
+      "machine": "TG670",
+      "description": "הצגת קונפיגורציה",
+      "command": "config dump",
+      "category": "Configuration",
+      "source_row": 34
+    },
+    {
+      "id": "7fe8a9d2ef9fa634",
+      "machine": "TG670",
+      "description": "הצגת שיוך Vlan לפורט",
+      "command": "eth bridge vlan iflist",
+      "category": "Interfaces",
+      "source_row": 14
+    },
+    {
+      "id": "e46ded660fcfb90c",
+      "machine": "TG670",
+      "description": "הצגת שיוך כתובת IP לממשק",
+      "command": "ip iplist",
+      "category": "Interfaces",
+      "source_row": 8
+    },
+    {
+      "id": "6957d973f2983735",
+      "machine": "TG670",
+      "description": "כדי להשבית את הLAN לבדיקות",
+      "command": "ip ifdetach [LAN]",
+      "category": "Other",
+      "source_row": 19
+    },
+    {
+      "id": "5108d3fa371319ac",
+      "machine": "TG670",
+      "description": "לבדוק CPU של הנתב, IDLE זה כמה פנוי",
+      "command": "system ->(enter) debug -> (enter) -> stats /cpu",
+      "category": "Diagnostics",
+      "source_row": 51
+    },
+    {
+      "id": "625b491efc862aba",
+      "machine": "TG670",
+      "description": "צפיה בכל הפקודות",
+      "command": "menu",
+      "category": "Other",
+      "source_row": 7
+    },
+    {
+      "id": "9f1d8e8f6bc650e3",
+      "machine": "TG670",
+      "description": "שיוך ממשק",
+      "command": "ip ifattach intf name",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "fe43ddee758794c4",
+      "machine": "TG670",
+      "description": "שינוי שמ\"ס חייגן",
+      "command": "ppp menu - ניתן להיכנס לתפריט ולעשות משם",
+      "category": "Other",
+      "source_row": 21
+    },
+    {
+      "id": "5ad95fda570170b2",
+      "machine": "TG670",
+      "description": "שליחת פינג",
+      "command": "ping addr x.x.x.x",
+      "category": "Diagnostics",
+      "source_row": 25
+    },
+    {
+      "id": "bd8c2fc3c9dc724b",
+      "machine": "TG670",
+      "description": "שליחת פינג עם סורס",
+      "command": "ping addr x.x.x.x srcaddr x.x.x.x",
+      "category": "Diagnostics",
+      "source_row": 26
+    },
+    {
+      "id": "57a57e214df19cba",
+      "machine": "TG670",
+      "description": "שמירת הגדרות",
+      "command": "saveall",
+      "category": "Configuration",
+      "source_row": 46
+    },
+    {
+      "id": "412e81fe74ffca50",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "save",
+      "category": "Configuration",
+      "source_row": 17
+    },
+    {
+      "id": "74f2ff8da5691a38",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show interfaces Ethernet 1/0/1-10 status",
+      "category": "Interfaces",
+      "source_row": 15
+    },
+    {
+      "id": "6a9911233c1669a5",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show interfaces Ethernet 1/0/1-8",
+      "category": "Interfaces",
+      "source_row": 7
+    },
+    {
+      "id": "aaf00b975b357ec4",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show lldp neighbor",
+      "category": "Routing",
+      "source_row": 12
+    },
+    {
+      "id": "24dcde47d806d54b",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show mac address-table",
+      "category": "VLAN / L2",
+      "source_row": 13
+    },
+    {
+      "id": "c02742fb45ec34fc",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show poe Ethernet 1-28",
+      "category": "Interfaces",
+      "source_row": 16
+    },
+    {
+      "id": "b7d6c012e3f02cea",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show run",
+      "category": "Other",
+      "source_row": 8
+    },
+    {
+      "id": "7a20a55be5486a55",
+      "machine": "VCloud",
+      "description": "Command reference",
+      "command": "show vlan",
+      "category": "VLAN / L2",
+      "source_row": 9
+    },
+    {
+      "id": "e9b6a05ba8df0b84",
+      "machine": "VCloud",
+      "description": "לראות לוגים בזמן אמת",
+      "command": "show log",
+      "category": "Diagnostics",
+      "source_row": 10
+    },
+    {
+      "id": "26b60aa612da11ad",
+      "machine": "VCloud",
+      "description": "לראות מה השעה שמוגדרת",
+      "command": "show clock",
+      "category": "Other",
+      "source_row": 11
+    },
+    {
+      "id": "1bd264acdd0e0649",
+      "machine": "VCloud",
+      "description": "שדרוג גרסא",
+      "command": "configure\nupgrade protocol tftp\nupgrade server <IP>/GRANDSTREAM/gwn780xfw-1.0.15.132.bin\ndo upgrade",
+      "category": "Configuration",
+      "source_row": 19
+    },
+    {
+      "id": "307db5f549c50b37",
+      "machine": "תפירה - מטרו 1",
+      "description": "Command reference",
+      "command": "show arp no-resolve vpn acc-mgt | match [MAC]",
+      "category": "VLAN / L2",
+      "source_row": 16
+    },
+    {
+      "id": "3cdcef625ef85aa6",
+      "machine": "תקשוב",
+      "description": "LOOP לכיוון לקוח",
+      "command": "LOOPBACK FACILITY",
+      "category": "Other",
+      "source_row": 38
+    },
+    {
+      "id": "0454571a456ad632",
+      "machine": "תקשוב",
+      "description": "LOOP לכיוון תשתית",
+      "command": "LOOPBACK TERMINAL",
+      "category": "Other",
+      "source_row": 39
+    },
+    {
+      "id": "8cde05995438f7a8",
+      "machine": "תקשוב",
+      "description": "איתור פרטים לפי מספר מתקן/צומת/IP",
+      "command": "AL85",
+      "category": "Other",
+      "source_row": 14
+    },
+    {
+      "id": "d9d4d64a5c788771",
+      "machine": "תקשוב",
+      "description": "הגדרת BUNDLE   בipmux מרכז",
+      "command": "CONF- CONNECTION - BUNDLE CONNECTION - NEXT - VLAN ID",
+      "category": "VLAN / L2",
+      "source_row": 43
+    },
+    {
+      "id": "017f12a7905e7314",
+      "machine": "תקשוב",
+      "description": "הצגת הוראות הפעלה",
+      "command": "AL41",
+      "category": "Other",
+      "source_row": 15
+    },
+    {
+      "id": "7f06e368539a5841",
+      "machine": "תקשוב",
+      "description": "הצגת ניהולים עבור IPMUX",
+      "command": "KA68",
+      "category": "Other",
+      "source_row": 11
+    },
+    {
+      "id": "90ef4fca83abdfe5",
+      "machine": "תקשוב",
+      "description": "הצגת ציודים במתקן",
+      "command": "TA31",
+      "category": "Other",
+      "source_row": 19
+    },
+    {
+      "id": "41c942020d08e5b0",
+      "machine": "תקשוב",
+      "description": "הצגת צמתים + ניהולים",
+      "command": "KA63 \nCRTL + F8  - ניהולים\nשמים 9 אחרי ה - \"/\" וראים זמן עתידי\n<ID>/9 - לדוגמא",
+      "category": "Other",
+      "source_row": 9
+    },
+    {
+      "id": "6f14d2e9e870248c",
+      "machine": "תקשוב",
+      "description": "למצוא קווים מוזרים",
+      "command": "al63",
+      "category": "Other",
+      "source_row": 16
+    },
+    {
+      "id": "e73ada4a67709a8b",
+      "machine": "תקשוב",
+      "description": "מציאת מתקנים לפי כתובת גיאוגרפית",
+      "command": "TA97",
+      "category": "Other",
+      "source_row": 21
+    },
+    {
+      "id": "8ab7ff08fffc4623",
+      "machine": "תקשוב",
+      "description": "מציאת צירים על ידי  מספר וירטואלי",
+      "command": "KA51 - F10 -ENTER",
+      "category": "Other",
+      "source_row": 10
+    },
+    {
+      "id": "4f38229a6f7aca04",
+      "machine": "תקשוב",
+      "description": "מראה כתובת גיאוגרפית ותיאור לפי מספר מתקן",
+      "command": "TA10",
+      "category": "Other",
+      "source_row": 20
+    }
+  ],
+  "machines": [
+    "7750",
+    "ACX",
+    "ADB",
+    "ALCATEL 6465 + 6860",
+    "B-Cam",
+    "B-SMS",
+    "B-Wifi",
+    "CheckPoint",
+    "Cisco",
+    "Fortigate",
+    "HP",
+    "HT",
+    "Juniper SRX",
+    "LNS",
+    "M500",
+    "MRV",
+    "MSAG Adtran",
+    "MSAG Nokia",
+    "MT 6850",
+    "MT 6860",
+    "MX",
+    "Nokia 7210",
+    "Nokia CL",
+    "OS-6450",
+    "PE",
+    "PE - Jaffo",
+    "Ruckus Switch",
+    "SDH",
+    "SDWAN",
+    "TG670",
+    "VCloud",
+    "שע\"מ",
+    "תפירה - מטרו 1",
+    "תפירה - מטרו 2",
+    "תקשוב"
+  ]
+}

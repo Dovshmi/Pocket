@@ -2931,6 +2931,7 @@ class WindowsTray:
         self.hotkey = hk.normalize_hotkey(hotkey)
         self._pending_hotkey = None
         self._pending_notification = None
+        self._active_reminder_id = None
 
     def start(self):
         self._thread = threading.Thread(target=self._main, name="PocketDeskTray", daemon=True)
@@ -2946,8 +2947,8 @@ class WindowsTray:
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_HOTKEY_CHANGE, 0, 0)
 
-    def notify(self, title, message):
-        self._pending_notification = (str(title)[:63], str(message)[:255])
+    def notify(self, title, message, note_id=None):
+        self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_NOTIFICATION, 0, 0)
 
@@ -3084,7 +3085,8 @@ class WindowsTray:
                 notice = self._pending_notification
                 self._pending_notification = None
                 if notice:
-                    nid.szInfoTitle, nid.szInfo = notice
+                    nid.szInfoTitle, nid.szInfo = notice[:2]
+                    self._active_reminder_id = notice[2]
                     nid.dwInfoFlags = 0x1
                     nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP | self.NIF_INFO
                     shell.Shell_NotifyIconW(self.NIM_MODIFY, ctypes.byref(nid))
@@ -3128,6 +3130,10 @@ class WindowsTray:
                     # Win32 may send two events on double click; the UI uses single click.
                     if action == self.WM_LBUTTONUP:
                         self.events.put(("toggle", cursor()))
+                elif action == 0x0405 and self._active_reminder_id:
+                    # NIN_BALLOONUSERCLICK: open the note whose reminder was clicked.
+                    self.events.put(("open_reminder", self._active_reminder_id))
+                    self._active_reminder_id = None
                 elif action in (self.WM_RBUTTONUP, self.WM_CONTEXTMENU):
                     popup_menu(hwnd)
                 return 0

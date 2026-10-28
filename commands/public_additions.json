@@ -1,0 +1,229 @@
+{
+  "source": "Generic read-only CLI examples, not extracted from the user's private workbook. Confirm platform and firmware syntax before using.",
+  "commands": [
+    {
+      "id": "catalog:001",
+      "machine": "Check Point Gaia",
+      "category": "System",
+      "description": "Show OS and product versions",
+      "command": "show version all"
+    },
+    {
+      "id": "catalog:002",
+      "machine": "Check Point Gaia",
+      "category": "System",
+      "description": "Show uptime",
+      "command": "show uptime"
+    },
+    {
+      "id": "catalog:003",
+      "machine": "Check Point Gaia",
+      "category": "Interfaces",
+      "description": "Show interface status",
+      "command": "show interfaces all"
+    },
+    {
+      "id": "catalog:004",
+      "machine": "Check Point Gaia",
+      "category": "Routing",
+      "description": "Show routing table",
+      "command": "show route"
+    },
+    {
+      "id": "catalog:005",
+      "machine": "Ruckus Switch",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:006",
+      "machine": "Ruckus Switch",
+      "category": "Interfaces",
+      "description": "Show port status",
+      "command": "show interfaces brief"
+    },
+    {
+      "id": "catalog:007",
+      "machine": "Ruckus Switch",
+      "category": "VLANs",
+      "description": "Show VLAN configuration",
+      "command": "show vlan"
+    },
+    {
+      "id": "catalog:008",
+      "machine": "Ruckus Switch",
+      "category": "Routing",
+      "description": "Show IPv4 routes",
+      "command": "show ip route"
+    },
+    {
+      "id": "catalog:009",
+      "machine": "Juniper SRX",
+      "category": "System",
+      "description": "Show Junos version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:010",
+      "machine": "Juniper SRX",
+      "category": "Interfaces",
+      "description": "Show interface status",
+      "command": "show interfaces terse"
+    },
+    {
+      "id": "catalog:011",
+      "machine": "Juniper SRX",
+      "category": "Routing",
+      "description": "Show routing table",
+      "command": "show route"
+    },
+    {
+      "id": "catalog:012",
+      "machine": "Juniper SRX",
+      "category": "Security",
+      "description": "Show security policies",
+      "command": "show security policies"
+    },
+    {
+      "id": "catalog:013",
+      "machine": "Juniper SRX",
+      "category": "Security",
+      "description": "Show firewall flow sessions",
+      "command": "show security flow session"
+    },
+    {
+      "id": "catalog:014",
+      "machine": "Juniper MX",
+      "category": "System",
+      "description": "Show Junos version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:015",
+      "machine": "Juniper MX",
+      "category": "Interfaces",
+      "description": "Show interface status",
+      "command": "show interfaces terse"
+    },
+    {
+      "id": "catalog:016",
+      "machine": "Juniper MX",
+      "category": "Routing",
+      "description": "Show routing table",
+      "command": "show route"
+    },
+    {
+      "id": "catalog:017",
+      "machine": "Juniper MX",
+      "category": "BGP",
+      "description": "Show BGP peers",
+      "command": "show bgp summary"
+    },
+    {
+      "id": "catalog:018",
+      "machine": "Juniper ACX",
+      "category": "System",
+      "description": "Show Junos version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:019",
+      "machine": "Juniper ACX",
+      "category": "Interfaces",
+      "description": "Show interface status",
+      "command": "show interfaces terse"
+    },
+    {
+      "id": "catalog:020",
+      "machine": "Juniper ACX",
+      "category": "Routing",
+      "description": "Show routing table",
+      "command": "show route"
+    },
+    {
+      "id": "catalog:021",
+      "machine": "Nokia 7750",
+      "category": "System",
+      "description": "Show system information",
+      "command": "show system information"
+    },
+    {
+      "id": "catalog:022",
+      "machine": "Nokia 7750",
+      "category": "Interfaces",
+      "description": "Show physical ports",
+      "command": "show port"
+    },
+    {
+      "id": "catalog:023",
+      "machine": "Nokia 7750",
+      "category": "Routing",
+      "description": "Show routing table",
+      "command": "show router route-table"
+    },
+    {
+      "id": "catalog:024",
+      "machine": "Nokia 7750",
+      "category": "Services",
+      "description": "Show service list",
+      "command": "show service service-using"
+    },
+    {
+      "id": "catalog:025",
+      "machine": "Nokia 7210",
+      "category": "System",
+      "description": "Show system information",
+      "command": "show system information"
+    },
+    {
+      "id": "catalog:026",
+      "machine": "Nokia 7210",
+      "category": "Interfaces",
+      "description": "Show ports",
+      "command": "show port"
+    },
+    {
+      "id": "catalog:027",
+      "machine": "Nokia 7210",
+      "category": "Routing",
+      "description": "Show router routes (model dependent)",
+      "command": "show router route-table"
+    },
+    {
+      "id": "catalog:028",
+      "machine": "Alcatel OS-6450",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:029",
+      "machine": "Alcatel OS-6450",
+      "category": "VLANs",
+      "description": "List VLANs",
+      "command": "show vlan"
+    },
+    {
+      "id": "catalog:030",
+      "machine": "Alcatel MT 6850",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:031",
+      "machine": "Alcatel MT 6860",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version"
+    },
+    {
+      "id": "catalog:032",
+      "machine": "Alcatel 6465/6860",
+      "category": "System",
+      "description": "Show software version",
+      "command": "show version"
+    }
+  ]
+}

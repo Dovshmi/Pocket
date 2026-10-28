@@ -6,7 +6,7 @@
 
 A compact, customizable Windows desktop toolbox that lives in your system tray. Open it when you need it, keep your tools close, and get back to work.
 
-**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.22** · **GPL-3.0** · **Local-first**
+**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.23** · **GPL-3.0** · **Local-first**
 
 [Explore the app](#screenshots) · [Features](#features) · [Get started](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Version history](#version-history)
 
@@ -184,6 +184,13 @@ Pocket now combines that local file with the built-in `commands/sample_commands.
 
 See [commands/README.md](commands/README.md) for the command-library convention.
 
+
+### Your command library (single-file mode)
+
+Pocket uses **only one command reference file**: `commands/commands.json` in your Pocket folder. It does not install or load any public command library. For a packaged EXE, place the same file next to the EXE under `commands/commands.json`; the app also supports a separately supplied local file in your AppData folder. The optional `machines` array in this JSON makes equipment categories visible even when they have no CLI entries. Commands added inside the app are stored locally in `data.json` as before.
+
+**Never publish this file** if it includes workplace-specific operational data. The public GitHub source does not include your workbook or uploaded private command reference. To build an EXE, copy your private `commands.json` into the `commands` folder first; the EXE build will bundle it, so do not distribute that EXE publicly without reviewing its content.
+
 ## Project structure
 
 ```text
@@ -214,7 +221,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |\n| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
+| **v1.23** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |\n| **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |\n| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
 | **v1.19** | 2026-10-28 | Six saved themes and matching live app/tray icons. |
 | **v1.18** | 2026-10-27 | Movable popup with persistent positioning and reset action. |
 | **v1.17** | 2026-10-27 | Subnet calculator and note pin/duplicate/delete actions; integrated into the v1.18 commit. |

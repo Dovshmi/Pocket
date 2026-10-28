@@ -4,14 +4,14 @@
 
 ![PocketDesk — Notes view](preview-window-position.png)
 
-**Current version:** `v1.19` · **Platform:** Windows 10/11 · **Built with:** Python 3.10+ / Tkinter · **Data:** Local-first, no account required
+**Current version:** `v1.20` · **Platform:** Windows 10/11 · **Built with:** Python 3.10+ / Tkinter · **Data:** Local-first, no account required
 
 ## Features
 
 | Tool | What it does |
 | --- | --- |
 | 📝 **Notes** | Autosaving notes with a title, phone number, creation timestamp and full-width editor. Pin, duplicate or delete notes from the note list. Right-click the editor for standard text actions, date/time insertion, Notepad export, IP lookup or CLI search. |
-| 🔗 **Shortcuts** | Save and launch websites, files and folders. Add shortcuts manually or drag a URL/File Explorer item into the app, review the details, then save. |
+| 🔗 **Shortcuts** | Save and launch websites, files and folders. Use the compact search bar to filter by name, target or type. Add manually or drag a URL/File Explorer item into the app, review the details, then save. |
 | 🔌 **TCP Ports** | Test a single TCP port, common presets, or custom port lists/ranges against IPv4/IPv6 targets. View open/closed/timeout/error results and copy or export them. |
 | 🖥️ **MAC Lookup** | Identify vendors from MAC addresses using IEEE OUI data. Supports multiple addresses, registry download/import and CSV export. |
 | ⌨️ **Commands** | Search network CLI commands and descriptions by device/vendor and category, edit commands before copying, and save custom commands and favorites. Examples cover Cisco, FortiGate, Juniper and Nokia. **Commands are copied, never executed.** |
@@ -21,7 +21,7 @@
 
 - **Six themes:** click the pocket icon at the top-left to choose **Blue, Dark blue, Black, Red, Green or Purple**. This immediately updates the window appearance, header icon, and notification-area tray icon, and the selection is saved across launches. The packaged EXE's embedded icon remains blue; Windows caches executable and pinned shortcut icons independently.
 - **System tray:** click the tray icon to show or hide the popup; closing the window hides it rather than erasing data.
-- **Global hotkey:** `Ctrl + Shift + *` (including `Ctrl+Shift+8` and numpad `*`, where available).
+- **Customizable global hotkey:** click the **Show / hide** shortcut under the **Pocket** header to choose modifier buttons (Ctrl, Shift, Alt, Win) and a key. The default is `Ctrl+Shift+*` (including numpad `*` where available). Settings are saved locally. A combination already taken by another app cannot be registered; your previous working shortcut stays active.
 - **Movable window:** drag the header; PocketDesk remembers its position and keeps it on-screen when possible. Right-click the header to **Reset window position**.
 - **PIN mode:** keep the popup visible while working in other windows.
 - **Local persistence:** your notes, shortcuts, custom commands and preferences are saved on your PC.
@@ -66,6 +66,7 @@ Run **`build-exe.bat`** on Windows to generate the blue embedded icon and packag
 
 | Version | What's new |
 | --- | --- |
+| **v1.20** · Oct 28, 2026 | Renamed the header to **Pocket**, clickable popup-hotkey picker and compact Shortcuts search. |
 | **v1.19** · Oct 28, 2026 | Six selectable color themes and matching live app/tray icons, remembered across launches. |
 | **v1.18** · Oct 27, 2026 | Drag-to-move window, saved/restored position and reset option. |
 | **v1.17** · Oct 27, 2026 | IPv4 subnet calculator; pin, duplicate and delete notes. *(Included in the v1.18 GitHub commit.)* |
@@ -79,7 +80,7 @@ See the [commit history](https://github.com/Dovshmi/Pocket/commits/main/) for im
 
 PocketDesk stores personal data locally under `%APPDATA%\PocketDesk\`:
 
-- `data.json` — notes, shortcuts, selected theme, preferences, custom commands and window position.
+- `data.json` — notes, shortcuts, selected theme, custom popup hotkey, preferences, custom commands and window position.
 - `icons\\` — automatically generated PNG/ICO color variants (created locally on first run).
 - `vendors.json` — imported/downloaded MAC vendor data.
 - `notepad_exports\` — text snapshots opened in Windows Notepad (**changes in Notepad do not sync back**).

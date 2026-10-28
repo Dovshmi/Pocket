@@ -1,2 +1,5 @@
 # Native Windows Explorer / browser drag-and-drop support for Tkinter.
 tkinterdnd2>=0.4.4,<0.8
+
+# Render the six selectable PocketDesk icons locally.
+Pillow>=10.0,<13

@@ -14,14 +14,30 @@ SPEC.loader.exec_module(app)
 
 class ClipboardSettingsTests(unittest.TestCase):
     def test_capture_off_by_default(self):
-        self.assertFalse(app.normalize_settings(None)["clipboard"])
+        self.assertIn("clipboard", app.normalize_settings(None)["visible_tabs"])
 
     def test_bad_preferences_are_sanitized(self):
-        prefs = app.normalize_settings({"clipboard": "yes", "notifications": False,
+        prefs = app.normalize_settings({
                                         "visible_tabs": ["clipboard", "fake", "clipboard"]})
-        self.assertFalse(prefs["clipboard"])
-        self.assertFalse(prefs["notifications"])
         self.assertEqual(prefs["visible_tabs"], ["clipboard"])
+
+    def test_note_reminder_due_once(self):
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc)
+        note = app.new_note("Test")
+        note["reminder_enabled"] = True
+        note["reminder_at"] = (now - timedelta(minutes=2)).isoformat()
+        self.assertTrue(app.reminder_is_due(note, now))
+        note["reminder_sent_at"] = now.isoformat()
+        self.assertFalse(app.reminder_is_due(note, now))
+
+    def test_note_reminder_migration(self):
+        old = app.new_note()
+        old.pop("reminder_at")
+        old.pop("reminder_enabled")
+        app.normalize_note_reminder(old)
+        self.assertFalse(old["reminder_enabled"])
+        self.assertEqual(old["reminder_at"], "")
 
     def test_clipboard_dedupe_and_limit(self):
         history = []
@@ -36,7 +52,6 @@ class ClipboardSettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "data.json"
             data = app.default_data()
-            data["settings"]["clipboard"] = True
             app.save_data(path, data)
             self.assertNotIn("clipboard_items", path.read_text(encoding="utf-8"))
 

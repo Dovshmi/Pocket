@@ -2,71 +2,52 @@
 
 # Pocket
 
-### Your notes, shortcuts and network tools — one click away.
+**Your everyday tools, one shortcut away.**
 
-A compact, customizable Windows desktop toolbox that lives in your system tray. Open it when you need it, keep your tools close, and get back to work.
+A compact Windows tray utility for quick notes, saved shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.23** · **GPL-3.0** · **Local-first**
+**Windows 10 / 11** · **Python 3.10+** · **v1.23** · **Local-first** · **GPL-3.0**
 
-[Explore the app](#screenshots) · [Features](#features) · [Get started](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Version history](#version-history)
+[Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
 </div>
 
 <p align="center">
-  <a href="preview-window-position.png">
-    <img src="preview-window-position.png" alt="Pocket desktop app showing the Notes interface, with the draggable window positioned on screen" width="440">
-  </a>
+  <a href="preview-window-position.png"><img src="preview-window-position.png" width="420" alt="Pocket desktop tray utility showing its Notes view"></a>
 </p>
 
 > [!NOTE]
-> **Project status:** Pocket is under active development. The repository contains the application **source code**, not a downloadable prebuilt Windows release. Screenshots below are genuine captures from earlier development versions; some header and toolbar details have changed in v1.19–v1.20.
+> **Development status:** Pocket is actively developed. This repository includes source code rather than a prebuilt Windows release. The existing gallery images are real screenshots from previous development builds; current screenshots are being prepared separately.
 
-## Why Pocket?
+
+## What is Pocket?
 
 Pocket is designed for tasks that are too small to justify opening another full-size app: jotting down a phone number, launching a frequently used folder, checking a TCP port, identifying a MAC vendor, finding a CLI command or calculating a subnet.
 
 It stays out of the way until you need it, and stores your personal notes and preferences **on your own computer**.
 
-## Screenshots
+## App gallery
 
-These are screenshots of the **actual Pocket application**, not UI mockups. Select a screenshot for a closer look.
+Six built-in tools, presented in a small movable window. All images below are **real application captures**, although some show earlier builds of the interface.
 
 <table>
-<tr>
-<td align="center" width="33%">
-  <a href="preview-notes-pinned-v117.png"><img src="preview-notes-pinned-v117.png" width="220" alt="Notes with pinned notes and full-width text editor"></a><br>
-  <b>Notes</b><br><sub>Capture from v1.17</sub>
-</td>
-<td align="center" width="33%">
-  <a href="preview-shortcuts-fixed.png"><img src="preview-shortcuts-fixed.png" width="220" alt="Quick-launch website, file and folder shortcuts"></a><br>
-  <b>Shortcuts</b><br><sub>Earlier development capture</sub>
-</td>
-<td align="center" width="33%">
-  <a href="preview-ports.png"><img src="preview-ports.png" width="220" alt="TCP port checker and scan results"></a><br>
-  <b>TCP Ports</b><br><sub>Earlier development capture</sub>
-</td>
-</tr>
-<tr>
-<td align="center">
-  <a href="preview-mac.png"><img src="preview-mac.png" width="220" alt="MAC vendor lookup results"></a><br>
-  <b>MAC Lookup</b><br><sub>Earlier development capture</sub>
-</td>
-<td align="center">
-  <a href="preview-commands-layout.png"><img src="preview-commands-layout.png" width="220" alt="Network CLI command search and editing panel"></a><br>
-  <b>Commands</b><br><sub>Earlier development capture</sub>
-</td>
-<td align="center">
-  <a href="preview-subnet-v117.png"><img src="preview-subnet-v117.png" width="220" alt="IPv4 subnet calculation and subdivision"></a><br>
-  <b>Subnet Calculator</b><br><sub>Capture from v1.17</sub>
-</td>
-</tr>
+  <tr>
+    <td align="center" width="33%"><a href="preview-notes-pinned-v117.png"><img src="preview-notes-pinned-v117.png" width="220" alt="Pocket Notes screen"></a><br><strong>Notes</strong><br><sub>Autosave, pin and organize</sub></td>
+    <td align="center" width="33%"><a href="preview-shortcuts-fixed.png"><img src="preview-shortcuts-fixed.png" width="220" alt="Pocket Shortcuts screen"></a><br><strong>Shortcuts</strong><br><sub>Sites, files and folders</sub></td>
+    <td align="center" width="33%"><a href="preview-ports.png"><img src="preview-ports.png" width="220" alt="Pocket TCP port checker"></a><br><strong>TCP Ports</strong><br><sub>Fast connectivity checks</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="preview-mac.png"><img src="preview-mac.png" width="220" alt="Pocket MAC vendor lookup"></a><br><strong>MAC Lookup</strong><br><sub>IEEE OUI identification</sub></td>
+    <td align="center"><a href="preview-commands-layout.png"><img src="preview-commands-layout.png" width="220" alt="Pocket CLI command helper"></a><br><strong>Commands</strong><br><sub>Search, edit and copy</sub></td>
+    <td align="center"><a href="preview-subnet-v117.png"><img src="preview-subnet-v117.png" width="220" alt="Pocket subnet calculator"></a><br><strong>Subnet Calculator</strong><br><sub>CIDR and network splits</sub></td>
+  </tr>
 </table>
 
-More interface views: [note right-click menu](preview-note-context-menu.png) · [shortcut drag-and-drop](preview-shortcuts-drop.png) · [editable CLI command](preview-commands-edit.png) · [saved window position](preview-window-position.png).
+Additional detail captures: [Notes actions](preview-note-context-menu.png) · [Shortcut drag-and-drop](preview-shortcuts-drop.png) · [Command editor](preview-commands-edit.png) · [Saved window position](preview-window-position.png).
 
 ## Features
 
-### Six tools in one popup
+### Six tools in one window
 
 | Tool | Capabilities |
 |:---|:---|
@@ -74,7 +55,7 @@ More interface views: [note right-click menu](preview-note-context-menu.png) · 
 | **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. |
 | **TCP Ports** | Test one TCP port, predefined ports, or a custom list/range against an IPv4 or IPv6 address. See **OPEN**, **CLOSED**, **TIMEOUT** and **ERROR** results, with copy/export options. |
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
-| **Commands** | Search a network CLI reference library by device, category, command syntax or description (including Hebrew text). Edit a command before copying, save favorites, and create your own machine/category/command entries. **Never executes commands.** |
+| **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with backup protection. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
 
 ### Personalize the workspace
@@ -172,11 +153,14 @@ Pocket saves user data under:
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
 - **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner.
 
-### Private CLI command library
+### CLI command library
 
-The app loads **one local reference library**: `commands/commands.json`. It is not included in this public repository and should **never be committed** if it contains workplace-specific information. To start, copy the format shown in [`commands/example_commands.json`](commands/example_commands.json) into your own `commands/commands.json`. An optional `machines` array can populate device categories even without command entries.
+The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited in-place, copied, favorited, or deleted. Atomic saves and timestamped backups help protect changes. See [the example format](commands/example_commands.json).
 
-Search the library in the **Commands** tab, then add, edit, copy or delete commands through the interface. The latest command-library changes use atomic writes and timestamped backups to reduce the risk of losing edits. Your local data is never uploaded automatically.
+> [!WARNING]
+> **Public-repository review needed:** A command library is currently checked into this public repository, including a second copy at `Pocket_Commands_One_Library/commands/commands.json`. Review both copies for internal device names, infrastructure details, or other sensitive material before sharing. The `.gitignore` rule does **not** retroactively remove committed files. Do not commit secrets or workplace-only command collections.
+
+The local application does not upload command edits automatically; GitHub publishing is a separate action.
 
 > **Packaging caution:** Review the source library before building an EXE: a local `commands/commands.json` may be bundled inside it. Do not distribute a build containing private commands.
 
@@ -188,13 +172,15 @@ Pocket/
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
 ├── command_helper.py       # Command search and editing
-├── machine_catalog.py      # Machine categories
+├── command_store.py        # Atomic command saves and backup support
+├── machine_catalog.py      # Machine category support
 ├── network_tools.py        # Port tests and MAC lookup
 ├── subnet_calculator.py    # IPv4 calculations
 ├── shortcut_utils.py       # Shortcut handling
 ├── shortcut_drop.py        # Drag-and-drop support
 ├── commands/
-│   ├── example_commands.json   # Example format only
+│   ├── commands.json           # Currently tracked command data; review before sharing
+│   ├── example_commands.json   # Example format
 │   └── README.md
 ├── install.bat / run.bat   # Set up and launch
 ├── build-exe.bat           # Package a Windows executable
@@ -242,7 +228,7 @@ Bug reports, ideas and pull requests are welcome.
 - [Open an issue](https://github.com/Dovshmi/Pocket/issues) with reproduction steps, Windows/Python versions, and relevant error details (remove private information from screenshots/logs).
 - For code changes, keep features focused and add or update tests when applicable.
 - Run `py -3 -m unittest discover -v` before proposing a pull request.
-- Never upload local `data.json`, `commands/commands.json`, passwords or private command packs.
+- Never upload local `data.json`, passwords, or private command packs. Review the command data already tracked in the repository.
 
 ## License
 

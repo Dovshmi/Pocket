@@ -6,7 +6,7 @@
 
 A compact, customizable Windows desktop toolbox that lives in your system tray. Open it when you need it, keep your tools close, and get back to work.
 
-**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.21** · **GPL-3.0** · **Local-first**
+**Windows 10 / 11** · **Python 3.10+** · **Current version: v1.22** · **GPL-3.0** · **Local-first**
 
 [Explore the app](#screenshots) · [Features](#features) · [Get started](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Version history](#version-history)
 
@@ -174,13 +174,13 @@ Pocket saves user data under:
 
 ### Private CLI commands
 
-The public repository ships with a **118-entry public command library** for Cisco, FortiGate, Juniper and Nokia SR OS. To maintain your own reference collection, create:
+The public repository ships with a **150-entry public command library** for Cisco, FortiGate, Juniper and Nokia SR OS. To maintain your own reference collection, create:
 
 ```text
 commands/commands.json
 ```
 
-Pocket prefers that local file over `commands/sample_commands.json`. The private path is ignored by Git. **Do not commit workplace commands, passwords, IP inventories or sensitive operational data.**
+Pocket now combines that local file with the built-in `commands/sample_commands.json` and `commands/public_additions.json` libraries. Machine categories are populated from `commands/machine_catalog.json` even when no verified command exists for a category. The private path is ignored by Git. **Do not commit workplace commands, passwords, IP inventories or sensitive operational data.**
 
 See [commands/README.md](commands/README.md) for the command-library convention.
 
@@ -191,13 +191,13 @@ Pocket/
 ├── app.pyw                 # Tkinter interface, notes, tabs, Windows tray
 ├── icon_themes.py          # Six color palettes and icon generation
 ├── hotkey_settings.py      # Custom hotkey mapping and shortcut filtering
-├── command_helper.py       # CLI reference search and user commands
+├── command_helper.py       # CLI reference search and user commands\n├── machine_catalog.py      # Full machine selector and library merging
 ├── network_tools.py        # TCP checks and MAC vendor lookup
 ├── subnet_calculator.py    # IPv4 network calculations
 ├── shortcut_utils.py       # Shortcut handling
 ├── shortcut_drop.py        # Drag-and-drop parsing
 ├── commands/
-│   └── sample_commands.json
+│   ├── sample_commands.json\n│   ├── public_additions.json\n│   └── machine_catalog.json
 ├── assets/                 # App assets and default icon
 ├── install.bat             # Dependency installation
 ├── run.bat                 # Start the application
@@ -214,7 +214,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
+| **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |\n| **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |\n| **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
 | **v1.19** | 2026-10-28 | Six saved themes and matching live app/tray icons. |
 | **v1.18** | 2026-10-27 | Movable popup with persistent positioning and reset action. |
 | **v1.17** | 2026-10-27 | Subnet calculator and note pin/duplicate/delete actions; integrated into the v1.18 commit. |

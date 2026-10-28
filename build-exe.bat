@@ -20,7 +20,13 @@ if not exist "%COMMAND_FILE%" (
   pause
   exit /b 1
 )
-py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --add-data "%COMMAND_FILE%;commands" app.pyw
+py -3 icon_themes.py --build-icon "assets\app.ico"
+if errorlevel 1 (
+  echo Could not generate default app icon.
+  pause
+  exit /b 1
+)
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "%COMMAND_FILE%;commands" app.pyw
 if errorlevel 1 (
   echo Build failed; check the output above.
   pause

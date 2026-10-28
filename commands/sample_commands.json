@@ -80,7 +80,7 @@
     },
     {
       "id": "example:012",
-      "machine": "Nokia",
+      "machine": "Nokia SR OS",
       "category": "General",
       "description": "Display system information",
       "command": "show system information"
@@ -714,13 +714,6 @@
       "category": "Security",
       "description": "Show IPsec security associations",
       "command": "show security ipsec security-associations"
-    },
-    {
-      "id": "public:multi:046",
-      "machine": "Nokia SR OS",
-      "category": "System",
-      "description": "Show system information",
-      "command": "show system information"
     },
     {
       "id": "public:multi:047",

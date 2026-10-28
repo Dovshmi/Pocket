@@ -43,8 +43,32 @@ def load_library(path: Path) -> list[dict]:
     return results
 
 
-def machines_for(commands: list[dict]) -> list[str]:
-    return sorted({item['machine'] for item in commands}, key=lambda name: normalize(name))
+def load_machine_names(path: Path) -> list[str]:
+    """Optional labels embedded in the SAME commands.json (no second catalogue).
+
+    Labels without commands stay selectable for notes and future local additions.
+    """
+    try:
+        parsed = json.loads(Path(path).read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return []
+    values = parsed.get('machines', []) if isinstance(parsed, dict) else []
+    if not isinstance(values, list):
+        return []
+    result, seen = [], set()
+    for value in values:
+        if isinstance(value, str) and 0 < len(value.strip()) <= 90:
+            name = value.strip()
+            if normalize(name) not in seen and name != ALL_MACHINES:
+                result.append(name)
+                seen.add(normalize(name))
+    return result
+
+
+def machines_for(commands: list[dict], extra=()) -> list[str]:
+    names = {item['machine'] for item in commands}
+    names.update(extra)
+    return sorted(names, key=lambda name: normalize(name))
 
 
 def categories_for(commands: list[dict], machine: str = ALL_MACHINES) -> list[str]:

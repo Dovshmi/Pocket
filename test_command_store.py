@@ -18,7 +18,7 @@ class CommandStoreTests(unittest.TestCase):
         self.file.parent.mkdir()
         self.file.write_text(json.dumps(FIXTURE), encoding="utf-8")
 
-    def test_add_edit_delete_backup(self):
+    def test_add_edit_delete_without_automatic_backup(self):
         row = {"id": "user:"+"a"*32, "machine": "Nokia 7210", "category": "System",
                "description": "Version", "command": "show version"}
         store.save_command(self.file, row)
@@ -27,7 +27,18 @@ class CommandStoreTests(unittest.TestCase):
         self.assertEqual(store.read_document(self.file)["commands"][0]["source_row"], 7)
         store.delete_command(self.file, row)
         self.assertEqual(len(store.read_document(self.file)["commands"]), 1)
-        self.assertEqual(len(list((self.file.parent/"backups").glob("commands-*.json"))), 3)
+        self.assertFalse((self.file.parent/"backups").exists())
+
+    def test_explicit_backup_and_restore(self):
+        backup = store.create_backup(self.file)
+        self.assertTrue(backup.exists())
+        row = {"id": "new", "machine": "Cisco", "category": "Routing",
+               "description": "Added", "command": "show interfaces"}
+        store.save_command(self.file, row)
+        self.assertEqual(len(store.read_document(self.file)["commands"]), 2)
+        store.restore_backup(self.file, backup)
+        self.assertEqual(store.read_document(self.file), FIXTURE)
+        self.assertEqual(len(list(backup.parent.glob("commands-*.json"))), 1)
 
     def test_legacy_migration_without_duplicates(self):
         row = {"id": "user:"+"b"*32, "machine": "Cisco", "category": "Other",

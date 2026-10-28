@@ -28,6 +28,7 @@ from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
+import command_store as cs
 import subnet_calculator as subnet
 import icon_themes as themes
 import hotkey_settings as hk
@@ -291,16 +292,24 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.updating_vendors = False
         self.port_inputs_expanded = True
-        # One library only: the user's commands.json. Never load public examples.
+        # One writable library; the EXE's bundled copy is only a seed.
         install = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
                    else Path(__file__).resolve().parent)
-        candidates = (install / "commands" / "commands.json",
-                      install / "commands.json",
-                      self.path.parent / "commands.json",
-                      self.bundle_path("commands", "commands.json"))
-        self.commands_file = next((p for p in candidates if p.is_file()), candidates[0])
-        self.bundled_commands = ch.load_library(self.commands_file)
-        self.machine_catalog = ch.load_machine_names(self.commands_file)
+        self.commands_error = None
+        try:
+            self.commands_file = cs.resolve_library(install, self.path.parent,
+                                                     self.bundle_path())
+            cs.read_document(self.commands_file)
+            if self.data["custom_commands"]:
+                cs.migrate_custom(self.commands_file, self.data["custom_commands"])
+                # Keep the old copies until data.json is successfully saved.
+                self.data["custom_commands"] = []
+                save_data(self.path, self.data)
+        except (OSError, ValueError) as exc:
+            self.commands_error = str(exc)
+            self.commands_file = None
+        self.bundled_commands = ch.load_library(self.commands_file) if self.commands_file else []
+        self.machine_catalog = ch.load_machine_names(self.commands_file) if self.commands_file else []
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
         self.selected_command_id = None
@@ -1516,7 +1525,7 @@ class PocketDesk:
             self.command_code.insert('1.0', item['command'])
             favorite = item['id'] in self.data['command_state']['favorites']
             self.command_star.config(text='★ Saved' if favorite else '☆ Save')
-            if item.get('origin') == 'custom':
+            if self.commands_file is not None:
                 self.command_edit.pack(side='left', after=self.command_star)
                 self.command_delete.pack(side='left', after=self.command_edit)
             else:
@@ -1530,7 +1539,7 @@ class PocketDesk:
             self.command_edit.pack_forget()
             self.command_delete.pack_forget()
         self.command_draft_id = item['id'] if item else None
-        self.command_feedback.config(text='Edits in this box are temporary · Copy does not execute', fg=MUTED)
+        self.command_feedback.config(text='Draft edits are temporary · use Edit saved to save · Never executed', fg=MUTED)
 
     def _toggle_command_favorite(self):
         item=self._selected_command()
@@ -1586,12 +1595,12 @@ class PocketDesk:
 
     def _edit_custom_command(self):
         item = self._selected_command()
-        if item and item.get('origin') == 'custom':
+        if item:
             self._show_custom_editor(item)
 
     def _delete_custom_command(self):
         item = self._selected_command()
-        if not item or item.get('origin') != 'custom':
+        if not item:
             return
         self._modal = True
         try:
@@ -1601,21 +1610,40 @@ class PocketDesk:
             self._modal = False
         if not yes:
             return
-        self.data['custom_commands'] = [row for row in self.data['custom_commands'] if row['id'] != item['id']]
+        if not self._save_library_change(lambda: cs.delete_command(self.commands_file, item)):
+            return
+        self._reload_command_library()
         prefs = self.data['command_state']
         prefs['favorites'] = [x for x in prefs['favorites'] if x != item['id']]
         prefs['recent'] = [x for x in prefs['recent'] if x != item['id']]
         self._refresh_command_catalog(machine=item['machine'])
 
+    def _reload_command_library(self):
+        self.bundled_commands = ch.load_library(self.commands_file) if self.commands_file else []
+        self.machine_catalog = ch.load_machine_names(self.commands_file) if self.commands_file else []
+
+    def _save_library_change(self, operation):
+        if self.commands_file is None:
+            self._warning('Command library unavailable',
+                          self.commands_error or 'No writable commands.json found.')
+            return False
+        try:
+            operation()
+            return True
+        except (OSError, ValueError, KeyError) as exc:
+            self._warning('Could not save command', str(exc))
+            return False
+
     def _show_custom_editor(self, entry=None):
         # Dialog protects the tray popup against disappearing when the form gains focus.
-        if len(self.data['custom_commands']) >= ch.MAX_CUSTOM_COMMANDS and entry is None:
-            self._warning('Command limit', 'Maximum custom commands reached.')
+        if self.commands_file is None:
+            self._warning('Command library unavailable',
+                          self.commands_error or 'Place commands.json in the commands folder.')
             return
         current_machine = self.machine_var.get()
         self._modal = True
         dialog = tk.Toplevel(self.root)
-        dialog.title('Edit my command' if entry else 'Add command')
+        dialog.title('Edit command' if entry else 'Add command')
         dialog.configure(bg=BG)
         dialog.geometry('460x485')
         dialog.minsize(440, 460)
@@ -1630,9 +1658,9 @@ class PocketDesk:
         dialog.grab_set()
         pane = tk.Frame(dialog, bg=BG)
         pane.pack(fill='both', expand=True, padx=18, pady=14)
-        tk.Label(pane, text='EDIT MY COMMAND' if entry else 'NEW MACHINE COMMAND', bg=BG, fg=WHITE,
+        tk.Label(pane, text='EDIT COMMAND' if entry else 'NEW MACHINE COMMAND', bg=BG, fg=WHITE,
                  font=(FONT, 13, 'bold')).pack(anchor='w', pady=(0, 6))
-        tk.Label(pane, text='Stored only on this computer · Never executed', bg=BG, fg=MUTED,
+        tk.Label(pane, text='Saved to commands.json · Automatic backup · Never executed', bg=BG, fg=MUTED,
                  font=(FONT, 9)).pack(anchor='w', pady=(0, 11))
 
         def labelled(text):
@@ -1686,13 +1714,10 @@ class PocketDesk:
             except ValueError as exc:
                 messagebox.showwarning('Check command details', str(exc), parent=dialog)
                 return
-            if entry:
-                for pos, row in enumerate(self.data['custom_commands']):
-                    if row['id'] == entry['id']:
-                        self.data['custom_commands'][pos] = record
-                        break
-            else:
-                self.data['custom_commands'].append(record)
+            if not self._save_library_change(
+                    lambda: cs.save_command(self.commands_file, record, original=entry)):
+                return
+            self._reload_command_library()
             close()
             self._refresh_command_catalog(machine=record['machine'], select_id=record['id'])
 

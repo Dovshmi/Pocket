@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import ctypes
 import ipaddress
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import re
 import json
 import os
@@ -90,7 +90,8 @@ def clamp_window_position(x: int, y: int, width: int, height: int,
 
 def new_note(title="Untitled note", body="", phone="") -> dict:
     return {"id": new_id(), "title": title, "body": body, "phone": phone,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False}
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False,
+            "reminder_enabled": False, "reminder_at": "", "reminder_sent_at": ""}
 
 
 def ordered_notes(notes: list[dict]) -> list[dict]:
@@ -166,7 +167,7 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
-        "settings": {"clipboard": False, "notifications": True, "visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"]},
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"]},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -188,9 +189,54 @@ def normalize_settings(raw):
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
-    return {"clipboard": raw.get("clipboard") is True,
-            "notifications": raw.get("notifications") is not False,
-            "visible_tabs": visible}
+    return {"visible_tabs": visible}
+
+
+def parse_reminder_time(date_text, time_text, now=None):
+    """Validate a future local time, stored with the local UTC offset."""
+    try:
+        scheduled = datetime.strptime(f"{date_text.strip()} {time_text.strip()}",
+                                      "%Y-%m-%d %H:%M").astimezone()
+    except (ValueError, AttributeError) as exc:
+        raise ValueError("Use a valid date YYYY-MM-DD and time HH:MM.") from exc
+    if scheduled <= (now or datetime.now().astimezone()):
+        raise ValueError("Choose a future date and time.")
+    return scheduled.isoformat(timespec="minutes")
+
+
+def normalize_note_reminder(note):
+    """Migrate previous note records without inventing reminder times."""
+    raw = note.get("reminder_at")
+    try:
+        when = datetime.fromisoformat(raw) if isinstance(raw, str) and raw else None
+    except ValueError:
+        when = None
+    valid = when is not None and when.tzinfo is not None
+    note["reminder_at"] = raw if valid else ""
+    note["reminder_enabled"] = valid and note.get("reminder_enabled") is True
+    note["reminder_sent_at"] = (note.get("reminder_sent_at", "")
+                                if isinstance(note.get("reminder_sent_at", ""), str) else "")
+    return note
+
+
+def reminder_is_due(note, now=None):
+    if not note.get("reminder_enabled") or note.get("reminder_sent_at"):
+        return False
+    try:
+        scheduled = datetime.fromisoformat(note["reminder_at"])
+        return scheduled.tzinfo is not None and scheduled <= (now or datetime.now().astimezone())
+    except (ValueError, TypeError, KeyError):
+        return False
+
+
+def format_reminder(note):
+    if not note.get("reminder_enabled"):
+        return "No reminder"
+    try:
+        when = datetime.fromisoformat(note["reminder_at"]).astimezone()
+        return when.strftime("%d %b %Y · %H:%M") + (" · sent" if note.get("reminder_sent_at") else "")
+    except (ValueError, TypeError, KeyError):
+        return "No reminder"
 
 
 def sanitize_clipboard(value):
@@ -236,6 +282,7 @@ def load_data(path: Path) -> dict:
                 note["created_at"] = ""
             # Only genuine boolean values are accepted for the persisted flag.
             note["pinned"] = note.get("pinned") is True
+            normalize_note_reminder(note)
         links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
@@ -398,6 +445,7 @@ class PocketDesk:
         self.root.bind("<FocusOut>", self._focus_lost)
         self.root.after(120, self._poll_events)
         self.root.after(650, self._clipboard_poll)
+        self.root.after(2500, self._reminder_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -646,13 +694,6 @@ class PocketDesk:
                 menu.add_command(label=label, command=lambda k=key: self.show_tab(k))
         menu.tk_popup(self.root.winfo_rootx()+165, self.root.winfo_rooty()+132)
 
-    def _set_setting(self, key, value):
-        self.settings[key] = bool(value)
-        self.data["settings"] = self.settings
-        self.schedule_save()
-        if key == "clipboard":
-            self._clipboard_last = None
-
     def _set_visible_tab(self, key, enabled):
         current = self.settings["visible_tabs"]
         if enabled and key not in current:
@@ -663,6 +704,8 @@ class PocketDesk:
                 self._build_settings_refresh()
                 return
             current.remove(key)
+        if key == "clipboard":
+            self._clipboard_last = None
         self._build_shell_refresh()
         self.schedule_save()
 
@@ -677,33 +720,32 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
-        tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"), bg=BG, fg=WHITE).pack(anchor="w")
-        tk.Label(self.body, text="Privacy, notifications and visible menus", bg=BG, fg=MUTED,
-                 font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
-        for key, title, desc in (
-            ("clipboard", "Clipboard monitoring", "Capture copied text while Pocket is running. Off by default."),
-            ("notifications", "Desktop notifications", "Show Windows tray notifications for completed tasks.")):
-            row = tk.Frame(self.body, bg=PANEL, padx=10, pady=9)
-            row.pack(fill="x", pady=3)
-            value = tk.BooleanVar(value=self.settings[key])
-            tk.Checkbutton(row, text=title, variable=value, bg=PANEL, fg=WHITE,
-                           activebackground=PANEL, activeforeground=WHITE,
-                           selectcolor=CARD, font=(FONT, 10, "bold"),
-                           command=lambda k=key,v=value:self._set_setting(k,v.get())).pack(anchor="w")
-            tk.Label(row, text=desc, bg=PANEL, fg=MUTED,
-                     font=(FONT, 8), wraplength=410, justify="left").pack(anchor="w")
+        tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"),
+                 bg=BG, fg=WHITE).pack(anchor="w")
+        tk.Label(self.body, text="Choose which tools appear in Pocket",
+                 bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
-                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(19, 8))
+                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
         for key, label in VISIBLE_TABS:
             value = tk.BooleanVar(value=key in self.settings["visible_tabs"])
-            tk.Checkbutton(self.body, text=label.title(), variable=value, bg=BG, fg=WHITE,
-                           activebackground=BG, activeforeground=WHITE, selectcolor=PANEL,
-                           command=lambda k=key,v=value:self._set_visible_tab(k,v.get())).pack(anchor="w", pady=2)
-        tk.Label(self.body, text="Hidden tools keep their saved data. Settings is always available.",
-                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=420).pack(anchor="w", pady=12)
+            tk.Checkbutton(self.body, text=label.title(), variable=value,
+                           bg=BG, fg=WHITE, activebackground=BG,
+                           activeforeground=WHITE, selectcolor=PANEL,
+                           command=lambda k=key,v=value:self._set_visible_tab(k,v.get())
+                           ).pack(anchor="w", pady=5)
+        tk.Label(self.body,
+                 text="Clipboard monitoring is automatic whenever Clipboard is visible. "
+                      "Hide that menu to stop capturing new copied text.",
+                 bg=BG, fg=MUTED, font=(FONT, 9), wraplength=415,
+                 justify="left").pack(anchor="w", pady=(18, 8))
+        tk.Label(self.body,
+                 text="Notifications are scheduled for individual notes. "
+                      "They appear while Pocket runs in the system tray.",
+                 bg=BG, fg=MUTED, font=(FONT, 9), wraplength=415,
+                 justify="left").pack(anchor="w", pady=8)
 
     def _clipboard_poll(self):
-        if self.settings["clipboard"]:
+        if "clipboard" in self.settings["visible_tabs"]:
             try:
                 value = self.root.clipboard_get()
                 if isinstance(value, str) and value != self._clipboard_last:
@@ -750,7 +792,7 @@ class PocketDesk:
             preview = " ".join(item["text"].split())[:65]
             self.clipboard_list.insert(tk.END, ("★ " if item["pinned"] else "   ") + preview)
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
-                                     ("ON" if self.settings["clipboard"] else "OFF"))
+                                     ("ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):

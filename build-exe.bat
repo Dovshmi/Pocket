@@ -13,16 +13,9 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist "commands\sample_commands.json" (
-  echo Missing public sample command library.
-  exit /b 1
-)
-if not exist "commands\machine_catalog.json" (
-  echo Missing machine catalogue.
-  exit /b 1
-)
-if not exist "commands\public_additions.json" (
-  echo Missing extra public commands.
+if not exist "commands\commands.json" (
+  echo Missing commands\commands.json. Put your private command file there.
+  pause
   exit /b 1
 )
 py -3 icon_themes.py --build-icon "assets\app.ico"
@@ -31,7 +24,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\sample_commands.json;commands" --add-data "commands\machine_catalog.json;commands" --add-data "commands\public_additions.json;commands" app.pyw
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\commands.json;commands" app.pyw
 if errorlevel 1 (
   echo Build failed; check the output above.
   pause

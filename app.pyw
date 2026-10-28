@@ -408,7 +408,7 @@ class PocketDesk:
         dialog.configure(bg=BG)
         dialog.resizable(False, False)
         dialog.transient(self.root)
-        dialog.geometry(f"380x360+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
+        dialog.geometry(f"390x425+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
         selected = self.hotkey.copy()
         flags = {key: tk.BooleanVar(value=selected[key]) for key in ("ctrl","shift","alt","win")}
         key_var = tk.StringVar(value=selected["key"])
@@ -2605,14 +2605,20 @@ class WindowsTray:
                 candidate = self._pending_hotkey
                 if candidate:
                     # Validate the new combination before dropping the working one.
-                    bindings = hk.bindings(candidate, 0xB20)
+                    # Alternating IDs also supports multiple successive edits.
+                    base = 0xB20 if all(i < 0xB20 for i in self.hotkey_ids) else 0xB10
+                    bindings = hk.bindings(candidate, base)
                     new_ids = set()
-                    for hotkey_id, mods, key in bindings:
-                        if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
-                            new_ids.add(hotkey_id)
+                    if candidate == self.hotkey:
+                        new_ids = self.hotkey_ids.copy()
+                    else:
+                        for hotkey_id, mods, key in bindings:
+                            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                                new_ids.add(hotkey_id)
                     if new_ids:
-                        for old in tuple(self.hotkey_ids):
-                            user.UnregisterHotKey(hwnd, old)
+                        if candidate != self.hotkey:
+                            for old in tuple(self.hotkey_ids):
+                                user.UnregisterHotKey(hwnd, old)
                         self.hotkey_ids = new_ids
                         self.hotkey = candidate
                         nid.szTip = "Pocket — " + hk.hotkey_label(candidate) + " to toggle"

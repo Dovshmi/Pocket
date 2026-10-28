@@ -4,7 +4,7 @@
 
 ![PocketDesk — Notes view](preview-window-position.png)
 
-**Current version:** `v1.18` · **Platform:** Windows 10/11 · **Built with:** Python 3.10+ / Tkinter · **Data:** Local-first, no account required
+**Current version:** `v1.19` · **Platform:** Windows 10/11 · **Built with:** Python 3.10+ / Tkinter · **Data:** Local-first, no account required
 
 ## Features
 
@@ -19,6 +19,7 @@
 
 ### App-wide conveniences
 
+- **Six themes:** click the pocket icon at the top-left to choose **Blue, Dark blue, Black, Red, Green or Purple**. This immediately updates the window appearance, header icon, and notification-area tray icon, and the selection is saved across launches. The packaged EXE's embedded icon remains blue; Windows caches executable and pinned shortcut icons independently.
 - **System tray:** click the tray icon to show or hide the popup; closing the window hides it rather than erasing data.
 - **Global hotkey:** `Ctrl + Shift + *` (including `Ctrl+Shift+8` and numpad `*`, where available).
 - **Movable window:** drag the header; PocketDesk remembers its position and keeps it on-screen when possible. Right-click the header to **Reset window position**.
@@ -57,7 +58,7 @@ Click any screenshot to see it at full size.
 
 ### Build a Windows executable
 
-Run **`build-exe.bat`** on Windows to package the app with PyInstaller. Output: `dist\PocketDesk.exe`.
+Run **`build-exe.bat`** on Windows to generate the blue embedded icon and package the app with PyInstaller and Pillow. Output: `dist\PocketDesk.exe`.
 
 > **Build safely:** A local `commands/commands.json` file can be bundled into the EXE. Build public distributions from a clean checkout containing **only** the sample commands. This repository does **not** provide a prebuilt EXE; native packaging and multi-monitor behavior still need real-Windows verification.
 
@@ -65,6 +66,7 @@ Run **`build-exe.bat`** on Windows to package the app with PyInstaller. Output: 
 
 | Version | What's new |
 | --- | --- |
+| **v1.19** · Oct 28, 2026 | Six selectable color themes and matching live app/tray icons, remembered across launches. |
 | **v1.18** · Oct 27, 2026 | Drag-to-move window, saved/restored position and reset option. |
 | **v1.17** · Oct 27, 2026 | IPv4 subnet calculator; pin, duplicate and delete notes. *(Included in the v1.18 GitHub commit.)* |
 | **v1.16** · Oct 27, 2026 | Full-width Notes editor, note context menus and shortcut fixes. |
@@ -77,7 +79,8 @@ See the [commit history](https://github.com/Dovshmi/Pocket/commits/main/) for im
 
 PocketDesk stores personal data locally under `%APPDATA%\PocketDesk\`:
 
-- `data.json` — notes, shortcuts, preferences, custom commands and window position.
+- `data.json` — notes, shortcuts, selected theme, preferences, custom commands and window position.
+- `icons\\` — automatically generated PNG/ICO color variants (created locally on first run).
 - `vendors.json` — imported/downloaded MAC vendor data.
 - `notepad_exports\` — text snapshots opened in Windows Notepad (**changes in Notepad do not sync back**).
 

@@ -81,7 +81,7 @@ def _atomic_write(path: Path, doc: dict) -> Path:
     """Replace commands.json atomically, WITHOUT making any automatic backup."""
     path = Path(path)
     original = path.stat()
-    encoded = (json.dumps(doc, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    encoded = (json.dumps(doc, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     temp_name = None
     try:
         with tempfile.NamedTemporaryFile(mode="wb", prefix=".commands-", suffix=".tmp",

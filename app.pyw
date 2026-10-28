@@ -888,6 +888,14 @@ class PocketDesk:
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
                      padx=9, pady=4, font_size=8).pack(side="left", padx=(6, 0))
         self.phone_var.trace_add("write", self._change_note_phone)
+        reminders = tk.Frame(details, bg=PANEL)
+        reminders.pack(fill="x", padx=10, pady=(0, 4))
+        self.reminder_action = action_label(reminders, "☐ Notify me", self._toggle_active_note_reminder,
+                                            bg=PANEL, fg=ACCENT, padx=4, pady=2, font_size=8)
+        self.reminder_action.pack(side="left")
+        self.reminder_detail = tk.Label(reminders, text="", bg=PANEL, fg=MUTED, font=(FONT, 8), cursor="hand2")
+        self.reminder_detail.pack(side="right")
+        self.reminder_detail.bind("<Button-1>", lambda _e:self._edit_active_note_reminder())
 
         # Bottom block: full-width note editor.
         editor = tk.Frame(main, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
@@ -962,6 +970,8 @@ class PocketDesk:
         self.title_var.set(n["title"])
         self.created_label.config(text=display_created_at(n.get("created_at", "")))
         self.phone_var.set(n.get("phone", ""))
+        self.reminder_action.config(text="☑ Notify me" if n.get("reminder_enabled") else "☐ Notify me")
+        self.reminder_detail.config(text=format_reminder(n))
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
         self.note_body.edit_modified(False)
@@ -1024,9 +1034,105 @@ class PocketDesk:
             menu.add_command(label="Unpin from top" if note.get("pinned") else "Pin to top",
                              command=lambda: self._toggle_note_pin(note_id))
             menu.add_command(label="Duplicate note", command=lambda: self._duplicate_note(note_id))
+            menu.add_checkbutton(label="Notify me…", onvalue=True, offvalue=False,
+                                 variable=tk.BooleanVar(value=note.get("reminder_enabled", False)),
+                                 command=lambda: self._toggle_note_reminder(note_id))
+            if note.get("reminder_enabled"):
+                menu.add_command(label="Change notification time…",
+                                 command=lambda: self._edit_note_reminder(note_id))
             menu.add_separator()
             menu.add_command(label="Delete note…", command=lambda: self._delete_note_by_id(note_id))
         return menu
+
+    def _toggle_active_note_reminder(self):
+        note = self.active_note()
+        if note:
+            self._toggle_note_reminder(note["id"])
+
+    def _edit_active_note_reminder(self):
+        note = self.active_note()
+        if note:
+            self._edit_note_reminder(note["id"])
+
+    def _toggle_note_reminder(self, note_id):
+        note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
+        if not note:
+            return
+        if note.get("reminder_enabled"):
+            note.update(reminder_enabled=False, reminder_at="", reminder_sent_at="")
+            self._refresh_note_reminder_ui()
+            self.schedule_save()
+        else:
+            self._edit_note_reminder(note_id)
+
+    def _refresh_note_reminder_ui(self):
+        if self.current_tab == "notes":
+            self.refresh_note_list()
+            self._load_selected_note()
+
+    def _edit_note_reminder(self, note_id):
+        note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
+        if not note:
+            return
+        if getattr(self, "_reminder_dialog", None) and self._reminder_dialog.winfo_exists():
+            self._reminder_dialog.lift()
+            return
+        self._flush_current_note()
+        self._modal = True
+        dialog = tk.Toplevel(self.root)
+        self._reminder_dialog = dialog
+        dialog.title("Pocket · Note notification")
+        dialog.configure(bg=BG)
+        dialog.resizable(False, False)
+        dialog.geometry(f"390x305+{max(0,self.root.winfo_x()+35)}+{max(0,self.root.winfo_y()+110)}")
+        dialog.transient(self.root)
+        try:
+            existing = datetime.fromisoformat(note["reminder_at"]).astimezone()
+            if existing <= datetime.now().astimezone():
+                existing = datetime.now().astimezone() + timedelta(hours=1)
+        except (ValueError, KeyError, TypeError):
+            existing = datetime.now().astimezone() + timedelta(hours=1)
+        date_var = tk.StringVar(value=existing.strftime("%Y-%m-%d"))
+        time_var = tk.StringVar(value=existing.strftime("%H:%M"))
+        tk.Label(dialog, text="Notify me about this note", bg=BG, fg=WHITE,
+                 font=(FONT, 14, "bold")).pack(anchor="w", padx=20, pady=(18, 4))
+        tk.Label(dialog, text=note["title"][:60], bg=BG, fg=MUTED,
+                 font=(FONT, 9)).pack(anchor="w", padx=20, pady=(0, 13))
+        fields = tk.Frame(dialog, bg=BG)
+        fields.pack(fill="x", padx=20)
+        for label, var in (("DATE  YYYY-MM-DD", date_var), ("TIME  HH:MM (24h)", time_var)):
+            line = tk.Frame(fields, bg=BG)
+            line.pack(fill="x", pady=(0, 9))
+            tk.Label(line, text=label, bg=BG, fg=SECONDARY,
+                     font=(FONT, 9), width=20, anchor="w").pack(side="left")
+            self._entry(line, var).pack(side="right", fill="x", expand=True, ipady=5)
+        tk.Label(dialog, text="Local computer time. Pocket must be running in the tray.",
+                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=350).pack(anchor="w", padx=20, pady=10)
+        actions = tk.Frame(dialog, bg=BG)
+        actions.pack(fill="x", padx=20, pady=(2, 10))
+
+        def close():
+            self._modal = False
+            dialog.destroy()
+
+        def save():
+            try:
+                when = parse_reminder_time(date_var.get(), time_var.get())
+            except ValueError as exc:
+                messagebox.showwarning("Invalid notification time", str(exc), parent=dialog)
+                return
+            note.update(reminder_enabled=True, reminder_at=when, reminder_sent_at="")
+            self._refresh_note_reminder_ui()
+            self._write_now()
+            close()
+
+        action_label(actions, "Cancel", close, fg=SECONDARY, bg=PANEL,
+                     font_size=9).pack(side="right", padx=(8, 0))
+        action_label(actions, "Save reminder", save, fg="#121622", bg=ACCENT,
+                     font_size=9).pack(side="right")
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.bind("<Escape>", lambda _e: close())
+        dialog.grab_set()
 
     def _toggle_note_pin(self, note_id: str):
         target = next((n for n in self.data["notes"] if n["id"] == note_id), None)
@@ -2648,8 +2754,23 @@ class PocketDesk:
         else:
             self.hide()
 
+    def _reminder_poll(self):
+        """Deliver a due reminder only once; durable state survives restart."""
+        for note in self.data["notes"]:
+            if reminder_is_due(note):
+                note["reminder_sent_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                self._write_now()
+                title = "Pocket reminder · " + (note.get("title") or "Note")[:40]
+                message = (note.get("body") or "Open Pocket to view the note").strip()[:200]
+                if self.tray and not self.tray.error:
+                    self.tray.notify(title, message, note_id=note["id"])
+                else:
+                    self.events.put(("note_reminder", (note["id"], title, message)))
+                self._refresh_note_reminder_ui()
+        self.root.after(1500, self._reminder_poll)
+
     def _notify(self, title, message):
-        if self.settings["notifications"] and self.tray and not self.tray.error:
+        if self.tray and not self.tray.error:
             self.tray.notify(title, message)
 
     def _poll_events(self):
@@ -2705,6 +2826,16 @@ class PocketDesk:
                     self.updating_vendors = False
                     if self.current_tab == "mac":
                         self.vendor_info.config(text="Update failed — try Import CSV (see README)", fg=DANGER)
+                elif name == "note_reminder":
+                    note_id, title, message = xy
+                    if self.preview or not self.tray or self.tray.error:
+                        self.show()
+                        messagebox.showinfo(title, message, parent=self.root)
+                elif name == "open_reminder":
+                    self.show()
+                    if "notes" in self.settings["visible_tabs"]:
+                        self.data["active_note"] = xy
+                        self.show_tab("notes")
                 elif name == "quit":
                     self.quit()
         except queue.Empty:

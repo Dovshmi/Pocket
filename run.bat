@@ -7,9 +7,9 @@ if errorlevel 1 (
     pause
     exit /b 1
 )
-py -3 -c "import tkinterdnd2" >nul 2>nul
+py -3 -c "import tkinterdnd2, PIL" >nul 2>nul
 if errorlevel 1 (
-    echo First-run setup: installing native drag-and-drop support...
+    echo First-run setup: installing Pocket dependencies...
     py -3 -m pip install -r requirements.txt
     if errorlevel 1 (
         echo Could not install drag-and-drop support. Check internet access, or try install.bat.

@@ -1,5 +1,5 @@
 {
-  "source": "Public illustrative sample commands, not derived from private workplace material",
+  "source": "Public vendor reference commands; sample data only",
   "commands": [
     {
       "id": "example:001",
@@ -84,6 +84,146 @@
       "category": "General",
       "description": "Display system information",
       "command": "show system information"
+    },
+    {
+      "id": "public:100",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Display IPv4 interface summary",
+      "command": "show ip interface brief"
+    },
+    {
+      "id": "public:101",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Display interface descriptions",
+      "command": "show interfaces description"
+    },
+    {
+      "id": "public:102",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Display interface counters",
+      "command": "show interfaces counters errors"
+    },
+    {
+      "id": "public:103",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "List learned MAC addresses",
+      "command": "show mac address-table"
+    },
+    {
+      "id": "public:104",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Display STP tree",
+      "command": "show spanning-tree"
+    },
+    {
+      "id": "public:105",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Display EtherChannel membership",
+      "command": "show etherchannel summary"
+    },
+    {
+      "id": "public:106",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Display LLDP neighbors",
+      "command": "show lldp neighbors detail"
+    },
+    {
+      "id": "public:107",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "List IPv4 routes for a VRF",
+      "command": "show ip route vrf <VRF>"
+    },
+    {
+      "id": "public:108",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Show IPv6 routing table",
+      "command": "show ipv6 route"
+    },
+    {
+      "id": "public:109",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Display ARP entries",
+      "command": "show ip arp"
+    },
+    {
+      "id": "public:110",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Show IP routing protocols",
+      "command": "show ip protocols"
+    },
+    {
+      "id": "public:111",
+      "machine": "Cisco",
+      "category": "OSPF",
+      "description": "Display OSPF peers",
+      "command": "show ip ospf neighbor"
+    },
+    {
+      "id": "public:112",
+      "machine": "Cisco",
+      "category": "OSPF",
+      "description": "Display OSPF interfaces",
+      "command": "show ip ospf interface brief"
+    },
+    {
+      "id": "public:113",
+      "machine": "Cisco",
+      "category": "BGP",
+      "description": "Display BGP peer status",
+      "command": "show ip bgp summary"
+    },
+    {
+      "id": "public:114",
+      "machine": "Cisco",
+      "category": "BGP",
+      "description": "Display BGP neighbor details",
+      "command": "show ip bgp neighbors"
+    },
+    {
+      "id": "public:115",
+      "machine": "Cisco",
+      "category": "DHCP",
+      "description": "Display DHCP leases",
+      "command": "show ip dhcp binding"
+    },
+    {
+      "id": "public:116",
+      "machine": "Cisco",
+      "category": "NAT",
+      "description": "Display current NAT translations",
+      "command": "show ip nat translations"
+    },
+    {
+      "id": "public:117",
+      "machine": "Cisco",
+      "category": "NAT",
+      "description": "Display NAT counters",
+      "command": "show ip nat statistics"
+    },
+    {
+      "id": "public:118",
+      "machine": "Cisco",
+      "category": "Redundancy",
+      "description": "Display HSRP roles",
+      "command": "show standby brief"
+    },
+    {
+      "id": "public:119",
+      "machine": "Cisco",
+      "category": "MPLS",
+      "description": "Display label forwarding table",
+      "command": "show mpls forwarding-table"
     }
   ]
 }

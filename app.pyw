@@ -29,6 +29,7 @@ from tkinter import messagebox, filedialog, ttk
 import network_tools as net
 import command_helper as ch
 import subnet_calculator as subnet
+import icon_themes as themes
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -163,6 +164,7 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
+        "theme": "blue",
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single"},
     }
@@ -215,7 +217,8 @@ def load_data(path: Path) -> dict:
                 "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
-                "window_position": normalize_window_position(data.get("window_position"))}
+                "window_position": normalize_window_position(data.get("window_position")),
+                "theme": themes.valid_theme(data.get("theme"))}
     except (OSError, ValueError, TypeError):
         # Keep the damaged data available for manual recovery; don't silently overwrite it.
         backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
@@ -256,6 +259,9 @@ class PocketDesk:
         self.preview = preview
         self.path = data_file()
         self.data = load_data(self.path)
+        self.theme = themes.valid_theme(self.data.get("theme"))
+        self._apply_palette(self.theme)
+        self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
         self.events = queue.Queue()
         self.tray = None
         self._save_job = None
@@ -314,7 +320,7 @@ class PocketDesk:
             self.root.overrideredirect(True)
             self.root.attributes("-topmost", True)
         try:
-            self.root.iconbitmap(str(self.asset_path("app.ico")))
+            self.root.iconbitmap(str(self.theme_icons[self.theme]["ico"]))
         except (tk.TclError, OSError):
             pass
         self._build_shell()
@@ -326,7 +332,7 @@ class PocketDesk:
         self.root.after(120, self._poll_events)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
-            self.tray = WindowsTray(self.asset_path("app.ico"), self.events)
+            self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events)
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -340,14 +346,56 @@ class PocketDesk:
     def asset_path(name):
         return PocketDesk.bundle_path("assets", name)
 
+    @staticmethod
+    def _apply_palette(name):
+        globals().update(themes.palette(name))
+
+    def _choose_theme(self, name):
+        name = themes.valid_theme(name)
+        if name == self.theme:
+            return
+        self._flush_current_note()
+        self.theme = name
+        self.data["theme"] = name
+        self._apply_palette(name)
+        self.root.configure(bg=BG)
+        try:
+            self.root.iconbitmap(str(self.theme_icons[name]["ico"]))
+        except (tk.TclError, OSError):
+            pass
+        if self.tray:
+            self.tray.set_icon(self.theme_icons[name]["ico"])
+        for child in self.root.winfo_children():
+            child.destroy()
+        self._header_context_menu = None
+        self._build_shell()
+        self.show_tab(self.current_tab)
+        self._write_now()
+
+    def _show_theme_menu(self, event=None):
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE)
+        for key in themes.THEME_ORDER:
+            menu.add_command(label=("● " if key == self.theme else "    ") + themes.THEMES[key]["name"],
+                             command=lambda chosen=key: self._choose_theme(chosen))
+        try:
+            x = event.x_root if event else self.header_icon.winfo_rootx()
+            y = event.y_root if event else self.header_icon.winfo_rooty()+self.header_icon.winfo_height()
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
+
     def _build_shell(self):
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
         header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
         header.pack(fill="x", padx=20, pady=(15, 10))
         header.pack_propagate(False)
-        icon = tk.Label(header, text="▦", fg="#11131A", bg=ACCENT,
-                        font=(FONT, 17, "bold"), width=3, height=2, cursor="fleur")
+        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(10, 10)
+        icon = tk.Label(header, image=self._header_photo, bg=BG, cursor="hand2")
+        self.header_icon = icon
+        icon.bind("<Button-1>", self._show_theme_menu)
+        icon.bind("<Button-3>", self._show_theme_menu)
         icon.pack(side="left", padx=(0, 12))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
         labels.pack(side="left", fill="y", expand=True)
@@ -359,7 +407,7 @@ class PocketDesk:
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
-        for handle in (header, icon, labels, app_title, self.shortcut_hint):
+        for handle in (header, labels, app_title, self.shortcut_hint):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
@@ -2264,6 +2312,8 @@ class WindowsTray:
     """Tiny Windows Shell_NotifyIcon + global hotkey wrapper; no pip packages required."""
 
     WM_TRAY = 0x8000 + 37
+    WM_ICON_UPDATE = 0x8000 + 38
+    NIM_MODIFY = 0x1
     WM_CLOSE = 0x0010
     WM_DESTROY = 0x0002
     WM_HOTKEY = 0x0312
@@ -2285,10 +2335,16 @@ class WindowsTray:
         self._proc = None
         self._thread = None
         self.hotkey_ids = set()
+        self._pending_icon = None
 
     def start(self):
         self._thread = threading.Thread(target=self._main, name="PocketDeskTray", daemon=True)
         self._thread.start()
+
+    def set_icon(self, path: Path):
+        self._pending_icon = path
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_ICON_UPDATE, 0, 0)
 
     def stop(self):
         if self.hwnd:
@@ -2405,6 +2461,20 @@ class WindowsTray:
             if msg == taskbar_created:
                 shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid))
                 return 0
+            if msg == self.WM_ICON_UPDATE:
+                nonlocal hicon
+                if self._pending_icon:
+                    new_icon = user.LoadImageW(None, str(self._pending_icon), 1, 32, 32, 0x10)
+                    if new_icon:
+                        old_icon = hicon
+                        nid.hIcon = new_icon
+                        if shell.Shell_NotifyIconW(self.NIM_MODIFY, ctypes.byref(nid)):
+                            hicon = new_icon
+                            user.DestroyIcon(old_icon)
+                        else:
+                            nid.hIcon = old_icon
+                            user.DestroyIcon(new_icon)
+                return 0
             if msg == self.WM_HOTKEY:
                 if int(wp) in self.hotkey_ids:
                     # Tkinter must be touched only by its main thread.
@@ -2443,6 +2513,8 @@ class WindowsTray:
         self.hwnd = hwnd
         nid.hWnd = hwnd
         self.hotkey_ids = register_toggle_hotkeys(user.RegisterHotKey, hwnd)
+        if self._pending_icon:
+            user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:
             self.events.put(("hotkey_error", None))
         if not shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):

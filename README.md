@@ -6,7 +6,7 @@
 
 A compact Windows tray utility for quick notes, saved shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.23** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.24** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -28,7 +28,7 @@ It stays out of the way until you need it, and stores your personal notes and pr
 
 ## App gallery
 
-Six built-in tools, presented in a small movable window. All images below are **real application captures**, although some show earlier builds of the interface.
+Seven tools plus Settings, presented in a small movable window. All images below are **real application captures**, although some show earlier builds of the interface.
 
 <table>
   <tr>
@@ -47,7 +47,7 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 
 ## Features
 
-### Six tools in one window
+### Seven tools in one window
 
 | Tool | Capabilities |
 |:---|:---|
@@ -55,10 +55,13 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. |
 | **TCP Ports** | Test one TCP port, predefined ports, or a custom list/range against an IPv4 or IPv6 address. See **OPEN**, **CLOSED**, **TIMEOUT** and **ERROR** results, with copy/export options. |
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
-| **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with backup protection. **Commands are never executed.** |
+| **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
+| **Clipboard** | Opt-in session-only clipboard history for text, with search, pin, copy-back, clear and delete. No captured content is saved to disk. |
 
 ### Personalize the workspace
+
+**Settings (⚙)** lets you enable or disable clipboard capture and Windows notifications and choose which tool tabs are visible. Hidden tabs do not delete their data; extra tools appear under **MORE**. Clipboard capture is off by default and checks for new text while Pocket runs.
 
 | Feature | How it works |
 |:---|:---|
@@ -67,6 +70,8 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Move and remember** | Drag the header to move the popup. The position is saved and restored. Right-click the header → **Reset window position**. |
 | **PIN mode** | Keep Pocket visible when you switch to another app — useful for copying information and dragging shortcuts. |
 | **System tray** | Click the tray icon to show/hide Pocket. The close button hides the popup; it doesn't erase your notes. |
+| **Windows notifications** | Optional tray notifications for completed TCP checks, IEEE updates and command backups/restores. Toggle in Settings. |
+| **Menu visibility** | Show/hide individual tool tabs under Settings, without removing any saved data. |
 
 **Note on icons:** The live window and system-tray icons change with your selected theme. The compiled EXE retains its **blue embedded icon**, and Windows can cache desktop/taskbar shortcut artwork.
 
@@ -155,7 +160,7 @@ Pocket saves user data under:
 
 ### CLI command library
 
-The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited in-place, copied, favorited, or deleted. Atomic saves and timestamped backups help protect changes. See [the example format](commands/example_commands.json).
+The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited in-place, copied, favorited, or deleted. Atomic saves protect changes. **Backups are manual only**: choose **Backup ▾ → Create new backup** or **Use existing backup** to restore a previously saved JSON file. Adding, editing, and deleting commands never creates a backup automatically. See [the example format](commands/example_commands.json).
 
 > [!WARNING]
 > **Public-repository review needed:** A command library is currently checked into this public repository, including a second copy at `Pocket_Commands_One_Library/commands/commands.json`. Review both copies for internal device names, infrastructure details, or other sensitive material before sharing. The `.gitignore` rule does **not** retroactively remove committed files. Do not commit secrets or workplace-only command collections.
@@ -172,7 +177,7 @@ Pocket/
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
 ├── command_helper.py       # Command search and editing
-├── command_store.py        # Atomic command saves and backup support
+├── command_store.py        # Atomic command saves and manual backup/restore
 ├── machine_catalog.py      # Machine category support
 ├── network_tools.py        # Port tests and MAC lookup
 ├── subnet_calculator.py    # IPv4 calculations
@@ -196,7 +201,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.23** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
+| **v1.24** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
 | **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |
 | **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |
 | **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |

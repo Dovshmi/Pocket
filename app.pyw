@@ -1710,7 +1710,9 @@ class PocketDesk:
         def store():
             try:
                 record = ch.validate_custom_command(device.get(), category.get(), purpose.get(),
-                    command_box.get('1.0', 'end-1c'), identifier=entry['id'] if entry else None)
+                    command_box.get('1.0', 'end-1c'))
+                if entry:
+                    record['id'] = entry['id']
             except ValueError as exc:
                 messagebox.showwarning('Check command details', str(exc), parent=dialog)
                 return

@@ -399,6 +399,440 @@
       "category": "Diagnostics",
       "description": "Trace path to a destination",
       "command": "traceroute <IP>"
+    },
+    {
+      "id": "public:multi:001",
+      "machine": "FortiGate",
+      "category": "System",
+      "description": "Show CPU and memory status",
+      "command": "get system performance status"
+    },
+    {
+      "id": "public:multi:002",
+      "machine": "FortiGate",
+      "category": "System",
+      "description": "Display hardware information",
+      "command": "get hardware status"
+    },
+    {
+      "id": "public:multi:003",
+      "machine": "FortiGate",
+      "category": "System",
+      "description": "Display HA cluster state",
+      "command": "get system ha status"
+    },
+    {
+      "id": "public:multi:004",
+      "machine": "FortiGate",
+      "category": "System",
+      "description": "Display FortiOS update status",
+      "command": "diagnose autoupdate versions"
+    },
+    {
+      "id": "public:multi:005",
+      "machine": "FortiGate",
+      "category": "Interfaces",
+      "description": "Display physical port state",
+      "command": "get system interface physical"
+    },
+    {
+      "id": "public:multi:006",
+      "machine": "FortiGate",
+      "category": "Interfaces",
+      "description": "Show physical NIC counters",
+      "command": "diagnose hardware deviceinfo nic <PORT>"
+    },
+    {
+      "id": "public:multi:007",
+      "machine": "FortiGate",
+      "category": "Routing",
+      "description": "Display routing database",
+      "command": "get router info routing-table database"
+    },
+    {
+      "id": "public:multi:008",
+      "machine": "FortiGate",
+      "category": "Routing",
+      "description": "Display static route configuration",
+      "command": "show router static"
+    },
+    {
+      "id": "public:multi:009",
+      "machine": "FortiGate",
+      "category": "Routing",
+      "description": "Show ARP entries",
+      "command": "get system arp"
+    },
+    {
+      "id": "public:multi:010",
+      "machine": "FortiGate",
+      "category": "OSPF",
+      "description": "Show OSPF neighbors",
+      "command": "get router info ospf neighbor"
+    },
+    {
+      "id": "public:multi:011",
+      "machine": "FortiGate",
+      "category": "BGP",
+      "description": "Show BGP peer summary",
+      "command": "get router info bgp summary"
+    },
+    {
+      "id": "public:multi:012",
+      "machine": "FortiGate",
+      "category": "Sessions",
+      "description": "Display firewall sessions",
+      "command": "diagnose sys session list"
+    },
+    {
+      "id": "public:multi:013",
+      "machine": "FortiGate",
+      "category": "Sessions",
+      "description": "Show session table statistics",
+      "command": "diagnose sys session stat"
+    },
+    {
+      "id": "public:multi:014",
+      "machine": "FortiGate",
+      "category": "Firewall",
+      "description": "Show firewall policies",
+      "command": "show firewall policy"
+    },
+    {
+      "id": "public:multi:015",
+      "machine": "FortiGate",
+      "category": "Firewall",
+      "description": "Show firewall address objects",
+      "command": "show firewall address"
+    },
+    {
+      "id": "public:multi:016",
+      "machine": "FortiGate",
+      "category": "SD-WAN",
+      "description": "Show SD-WAN health-check state",
+      "command": "diagnose sys sdwan health-check status"
+    },
+    {
+      "id": "public:multi:017",
+      "machine": "FortiGate",
+      "category": "SD-WAN",
+      "description": "Show SD-WAN members",
+      "command": "diagnose sys sdwan member"
+    },
+    {
+      "id": "public:multi:018",
+      "machine": "FortiGate",
+      "category": "VPN",
+      "description": "Show IPsec tunnel summary",
+      "command": "get vpn ipsec tunnel summary"
+    },
+    {
+      "id": "public:multi:019",
+      "machine": "FortiGate",
+      "category": "VPN",
+      "description": "Display VPN tunnel information",
+      "command": "diagnose vpn tunnel list"
+    },
+    {
+      "id": "public:multi:020",
+      "machine": "FortiGate",
+      "category": "Diagnostics",
+      "description": "Ping a destination",
+      "command": "execute ping <IP>"
+    },
+    {
+      "id": "public:multi:021",
+      "machine": "FortiGate",
+      "category": "Diagnostics",
+      "description": "Trace path to a destination",
+      "command": "execute traceroute <IP>"
+    },
+    {
+      "id": "public:multi:022",
+      "machine": "Juniper",
+      "category": "System",
+      "description": "Display chassis inventory",
+      "command": "show chassis hardware"
+    },
+    {
+      "id": "public:multi:023",
+      "machine": "Juniper",
+      "category": "System",
+      "description": "Show chassis alerts",
+      "command": "show chassis alarms"
+    },
+    {
+      "id": "public:multi:024",
+      "machine": "Juniper",
+      "category": "System",
+      "description": "Show device uptime",
+      "command": "show system uptime"
+    },
+    {
+      "id": "public:multi:025",
+      "machine": "Juniper",
+      "category": "System",
+      "description": "Show log messages",
+      "command": "show log messages"
+    },
+    {
+      "id": "public:multi:026",
+      "machine": "Juniper",
+      "category": "Interfaces",
+      "description": "Show interface descriptions",
+      "command": "show interfaces descriptions"
+    },
+    {
+      "id": "public:multi:027",
+      "machine": "Juniper",
+      "category": "Interfaces",
+      "description": "Show interface statistics",
+      "command": "show interfaces statistics"
+    },
+    {
+      "id": "public:multi:028",
+      "machine": "Juniper",
+      "category": "Interfaces",
+      "description": "Show detailed interface status",
+      "command": "show interfaces extensive <INTERFACE>"
+    },
+    {
+      "id": "public:multi:029",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Show routing table summary",
+      "command": "show route summary"
+    },
+    {
+      "id": "public:multi:030",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Show forwarding entries",
+      "command": "show route forwarding-table"
+    },
+    {
+      "id": "public:multi:031",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Show named routing table",
+      "command": "show route table <TABLE>"
+    },
+    {
+      "id": "public:multi:032",
+      "machine": "Juniper",
+      "category": "Routing",
+      "description": "Show ARP neighbors",
+      "command": "show arp"
+    },
+    {
+      "id": "public:multi:033",
+      "machine": "Juniper",
+      "category": "OSPF",
+      "description": "Display OSPF peers",
+      "command": "show ospf neighbor"
+    },
+    {
+      "id": "public:multi:034",
+      "machine": "Juniper",
+      "category": "OSPF",
+      "description": "Show OSPF interface state",
+      "command": "show ospf interface"
+    },
+    {
+      "id": "public:multi:035",
+      "machine": "Juniper",
+      "category": "BGP",
+      "description": "Display BGP peer summary",
+      "command": "show bgp summary"
+    },
+    {
+      "id": "public:multi:036",
+      "machine": "Juniper",
+      "category": "BGP",
+      "description": "Display BGP neighbor details",
+      "command": "show bgp neighbor"
+    },
+    {
+      "id": "public:multi:037",
+      "machine": "Juniper",
+      "category": "IS-IS",
+      "description": "Display IS-IS adjacencies",
+      "command": "show isis adjacency"
+    },
+    {
+      "id": "public:multi:038",
+      "machine": "Juniper",
+      "category": "MPLS",
+      "description": "Display LDP neighbors",
+      "command": "show ldp neighbor"
+    },
+    {
+      "id": "public:multi:039",
+      "machine": "Juniper",
+      "category": "MPLS",
+      "description": "Show MPLS LSPs",
+      "command": "show mpls lsp"
+    },
+    {
+      "id": "public:multi:040",
+      "machine": "Juniper",
+      "category": "Switching",
+      "description": "Show MAC learning table",
+      "command": "show ethernet-switching table"
+    },
+    {
+      "id": "public:multi:041",
+      "machine": "Juniper",
+      "category": "Switching",
+      "description": "Show VLAN configuration",
+      "command": "show vlans"
+    },
+    {
+      "id": "public:multi:042",
+      "machine": "Juniper",
+      "category": "Security",
+      "description": "Show security policy information",
+      "command": "show security policies"
+    },
+    {
+      "id": "public:multi:043",
+      "machine": "Juniper",
+      "category": "Security",
+      "description": "Show active firewall sessions",
+      "command": "show security flow session"
+    },
+    {
+      "id": "public:multi:044",
+      "machine": "Juniper",
+      "category": "Security",
+      "description": "Show IKE security associations",
+      "command": "show security ike security-associations"
+    },
+    {
+      "id": "public:multi:045",
+      "machine": "Juniper",
+      "category": "Security",
+      "description": "Show IPsec security associations",
+      "command": "show security ipsec security-associations"
+    },
+    {
+      "id": "public:multi:046",
+      "machine": "Nokia SR OS",
+      "category": "System",
+      "description": "Show system information",
+      "command": "show system information"
+    },
+    {
+      "id": "public:multi:047",
+      "machine": "Nokia SR OS",
+      "category": "System",
+      "description": "Show current software version",
+      "command": "show version"
+    },
+    {
+      "id": "public:multi:048",
+      "machine": "Nokia SR OS",
+      "category": "Interfaces",
+      "description": "Show physical port summary",
+      "command": "show port"
+    },
+    {
+      "id": "public:multi:049",
+      "machine": "Nokia SR OS",
+      "category": "Interfaces",
+      "description": "Show logical routed interfaces",
+      "command": "show router interface"
+    },
+    {
+      "id": "public:multi:050",
+      "machine": "Nokia SR OS",
+      "category": "Interfaces",
+      "description": "Show port statistics",
+      "command": "show port <PORT> statistics"
+    },
+    {
+      "id": "public:multi:051",
+      "machine": "Nokia SR OS",
+      "category": "Interfaces",
+      "description": "Show link aggregation state",
+      "command": "show lag"
+    },
+    {
+      "id": "public:multi:052",
+      "machine": "Nokia SR OS",
+      "category": "Routing",
+      "description": "Display IPv4 route table",
+      "command": "show router route-table"
+    },
+    {
+      "id": "public:multi:053",
+      "machine": "Nokia SR OS",
+      "category": "BGP",
+      "description": "Display BGP peers",
+      "command": "show router bgp summary"
+    },
+    {
+      "id": "public:multi:054",
+      "machine": "Nokia SR OS",
+      "category": "OSPF",
+      "description": "Display OSPF neighbors",
+      "command": "show router ospf neighbor"
+    },
+    {
+      "id": "public:multi:055",
+      "machine": "Nokia SR OS",
+      "category": "IS-IS",
+      "description": "Show IS-IS adjacencies",
+      "command": "show router isis adjacency"
+    },
+    {
+      "id": "public:multi:056",
+      "machine": "Nokia SR OS",
+      "category": "MPLS",
+      "description": "Show LDP sessions",
+      "command": "show router ldp session"
+    },
+    {
+      "id": "public:multi:057",
+      "machine": "Nokia SR OS",
+      "category": "MPLS",
+      "description": "Show MPLS LSPs",
+      "command": "show router mpls lsp"
+    },
+    {
+      "id": "public:multi:058",
+      "machine": "Nokia SR OS",
+      "category": "Services",
+      "description": "List configured services",
+      "command": "show service service-using"
+    },
+    {
+      "id": "public:multi:059",
+      "machine": "Nokia SR OS",
+      "category": "Services",
+      "description": "List SAP associations",
+      "command": "show service sap-using"
+    },
+    {
+      "id": "public:multi:060",
+      "machine": "Nokia SR OS",
+      "category": "Services",
+      "description": "List configured SDPs",
+      "command": "show service sdp"
+    },
+    {
+      "id": "public:multi:061",
+      "machine": "Nokia SR OS",
+      "category": "Services",
+      "description": "Show service details",
+      "command": "show service id <SERVICE_ID> all"
+    },
+    {
+      "id": "public:multi:062",
+      "machine": "Nokia SR OS",
+      "category": "Services",
+      "description": "Show service base information",
+      "command": "show service id <SERVICE_ID> base"
     }
   ]
 }

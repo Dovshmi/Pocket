@@ -1639,6 +1639,7 @@ class PocketDesk:
             return
         try:
             backup = cs.create_backup(self.commands_file)
+            self._notify("Pocket · Commands", "Manual command backup created.")
             messagebox.showinfo("Commands backup", f"Backup created:\\n{backup}", parent=self.root)
         except (OSError, ValueError) as exc:
             self._warning("Backup failed", str(exc))
@@ -1662,6 +1663,7 @@ class PocketDesk:
             cs.restore_backup(self.commands_file, Path(filename))
             self._reload_command_library()
             self._refresh_command_catalog()
+            self._notify("Pocket · Commands", "Command backup restored.")
             messagebox.showinfo("Restore complete", "Command library restored.", parent=self.root)
         except (OSError, ValueError) as exc:
             self._warning("Restore failed", str(exc))
@@ -2604,6 +2606,10 @@ class PocketDesk:
         else:
             self.hide()
 
+    def _notify(self, title, message):
+        if self.settings["notifications"] and self.tray and not self.tray.error:
+            self.tray.notify(title, message)
+
     def _poll_events(self):
         try:
             while True:
@@ -2638,6 +2644,7 @@ class PocketDesk:
                 elif name == "port_done":
                     if xy == self.scan_token:
                         self.scanning = False
+                        self._notify("Pocket · TCP Ports", f"Scan completed: {sum(item['status'] == 'OPEN' for item in self.port_results)} open of {len(self.port_results)} tested.")
                         if self.current_tab == "ports":
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)
@@ -2649,6 +2656,7 @@ class PocketDesk:
                 elif name == "vendor_done":
                     self.updating_vendors = False
                     self.vendors, self.vendor_date = net.load_vendor_database(self.vendor_file)
+                    self._notify("Pocket · MAC", "IEEE vendor database updated.")
                     if self.current_tab == "mac":
                         self.vendor_info.config(text=self._vendor_summary(), fg=ACCENT)
                 elif name == "vendor_error":
@@ -2735,6 +2743,8 @@ class WindowsTray:
     NIF_TIP = 0x4
 
     WM_HOTKEY_CHANGE = 0x8000 + 39
+    WM_NOTIFICATION = 0x8000 + 40
+    NIF_INFO = 0x10
 
     def __init__(self, icon_path: Path, events, hotkey=None):
         self.icon_path = icon_path
@@ -2747,6 +2757,7 @@ class WindowsTray:
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
         self._pending_hotkey = None
+        self._pending_notification = None
 
     def start(self):
         self._thread = threading.Thread(target=self._main, name="PocketDeskTray", daemon=True)
@@ -2761,6 +2772,11 @@ class WindowsTray:
         self._pending_hotkey = hk.normalize_hotkey(value)
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_HOTKEY_CHANGE, 0, 0)
+
+    def notify(self, title, message):
+        self._pending_notification = (str(title)[:63], str(message)[:255])
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_NOTIFICATION, 0, 0)
 
     def stop(self):
         if self.hwnd:
@@ -2890,6 +2906,16 @@ class WindowsTray:
                         else:
                             nid.hIcon = old_icon
                             user.DestroyIcon(new_icon)
+                return 0
+            if msg == self.WM_NOTIFICATION:
+                notice = self._pending_notification
+                self._pending_notification = None
+                if notice:
+                    nid.szInfoTitle, nid.szInfo = notice
+                    nid.dwInfoFlags = 0x1
+                    nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP | self.NIF_INFO
+                    shell.Shell_NotifyIconW(self.NIM_MODIFY, ctypes.byref(nid))
+                    nid.uFlags = self.NIF_MESSAGE | self.NIF_ICON | self.NIF_TIP
                 return 0
             if msg == self.WM_HOTKEY_CHANGE:
                 candidate = self._pending_hotkey

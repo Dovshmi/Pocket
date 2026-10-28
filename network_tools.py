@@ -100,6 +100,8 @@ def check_tcp_port(ip: str, port: int, timeout: float = 0.8) -> dict:
 
 def scan_tcp_ports(ip: str, ports: list[int], *, timeout: float = 0.8, cancel=None):
     """Yield results as they arrive; caller must run this in a worker thread."""
+    if not ports:
+        return
     with ThreadPoolExecutor(max_workers=min(12, len(ports))) as pool:
         pending = {pool.submit(check_tcp_port, ip, port, timeout): port for port in ports}
         for future in as_completed(pending):

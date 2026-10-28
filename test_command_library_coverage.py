@@ -22,7 +22,7 @@ class PublicLibraryCoverageTests(unittest.TestCase):
     def test_search_for_key_network_areas(self):
         for machine, query in (
             ("Cisco", "ospf neighbor"), ("Cisco", "etherchannel"),
-            ("Cisco", "ip dhcp binding"), ("FortiGate", "sdwan"),
+            ("Cisco", "ip dhcp binding"), ("FortiGate", "sd-wan"),
             ("FortiGate", "vpn ipsec tunnel"), ("Juniper", "show bgp summary"),
             ("Juniper", "ethernet-switching"), ("Nokia SR OS", "service")
         ):

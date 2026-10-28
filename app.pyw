@@ -28,7 +28,6 @@ from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
-import machine_catalog as mc
 import subnet_calculator as subnet
 import icon_themes as themes
 import hotkey_settings as hk
@@ -292,17 +291,16 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.updating_vendors = False
         self.port_inputs_expanded = True
-        # The local catalogue extends, rather than replaces, the public examples.
-        bundle = self.bundle_path("commands")
+        # One library only: the user's commands.json. Never load public examples.
         install = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
                    else Path(__file__).resolve().parent)
-        private_paths = (self.path.parent / "commands.json",
-                         install / "commands" / "commands.json",
-                         bundle / "commands.json")
-        paths = list(dict.fromkeys(p for p in private_paths if p.is_file()))
-        paths.extend((bundle / "sample_commands.json", bundle / "public_additions.json"))
-        self.bundled_commands = mc.combine_references(*(ch.load_library(p) for p in paths))
-        self.machine_catalog = mc.load_catalog(bundle / "machine_catalog.json")
+        candidates = (install / "commands" / "commands.json",
+                      install / "commands.json",
+                      self.path.parent / "commands.json",
+                      self.bundle_path("commands", "commands.json"))
+        self.commands_file = next((p for p in candidates if p.is_file()), candidates[0])
+        self.bundled_commands = ch.load_library(self.commands_file)
+        self.machine_catalog = ch.load_machine_names(self.commands_file)
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
         self.selected_command_id = None
@@ -1310,7 +1308,7 @@ class PocketDesk:
     def _build_commands(self):
         self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
         prefs = self.data["command_state"]
-        names = [ch.ALL_MACHINES] + mc.machine_names(self.command_library, self.machine_catalog)
+        names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
         self.machine_var = tk.StringVar(value=machine if machine in names else ch.ALL_MACHINES)
         self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
@@ -1567,7 +1565,7 @@ class PocketDesk:
 
     def _refresh_command_catalog(self, *, machine=None, select_id=None):
         self.command_library = ch.merged_commands(self.bundled_commands, self.data['custom_commands'])
-        self.machine_picker['values'] = [ch.ALL_MACHINES] + ch.machines_for(self.command_library)
+        self.machine_picker['values'] = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         if machine is not None:
             self.machine_var.set(machine)
             self.data['command_state']['machine'] = machine
@@ -1642,7 +1640,7 @@ class PocketDesk:
         labelled('MACHINE')
         device = tk.StringVar(value=entry['machine'] if entry else (current_machine if current_machine != ch.ALL_MACHINES else ''))
         picker = ttk.Combobox(pane, textvariable=device, state='normal', font=(FONT, 10),
-                              values=ch.machines_for(self.command_library))
+                              values=ch.machines_for(self.command_library, self.machine_catalog))
         picker.pack(fill='x', ipady=3)
         labelled('PURPOSE / DESCRIPTION  (also searchable)')
         purpose = tk.StringVar(value=entry['description'] if entry else '')

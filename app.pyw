@@ -296,6 +296,8 @@ class PocketDesk:
         demo_commands = self.bundle_path("commands", "sample_commands.json")
         bundled_path = private_commands if private_commands.is_file() else demo_commands
         self.bundled_commands = ch.load_library(bundled_path)
+        if not self.bundled_commands and private_commands.is_file():
+            self.bundled_commands = ch.load_library(demo_commands)
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
         self.selected_command_id = None

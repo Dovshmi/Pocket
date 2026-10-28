@@ -1,4 +1,4 @@
-"""Editable single-file Pocket command library with atomic writes and backups.
+"""Editable single-file Pocket command library with manual backups.
 
 The commands.json document is the only command reference library. Notes, settings
 and command favorites continue to be stored separately in app data.
@@ -77,19 +77,11 @@ def read_document(path: Path) -> dict:
     return doc
 
 
-def _write_with_backup(path: Path, doc: dict) -> Path:
-    """Copy current document to backups BEFORE replacing it atomically."""
+def _atomic_write(path: Path, doc: dict) -> Path:
+    """Replace commands.json atomically, WITHOUT making any automatic backup."""
     path = Path(path)
     original = path.stat()
-    encoded = (json.dumps(doc, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    backup_dir = path.parent / "backups"
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
-    backup = backup_dir / f"commands-{stamp}.json"
-    with path.open("rb") as src, backup.open("xb") as dest:
-        shutil.copyfileobj(src, dest)
-        dest.flush()
-        os.fsync(dest.fileno())
+    encoded = (json.dumps(doc, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
     temp_name = None
     try:
         with tempfile.NamedTemporaryFile(mode="wb", prefix=".commands-", suffix=".tmp",
@@ -106,7 +98,32 @@ def _write_with_backup(path: Path, doc: dict) -> Path:
     finally:
         if temp_name and os.path.exists(temp_name):
             os.unlink(temp_name)
+    return path
+
+
+def create_backup(path: Path) -> Path:
+    """User-triggered only: save a timestamped copy of the current valid library."""
+    path = Path(path)
+    read_document(path)
+    backup_dir = path.parent / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    backup = backup_dir / f"commands-{stamp}.json"
+    with path.open("rb") as source, backup.open("xb") as target:
+        shutil.copyfileobj(source, target)
+        target.flush()
+        os.fsync(target.fileno())
     return backup
+
+
+def restore_backup(path: Path, backup: Path) -> Path:
+    """Restore a manually selected valid backup with NO implicit extra backup."""
+    path, backup = Path(path), Path(backup)
+    if path.resolve() == backup.resolve():
+        raise ValueError("Choose a backup file, not the active commands.json.")
+    read_document(path)  # Never silently overwrite a corrupt active file.
+    snapshot = read_document(backup)
+    return _atomic_write(path, snapshot)
 
 
 def _find(doc: dict, command_id: str) -> int:
@@ -137,7 +154,7 @@ def save_command(path: Path, entry: dict, *, original: dict | None = None) -> Pa
         saved = dict(doc["commands"][index])
         saved.update({k: entry[k] for k in ("machine", "category", "description", "command")})
         doc["commands"][index] = saved
-    return _write_with_backup(path, doc)
+    return _atomic_write(path, doc)
 
 
 def delete_command(path: Path, entry: dict) -> Path:
@@ -145,7 +162,7 @@ def delete_command(path: Path, entry: dict) -> Path:
     index = _find(doc, entry["id"])
     _check_expected(doc["commands"][index], entry)
     del doc["commands"][index]
-    return _write_with_backup(path, doc)
+    return _atomic_write(path, doc)
 
 
 def migrate_custom(path: Path, entries: list[dict]) -> tuple[int, Path | None]:
@@ -164,5 +181,5 @@ def migrate_custom(path: Path, entries: list[dict]) -> tuple[int, Path | None]:
         existing_syntax.add(key)
         added += 1
     if added:
-        return added, _write_with_backup(path, doc)
+        return added, _atomic_write(path, doc)
     return 0, None

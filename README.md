@@ -4,7 +4,7 @@
 
 **Your everyday tools, one shortcut away.**
 
-A compact Windows tray utility for quick notes, saved shortcuts, network diagnostics, CLI references, and subnet planning.
+A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
 **Windows 10 / 11** · **Python 3.10+** · **v1.25** · **Local-first** · **GPL-3.0**
 
@@ -17,7 +17,7 @@ A compact Windows tray utility for quick notes, saved shortcuts, network diagnos
 </p>
 
 > [!NOTE]
-> **Development status:** Pocket is actively developed. This repository includes source code rather than a prebuilt Windows release. The existing gallery images are real screenshots from previous development builds; current screenshots are being prepared separately.
+> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; some controls and tabs differ from the current v1.25 interface.
 
 
 ## What is Pocket?
@@ -28,7 +28,7 @@ It stays out of the way until you need it, and stores your personal notes and pr
 
 ## App gallery
 
-Seven tools plus Settings, presented in a small movable window. All images below are **real application captures**, although some show earlier builds of the interface.
+Pocket has seven tool menus plus Settings in a compact movable window. The screenshots below are authentic captures from earlier versions; the current version also includes **Clipboard**, **Settings**, and **per-note reminders**.
 
 <table>
   <tr>
@@ -51,17 +51,17 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 
 | Tool | Capabilities |
 |:---|:---|
-| **Notes** | Autosaved notes with titles, phone-number fields and creation dates. Full-width editor; pin, duplicate and delete notes; text-editing context menu; insert date/time; export the current note to Notepad. Select an IP to send it to Ports, or CLI text to search in Commands. |
+| **Notes & reminders** | Autosaved notes with titles, phone fields and creation dates. Pin, duplicate, delete, use right-click text actions, insert timestamps, or export to Notepad. Enable **Notify me…** on an individual note to schedule a one-time Windows notification. Selected IPs and CLI text can be sent to their respective tools. |
 | **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. |
 | **TCP Ports** | Test one TCP port, predefined ports, or a custom list/range against an IPv4 or IPv6 address. See **OPEN**, **CLOSED**, **TIMEOUT** and **ERROR** results, with copy/export options. |
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
 | **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
-| **Clipboard** | Menu-visibility-controlled session-only clipboard history for text, with search, pin, copy-back, clear and delete. No captured content is saved to disk. |
+| **Clipboard** | Searchable, session-only history of copied **text**. Pin entries, copy an item back to Windows, or delete/clear history. Monitoring automatically runs while Clipboard is visible in Settings; captured text is **not persisted**. |
 
 ### Personalize the workspace
 
-**Settings (⚙)** controls which tool tabs are visible. Adding **Clipboard** starts monitoring copied text while Pocket runs; hiding it stops monitoring. There is no separate clipboard switch. Hidden tabs keep their saved data; extra tools appear under **MORE**. Copied text is only stored in memory.
+**Settings (⚙)** shows or hides tool menus without deleting their underlying saved data. When **Clipboard** is included in the visible menus, Pocket monitors new copied text while running—even when its window is hidden in the tray. Hide Clipboard to stop monitoring; there is **no second enable/disable switch**. Additional visible tools are accessible under **MORE**.
 
 | Feature | How it works |
 |:---|:---|
@@ -70,10 +70,30 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Move and remember** | Drag the header to move the popup. The position is saved and restored. Right-click the header → **Reset window position**. |
 | **PIN mode** | Keep Pocket visible when you switch to another app — useful for copying information and dragging shortcuts. |
 | **System tray** | Click the tray icon to show/hide Pocket. The close button hides the popup; it doesn't erase your notes. |
-| **Note reminders** | In Notes, check **Notify me…** for an individual note, choose the local date and time, and receive a Windows tray notification when due. Clicking it opens the note. Pocket must be running; overdue reminders fire after restart. |
+| **Scheduled note reminders** | On an individual note, choose **Notify me…**, set a local date and time, and receive a Windows tray notification. Clicking the notification is designed to reopen that note. Overdue, unsent reminders are checked on the next launch. |
 | **Menu visibility** | Show/hide individual tool tabs under Settings, without removing any saved data. |
 
 **Note on icons:** The live window and system-tray icons change with your selected theme. The compiled EXE retains its **blue embedded icon**, and Windows can cache desktop/taskbar shortcut artwork.
+
+### Scheduling a note reminder
+
+1. Open **Notes** and select the note you want.
+2. Check **Notify me** next to the note details, or right-click the note in the list and choose **Notify me…**.
+3. Enter the **date** as `YYYY-MM-DD` and the **time** as `HH:MM` (24-hour, using your computer's local time); choose **Save reminder**.
+4. Keep Pocket running in the Windows system tray. At the scheduled time, Pocket sends a Windows notification with the note title and a short text preview.
+
+Uncheck **Notify me** to cancel the reminder. To reschedule, select the reminder's date/time or use **Change notification time…** in the note menu. Reminders are one-shot and their delivery state is stored in `data.json` to avoid repeatedly notifying after a restart.
+
+> **Limitations:** Pocket does not register a system-level background alarm. It must be running to deliver a notification on time; if closed, it checks overdue reminders when restarted. Notifications use Windows tray balloon APIs rather than a full Windows App SDK toast integration. Appearance, click behavior, and delivery depend on Windows notification settings and should be tested on Windows.
+
+### Clipboard behavior and privacy
+
+- **Show Clipboard in Settings** → Pocket starts recording newly copied text, including while minimized to the system tray.
+- **Hide Clipboard in Settings** → Pocket stops collecting new entries. Hiding the tab does **not** clear the current in-memory list.
+- Clipboard history is **session-only**: it is not written to `data.json` and disappears when Pocket exits. Text copied before Pocket starts is not recovered from Windows clipboard history.
+- Copying passwords, API keys, or other sensitive text can cause them to appear in clipboard history during that session. Use **Clear all** and hide Clipboard when appropriate. Pocket does not automatically identify secret content.
+
+
 
 ## Getting started
 
@@ -112,11 +132,11 @@ py -3 app.pyw
 
 ### First things to try
 
-1. Open **Notes** and create a note. It will autosave to your local data file.
-2. Open **Shortcuts**, add a website or folder, and try the compact search field.
-3. Click the **pocket logo** to change themes.
-4. Click the **shortcut text under Pocket** to configure your own show/hide keys.
-5. Open **Subnet** and try `192.168.1.10/24` or a `/26` subdivision.
+1. Open **Notes**, create a note and try **Notify me…** to schedule a reminder.
+2. Open **Settings (⚙)** and choose which menus appear. Add or hide **Clipboard** to start or stop text monitoring.
+3. Open **Shortcuts** and add a website or folder, then try the live search.
+4. Click the **pocket logo** to change themes, or click the shortcut label under Pocket to customize the global hotkey.
+5. Open **Subnet** and calculate `192.168.1.10/24`, or use **Commands → Backup ▾** to save a manual command-library backup.
 
 ## Building a Windows executable
 
@@ -145,14 +165,15 @@ Pocket saves user data under:
 
 ```text
 %APPDATA%\PocketDesk\
-├── data.json            # Notes, shortcuts, theme, hotkey, window position, preferences
+├── data.json            # Notes/reminders, shortcuts, theme, hotkey, window position, menu preferences
 ├── vendors.json         # Cached or imported IEEE vendor data
 ├── icons\               # Locally generated color icon variants (PNG / ICO)
 └── notepad_exports\     # Exported .txt snapshots of notes
 ```
 
 - **Local-first:** no account, hosted database or synchronization service is required.
-- **Not encrypted:** notes, phone numbers and custom commands are saved in **plain-text JSON**. Avoid keeping credentials or secrets there.
+- **Not encrypted:** notes, scheduled reminders, phone numbers and command libraries are stored as **plain-text JSON**. Do not store passwords or private keys there.
+- **Clipboard history:** text is held in memory only and is cleared when Pocket exits. Turning off the Clipboard menu stops future capture, not the Windows system clipboard itself.
 - **Notepad is an export:** opening a note in Windows Notepad creates a snapshot; later Notepad edits **do not sync back** to Pocket.
 - **Network activity:** TCP checks contact only the specified target. Registry downloads retrieve IEEE vendor data when requested. Pocket doesn't send notes to a lookup service.
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
@@ -160,7 +181,7 @@ Pocket saves user data under:
 
 ### CLI command library
 
-The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited in-place, copied, favorited, or deleted. Atomic saves protect changes. **Backups are manual only**: choose **Backup ▾ → Create new backup** or **Use existing backup** to restore a previously saved JSON file. Adding, editing, and deleting commands never creates a backup automatically. See [the example format](commands/example_commands.json).
+The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited, copied, favorited, or deleted. Edits are saved atomically. **No automatic backup is created on save, edit, delete, or migration.** To make a backup, open **Commands → Backup ▾ → Create new backup**; use **Use existing backup** to choose a previously saved JSON file. Restoring replaces the active command library, so make a manual backup first if you need to preserve current changes. See [the example format](commands/example_commands.json).
 
 > [!WARNING]
 > **Public-repository review needed:** A command library is currently checked into this public repository, including a second copy at `Pocket_Commands_One_Library/commands/commands.json`. Review both copies for internal device names, infrastructure details, or other sensitive material before sharing. The `.gitignore` rule does **not** retroactively remove committed files. Do not commit secrets or workplace-only command collections.
@@ -201,7 +222,9 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.25** | 2026-10-28 | Restored one local commands.json library; removed public-command loading, with machine names optionally included in that JSON. |
+| **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
+| **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |
+| **v1.23** | 2026-10-28 | Consolidated commands into a single writable local `commands.json` library, with optional machine names stored in the same file. |
 | **v1.22** | 2026-10-28 | Full machine catalogue (32 named categories), 32 additional read-only CLI examples, and merged public/private/custom references. |
 | **v1.21** | 2026-10-28 | Expanded public network CLI catalogue to 118 entries; fixed dependency detection, empty TCP scan and private command-file fallback. |
 | **v1.20** | 2026-10-28 | App header renamed to **Pocket**, clickable configurable global hotkey, compact live Shortcuts search. |
@@ -222,7 +245,7 @@ After installing dependencies, run all discoverable unit tests:
 py -3 -m unittest discover -v
 ```
 
-The project includes tests for data storage/migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnet calculations, command management, note actions and network utilities.
+The project includes tests for data storage and migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnets, command management, clipboard preferences, reminder scheduling, note actions and network utilities.
 
 GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository does not currently claim a verified Windows CI release pipeline.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
 

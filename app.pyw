@@ -1787,7 +1787,6 @@ class PocketDesk:
             return
         try:
             backup = cs.create_backup(self.commands_file)
-            self._notify("Pocket · Commands", "Manual command backup created.")
             messagebox.showinfo("Commands backup", f"Backup created:\\n{backup}", parent=self.root)
         except (OSError, ValueError) as exc:
             self._warning("Backup failed", str(exc))
@@ -1811,7 +1810,6 @@ class PocketDesk:
             cs.restore_backup(self.commands_file, Path(filename))
             self._reload_command_library()
             self._refresh_command_catalog()
-            self._notify("Pocket · Commands", "Command backup restored.")
             messagebox.showinfo("Restore complete", "Command library restored.", parent=self.root)
         except (OSError, ValueError) as exc:
             self._warning("Restore failed", str(exc))
@@ -2807,7 +2805,6 @@ class PocketDesk:
                 elif name == "port_done":
                     if xy == self.scan_token:
                         self.scanning = False
-                        self._notify("Pocket · TCP Ports", f"Scan completed: {sum(item['status'] == 'OPEN' for item in self.port_results)} open of {len(self.port_results)} tested.")
                         if self.current_tab == "ports":
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)
@@ -2819,7 +2816,6 @@ class PocketDesk:
                 elif name == "vendor_done":
                     self.updating_vendors = False
                     self.vendors, self.vendor_date = net.load_vendor_database(self.vendor_file)
-                    self._notify("Pocket · MAC", "IEEE vendor database updated.")
                     if self.current_tab == "mac":
                         self.vendor_info.config(text=self._vendor_summary(), fg=ACCENT)
                 elif name == "vendor_error":

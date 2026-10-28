@@ -224,6 +224,181 @@
       "category": "MPLS",
       "description": "Display label forwarding table",
       "command": "show mpls forwarding-table"
+    },
+    {
+      "id": "public:cisco:001",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Show device hardware inventory",
+      "command": "show inventory"
+    },
+    {
+      "id": "public:cisco:002",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Show current system time",
+      "command": "show clock"
+    },
+    {
+      "id": "public:cisco:003",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Review the system event log",
+      "command": "show logging"
+    },
+    {
+      "id": "public:cisco:004",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Display running configuration",
+      "command": "show running-config"
+    },
+    {
+      "id": "public:cisco:005",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Display saved startup configuration",
+      "command": "show startup-config"
+    },
+    {
+      "id": "public:cisco:006",
+      "machine": "Cisco",
+      "category": "System",
+      "description": "Show processes sorted by CPU usage",
+      "command": "show processes cpu sorted"
+    },
+    {
+      "id": "public:cisco:007",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "List IPv6 interface status",
+      "command": "show ipv6 interface brief"
+    },
+    {
+      "id": "public:cisco:008",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Show details of one interface",
+      "command": "show interfaces <INTERFACE>"
+    },
+    {
+      "id": "public:cisco:009",
+      "machine": "Cisco",
+      "category": "Interfaces",
+      "description": "Show switchport VLAN information",
+      "command": "show interfaces switchport"
+    },
+    {
+      "id": "public:cisco:010",
+      "machine": "Cisco",
+      "category": "VLANs",
+      "description": "Display trunk ports and VLANs",
+      "command": "show interfaces trunk"
+    },
+    {
+      "id": "public:cisco:011",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Show spanning tree summary",
+      "command": "show spanning-tree summary"
+    },
+    {
+      "id": "public:cisco:012",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Show negotiated LACP peer state",
+      "command": "show lacp neighbor"
+    },
+    {
+      "id": "public:cisco:013",
+      "machine": "Cisco",
+      "category": "Switching",
+      "description": "Show CDP neighboring devices",
+      "command": "show cdp neighbors detail"
+    },
+    {
+      "id": "public:cisco:014",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Display static IPv4 routes",
+      "command": "show ip route static"
+    },
+    {
+      "id": "public:cisco:015",
+      "machine": "Cisco",
+      "category": "Routing",
+      "description": "Display CEF forwarding entries",
+      "command": "show ip cef"
+    },
+    {
+      "id": "public:cisco:016",
+      "machine": "Cisco",
+      "category": "OSPF",
+      "description": "Display the OSPF database",
+      "command": "show ip ospf database"
+    },
+    {
+      "id": "public:cisco:017",
+      "machine": "Cisco",
+      "category": "EIGRP",
+      "description": "Display EIGRP neighbors",
+      "command": "show ip eigrp neighbors"
+    },
+    {
+      "id": "public:cisco:018",
+      "machine": "Cisco",
+      "category": "EIGRP",
+      "description": "Display EIGRP routes",
+      "command": "show ip eigrp topology"
+    },
+    {
+      "id": "public:cisco:019",
+      "machine": "Cisco",
+      "category": "DHCP",
+      "description": "Show DHCP pool statistics",
+      "command": "show ip dhcp pool"
+    },
+    {
+      "id": "public:cisco:020",
+      "machine": "Cisco",
+      "category": "DHCP",
+      "description": "Show DHCP snooping state",
+      "command": "show ip dhcp snooping"
+    },
+    {
+      "id": "public:cisco:021",
+      "machine": "Cisco",
+      "category": "Redundancy",
+      "description": "Display VRRP summary",
+      "command": "show vrrp brief"
+    },
+    {
+      "id": "public:cisco:022",
+      "machine": "Cisco",
+      "category": "MPLS",
+      "description": "Display MPLS interface state",
+      "command": "show mpls interfaces"
+    },
+    {
+      "id": "public:cisco:023",
+      "machine": "Cisco",
+      "category": "MPLS",
+      "description": "Display LDP adjacencies",
+      "command": "show mpls ldp neighbor"
+    },
+    {
+      "id": "public:cisco:024",
+      "machine": "Cisco",
+      "category": "Security",
+      "description": "Show configured access lists",
+      "command": "show access-lists"
+    },
+    {
+      "id": "public:cisco:025",
+      "machine": "Cisco",
+      "category": "Diagnostics",
+      "description": "Trace path to a destination",
+      "command": "traceroute <IP>"
     }
   ]
 }

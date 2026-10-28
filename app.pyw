@@ -166,11 +166,53 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
+        "settings": {"clipboard": False, "notifications": True, "visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"]},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single"},
     }
+
+
+VISIBLE_TABS = (("notes", "NOTES"), ("links", "SHORTCUTS"), ("ports", "PORTS"),
+                ("mac", "MAC"), ("commands", "COMMANDS"), ("subnet", "SUBNET"),
+                ("clipboard", "CLIPBOARD"))
+
+
+def normalize_settings(raw):
+    raw = raw if isinstance(raw, dict) else {}
+    selected = raw.get("visible_tabs", [key for key, _ in VISIBLE_TABS])
+    allowed = {key for key, _ in VISIBLE_TABS}
+    if not isinstance(selected, list):
+        selected = list(allowed)
+    visible = [key for key, _ in VISIBLE_TABS if key in selected]
+    if not visible:
+        visible = ["notes"]
+    return {"clipboard": raw.get("clipboard") is True,
+            "notifications": raw.get("notifications") is not False,
+            "visible_tabs": visible}
+
+
+def sanitize_clipboard(value):
+    """Keep only reasonable text snippets, never empty or gigantic payloads."""
+    if not isinstance(value, str) or not value.strip() or len(value) > 20000:
+        return None
+    return value
+
+
+def clipboard_add(items, value, maximum=100):
+    value = sanitize_clipboard(value)
+    if value is None or (items and items[0]["text"] == value):
+        return items
+    items[:] = [item for item in items if item["text"] != value or item.get("pinned")]
+    items.insert(0, {"id": uuid.uuid4().hex, "text": value, "pinned": False,
+                     "time": datetime.now().strftime("%H:%M:%S")})
+    while len(items) > maximum:
+        victim = next((i for i in range(len(items)-1, -1, -1) if not items[i]["pinned"]), None)
+        if victim is None:
+            break
+        items.pop(victim)
+    return items
 
 
 def load_data(path: Path) -> dict:
@@ -222,6 +264,7 @@ def load_data(path: Path) -> dict:
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
+                "settings": normalize_settings(data.get("settings")),
                 "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
     except (OSError, ValueError, TypeError):
         # Keep the damaged data available for manual recovery; don't silently overwrite it.
@@ -263,6 +306,11 @@ class PocketDesk:
         self.preview = preview
         self.path = data_file()
         self.data = load_data(self.path)
+        self.settings = normalize_settings(self.data.get("settings"))
+        self.data["settings"] = self.settings
+        self.clipboard_items = []  # Session-only: never write copied text to disk.
+        self._clipboard_last = None
+        self._clipboard_job = None
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
@@ -349,6 +397,7 @@ class PocketDesk:
         self.root.bind("<Escape>", lambda _e: self.hide())
         self.root.bind("<FocusOut>", self._focus_lost)
         self.root.after(120, self._poll_events)
+        self.root.after(650, self._clipboard_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -533,13 +582,24 @@ class PocketDesk:
         tabs.pack(fill="x", padx=20)
         tabs.pack_propagate(False)
         self.tab_buttons = {}
-        for key, label in (("notes", "NOTES"), ("links", "SHORTCUTS"),
-                           ("ports", "PORTS"), ("mac", "MAC"), ("commands", "COMMANDS"),
-                           ("subnet", "SUBNET")):
+        # Settings remains accessible even if all regular tabs are hidden.
+        for key, label in VISIBLE_TABS:
+            if key not in self.settings["visible_tabs"]:
+                continue
+            if len(self.tab_buttons) >= 5:
+                break
+
             button = action_label(tabs, label, lambda k=key: self.show_tab(k),
                                   bg=BG, hover=PANEL, fg=SECONDARY, padx=5, pady=8, font_size=8)
             button.pack(side="left", padx=(0, 2))
             self.tab_buttons[key] = button
+        extras = [pair for pair in VISIBLE_TABS
+                  if pair[0] in self.settings["visible_tabs"] and pair[0] not in self.tab_buttons]
+        if extras:
+            action_label(tabs, "MORE ▾", self._show_more_menu, bg=BG,
+                         hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8).pack(side="left")
+        action_label(tabs, "⚙", lambda: self.show_tab("settings"), bg=BG,
+                     hover=PANEL, fg=ACCENT, padx=5, pady=8, font_size=11).pack(side="right")
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 
         self.body = tk.Frame(outer, bg=BG)
@@ -551,6 +611,8 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        if which not in self.settings["visible_tabs"] and which != "settings":
+            which = "settings"
         self.current_tab = which
         for child in self.body.winfo_children():
             child.destroy()
@@ -569,8 +631,155 @@ class PocketDesk:
             self._build_commands()
         elif which == "subnet":
             self._build_subnet()
+        elif which == "clipboard":
+            self._build_clipboard()
+        elif which == "settings":
+            self._build_settings()
         # Preserve a user-moved position when changing tabs.
         self._place_popup(self._last_tray_xy)
+
+    def _show_more_menu(self):
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE)
+        for key, label in VISIBLE_TABS:
+            if key in self.settings["visible_tabs"] and key not in self.tab_buttons:
+                menu.add_command(label=label, command=lambda k=key: self.show_tab(k))
+        menu.tk_popup(self.root.winfo_rootx()+165, self.root.winfo_rooty()+132)
+
+    def _set_setting(self, key, value):
+        self.settings[key] = bool(value)
+        self.data["settings"] = self.settings
+        self.schedule_save()
+        if key == "clipboard":
+            self._clipboard_last = None
+
+    def _set_visible_tab(self, key, enabled):
+        current = self.settings["visible_tabs"]
+        if enabled and key not in current:
+            current.append(key)
+        elif not enabled and key in current:
+            if len(current) == 1:
+                self._warning("Menus", "At least one tool must remain visible.")
+                self._build_settings_refresh()
+                return
+            current.remove(key)
+        self._build_shell_refresh()
+        self.schedule_save()
+
+    def _build_shell_refresh(self):
+        for child in self.root.winfo_children():
+            child.destroy()
+        self._header_context_menu = None
+        self._build_shell()
+        self.show_tab(self.current_tab)
+
+    def _build_settings_refresh(self):
+        self.show_tab("settings")
+
+    def _build_settings(self):
+        tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"), bg=BG, fg=WHITE).pack(anchor="w")
+        tk.Label(self.body, text="Privacy, notifications and visible menus", bg=BG, fg=MUTED,
+                 font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
+        for key, title, desc in (
+            ("clipboard", "Clipboard monitoring", "Capture copied text while Pocket is running. Off by default."),
+            ("notifications", "Desktop notifications", "Show Windows tray notifications for completed tasks.")):
+            row = tk.Frame(self.body, bg=PANEL, padx=10, pady=9)
+            row.pack(fill="x", pady=3)
+            value = tk.BooleanVar(value=self.settings[key])
+            tk.Checkbutton(row, text=title, variable=value, bg=PANEL, fg=WHITE,
+                           activebackground=PANEL, activeforeground=WHITE,
+                           selectcolor=CARD, font=(FONT, 10, "bold"),
+                           command=lambda k=key,v=value:self._set_setting(k,v.get())).pack(anchor="w")
+            tk.Label(row, text=desc, bg=PANEL, fg=MUTED,
+                     font=(FONT, 8), wraplength=410, justify="left").pack(anchor="w")
+        tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
+                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(19, 8))
+        for key, label in VISIBLE_TABS:
+            value = tk.BooleanVar(value=key in self.settings["visible_tabs"])
+            tk.Checkbutton(self.body, text=label.title(), variable=value, bg=BG, fg=WHITE,
+                           activebackground=BG, activeforeground=WHITE, selectcolor=PANEL,
+                           command=lambda k=key,v=value:self._set_visible_tab(k,v.get())).pack(anchor="w", pady=2)
+        tk.Label(self.body, text="Hidden tools keep their saved data. Settings is always available.",
+                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=420).pack(anchor="w", pady=12)
+
+    def _clipboard_poll(self):
+        if self.settings["clipboard"]:
+            try:
+                value = self.root.clipboard_get()
+                if isinstance(value, str) and value != self._clipboard_last:
+                    self._clipboard_last = value
+                    before = len(self.clipboard_items)
+                    clipboard_add(self.clipboard_items, value)
+                    if self.current_tab == "clipboard" and (len(self.clipboard_items) != before or self.clipboard_items):
+                        self._refresh_clipboard()
+            except (tk.TclError, RuntimeError):
+                pass
+        self._clipboard_job = self.root.after(600, self._clipboard_poll)
+
+    def _build_clipboard(self):
+        self._section_title(self.body, "Clipboard history", "Session-only text · Never saved to disk",
+                            "Clear all", self._clear_clipboard)
+        self.clipboard_query = tk.StringVar()
+        entry = self._entry(self.body, self.clipboard_query)
+        entry.pack(fill="x", ipady=9, pady=(0, 9))
+        self.clipboard_query.trace_add("write", lambda *_:self._refresh_clipboard())
+        self.clipboard_status = tk.Label(self.body, text="", bg=BG, fg=MUTED, font=(FONT, 9))
+        self.clipboard_status.pack(anchor="w")
+        frame = tk.Frame(self.body, bg=BG)
+        frame.pack(fill="both", expand=True, pady=8)
+        self.clipboard_list = tk.Listbox(frame, bg=PANEL, fg=WHITE, selectbackground=ACCENT_DARK,
+                                        font=(FONT, 10), bd=0, exportselection=False)
+        self.clipboard_list.pack(fill="both", expand=True)
+        self.clipboard_list.bind("<Double-1>", lambda _e:self._copy_clipboard_item())
+        actions = tk.Frame(self.body, bg=BG)
+        actions.pack(fill="x")
+        for title, callback in (("Copy selected", self._copy_clipboard_item),
+                                ("Pin / Unpin", self._pin_clipboard_item),
+                                ("Delete", self._delete_clipboard_item)):
+            action_label(actions, title, callback, fg=ACCENT, bg=PANEL,
+                         font_size=8, padx=8).pack(side="left", padx=(0, 5))
+        self._refresh_clipboard()
+
+    def _refresh_clipboard(self):
+        if not hasattr(self, "clipboard_list") or not self.clipboard_list.winfo_exists():
+            return
+        query = self.clipboard_query.get().casefold()
+        self._clipboard_filtered = [item for item in self.clipboard_items if query in item["text"].casefold()]
+        self.clipboard_list.delete(0, tk.END)
+        for item in self._clipboard_filtered:
+            preview = " ".join(item["text"].split())[:65]
+            self.clipboard_list.insert(tk.END, ("★ " if item["pinned"] else "   ") + preview)
+        self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
+                                     ("ON" if self.settings["clipboard"] else "OFF"))
+
+    def _selected_clipboard_item(self):
+        if not hasattr(self, "clipboard_list"):
+            return None
+        selection = self.clipboard_list.curselection()
+        return self._clipboard_filtered[selection[0]] if selection else None
+
+    def _copy_clipboard_item(self):
+        item = self._selected_clipboard_item()
+        if item:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(item["text"])
+            self._clipboard_last = item["text"]
+
+    def _pin_clipboard_item(self):
+        item = self._selected_clipboard_item()
+        if item:
+            item["pinned"] = not item["pinned"]
+            self._refresh_clipboard()
+
+    def _delete_clipboard_item(self):
+        item = self._selected_clipboard_item()
+        if item:
+            self.clipboard_items.remove(item)
+            self._refresh_clipboard()
+
+    def _clear_clipboard(self):
+        self.clipboard_items.clear()
+        self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         heading = tk.Frame(parent, bg=BG)
@@ -1316,6 +1525,10 @@ class PocketDesk:
 
     def _build_commands(self):
         self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
+        backup_row = tk.Frame(self.body, bg=BG)
+        backup_row.pack(fill="x", pady=(0, 8))
+        action_label(backup_row, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
+                     bg=PANEL, hover=CARD, padx=12, pady=6, font_size=9).pack(side="right")
         prefs = self.data["command_state"]
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
@@ -1412,6 +1625,48 @@ class PocketDesk:
         self.command_tree.bind('<Return>', lambda _event: self._focus_command_editor())
         self._style_command_modes()
         self._refresh_command_results()
+
+    def _show_command_backup_menu(self):
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE)
+        menu.add_command(label="Create new backup", command=self._create_command_backup)
+        menu.add_command(label="Use existing backup", command=self._restore_command_backup)
+        menu.tk_popup(self.root.winfo_rootx()+WIDTH-165, self.root.winfo_rooty()+195)
+
+    def _create_command_backup(self):
+        if not self.commands_file:
+            self._warning("Backup", "Command library is unavailable.")
+            return
+        try:
+            backup = cs.create_backup(self.commands_file)
+            messagebox.showinfo("Commands backup", f"Backup created:\\n{backup}", parent=self.root)
+        except (OSError, ValueError) as exc:
+            self._warning("Backup failed", str(exc))
+
+    def _restore_command_backup(self):
+        if not self.commands_file:
+            self._warning("Restore", "Command library is unavailable.")
+            return
+        self._modal = True
+        try:
+            filename = filedialog.askopenfilename(parent=self.root, title="Use existing commands backup",
+                initialdir=str(self.commands_file.parent / "backups"),
+                filetypes=[("JSON backup", "*.json")])
+            if not filename:
+                return
+            if not messagebox.askyesno("Restore commands",
+                    "Replace the active command library with the selected backup?\\n"
+                    "Current commands will be overwritten. No automatic backup will be created.",
+                    parent=self.root):
+                return
+            cs.restore_backup(self.commands_file, Path(filename))
+            self._reload_command_library()
+            self._refresh_command_catalog()
+            messagebox.showinfo("Restore complete", "Command library restored.", parent=self.root)
+        except (OSError, ValueError) as exc:
+            self._warning("Restore failed", str(exc))
+        finally:
+            self._modal = False
 
     def _command_focus_in(self, _event=None):
         if self._command_placeholder_active:
@@ -1660,7 +1915,7 @@ class PocketDesk:
         pane.pack(fill='both', expand=True, padx=18, pady=14)
         tk.Label(pane, text='EDIT COMMAND' if entry else 'NEW MACHINE COMMAND', bg=BG, fg=WHITE,
                  font=(FONT, 13, 'bold')).pack(anchor='w', pady=(0, 6))
-        tk.Label(pane, text='Saved to commands.json · Automatic backup · Never executed', bg=BG, fg=MUTED,
+        tk.Label(pane, text='Saved to commands.json · Manual backups only · Never executed', bg=BG, fg=MUTED,
                  font=(FONT, 9)).pack(anchor='w', pady=(0, 11))
 
         def labelled(text):

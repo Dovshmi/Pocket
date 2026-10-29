@@ -729,9 +729,13 @@ class PocketDesk:
                                ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox,
                                native_bidi.NativeBidiEditor)):
             return
-        # Let an intentional focus transfer from widget bindings survive (e.g.
-        # clicking a search field or a dialog's button). Non-input labels and
-        # frames, unlike editors, cannot accept keyboard navigation themselves.
+        # A Win32 RichEdit control is a separate child HWND: Tk's logical
+        # focus alone can leave the native editor still receiving arrow keys.
+        # Transfer native focus explicitly after saving any pending note edits.
+        if self.current_tab == "notes" and self._bidi_active():
+            self._flush_current_note()
+            if self.bidi_editor.has_focus():
+                self.bidi_editor.release_focus_to(self.root)
         self.root.focus_set()
 
     def _mini_keyboard_step(self, event, step):

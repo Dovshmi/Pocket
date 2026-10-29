@@ -683,6 +683,77 @@ class PocketDesk:
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
 
+    def _build_mini_shell(self):
+        """Compact chrome: one tool at a time, with Settings always accessible."""
+        outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
+        outer.pack(fill="both", expand=True)
+        header = tk.Frame(outer, bg=BG, height=46, cursor="fleur")
+        header.pack(fill="x", padx=11, pady=(9, 3))
+        header.pack_propagate(False)
+        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(13, 13)
+        icon = tk.Label(header, image=self._header_photo, bg=BG, cursor="hand2")
+        self.header_icon = icon
+        icon.pack(side="left", padx=(0, 6))
+        icon.bind("<Button-1>", self._show_theme_menu)
+        icon.bind("<Button-3>", self._show_theme_menu)
+        name = tk.Label(header, text="Pocket", bg=BG, fg=WHITE, font=(FONT, 14, "bold"),
+                        cursor="fleur")
+        name.pack(side="left", fill="y")
+        self.shortcut_hint = tk.Label(header, text=self._hotkey_hint(), bg=BG, fg=MUTED,
+                                      font=(FONT, 7), cursor="hand2")
+        self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
+        # Hidden in compact chrome but retained for hotkey-change status updates.
+        for handle in (header, name):
+            handle.bind("<ButtonPress-1>", self._begin_window_drag)
+            handle.bind("<B1-Motion>", self._continue_window_drag)
+            handle.bind("<ButtonRelease-1>", self._finish_window_drag)
+            handle.bind("<Button-3>", self._show_header_menu)
+        self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
+                                       bg=PANEL, padx=7, pady=5, font_size=7)
+        self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
+        action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
+                     padx=5, pady=1, font_size=15).pack(side="right")
+        nav = tk.Frame(outer, bg=BG)
+        nav.pack(fill="x", padx=11, pady=(1, 5))
+        self.tab_buttons = {}
+        labels = dict(VISIBLE_TABS)
+        choices = [key for key in labels if key in self.settings["visible_tabs"]]
+        choices.append("settings")
+        menu = ttk.Combobox(nav, values=[labels.get(key, "SETTINGS").title() for key in choices],
+                            state="readonly", font=(FONT, 10))
+        self.mini_tab_picker = menu
+        self._mini_tab_keys = choices
+        menu.pack(side="left", fill="x", expand=True)
+        menu.current(choices.index(self.current_tab) if self.current_tab in choices else 0)
+        menu.bind("<<ComboboxSelected>>",
+                  lambda _event: self.show_tab(self._mini_tab_keys[menu.current()]))
+        action_label(nav, "⚙", lambda: self.show_tab("settings"), fg=ACCENT,
+                     bg=BG, hover=PANEL, padx=8, pady=2, font_size=13).pack(side="right")
+        tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
+        self.body = tk.Frame(outer, bg=BG)
+        self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
+
+    def _build_mini_settings(self):
+        tk.Label(self.body, text="Settings", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(anchor="w", pady=(0, 6))
+        tk.Label(self.body, text="DISPLAY MODE", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
+        action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
+                     fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
+                     font_size=9).pack(fill="x", pady=(0, 13))
+        tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        for key, label in VISIBLE_TABS:
+            flag = tk.BooleanVar(value=key in self.settings["visible_tabs"])
+            tk.Checkbutton(self.body, text=label.title(), variable=flag,
+                           bg=BG, fg=WHITE, selectcolor=PANEL,
+                           activeforeground=WHITE, activebackground=BG,
+                           font=(FONT, 8), command=lambda k=key, v=flag:
+                           self._set_visible_tab(k, v.get())).pack(anchor="w", pady=1)
+        tk.Label(self.body, text="Clipboard monitoring follows menu visibility.",
+                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=295,
+                 justify="left").pack(anchor="w", pady=(8, 0))
+
     def show_tab(self, which):
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
@@ -692,6 +763,9 @@ class PocketDesk:
         self.current_tab = which
         for child in self.body.winfo_children():
             child.destroy()
+        if self.display_mode == "mini" and hasattr(self, "mini_tab_picker"):
+            if which in self._mini_tab_keys:
+                self.mini_tab_picker.current(self._mini_tab_keys.index(which))
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)

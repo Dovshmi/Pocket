@@ -31,6 +31,17 @@ class PARAFORMAT(ctypes.Structure):
     ]
 
 
+class PARAFORMAT2(ctypes.Structure):
+    _fields_ = PARAFORMAT._fields_ + [
+        ("dySpaceBefore", LONG), ("dySpaceAfter", LONG), ("dyLineSpacing", LONG),
+        ("sStyle", SHORT), ("bLineSpacingRule", BYTE), ("bOutlineLevel", BYTE),
+        ("wShadingWeight", WORD), ("wShadingStyle", WORD),
+        ("wNumberingStart", WORD), ("wNumberingStyle", WORD),
+        ("wNumberingTab", WORD), ("wBorderSpace", WORD),
+        ("wBorderWidth", WORD), ("wBorders", WORD),
+    ]
+
+
 class CHARFORMATW(ctypes.Structure):
     _fields_ = [
         ("cbSize", DWORD), ("dwMask", DWORD), ("dwEffects", DWORD),
@@ -229,7 +240,7 @@ class NativeBidiEditor(tk.Frame):
         """Set actual Unicode paragraph flow, not merely right justification."""
         start, end = self.selection_range()
         self.select_all()
-        para = PARAFORMAT()
+        para = PARAFORMAT2()
         para.cbSize = ctypes.sizeof(para)
         para.dwMask = self.PFM_ALIGNMENT | self.PFM_RTLPARA
         para.wAlignment = 2 if direction == "rtl" else 1  # PFA_RIGHT/LEFT

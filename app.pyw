@@ -33,6 +33,7 @@ import subnet_calculator as subnet
 import icon_themes as themes
 import hotkey_settings as hk
 import note_sync
+import native_bidi
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -377,6 +378,7 @@ class PocketDesk:
         self._save_job = None
         self._loading_note = False
         self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
+        self._bidi_editor_active = False
         self._modal = False
         self.pinned = False
         self.current_tab = "notes"
@@ -457,6 +459,7 @@ class PocketDesk:
         self.root.after(650, self._clipboard_poll)
         self.root.after(2500, self._reminder_poll)
         self.root.after(1200, self._notepad_poll)
+        self.root.after(350, self._bidi_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -919,6 +922,14 @@ class PocketDesk:
                                  highlightthickness=1, highlightbackground=BORDER,
                                  highlightcolor=ACCENT, padx=10, pady=12)
         self.note_body.pack(fill="both", expand=True, padx=12)
+        self.bidi_editor = None
+        if sys.platform == "win32":
+            try:
+                self.bidi_editor = native_bidi.NativeBidiEditor(
+                    editor, background=INPUT, foreground="#D7DAE6",
+                    context_menu=self._show_note_context_menu)
+            except (OSError, RuntimeError) as exc:
+                print(f"Pocket native RTL editor unavailable: {exc}", file=sys.stderr)
         self.note_direction_var = tk.StringVar(value="ltr")
         self.note_body.tag_configure("note_alignment", justify="left")
         self.note_body.bind("<<Modified>>", self._change_note_body)
@@ -948,7 +959,7 @@ class PocketDesk:
         note = self.active_note()
         if note is None or not hasattr(self, "note_body") or not self.note_body.winfo_exists():
             return
-        text = self.note_body.get("1.0", "end-1c")
+        text = self._editor_text()
         if note["body"] != text:
             note["body"] = text
             self.schedule_save()
@@ -987,6 +998,8 @@ class PocketDesk:
         self.reminder_detail.config(text=format_reminder(n))
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
+        if self.bidi_editor is not None:
+            self.bidi_editor.set_text(n["body"])
         self._apply_note_direction(n)
         self.note_body.edit_modified(False)
         self._loading_note = False
@@ -1216,13 +1229,37 @@ class PocketDesk:
         self.root.clipboard_append(number)
         self.save_status.config(text="Number copied", fg=ACCENT)
 
+    def _editor_text(self):
+        return self.bidi_editor.get_text() if self._bidi_active() else self.note_body.get("1.0", "end-1c")
+
+    def _bidi_active(self):
+        return self.bidi_editor is not None and self._bidi_editor_active and self.current_tab == "notes"
+
+    def _bidi_poll(self):
+        try:
+            if self._bidi_active() and not self._loading_note:
+                note = self.active_note()
+                if note is not None:
+                    content = self.bidi_editor.get_text()
+                    if note["body"] != content:
+                        note["body"] = content
+                        self._edit_dirty()
+        finally:
+            if self.root.winfo_exists():
+                self.root.after(350, self._bidi_poll)
+
     def _selected_note_text(self) -> str:
+        if self._bidi_active():
+            return self.bidi_editor.get_selected()
         try:
             return self.note_body.get("sel.first", "sel.last")
         except tk.TclError:
             return ""
 
     def _select_all_note_text(self, _event=None):
+        if self._bidi_active():
+            self.bidi_editor.select_all()
+            return "break"
         self.note_body.tag_add("sel", "1.0", "end-1c")
         self.note_body.mark_set("insert", "1.0")
         self.note_body.see("insert")
@@ -1231,6 +1268,9 @@ class PocketDesk:
     def _note_edit_action(self, operation: str):
         """Use Tk editing primitives, which preserve the editor's undo history."""
         try:
+            if self._bidi_active():
+                self.bidi_editor.edit_action(operation)
+                return
             if operation == "undo":
                 self.note_body.edit_undo()
             elif operation == "redo":
@@ -1242,12 +1282,16 @@ class PocketDesk:
             pass
 
     def _copy_entire_note(self):
-        content = self.note_body.get("1.0", "end-1c")
+        content = self._editor_text()
         self.root.clipboard_clear()
         self.root.clipboard_append(content)
         self.save_status.config(text="Note copied", fg=ACCENT)
 
     def _insert_note_timestamp(self):
+        if self._bidi_active():
+            self.bidi_editor.replace_selection(datetime.now().strftime("%Y-%m-%d %H:%M"))
+            self.bidi_editor.focus_set()
+            return
         self.note_body.insert("insert", datetime.now().strftime("%Y-%m-%d %H:%M"))
         self.note_body.focus_set()
 
@@ -1341,21 +1385,41 @@ class PocketDesk:
         return "break"
 
     def _apply_note_direction(self, note):
-        """Align paragraphs without rewriting or reversing mixed-language text."""
+        """Use Windows RichEdit BiDi for Hebrew rather than Tk justification."""
         direction = normalize_note_direction(note.get("direction"))
         self.note_direction_var.set(direction)
-        self.note_body.tag_configure("note_alignment", justify="right" if direction == "rtl" else "left")
-        self.note_body.tag_add("note_alignment", "1.0", "end")
+        self._bidi_editor_active = direction == "rtl" and self.bidi_editor is not None
+        self.note_body.tag_configure("note_alignment", justify="left")
+        if self._bidi_editor_active:
+            self.note_body.pack_forget()
+            self.bidi_editor.pack(fill="both", expand=True, padx=12)
+            self.bidi_editor.set_direction("rtl")
+        else:
+            if self.bidi_editor is not None:
+                self.bidi_editor.pack_forget()
+            self.note_body.pack(fill="both", expand=True, padx=12)
 
     def _set_note_direction(self, direction):
         note = self.active_note()
         if note is None:
             return
         self._flush_current_note()
-        direction = normalize_note_direction(direction)
-        note["direction"] = direction
-        self._apply_note_direction(note)
-        self.note_body.focus_set()
+        content = note["body"]
+        note["direction"] = normalize_note_direction(direction)
+        self._loading_note = True
+        try:
+            self.note_body.delete("1.0", tk.END)
+            self.note_body.insert("1.0", content)
+            if self.bidi_editor is not None:
+                self.bidi_editor.set_text(content)
+            self._apply_note_direction(note)
+            self.note_body.edit_modified(False)
+        finally:
+            self._loading_note = False
+        if self._bidi_active():
+            self.bidi_editor.focus_set()
+        else:
+            self.note_body.focus_set()
         self.schedule_save()
 
     def _change_note_body(self, _event=None):
@@ -1366,9 +1430,7 @@ class PocketDesk:
             return
         note = self.active_note()
         if note is not None:
-            self._apply_note_direction(note)
-        if note is not None:
-            note["body"] = self.note_body.get("1.0", "end-1c")
+            note["body"] = self._editor_text()
             self._edit_dirty()
 
     def _edit_dirty(self):
@@ -2629,6 +2691,8 @@ class PocketDesk:
             try:
                 self.note_body.delete("1.0", tk.END)
                 self.note_body.insert("1.0", content)
+                if self.bidi_editor is not None:
+                    self.bidi_editor.set_text(content)
                 self._apply_note_direction(note)
                 self.note_body.edit_modified(False)
                 self.note_body.edit_reset()

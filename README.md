@@ -6,7 +6,7 @@
 
 A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.25** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.26 (development branch)** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -51,8 +51,8 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 
 | Tool | Capabilities |
 |:---|:---|
-| **Notes & reminders** | Autosaved notes with titles, phone fields and creation dates. Pin, duplicate, delete, use right-click text actions, insert timestamps, or export to Notepad. Enable **Notify me…** on an individual note to schedule a one-time Windows notification. Selected IPs and CLI text can be sent to their respective tools. |
-| **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. |
+| **Notes & reminders** | Autosaved notes with titles, phone fields and creation dates. Pin, duplicate, delete, use right-click text actions, select per-note RTL/LTR alignment, insert timestamps, or edit in Notepad with saved changes imported into Pocket. Enable **Notify me…** on an individual note to schedule a one-time Windows notification. Selected IPs and CLI text can be sent to their respective tools. |
+| **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. Each shortcut card has direct **Open**, **Copy**, and overflow-menu actions. |
 | **TCP Ports** | Test one TCP port, predefined ports, or a custom list/range against an IPv4 or IPv6 address. See **OPEN**, **CLOSED**, **TIMEOUT** and **ERROR** results, with copy/export options. |
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
 | **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
@@ -168,13 +168,14 @@ Pocket saves user data under:
 ├── data.json            # Notes/reminders, shortcuts, theme, hotkey, window position, menu preferences
 ├── vendors.json         # Cached or imported IEEE vendor data
 ├── icons\               # Locally generated color icon variants (PNG / ICO)
-└── notepad_exports\     # Exported .txt snapshots of notes
+├── notepad_exports\     # Older, one-off .txt snapshots of notes
+└── notepad\             # Stable working .txt files for Notepad synchronization
 ```
 
 - **Local-first:** no account, hosted database or synchronization service is required.
 - **Not encrypted:** notes, scheduled reminders, phone numbers and command libraries are stored as **plain-text JSON**. Do not store passwords or private keys there.
 - **Clipboard history:** text is held in memory only and is cleared when Pocket exits. Turning off the Clipboard menu stops future capture, not the Windows system clipboard itself.
-- **Notepad is an export:** opening a note in Windows Notepad creates a snapshot; later Notepad edits **do not sync back** to Pocket.
+- **Notepad synchronization (v1.26 branch):** **Open in Notepad** opens a stable local working file. Saving in Notepad updates the Pocket note while Pocket is running (checked approximately every 1.2 seconds). If both editors changed the note, Pocket prompts before replacing content, and preserves a recovery copy when the Pocket version is selected. Older one-off exports remain separate and are not synchronized.
 - **Network activity:** TCP checks contact only the specified target. Registry downloads retrieve IEEE vendor data when requested. Pocket doesn't send notes to a lookup service.
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
 - **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner.
@@ -195,6 +196,7 @@ The local application does not upload command edits automatically; GitHub publis
 ```text
 Pocket/
 ├── app.pyw                 # Desktop UI, notes, tabs and tray
+├── note_sync.py            # Notepad working-file sync and conflict backups
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
 ├── command_helper.py       # Command search and editing
@@ -218,10 +220,13 @@ Pocket/
 
 ## Version history
 
+> **Development:** v1.26 changes live on `feature/v1.26-notes-shortcuts`, not `main`. Mini Mode is planned for a later phase and will be controlled from Settings (not a header button).
+
 Development milestones shown below are drawn from repository commits and feature implementations; they are **not** a claim that each intermediate version has a separate downloadable GitHub Release.
 
 | Version | Date | Highlights |
 |:---|:---|:---|
+| **v1.26 (branch)** | 2026-10-29 | Per-note RTL/LTR text alignment, Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
 | **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |
 | **v1.23** | 2026-10-28 | Consolidated commands into a single writable local `commands.json` library, with optional machine names stored in the same file. |

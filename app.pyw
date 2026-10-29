@@ -1316,6 +1316,7 @@ class PocketDesk:
         self.note_body.edit_modified(False)
         self._loading_note = False
         self.save_status.config(text="Autosaved", fg=MUTED)
+        self._update_mini_note_pager()
 
     def _select_from_list(self, _event):
         if self._loading_note:

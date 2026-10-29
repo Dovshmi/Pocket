@@ -2335,9 +2335,15 @@ class PocketDesk:
         if self.current_tab != 'commands' or not hasattr(self,'command_tree') or not self.command_tree.winfo_exists():
             return
         prefs = self.data['command_state']
-        matches = ch.find_commands(self.command_library, query=self._actual_command_query(),
-                                    machine=self.machine_var.get(), category=self.command_category_var.get(),
-                                    mode=self.command_mode, favorites=prefs['favorites'], recent=prefs['recent'])
+        filters = (self._actual_command_query(), self.machine_var.get(),
+                   self.command_category_var.get(), self.command_mode)
+        if self.display_mode == "mini" and filters != self._mini_command_filters:
+            # Each new search starts with the highest-ranked recommendation.
+            self.selected_command_id = None
+            self._mini_command_filters = filters
+        matches = ch.find_commands(self.command_library, query=filters[0],
+                                    machine=filters[1], category=filters[2],
+                                    mode=filters[3], favorites=prefs['favorites'], recent=prefs['recent'])
         self.command_filtered = matches[:ch.MAX_RESULTS]
         self.command_count.config(text=f"{len(matches)} results" +
                                   (f" · first {ch.MAX_RESULTS}" if len(matches)>ch.MAX_RESULTS else ''))

@@ -34,6 +34,7 @@ import icon_themes as themes
 import hotkey_settings as hk
 import note_sync
 import native_bidi
+import mini_layout as mini
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -176,7 +177,9 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
-        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"]},
+        "window_positions": {"normal": None, "mini": None},
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
+                     "display_mode": "normal"},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -198,7 +201,8 @@ def normalize_settings(raw):
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
-    return {"visible_tabs": visible}
+    return {"visible_tabs": visible,
+            "display_mode": mini.display_mode(raw.get("display_mode"))}
 
 
 def parse_reminder_time(date_text, time_text, now=None):
@@ -320,6 +324,8 @@ def load_data(path: Path) -> dict:
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
+                "window_positions": mini.window_positions(data.get("window_positions"),
+                                                              data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
                 "settings": normalize_settings(data.get("settings")),
                 "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
@@ -365,6 +371,9 @@ class PocketDesk:
         self.data = load_data(self.path)
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
+        self.display_mode = self.settings["display_mode"]
+        self.data["window_positions"] = mini.window_positions(
+            self.data.get("window_positions"), self.data.get("window_position"))
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
         self._clipboard_job = None
@@ -419,6 +428,8 @@ class PocketDesk:
         self.machine_catalog = ch.load_machine_names(self.commands_file) if self.commands_file else []
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
+        self.mini_command_index = 0
+        self._mini_command_filters = None
         self.selected_command_id = None
         self.command_mode = "all"
         self.command_draft_id = None
@@ -439,7 +450,8 @@ class PocketDesk:
             self.root = tk.Tk()
         self.root.title("Pocket")
         self.root.configure(bg=BG)
-        self.root.geometry(f"{WIDTH}x{HEIGHT}")
+        start_width, start_height = mini.view_dimensions(self.display_mode)
+        self.root.geometry(f"{start_width}x{start_height}")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.hide)
         if not preview:
@@ -606,6 +618,8 @@ class PocketDesk:
         return "break"
 
     def _build_shell(self):
+        if self.display_mode == "mini":
+            return self._build_mini_shell()
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
         header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
@@ -723,7 +737,21 @@ class PocketDesk:
         self._build_shell_refresh()
         self.schedule_save()
 
+    def _set_display_mode(self, mode):
+        """Switch layouts from Settings without losing notes or draft input."""
+        mode = mini.display_mode(mode)
+        if mode == self.display_mode:
+            return
+        self._flush_current_note()
+        if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
+            self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self.display_mode = mode
+        self.settings["display_mode"] = mode
+        self._build_shell_refresh()
+        self.schedule_save()
+
     def _build_shell_refresh(self):
+        self._flush_current_note()
         for child in self.root.winfo_children():
             child.destroy()
         self._header_context_menu = None
@@ -734,10 +762,16 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
+        if self.display_mode == "mini":
+            return self._build_mini_settings()
         tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"),
                  bg=BG, fg=WHITE).pack(anchor="w")
         tk.Label(self.body, text="Choose which tools appear in Pocket",
                  bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
+        tk.Label(self.body, text="WINDOW SIZE", bg=BG, fg=SECONDARY,
+                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
+        action_label(self.body, "Switch to Mini mode", lambda: self._set_display_mode("mini"),
+                     fg=ACCENT, bg=PANEL, hover=CARD, font_size=10).pack(anchor="w", pady=(0, 15))
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
         for key, label in VISIBLE_TABS:

@@ -1700,7 +1700,8 @@ class PocketDesk:
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
                                    highlightthickness=1, height=74)
-        self.drop_panel.pack(fill="x", pady=(0, 12))
+        if self.display_mode != "mini":
+            self.drop_panel.pack(fill="x", pady=(0, 12))
         self.drop_panel.pack_propagate(False)
         self.drop_title = tk.Label(self.drop_panel, text="↓  DROP WEBSITE, FILE OR FOLDER HERE",
                                    font=(FONT, 9, 'bold'), fg=ACCENT, bg=PANEL)
@@ -1796,25 +1797,29 @@ class PocketDesk:
 
     def _link_tile(self, link):
         tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 10), padx=(2, 6), ipady=6)
+        tile.pack(fill="x", pady=(0, 5 if self.display_mode == "mini" else 10),
+                  padx=(1, 2 if self.display_mode == "mini" else 6),
+                  ipady=2 if self.display_mode == "mini" else 6)
         kind = link.get("kind", "url")
         badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
         tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 17, "bold"), width=3, height=2).pack(side="left", padx=(12, 10))
+                 font=(FONT, 12 if self.display_mode == "mini" else 17, "bold"),
+                 width=2 if self.display_mode == "mini" else 3,
+                 height=2).pack(side="left", padx=(6, 4) if self.display_mode == "mini" else (12, 10))
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
         title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 11, "bold"), cursor="hand2")
+                         font=(FONT, 9 if self.display_mode == "mini" else 11, "bold"), cursor="hand2")
         title.pack(fill="x", pady=(3, 2))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
-        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:28]}", anchor="w", fg=MUTED, bg=PANEL,
+        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:16 if self.display_mode == 'mini' else 28]}", anchor="w", fg=MUTED, bg=PANEL,
                  font=(FONT, 8)).pack(fill="x")
         title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
         self._register_shortcut_drop(tile)
         self._register_shortcut_drop(title)
         actions = tk.Frame(tile, bg=PANEL)
-        actions.pack(side="right", padx=(0, 8))
+        actions.pack(side="right", padx=(0, 2) if self.display_mode == "mini" else (0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
         action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
@@ -2000,9 +2005,12 @@ class PocketDesk:
                             style="Pocket.Treeview")
         if aligns is None:
             aligns = ("w",) * len(columns)
+        if self.display_mode == "mini":
+            widths = [max(55, int(value * (290 / max(1, sum(widths))))) for value in widths]
         for col, width, align in zip(columns, widths, aligns):
             tree.heading(col, text=col, anchor=align)
-            tree.column(col, width=width, minwidth=50, anchor=align, stretch=True)
+            tree.column(col, width=width, minwidth=40 if self.display_mode == "mini" else 50,
+                        anchor=align, stretch=True)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
@@ -2651,7 +2659,8 @@ class PocketDesk:
                            activebackground=BG, activeforeground=WHITE,
                            selectcolor=PANEL, font=(FONT, 8),
                            highlightthickness=0, anchor="w", width=12
-                           ).grid(row=i//4, column=i%4, sticky="w")
+                           ).grid(row=i//(2 if self.display_mode == "mini" else 4),
+                                  column=i%(2 if self.display_mode == "mini" else 4), sticky="w")
         tk.Label(self.port_selected_frame, text="ADDITIONAL PORTS  (e.g. 8000, 8443, 9000-9003)",
                  bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(9, 5))
         self._entry(self.port_selected_frame, self.custom_ports_var).pack(fill="x", ipady=7, pady=(0, 8))
@@ -2925,6 +2934,8 @@ class PocketDesk:
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
         self.mac_input.pack(fill="x", pady=(0, 10))
+        if self.display_mode == "mini":
+            self.mac_input.config(height=3)
         self.mac_input.insert("1.0", self.mac_draft)
         actions = tk.Frame(self.body, bg=BG)
         actions.pack(fill="x")

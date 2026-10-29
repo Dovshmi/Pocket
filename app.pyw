@@ -1925,7 +1925,134 @@ class PocketDesk:
         scrollbar.pack(side="right", fill="y")
         return tree
 
+    def _build_mini_commands(self):
+        """Ranked search with one editable CLI card, never a squeezed table."""
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 5))
+        tk.Label(heading, text="Commands", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(side="left")
+        action_label(heading, "+ New", self._add_custom_command, bg=PANEL, fg=ACCENT,
+                     padx=8, pady=5, font_size=8).pack(side="right")
+        action_label(heading, "Backup ▾", self._show_command_backup_menu,
+                     bg=PANEL, fg=MUTED, padx=7, pady=5, font_size=8).pack(side="right", padx=(0, 4))
+        prefs = self.data["command_state"]
+        names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
+        chosen = prefs.get("machine")
+        self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
+        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+                                            state="readonly", font=(FONT, 9))
+        self.machine_picker.pack(fill="x", pady=(0, 7))
+        self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        self.command_query = tk.StringVar()
+        self.command_search_entry = self._entry(self.body, self.command_query)
+        self.command_search_entry.config(font=(FONT, 9), fg=MUTED)
+        self._command_placeholder = "Search CLI / חיפוש פקודה"
+        self._command_placeholder_active = True
+        self.command_search_entry.insert(0, self._command_placeholder)
+        self.command_search_entry.bind("<FocusIn>", self._command_focus_in)
+        self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
+        self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
+        self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
+        self.root.bind("<Control-f>", self._focus_command_search)
+        row = tk.Frame(self.body, bg=BG)
+        row.pack(fill="x", pady=(0, 4))
+        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
+        self.command_category_picker = ttk.Combobox(
+            row, textvariable=self.command_category_var, state="readonly",
+            values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
+            font=(FONT, 8))
+        self.command_category_picker.pack(side="left", fill="x", expand=True)
+        self.command_category_picker.bind("<<ComboboxSelected>>", lambda _e: self._refresh_command_results())
+        self.command_modes = {}
+        modebar = tk.Frame(self.body, bg=BG)
+        modebar.pack(fill="x", pady=(0, 6))
+        for mode, label in (("all", "All"), ("favorites", "★ Saved"), ("recent", "Recent")):
+            btn = action_label(modebar, label, lambda m=mode: self._set_command_mode(m),
+                               bg=PANEL, fg=SECONDARY, font_size=8, padx=10, pady=4)
+            btn.pack(side="left", padx=(0, 4))
+            self.command_modes[mode] = btn
+        pager = tk.Frame(self.body, bg=BG)
+        pager.pack(fill="x", pady=(0, 7))
+        self.command_count = tk.Label(pager, text="", bg=BG, fg=MUTED, font=(FONT, 8))
+        self.command_count.pack(side="left")
+        action_label(pager, "▶", lambda: self._move_mini_command(1), bg=PANEL,
+                     fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right")
+        self.mini_command_page = tk.Label(pager, text="0 / 0", bg=BG, fg=SECONDARY,
+                                          font=(FONT, 9))
+        self.mini_command_page.pack(side="right", padx=9)
+        action_label(pager, "◀", lambda: self._move_mini_command(-1), bg=PANEL,
+                     fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right")
+        details = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        details.pack(fill="both", expand=True)
+        top = tk.Frame(details, bg=PANEL)
+        top.pack(fill="x", padx=9, pady=(9, 3))
+        self.command_machine_tag = tk.Label(top, text="", bg=PANEL, fg=ACCENT, font=(FONT, 8, "bold"))
+        self.command_machine_tag.pack(side="left")
+        self.command_category_tag = tk.Label(top, text="", bg=PANEL, fg=MUTED, font=(FONT, 8))
+        self.command_category_tag.pack(side="right")
+        self.command_description_label = tk.Label(details, text="", bg=PANEL, fg=WHITE,
+                                                   font=(FONT, 9), anchor="w",
+                                                   justify="left", wraplength=286)
+        self.command_description_label.pack(fill="x", padx=9, pady=(2, 5))
+        self.command_code = tk.Text(details, wrap="word", height=4, font=("Consolas", 9),
+                                     bg=INPUT, fg="#D3E4FF", insertbackground=ACCENT,
+                                     highlightthickness=1, highlightbackground=BORDER,
+                                     bd=0, padx=6, pady=6, undo=True)
+        self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
+        self.command_code.bind("<Control-a>", self._command_select_all)
+        self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        actions = tk.Frame(details, bg=PANEL)
+        actions.pack(fill="x", padx=7, pady=(0, 3))
+        self.command_star = action_label(actions, "☆ Save", self._toggle_command_favorite,
+                                         fg=SECONDARY, bg=PANEL, font_size=8, padx=5, pady=4)
+        self.command_star.pack(side="left")
+        self.command_edit = action_label(actions, "Edit", self._edit_custom_command,
+                                         fg=ACCENT, bg=PANEL, font_size=8, padx=5, pady=4)
+        self.command_edit.pack(side="left")
+        self.command_delete = action_label(actions, "Del", self._delete_custom_command,
+                                           fg=DANGER, bg=PANEL, font_size=8, padx=4, pady=4)
+        self.command_delete.pack(side="left")
+        self.command_reset = action_label(actions, "Reset", self._reset_command_draft,
+                                          fg=SECONDARY, bg=PANEL, font_size=8, padx=4, pady=4)
+        self.command_reset.pack(side="left")
+        action_label(details, "⧉  Copy command", self._copy_command,
+                     fg="#121622", bg=ACCENT, padx=8, pady=7,
+                     font_size=9).pack(fill="x", padx=9, pady=(0, 3))
+        self.command_feedback = tk.Label(details, text="", bg=PANEL, fg=MUTED,
+                                          font=(FONT, 7), wraplength=270)
+        self.command_feedback.pack(fill="x", padx=7, pady=(1, 6))
+        # Keep an unmounted Treeview as a selection model shared with the
+        # full-size command search and editing logic.
+        self.command_tree = ttk.Treeview(self.body, columns=("Command", "Purpose"),
+                                          show="headings", selectmode="browse")
+        self.command_tree.bind("<<TreeviewSelect>>", self._select_command)
+        self._style_command_modes()
+        self._refresh_command_results()
+
+    def _update_mini_command_pager(self):
+        """Show only the highest-ranked result or the explicitly selected one."""
+        if self.display_mode != "mini" or not hasattr(self, "mini_command_page"):
+            return
+        count = len(self.command_filtered)
+        idx = mini.selected_index(self.command_filtered, self.selected_command_id)
+        self.mini_command_index = idx
+        self.mini_command_page.config(text=f"{idx + 1 if idx >= 0 else 0} / {count}")
+
+    def _move_mini_command(self, step):
+        if self.current_tab != "commands" or self.display_mode != "mini":
+            return
+        index = mini.carousel_index(self.mini_command_index, len(self.command_filtered), step)
+        if index < 0:
+            return
+        self.selected_command_id = self.command_filtered[index]["id"]
+        self.command_tree.selection_set(self.selected_command_id)
+        self.mini_command_index = index
+        self._render_command_details()
+        self._update_mini_command_pager()
+
     def _build_commands(self):
+        if self.display_mode == "mini":
+            return self._build_mini_commands()
         self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
         backup_row = tk.Frame(self.body, bg=BG)
         backup_row.pack(fill="x", pady=(0, 8))
@@ -2139,6 +2266,8 @@ class PocketDesk:
         else:
             self.selected_command_id = None
         self._render_command_details()
+        if self.display_mode == "mini":
+            self._update_mini_command_pager()
         if not self.command_filtered and self.machine_var.get() != ch.ALL_MACHINES:
             self.command_description_label.config(
                 text="No matching reference commands. Use + New to add your own.")

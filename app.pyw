@@ -1521,6 +1521,8 @@ class PocketDesk:
         actions.pack(side="right", padx=(0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
+        action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
+                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5, font_size=13).pack(side="left")
         action_label(actions, "···", lambda item=link: self._show_link_menu(item),
                      fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=12).pack(side="left")
 
@@ -1538,6 +1540,10 @@ class PocketDesk:
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
+
+    def _copy_shortcut(self, item):
+        """Copy a URL or local path directly from its shortcut card."""
+        self._copy_url(item["url"])
 
     def _copy_url(self, url):
         self.root.clipboard_clear()

@@ -2844,6 +2844,9 @@ class PocketDesk:
     def _maybe_hide(self):
         if self.preview or self.pinned or self._modal or self._dragging_window:
             return
+        if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
+                and self.bidi_editor.has_focus()):
+            return
         if self.root.state() == "normal" and self.root.focus_displayof() is None:
             self.hide()
 

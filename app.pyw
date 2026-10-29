@@ -735,26 +735,46 @@ class PocketDesk:
         self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
+        # Eight compact icon tabs fit across the 346px mini window. Every
+        # visible tool has a permanent button; no hidden dropdown or overflow.
         nav = tk.Frame(outer, bg=BG)
-        nav.pack(fill="x", padx=11, pady=(1, 5))
-        self.tab_buttons = {}
-        labels = dict(VISIBLE_TABS)
-        choices = [key for key in labels if key in self.settings["visible_tabs"]]
-        choices.append("settings")
-        menu = ttk.Combobox(nav, values=[labels.get(key, "SETTINGS").title() for key in choices],
-                            state="readonly", font=(FONT, 10))
-        self.mini_tab_picker = menu
-        self._mini_tab_keys = choices
-        menu.pack(side="left", fill="x", expand=True)
-        menu.current(choices.index(self.current_tab) if self.current_tab in choices else 0)
-        menu.bind("<<ComboboxSelected>>",
-                  lambda _event: self.show_tab(self._mini_tab_keys[menu.current()]))
-        action_label(nav, "⚙", lambda: self.show_tab("settings"), fg=ACCENT,
-                     bg=BG, hover=PANEL, padx=8, pady=2, font_size=13).pack(side="right")
+        nav.pack(fill="x", padx=9, pady=(1, 6))
+        self.tab_buttons = {}  # Full-size text-tab API remains unchanged.
+        self.mini_icon_tabs = {}
+        for key, icon, caption in (
+            ("notes", "✎", "Notes"), ("links", "↗", "Links"),
+            ("ports", "⇄", "Ports"), ("mac", "▦", "MAC"),
+            ("commands", ">_", "CLI"), ("subnet", "⌗", "Subnet"),
+            ("clipboard", "▤", "Clip"), ("settings", "⚙", "More"),
+        ):
+            if key != "settings" and key not in self.settings["visible_tabs"]:
+                continue
+            tile = tk.Frame(nav, bg=BG, width=39, height=45, cursor="hand2")
+            tile.pack(side="left", padx=(0, 1))
+            tile.pack_propagate(False)
+            glyph = tk.Label(tile, text=icon, font=("Segoe UI Symbol", 14, "bold"),
+                             bg=BG, fg=SECONDARY, cursor="hand2", anchor="center")
+            glyph.pack(fill="x", pady=(1, 0))
+            caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
+                                      bg=BG, fg=MUTED, cursor="hand2", anchor="center")
+            caption_label.pack(fill="x")
+            for target in (tile, glyph, caption_label):
+                target.bind("<Button-1>", lambda _event, tool=key: self.show_tab(tool))
+            self.mini_icon_tabs[key] = (tile, glyph, caption_label)
+        self._style_mini_icon_tabs(self.current_tab)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
+
+    def _style_mini_icon_tabs(self, selected):
+        """Show an active tab indicator while retaining labels on small screens."""
+        for key, (tile, glyph, caption) in getattr(self, "mini_icon_tabs", {}).items():
+            active = key == selected
+            bg = ACCENT_DARK if active else BG
+            tile.config(bg=bg)
+            glyph.config(bg=bg, fg=ACCENT if active else SECONDARY)
+            caption.config(bg=bg, fg=WHITE if active else MUTED)
 
     def _build_mini_settings(self):
         tk.Label(self.body, text="Settings", bg=BG, fg=WHITE,
@@ -794,9 +814,8 @@ class PocketDesk:
             self.body = self._mini_root_body
         for child in self.body.winfo_children():
             child.destroy()
-        if self.display_mode == "mini" and hasattr(self, "mini_tab_picker"):
-            if which in self._mini_tab_keys:
-                self.mini_tab_picker.current(self._mini_tab_keys.index(which))
+        if self.display_mode == "mini":
+            self._style_mini_icon_tabs(which)
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)

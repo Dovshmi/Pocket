@@ -979,6 +979,16 @@ class PocketDesk:
         self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
+        if self.display_mode == "mini":
+            heading = tk.Frame(parent, bg=BG)
+            heading.pack(fill="x", pady=(1, 7))
+            action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
+                         hover="#BBC0FF", padx=7, pady=6, font_size=8).pack(side="right")
+            tk.Label(heading, text=title, bg=BG, fg=WHITE, font=(FONT, 12, "bold"),
+                     anchor="w").pack(side="left", fill="x", expand=True)
+            tk.Label(parent, text=desc, bg=BG, fg=MUTED, font=(FONT, 8),
+                     wraplength=304, justify="left").pack(anchor="w", pady=(0, 7))
+            return
         heading = tk.Frame(parent, bg=BG)
         heading.pack(fill="x", pady=(1, 14))
         words = tk.Frame(heading, bg=BG)
@@ -2252,7 +2262,8 @@ class PocketDesk:
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         menu.add_command(label="Create new backup", command=self._create_command_backup)
         menu.add_command(label="Use existing backup", command=self._restore_command_backup)
-        menu.tk_popup(self.root.winfo_rootx()+WIDTH-165, self.root.winfo_rooty()+195)
+        menu.tk_popup(self.root.winfo_rootx()+self.root.winfo_width()-165,
+                      self.root.winfo_rooty()+(110 if self.display_mode == "mini" else 195))
 
     def _create_command_backup(self):
         if not self.commands_file:

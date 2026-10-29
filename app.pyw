@@ -32,6 +32,8 @@ import command_store as cs
 import subnet_calculator as subnet
 import icon_themes as themes
 import hotkey_settings as hk
+import note_sync
+import native_bidi
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -90,7 +92,7 @@ def clamp_window_position(x: int, y: int, width: int, height: int,
 
 def new_note(title="Untitled note", body="", phone="") -> dict:
     return {"id": new_id(), "title": title, "body": body, "phone": phone,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False,
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False, "direction": "ltr",
             "reminder_enabled": False, "reminder_at": "", "reminder_sent_at": ""}
 
 
@@ -101,8 +103,15 @@ def ordered_notes(notes: list[dict]) -> list[dict]:
 
 def duplicate_note(original: dict) -> dict:
     """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
-    return new_note(f"{original.get('title', 'Untitled note')} (copy)",
+    copy = new_note(f"{original.get('title', 'Untitled note')} (copy)",
                     original.get('body', ''), original.get('phone', ''))
+    copy["direction"] = normalize_note_direction(original.get("direction"))
+    return copy
+
+
+def normalize_note_direction(value) -> str:
+    """Existing notes remain left-aligned; only explicit RTL is accepted."""
+    return "rtl" if value == "rtl" else "ltr"
 
 
 def display_created_at(value: str) -> str:
@@ -282,6 +291,7 @@ def load_data(path: Path) -> dict:
                 note["created_at"] = ""
             # Only genuine boolean values are accepted for the persisted flag.
             note["pinned"] = note.get("pinned") is True
+            note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
         links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
@@ -367,6 +377,8 @@ class PocketDesk:
         self.tray = None
         self._save_job = None
         self._loading_note = False
+        self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
+        self._bidi_editor_active = False
         self._modal = False
         self.pinned = False
         self.current_tab = "notes"
@@ -446,6 +458,8 @@ class PocketDesk:
         self.root.after(120, self._poll_events)
         self.root.after(650, self._clipboard_poll)
         self.root.after(2500, self._reminder_poll)
+        self.root.after(1200, self._notepad_poll)
+        self.root.after(350, self._bidi_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -908,6 +922,16 @@ class PocketDesk:
                                  highlightthickness=1, highlightbackground=BORDER,
                                  highlightcolor=ACCENT, padx=10, pady=12)
         self.note_body.pack(fill="both", expand=True, padx=12)
+        self.bidi_editor = None
+        if sys.platform == "win32":
+            try:
+                self.bidi_editor = native_bidi.NativeBidiEditor(
+                    editor, background=INPUT, foreground="#D7DAE6",
+                    context_menu=self._show_note_context_menu)
+            except (OSError, RuntimeError) as exc:
+                print(f"Pocket native RTL editor unavailable: {exc}", file=sys.stderr)
+        self.note_direction_var = tk.StringVar(value="ltr")
+        self.note_body.tag_configure("note_alignment", justify="left")
         self.note_body.bind("<<Modified>>", self._change_note_body)
         self.note_body.bind("<Button-3>", self._show_note_context_menu)
         # Right-click with a trackpad/alternate mouse mappings.
@@ -935,7 +959,7 @@ class PocketDesk:
         note = self.active_note()
         if note is None or not hasattr(self, "note_body") or not self.note_body.winfo_exists():
             return
-        text = self.note_body.get("1.0", "end-1c")
+        text = self._editor_text()
         if note["body"] != text:
             note["body"] = text
             self.schedule_save()
@@ -974,6 +998,9 @@ class PocketDesk:
         self.reminder_detail.config(text=format_reminder(n))
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
+        if self.bidi_editor is not None:
+            self.bidi_editor.set_text(n["body"])
+        self._apply_note_direction(n)
         self.note_body.edit_modified(False)
         self._loading_note = False
         self.save_status.config(text="Autosaved", fg=MUTED)
@@ -1166,6 +1193,7 @@ class PocketDesk:
         if not confirmed:
             return
         self.data["notes"] = [n for n in self.data["notes"] if n["id"] != note_id]
+        self._notepad_sessions.pop(note_id, None)
         if not self.data["notes"]:
             self.data["notes"] = [new_note()]
         if self.data["active_note"] == note_id:
@@ -1201,13 +1229,37 @@ class PocketDesk:
         self.root.clipboard_append(number)
         self.save_status.config(text="Number copied", fg=ACCENT)
 
+    def _editor_text(self):
+        return self.bidi_editor.get_text() if self._bidi_active() else self.note_body.get("1.0", "end-1c")
+
+    def _bidi_active(self):
+        return self.bidi_editor is not None and self._bidi_editor_active and self.current_tab == "notes"
+
+    def _bidi_poll(self):
+        try:
+            if self._bidi_active() and not self._loading_note:
+                note = self.active_note()
+                if note is not None:
+                    content = self.bidi_editor.get_text()
+                    if note["body"] != content:
+                        note["body"] = content
+                        self._edit_dirty()
+        finally:
+            if self.root.winfo_exists():
+                self.root.after(350, self._bidi_poll)
+
     def _selected_note_text(self) -> str:
+        if self._bidi_active():
+            return self.bidi_editor.get_selected()
         try:
             return self.note_body.get("sel.first", "sel.last")
         except tk.TclError:
             return ""
 
     def _select_all_note_text(self, _event=None):
+        if self._bidi_active():
+            self.bidi_editor.select_all()
+            return "break"
         self.note_body.tag_add("sel", "1.0", "end-1c")
         self.note_body.mark_set("insert", "1.0")
         self.note_body.see("insert")
@@ -1216,6 +1268,9 @@ class PocketDesk:
     def _note_edit_action(self, operation: str):
         """Use Tk editing primitives, which preserve the editor's undo history."""
         try:
+            if self._bidi_active():
+                self.bidi_editor.edit_action(operation)
+                return
             if operation == "undo":
                 self.note_body.edit_undo()
             elif operation == "redo":
@@ -1227,12 +1282,16 @@ class PocketDesk:
             pass
 
     def _copy_entire_note(self):
-        content = self.note_body.get("1.0", "end-1c")
+        content = self._editor_text()
         self.root.clipboard_clear()
         self.root.clipboard_append(content)
         self.save_status.config(text="Note copied", fg=ACCENT)
 
     def _insert_note_timestamp(self):
+        if self._bidi_active():
+            self.bidi_editor.replace_selection(datetime.now().strftime("%Y-%m-%d %H:%M"))
+            self.bidi_editor.focus_set()
+            return
         self.note_body.insert("insert", datetime.now().strftime("%Y-%m-%d %H:%M"))
         self.note_body.focus_set()
 
@@ -1282,6 +1341,11 @@ class PocketDesk:
                          command=lambda: self._note_edit_action("paste"))
         menu.add_command(label="Select all     Ctrl+A", command=self._select_all_note_text)
         menu.add_separator()
+        menu.add_radiobutton(label="Right to Left (עברית)", variable=self.note_direction_var,
+                             value="rtl", command=lambda: self._set_note_direction("rtl"))
+        menu.add_radiobutton(label="Left to Right (English)", variable=self.note_direction_var,
+                             value="ltr", command=lambda: self._set_note_direction("ltr"))
+        menu.add_separator()
         menu.add_command(label="Copy entire note", command=self._copy_entire_note)
         menu.add_command(label="Insert date & time", command=self._insert_note_timestamp)
         menu.add_command(label="Open in Notepad", command=self.open_notepad)
@@ -1320,6 +1384,49 @@ class PocketDesk:
             menu.grab_release()
         return "break"
 
+    def _apply_note_direction(self, note):
+        """Use Windows RichEdit BiDi for Hebrew rather than Tk justification."""
+        direction = normalize_note_direction(note.get("direction"))
+        self.note_direction_var.set(direction)
+        # Windows: keep ONE editor for both directions. Previously LTR used
+        # Tk Text while RTL used RichEdit; switching to Tk made mixed Hebrew/
+        # English context-menu interactions unreliable. RichEdit handles both
+        # directions natively, including the mouse/selection and caret.
+        self._bidi_editor_active = self.bidi_editor is not None
+        if self._bidi_editor_active:
+            self.note_body.pack_forget()
+            self.bidi_editor.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
+            self.bidi_editor.set_direction(direction)
+        else:
+            # Cross-platform fallback for preview/testing without Win32.
+            self.note_body.tag_configure("note_alignment",
+                                          justify="right" if direction == "rtl" else "left")
+            self.note_body.tag_add("note_alignment", "1.0", "end")
+            self.note_body.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
+
+    def _set_note_direction(self, direction):
+        note = self.active_note()
+        if note is None:
+            return
+        self._flush_current_note()
+        content = note["body"]
+        note["direction"] = normalize_note_direction(direction)
+        self._loading_note = True
+        try:
+            self.note_body.delete("1.0", tk.END)
+            self.note_body.insert("1.0", content)
+            if self.bidi_editor is not None:
+                self.bidi_editor.set_text(content)
+            self._apply_note_direction(note)
+            self.note_body.edit_modified(False)
+        finally:
+            self._loading_note = False
+        if self._bidi_active():
+            self.bidi_editor.focus_set()
+        else:
+            self.note_body.focus_set()
+        self.schedule_save()
+
     def _change_note_body(self, _event=None):
         if not self.note_body.edit_modified():
             return
@@ -1328,7 +1435,7 @@ class PocketDesk:
             return
         note = self.active_note()
         if note is not None:
-            note["body"] = self.note_body.get("1.0", "end-1c")
+            note["body"] = self._editor_text()
             self._edit_dirty()
 
     def _edit_dirty(self):
@@ -1485,6 +1592,8 @@ class PocketDesk:
         actions.pack(side="right", padx=(0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
+        action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
+                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5, font_size=13).pack(side="left")
         action_label(actions, "···", lambda item=link: self._show_link_menu(item),
                      fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=12).pack(side="left")
 
@@ -1502,6 +1611,10 @@ class PocketDesk:
             menu.tk_popup(x, y)
         finally:
             menu.grab_release()
+
+    def _copy_shortcut(self, item):
+        """Copy a URL or local path directly from its shortcut card."""
+        self._copy_url(item["url"])
 
     def _copy_url(self, url):
         self.root.clipboard_clear()
@@ -2574,8 +2687,85 @@ class PocketDesk:
         if not self.pinned:
             self.hide()
 
+    def _import_notepad_body(self, note, content):
+        """Apply saved external edits without destroying the note's other fields."""
+        note["body"] = content
+        if (self.current_tab == "notes" and self.data["active_note"] == note["id"]
+                and hasattr(self, "note_body") and self.note_body.winfo_exists()):
+            self._loading_note = True
+            try:
+                self.note_body.delete("1.0", tk.END)
+                self.note_body.insert("1.0", content)
+                if self.bidi_editor is not None:
+                    self.bidi_editor.set_text(content)
+                self._apply_note_direction(note)
+                self.note_body.edit_modified(False)
+                self.note_body.edit_reset()
+            finally:
+                self._loading_note = False
+        self.schedule_save()
+
+    def _notepad_poll(self):
+        """Import Notepad changes after Ctrl+S; protect simultaneous Pocket edits."""
+        try:
+            notes_by_id = {note["id"]: note for note in self.data["notes"]}
+            for note_id, session in list(self._notepad_sessions.items()):
+                note = notes_by_id.get(note_id)
+                if note is None:
+                    self._notepad_sessions.pop(note_id, None)
+                    continue
+                path = session["path"]
+                try:
+                    external = note_sync.read_text(path)
+                except FileNotFoundError:
+                    # A deleted working file may be recreated on the next Open.
+                    self._notepad_sessions.pop(note_id, None)
+                    continue
+                except (OSError, UnicodeError) as exc:
+                    print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
+                    continue
+                if external == session["baseline"] or external == session.get("dismissed"):
+                    continue
+                # Flush the current widget before comparing versions. A modified
+                # event might still be waiting in Tk's event queue.
+                if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                    self._flush_current_note()
+                if note["body"] != session["baseline"]:
+                    self._modal = True
+                    try:
+                        answer = messagebox.askyesnocancel(
+                            "Note changed in two places",
+                            "This note changed in both Pocket and Notepad.\\n\\n"
+                            "Yes: use Notepad's saved text.\\n"
+                            "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
+                            "Cancel: leave both versions unchanged.",
+                            parent=self.root)
+                    finally:
+                        self._modal = False
+                    if answer is None:
+                        session["dismissed"] = external
+                        continue
+                    if answer is False:
+                        try:
+                            recovery = note_sync.preserve_conflict(path, external)
+                            note_sync.write_text(path, note["body"])
+                        except OSError as exc:
+                            messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
+                            session["dismissed"] = external
+                            continue
+                        session["baseline"] = note["body"]
+                        session["dismissed"] = None
+                        print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
+                        continue
+                self._import_notepad_body(note, external)
+                session["baseline"] = external
+                session["dismissed"] = None
+        finally:
+            if self.root.winfo_exists():
+                self.root.after(1200, self._notepad_poll)
+
     def open_notepad(self):
-        """Open a fresh export of the currently selected note, not a blank Notepad."""
+        """Edit a note using its stable local file; saved changes sync into Pocket."""
         if sys.platform != "win32":
             messagebox.showinfo("Windows only", "Opening notes in Windows Notepad requires Windows.",
                                 parent=self.root)
@@ -2583,15 +2773,39 @@ class PocketDesk:
         note = self.active_note()
         if not note:
             return
-        # A Tk Text <<Modified>> event may still be queued; read the editor
-        # directly so the export always includes the user's latest keystrokes.
-        if self.current_tab == "notes":
-            note["body"] = self.note_body.get("1.0", "end-1c")
-            self.schedule_save()
+        self._flush_current_note()
+        folder = self.path.parent / "notepad"
         try:
-            snapshot = export_note_for_notepad(note, self.path.parent / "notepad_exports")
-            subprocess.Popen(["notepad.exe", str(snapshot)])
-        except OSError as exc:
+            path = note_sync.note_path(folder, note["id"])
+            session = self._notepad_sessions.get(note["id"])
+            if session is None:
+                if path.exists():
+                    external = note_sync.read_text(path)
+                    if external != note["body"]:
+                        self._modal = True
+                        try:
+                            answer = messagebox.askyesnocancel(
+                                "Existing Notepad edits",
+                                "A saved Notepad file differs from this Pocket note.\\n\\n"
+                                "Yes: import the Notepad version.\\n"
+                                "No: use Pocket's version (preserve a recovery copy).\\n"
+                                "Cancel: do not open.",
+                                parent=self.root)
+                        finally:
+                            self._modal = False
+                        if answer is None:
+                            return
+                        if answer:
+                            self._import_notepad_body(note, external)
+                        else:
+                            note_sync.preserve_conflict(path, external)
+                            note_sync.write_text(path, note["body"])
+                else:
+                    note_sync.write_text(path, note["body"])
+                self._notepad_sessions[note["id"]] = {"path": path, "baseline": note["body"]}
+            # Reopening a session must never overwrite unsaved Notepad edits.
+            subprocess.Popen(["notepad.exe", str(path)])
+        except (OSError, ValueError, UnicodeError) as exc:
             messagebox.showerror("Notepad", str(exc), parent=self.root)
 
     def toggle_pin(self):
@@ -2634,6 +2848,9 @@ class PocketDesk:
 
     def _maybe_hide(self):
         if self.preview or self.pinned or self._modal or self._dragging_window:
+            return
+        if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
+                and self.bidi_editor.has_focus()):
             return
         if self.root.state() == "normal" and self.root.focus_displayof() is None:
             self.hide()

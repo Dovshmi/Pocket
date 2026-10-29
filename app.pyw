@@ -1392,12 +1392,12 @@ class PocketDesk:
         self.note_body.tag_configure("note_alignment", justify="left")
         if self._bidi_editor_active:
             self.note_body.pack_forget()
-            self.bidi_editor.pack(fill="both", expand=True, padx=12)
+            self.bidi_editor.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
             self.bidi_editor.set_direction("rtl")
         else:
             if self.bidi_editor is not None:
                 self.bidi_editor.pack_forget()
-            self.note_body.pack(fill="both", expand=True, padx=12)
+            self.note_body.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
 
     def _set_note_direction(self, direction):
         note = self.active_note()

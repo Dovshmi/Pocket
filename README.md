@@ -6,7 +6,7 @@
 
 A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.26** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.27 (development)** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -17,7 +17,7 @@ A compact, local-first Windows tray toolbox for notes and reminders, clipboard h
 </p>
 
 > [!NOTE]
-> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; some controls and tabs differ from the current v1.26 interface.
+> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; Mini Mode is new and is not yet shown in screenshots.
 
 
 ## What is Pocket?
@@ -58,6 +58,20 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
 | **Clipboard** | Searchable, session-only history of copied **text**. Pin entries, copy an item back to Windows, or delete/clear history. Monitoring automatically runs while Clipboard is visible in Settings; captured text is **not persisted**. |
+
+### Mini Mode — v1.27 development
+
+Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 × 530 px** view. Return with **Settings → Return to Normal size**. The display mode is saved across restarts. There is **no title-bar mode toggle**.
+
+- A compact header offers a tool dropdown, Settings, PIN, close and the existing theme selector.
+- **Commands** presents the most relevant CLI match first in one editable card. Use ◀ / ▶ to browse results. Favorites, Recents, device/category search, Copy, Edit, Delete, Reset and manual backup remain available; nothing executes commands.
+- **Notes** uses a small note selector and a full-width expanding editor with per-note RTL/LTR support, phone details, reminders and Notepad synchronization.
+- **Shortcuts** uses denser rows with direct Open, Copy and overflow actions.
+- **Ports, MAC Lookup and Subnet** use scrollable views with compact result tables. Entering Mini Mode never initiates a network connection.
+- **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.
+- Window positions for Normal and Mini are stored **separately**; notes, commands and shortcuts continue sharing the same underlying local data.
+
+The compact interface is under active development on `feature/v1.27-mini-mode`. A Windows visual and keyboard-accessibility pass is required before merging to `main`.
 
 ### Personalize the workspace
 
@@ -197,6 +211,7 @@ The local application does not upload command edits automatically; GitHub publis
 Pocket/
 ├── app.pyw                 # Desktop UI, notes, tabs and tray
 ├── note_sync.py            # Notepad working-file sync and conflict backups
+├── mini_layout.py          # Mini geometry, layout preferences and command paging
 ├── native_bidi.py          # Windows native right-to-left note editor
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
@@ -221,12 +236,13 @@ Pocket/
 
 ## Version history
 
-> **Next:** Mini Mode is planned for v1.27, on a separate development branch. The compact layout will be enabled from **Settings** rather than a header button.
+> **Development:** Mini Mode is implemented on `feature/v1.27-mini-mode` for evaluation. The `main` branch remains on v1.26.
 
 Development milestones shown below are drawn from repository commits and feature implementations; they are **not** a claim that each intermediate version has a separate downloadable GitHub Release.
 
 | Version | Date | Highlights |
 |:---|:---|:---|
+| **v1.27 (branch)** | 2026-10-29 | Compact Settings-controlled Mini layout, one-command search carousel, condensed Notes/Shortcuts, scrollable network tools and saved independent positions. Not merged. |
 | **v1.26** | 2026-10-29 | Unified Windows Unicode editor for LTR/RTL (fixes mixed-language right-click crash), Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
 | **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |

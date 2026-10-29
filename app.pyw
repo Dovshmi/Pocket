@@ -988,7 +988,91 @@ class PocketDesk:
         action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
                      hover="#BBC0FF", padx=12, pady=9, font_size=9).pack(side="right")
 
+    def _build_mini_notes(self):
+        """Compact notes: a short picker, note metadata and full-height editor."""
+        bar = tk.Frame(self.body, bg=BG)
+        bar.pack(fill="x", pady=(0, 5))
+        tk.Label(bar, text="Notes", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(side="left")
+        action_label(bar, "+ New", self.add_note, bg=PANEL, fg=ACCENT,
+                     font_size=8, padx=9, pady=5).pack(side="right")
+        picker = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        picker.pack(fill="x", pady=(0, 6))
+        self.note_list = tk.Listbox(picker, height=2, bd=0, highlightthickness=0,
+                                    selectbackground=ACCENT_DARK, selectforeground=WHITE,
+                                    bg=PANEL, fg=SECONDARY, font=(FONT, 9),
+                                    exportselection=False, activestyle="none")
+        self.note_list.pack(fill="x", padx=6, pady=5)
+        self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
+        self.note_list.bind("<Button-3>", self._show_note_list_menu)
+        self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
+        details = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        details.pack(fill="x", pady=(0, 6))
+        self.created_label = tk.Label(details, text="", fg=MUTED, bg=PANEL, font=(FONT, 7))
+        self.created_label.pack(anchor="w", padx=8, pady=(5, 0))
+        self.title_var = tk.StringVar()
+        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+                                    insertbackground=WHITE, highlightthickness=1,
+                                    highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
+        self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
+        self.title_var.trace_add("write", self._change_note_title)
+        phone_row = tk.Frame(details, bg=PANEL)
+        phone_row.pack(fill="x", padx=8, pady=(0, 4))
+        tk.Label(phone_row, text="Phone", bg=PANEL, fg=MUTED,
+                 font=(FONT, 8)).pack(side="left", padx=(0, 4))
+        self.phone_var = tk.StringVar()
+        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+                                    insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
+        self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
+                     font_size=8, padx=6, pady=4).pack(side="right", padx=(5, 0))
+        self.phone_var.trace_add("write", self._change_note_phone)
+        reminders = tk.Frame(details, bg=PANEL)
+        reminders.pack(fill="x", padx=6, pady=(0, 5))
+        self.reminder_action = action_label(reminders, "☐ Notify me",
+                                            self._toggle_active_note_reminder,
+                                            bg=PANEL, fg=ACCENT, padx=2, pady=2, font_size=8)
+        self.reminder_action.pack(side="left")
+        self.reminder_detail = tk.Label(reminders, text="", bg=PANEL, fg=MUTED,
+                                        font=(FONT, 7), cursor="hand2")
+        self.reminder_detail.pack(side="right")
+        self.reminder_detail.bind("<Button-1>", lambda _e: self._edit_active_note_reminder())
+        editor = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        editor.pack(fill="both", expand=True)
+        self.note_body = tk.Text(editor, wrap="word", undo=True, bg=INPUT, fg="#D7DAE6",
+                                 insertbackground=ACCENT, selectbackground=ACCENT_DARK,
+                                 relief="flat", bd=0, font=(FONT, 10), height=1, width=1,
+                                 highlightthickness=1, highlightbackground=BORDER, padx=8, pady=7)
+        self.note_body.pack(fill="both", expand=True, padx=7, pady=(7, 0))
+        self.bidi_editor = None
+        if sys.platform == "win32":
+            try:
+                self.bidi_editor = native_bidi.NativeBidiEditor(
+                    editor, background=INPUT, foreground="#D7DAE6",
+                    context_menu=self._show_note_context_menu)
+            except (OSError, RuntimeError) as exc:
+                print(f"Pocket native mini note editor unavailable: {exc}", file=sys.stderr)
+        self.note_direction_var = tk.StringVar(value="ltr")
+        self.note_body.tag_configure("note_alignment", justify="left")
+        self.note_body.bind("<<Modified>>", self._change_note_body)
+        self.note_body.bind("<Button-3>", self._show_note_context_menu)
+        self.note_body.bind("<Control-Button-1>", self._show_note_context_menu)
+        self.note_body.bind("<Control-a>", self._select_all_note_text)
+        footer = tk.Frame(editor, bg=PANEL)
+        footer.pack(fill="x", padx=6, pady=(4, 5))
+        self.save_status = tk.Label(footer, text="Autosaved", fg=MUTED,
+                                    bg=PANEL, font=(FONT, 7))
+        self.save_status.pack(side="left")
+        action_label(footer, "Delete", self.delete_note, fg=DANGER, bg=PANEL,
+                     font_size=8, padx=4, pady=3).pack(side="right")
+        action_label(footer, "Notepad ↗", self.open_notepad, fg=ACCENT, bg=PANEL,
+                     font_size=8, padx=5, pady=3).pack(side="right")
+        self.refresh_note_list()
+        self._load_selected_note()
+
     def _build_notes(self):
+        if self.display_mode == "mini":
+            return self._build_mini_notes()
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
         main = tk.Frame(self.body, bg=BG)
         main.pack(fill="both", expand=True, pady=(0, 5))

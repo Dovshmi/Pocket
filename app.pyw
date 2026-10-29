@@ -466,6 +466,8 @@ class PocketDesk:
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Escape>", lambda _e: self.hide())
+        for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
+            self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
         self.root.after(120, self._poll_events)
         self.root.after(650, self._clipboard_poll)
@@ -704,6 +706,23 @@ class PocketDesk:
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
         self.body = inner
         self._mini_scroller = canvas
+
+    def _mini_keyboard_step(self, event, step):
+        """Only page Mini cards when focus is outside editable/selectable controls."""
+        if self.display_mode != "mini" or self._modal or self.current_tab not in ("commands", "notes"):
+            return None
+        focused = self.root.focus_get()
+        if focused is not None and isinstance(
+                focused, (tk.Text, tk.Entry, tk.Listbox, tk.Spinbox,
+                          ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox)):
+            return None
+        if self.current_tab == "notes" and self._bidi_active() and self.bidi_editor.has_focus():
+            return None
+        if self.current_tab == "commands":
+            self._move_mini_command(step)
+        else:
+            self._move_mini_note(step)
+        return "break"
 
     def _build_mini_shell(self):
         """Compact chrome: one tool at a time, with Settings always accessible."""
@@ -1025,6 +1044,15 @@ class PocketDesk:
                  font=(FONT, 13, "bold")).pack(side="left")
         action_label(bar, "+ New", self.add_note, bg=PANEL, fg=ACCENT,
                      font_size=8, padx=9, pady=5).pack(side="right")
+        pager = tk.Frame(self.body, bg=BG)
+        pager.pack(fill="x", pady=(0, 6))
+        action_label(pager, "◀", lambda: self._move_mini_note(-1),
+                     bg=PANEL, fg=ACCENT, padx=11, pady=4, font_size=11).pack(side="left")
+        self.mini_note_page = tk.Label(pager, text="", bg=BG, fg=SECONDARY,
+                                       font=(FONT, 9), anchor="center")
+        self.mini_note_page.pack(side="left", fill="x", expand=True)
+        action_label(pager, "▶", lambda: self._move_mini_note(1),
+                     bg=PANEL, fg=ACCENT, padx=11, pady=4, font_size=11).pack(side="right")
         picker = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         picker.pack(fill="x", pady=(0, 6))
         self.note_list = tk.Listbox(picker, height=2, bd=0, highlightthickness=0,
@@ -1098,6 +1126,35 @@ class PocketDesk:
                      font_size=8, padx=5, pady=3).pack(side="right")
         self.refresh_note_list()
         self._load_selected_note()
+
+    def _update_mini_note_pager(self):
+        if self.display_mode != "mini" or self.current_tab != "notes":
+            return
+        page = getattr(self, "mini_note_page", None)
+        if page is None or not page.winfo_exists():
+            return
+        rows = getattr(self, "_note_rows", [])
+        current = next((i for i, n in enumerate(rows)
+                        if n["id"] == self.data["active_note"]), -1)
+        page.config(text=f"{current + 1 if current >= 0 else 0} / {len(rows)}")
+
+    def _move_mini_note(self, step):
+        """Navigate notes in pinned-first order without changing edit focus."""
+        if self.display_mode != "mini" or self.current_tab != "notes":
+            return
+        rows = getattr(self, "_note_rows", [])
+        if not rows:
+            return
+        index = next((i for i, n in enumerate(rows)
+                      if n["id"] == self.data["active_note"]), 0)
+        target = mini.carousel_index(index, len(rows), step)
+        if target == index:
+            return
+        self._flush_current_note()
+        self.data["active_note"] = rows[target]["id"]
+        self.refresh_note_list()
+        self._load_selected_note()
+        self.schedule_save()
 
     def _build_notes(self):
         if self.display_mode == "mini":
@@ -1237,6 +1294,7 @@ class PocketDesk:
                 self.note_list.selection_set(i)
                 self.note_list.activate(i)
         self._loading_note = False
+        self._update_mini_note_pager()
 
     def _load_selected_note(self):
         if self.current_tab != "notes":

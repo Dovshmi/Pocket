@@ -466,6 +466,9 @@ class PocketDesk:
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Escape>", lambda _e: self.hide())
+        # Tk labels/frames are not focusable, so clicking outside a Text editor
+        # would otherwise leave the caret active and block Mini arrow paging.
+        self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
@@ -706,6 +709,30 @@ class PocketDesk:
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
         self.body = inner
         self._mini_scroller = canvas
+
+    def _mini_click_outside_editor(self, event):
+        """Leave Mini edit focus when clicking an ordinary area of the window.
+
+        Tk Label/Frame clicks do not move keyboard focus by default. In
+        particular, command_code kept focus after clicking the card's heading
+        or paging controls, so arrow keys continued moving its caret. Restore
+        focus to the window only on a non-input click; keep text editing,
+        search, selections and the Windows RichEdit editor untouched.
+        """
+        if self.display_mode != "mini" or self._modal:
+            return
+        if self.current_tab not in ("commands", "notes"):
+            return
+
+        target = event.widget
+        if isinstance(target, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+                               ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox,
+                               native_bidi.NativeBidiEditor)):
+            return
+        # Let an intentional focus transfer from widget bindings survive (e.g.
+        # clicking a search field or a dialog's button). Non-input labels and
+        # frames, unlike editors, cannot accept keyboard navigation themselves.
+        self.root.focus_set()
 
     def _mini_keyboard_step(self, event, step):
         """Only page Mini cards when focus is outside editable/selectable controls."""

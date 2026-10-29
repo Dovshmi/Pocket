@@ -1388,15 +1388,20 @@ class PocketDesk:
         """Use Windows RichEdit BiDi for Hebrew rather than Tk justification."""
         direction = normalize_note_direction(note.get("direction"))
         self.note_direction_var.set(direction)
-        self._bidi_editor_active = direction == "rtl" and self.bidi_editor is not None
-        self.note_body.tag_configure("note_alignment", justify="left")
+        # Windows: keep ONE editor for both directions. Previously LTR used
+        # Tk Text while RTL used RichEdit; switching to Tk made mixed Hebrew/
+        # English context-menu interactions unreliable. RichEdit handles both
+        # directions natively, including the mouse/selection and caret.
+        self._bidi_editor_active = self.bidi_editor is not None
         if self._bidi_editor_active:
             self.note_body.pack_forget()
             self.bidi_editor.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
-            self.bidi_editor.set_direction("rtl")
+            self.bidi_editor.set_direction(direction)
         else:
-            if self.bidi_editor is not None:
-                self.bidi_editor.pack_forget()
+            # Cross-platform fallback for preview/testing without Win32.
+            self.note_body.tag_configure("note_alignment",
+                                          justify="right" if direction == "rtl" else "left")
+            self.note_body.tag_add("note_alignment", "1.0", "end")
             self.note_body.pack(fill="both", expand=True, padx=12, before=self.save_status.master)
 
     def _set_note_direction(self, direction):

@@ -63,9 +63,9 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 
 Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 × 530 px** view. Return with **Settings → Return to Normal size**. The display mode is saved across restarts. There is **no title-bar mode toggle**.
 
-- A compact header offers a tool dropdown, Settings, PIN, close and the existing theme selector.
-- **Commands** presents the most relevant CLI match first in one editable card. Use ◀ / ▶ to browse results. Favorites, Recents, device/category search, Copy, Edit, Delete, Reset and manual backup remain available; nothing executes commands.
-- **Notes** uses a small note selector and a full-width expanding editor with per-note RTL/LTR support, phone details, reminders and Notepad synchronization.
+- A compact header uses an always-visible **icon tab for every enabled tool**, with a short caption and active highlighting — no dropdown. Settings, PIN, close and themes remain accessible.
+- **Commands** presents the most relevant CLI match first in one editable card. Use ◀ / ▶ to browse results, or the keyboard arrow keys **when focus is outside the command editor, search box and other input controls**. Favorites, Recents, device/category search, Copy, Edit, Delete, Reset and manual backup remain available; nothing executes commands.
+- **Notes** uses a small note selector and a full-width expanding editor with per-note RTL/LTR support, phone details, reminders and Notepad synchronization. The ◀ / ▶ buttons page through notes (pinned-first); keyboard arrow keys also page notes when focus is outside the text editor and other input controls.
 - **Shortcuts** uses denser rows with direct Open, Copy and overflow actions.
 - **Ports, MAC Lookup and Subnet** use scrollable views with compact result tables. Entering Mini Mode never initiates a network connection.
 - **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.

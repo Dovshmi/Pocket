@@ -680,8 +680,30 @@ class PocketDesk:
 
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=17, pady=(17, 8))
+        self._mini_root_body = self.body
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
+
+    def _mini_scrolling_body(self):
+        """Scroll tall tools vertically rather than clip content on small screens."""
+        outer = self.body
+        self._mini_root_body = outer
+        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0)
+        scroller = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scroller.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scroller.pack(side="right", fill="y")
+        inner = tk.Frame(canvas, bg=BG)
+        ref = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(ref, width=event.width))
+        def wheel(event):
+            if canvas.winfo_exists():
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+        canvas.bind("<Enter>", lambda _e: canvas.bind_all("<MouseWheel>", wheel))
+        canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
+        self.body = inner
+        self._mini_scroller = canvas
 
     def _build_mini_shell(self):
         """Compact chrome: one tool at a time, with Settings always accessible."""
@@ -732,6 +754,7 @@ class PocketDesk:
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
+        self._mini_root_body = self.body
 
     def _build_mini_settings(self):
         tk.Label(self.body, text="Settings", bg=BG, fg=WHITE,
@@ -761,6 +784,14 @@ class PocketDesk:
         if which not in self.settings["visible_tabs"] and which != "settings":
             which = "settings"
         self.current_tab = which
+        if self.display_mode == "mini" and hasattr(self, "_mini_scroller"):
+            try:
+                self._mini_scroller.unbind_all("<MouseWheel>")
+            except tk.TclError:
+                pass
+        # Restore the original body frame when the previous tool used a scroller.
+        if hasattr(self, "_mini_root_body") and self._mini_root_body.winfo_exists():
+            self.body = self._mini_root_body
         for child in self.body.winfo_children():
             child.destroy()
         if self.display_mode == "mini" and hasattr(self, "mini_tab_picker"):
@@ -769,6 +800,8 @@ class PocketDesk:
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
+        if self.display_mode == "mini" and which in ("ports", "mac", "subnet"):
+            self._mini_scrolling_body()
         if which == "notes":
             self._build_notes()
         elif which == "links":
@@ -2969,34 +3002,34 @@ class PocketDesk:
         return (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
 
     def _place_popup(self, xy):
-        """Restore the user's position, or anchor to the tray until first drag.
-
-        Clamp to the nearest available monitor after screen/resolution changes.
-        All tabs use the same height, so changing tabs won't move the window.
-        """
+        """Clamp current layout to monitor and restore its own saved position."""
         self.root.update_idletasks()
-        saved = normalize_window_position(self.data.get("window_position"))
-        if saved is not None:
+        width, desired_height = mini.view_dimensions(self.display_mode)
+        positions = self.data.get("window_positions") or {}
+        saved = mini.window_position(positions.get(self.display_mode))
+        if saved is None and self.display_mode == "normal":
+            saved = normalize_window_position(self.data.get("window_position"))
+        if saved:
             px, py = saved["x"], saved["y"]
-            left, top, right, bottom = self._screen_work_area(px + WIDTH // 2, py + HEIGHT // 2)
-            height = min(HEIGHT, max(420, bottom - top - 16))
-            px, py = clamp_window_position(px, py, WIDTH, height, (left, top, right, bottom))
+            left, top, right, bottom = self._screen_work_area(px + width // 2, py + desired_height // 2)
         elif xy and sys.platform == "win32":
             x, y = xy
             left, top, right, bottom = self._screen_work_area(x, y)
-            height = min(HEIGHT, max(420, bottom - top - 16))
-            px = max(left + 8, min(x - WIDTH + 32, right - WIDTH - 8))
-            py = (bottom - height - 9) if y > (top + bottom) / 2 else (top + 9)
+            px, py = x - width + 32, top + 9
         else:
-            screen_h = self.root.winfo_screenheight()
-            height = min(HEIGHT, max(420, screen_h - 85))
-            px = max(0, self.root.winfo_screenwidth() - WIDTH - 35)
-            py = max(0, screen_h - height - 85)
-        if self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+            area = self._screen_work_area(max(0, self.root.winfo_screenwidth() - 1),
+                                          max(0, self.root.winfo_screenheight() - 1))
+            left, top, right, bottom = area
+            px, py = right - width - 35, bottom - desired_height - 35
+        width = min(width, max(240, right - left - 12))
+        height = min(desired_height, max(240, bottom - top - 12))
+        if not saved and xy and sys.platform == "win32":
+            py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
+        px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
+        if self.display_mode == "normal" and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            visible_rows = max(2, min(8, 8 + (height - HEIGHT) // 27))
-            self.command_tree.configure(height=visible_rows)
-        self.root.geometry(f"{WIDTH}x{height}{px:+d}{py:+d}")
+            self.command_tree.configure(height=max(2, min(8, 8 + (height - HEIGHT) // 27)))
+        self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
 
     def _begin_window_drag(self, event):
         self._dragging_window = True
@@ -3026,7 +3059,9 @@ class PocketDesk:
                 px, py = clamp_window_position(px, py, self.root.winfo_width(),
                                                 self.root.winfo_height(), area)
                 self.root.geometry(f"{px:+d}{py:+d}")
-                self.data["window_position"] = {"x": px, "y": py}
+                self.data["window_positions"][self.display_mode] = {"x": px, "y": py}
+                if self.display_mode == "normal":
+                    self.data["window_position"] = {"x": px, "y": py}
                 self._flush_current_note()
                 self._write_now()
         finally:
@@ -3036,7 +3071,9 @@ class PocketDesk:
 
     def reset_window_position(self):
         """Restore the original tray-anchored placement, including after monitor changes."""
-        self.data["window_position"] = None
+        self.data["window_positions"][self.display_mode] = None
+        if self.display_mode == "normal":
+            self.data["window_position"] = None
         self._place_popup(self._last_tray_xy)
         self._flush_current_note()
         self._write_now()

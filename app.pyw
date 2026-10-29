@@ -32,6 +32,7 @@ import command_store as cs
 import subnet_calculator as subnet
 import icon_themes as themes
 import hotkey_settings as hk
+import note_sync
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -375,6 +376,7 @@ class PocketDesk:
         self.tray = None
         self._save_job = None
         self._loading_note = False
+        self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
         self._modal = False
         self.pinned = False
         self.current_tab = "notes"
@@ -454,6 +456,7 @@ class PocketDesk:
         self.root.after(120, self._poll_events)
         self.root.after(650, self._clipboard_poll)
         self.root.after(2500, self._reminder_poll)
+        self.root.after(1200, self._notepad_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -1177,6 +1180,7 @@ class PocketDesk:
         if not confirmed:
             return
         self.data["notes"] = [n for n in self.data["notes"] if n["id"] != note_id]
+        self._notepad_sessions.pop(note_id, None)
         if not self.data["notes"]:
             self.data["notes"] = [new_note()]
         if self.data["active_note"] == note_id:
@@ -2616,8 +2620,83 @@ class PocketDesk:
         if not self.pinned:
             self.hide()
 
+    def _import_notepad_body(self, note, content):
+        """Apply saved external edits without destroying the note's other fields."""
+        note["body"] = content
+        if (self.current_tab == "notes" and self.data["active_note"] == note["id"]
+                and hasattr(self, "note_body") and self.note_body.winfo_exists()):
+            self._loading_note = True
+            try:
+                self.note_body.delete("1.0", tk.END)
+                self.note_body.insert("1.0", content)
+                self._apply_note_direction(note)
+                self.note_body.edit_modified(False)
+                self.note_body.edit_reset()
+            finally:
+                self._loading_note = False
+        self.schedule_save()
+
+    def _notepad_poll(self):
+        """Import Notepad changes after Ctrl+S; protect simultaneous Pocket edits."""
+        try:
+            notes_by_id = {note["id"]: note for note in self.data["notes"]}
+            for note_id, session in list(self._notepad_sessions.items()):
+                note = notes_by_id.get(note_id)
+                if note is None:
+                    self._notepad_sessions.pop(note_id, None)
+                    continue
+                path = session["path"]
+                try:
+                    external = note_sync.read_text(path)
+                except FileNotFoundError:
+                    # A deleted working file may be recreated on the next Open.
+                    self._notepad_sessions.pop(note_id, None)
+                    continue
+                except (OSError, UnicodeError) as exc:
+                    print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
+                    continue
+                if external == session["baseline"] or external == session.get("dismissed"):
+                    continue
+                # Flush the current widget before comparing versions. A modified
+                # event might still be waiting in Tk's event queue.
+                if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                    self._flush_current_note()
+                if note["body"] != session["baseline"]:
+                    self._modal = True
+                    try:
+                        answer = messagebox.askyesnocancel(
+                            "Note changed in two places",
+                            "This note changed in both Pocket and Notepad.\\n\\n"
+                            "Yes: use Notepad's saved text.\\n"
+                            "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
+                            "Cancel: leave both versions unchanged.",
+                            parent=self.root)
+                    finally:
+                        self._modal = False
+                    if answer is None:
+                        session["dismissed"] = external
+                        continue
+                    if answer is False:
+                        try:
+                            recovery = note_sync.preserve_conflict(path, external)
+                            note_sync.write_text(path, note["body"])
+                        except OSError as exc:
+                            messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
+                            session["dismissed"] = external
+                            continue
+                        session["baseline"] = note["body"]
+                        session["dismissed"] = None
+                        print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
+                        continue
+                self._import_notepad_body(note, external)
+                session["baseline"] = external
+                session["dismissed"] = None
+        finally:
+            if self.root.winfo_exists():
+                self.root.after(1200, self._notepad_poll)
+
     def open_notepad(self):
-        """Open a fresh export of the currently selected note, not a blank Notepad."""
+        """Edit a note using its stable local file; saved changes sync into Pocket."""
         if sys.platform != "win32":
             messagebox.showinfo("Windows only", "Opening notes in Windows Notepad requires Windows.",
                                 parent=self.root)
@@ -2625,15 +2704,39 @@ class PocketDesk:
         note = self.active_note()
         if not note:
             return
-        # A Tk Text <<Modified>> event may still be queued; read the editor
-        # directly so the export always includes the user's latest keystrokes.
-        if self.current_tab == "notes":
-            note["body"] = self.note_body.get("1.0", "end-1c")
-            self.schedule_save()
+        self._flush_current_note()
+        folder = self.path.parent / "notepad"
         try:
-            snapshot = export_note_for_notepad(note, self.path.parent / "notepad_exports")
-            subprocess.Popen(["notepad.exe", str(snapshot)])
-        except OSError as exc:
+            path = note_sync.note_path(folder, note["id"])
+            session = self._notepad_sessions.get(note["id"])
+            if session is None:
+                if path.exists():
+                    external = note_sync.read_text(path)
+                    if external != note["body"]:
+                        self._modal = True
+                        try:
+                            answer = messagebox.askyesnocancel(
+                                "Existing Notepad edits",
+                                "A saved Notepad file differs from this Pocket note.\\n\\n"
+                                "Yes: import the Notepad version.\\n"
+                                "No: use Pocket's version (preserve a recovery copy).\\n"
+                                "Cancel: do not open.",
+                                parent=self.root)
+                        finally:
+                            self._modal = False
+                        if answer is None:
+                            return
+                        if answer:
+                            self._import_notepad_body(note, external)
+                        else:
+                            note_sync.preserve_conflict(path, external)
+                            note_sync.write_text(path, note["body"])
+                else:
+                    note_sync.write_text(path, note["body"])
+                self._notepad_sessions[note["id"]] = {"path": path, "baseline": note["body"]}
+            # Reopening a session must never overwrite unsaved Notepad edits.
+            subprocess.Popen(["notepad.exe", str(path)])
+        except (OSError, ValueError, UnicodeError) as exc:
             messagebox.showerror("Notepad", str(exc), parent=self.root)
 
     def toggle_pin(self):

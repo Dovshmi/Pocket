@@ -237,6 +237,17 @@ class NativeBidiEditor(tk.Frame):
         if self._hwnd:
             self._user.SetFocus(self._hwnd)
 
+    def release_focus_to(self, widget):
+        """Explicitly transfer native keyboard focus to a Tk navigation control.
+
+        RichEdit has its own child HWND, outside Tk's widget focus machinery.
+        Calling Tk.focus_set() alone does not always clear GetFocus() for this
+        HWND. Transfer focus from the Tk event loop (never a Win32 subclass
+        callback) so arrow keys reach Pocket's normal Tk bindings again.
+        """
+        if self._hwnd and widget.winfo_exists():
+            self._user.SetFocus(ctypes.c_void_p(widget.winfo_id()))
+
     def get_text(self) -> str:
         if not self._hwnd:
             return ""

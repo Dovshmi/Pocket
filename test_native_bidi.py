@@ -9,6 +9,7 @@ class NativeBidiStructureTests(unittest.TestCase):
     def test_rtl_paragraph_structure_has_expected_size(self):
         # The Win32 PARAFORMAT struct is 156 bytes (including the 32 tab stops).
         self.assertEqual(ctypes.sizeof(native_bidi.PARAFORMAT), 156)
+        self.assertEqual(ctypes.sizeof(native_bidi.PARAFORMAT2), 188)
         self.assertEqual(native_bidi.NativeBidiEditor.PFM_RTLPARA, 0x10000)
 
     def test_win32_colorref(self):

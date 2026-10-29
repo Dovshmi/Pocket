@@ -90,7 +90,7 @@ def clamp_window_position(x: int, y: int, width: int, height: int,
 
 def new_note(title="Untitled note", body="", phone="") -> dict:
     return {"id": new_id(), "title": title, "body": body, "phone": phone,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False,
+            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False, "direction": "ltr",
             "reminder_enabled": False, "reminder_at": "", "reminder_sent_at": ""}
 
 
@@ -101,8 +101,15 @@ def ordered_notes(notes: list[dict]) -> list[dict]:
 
 def duplicate_note(original: dict) -> dict:
     """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
-    return new_note(f"{original.get('title', 'Untitled note')} (copy)",
+    copy = new_note(f"{original.get('title', 'Untitled note')} (copy)",
                     original.get('body', ''), original.get('phone', ''))
+    copy["direction"] = normalize_note_direction(original.get("direction"))
+    return copy
+
+
+def normalize_note_direction(value) -> str:
+    """Existing notes remain left-aligned; only explicit RTL is accepted."""
+    return "rtl" if value == "rtl" else "ltr"
 
 
 def display_created_at(value: str) -> str:
@@ -282,6 +289,7 @@ def load_data(path: Path) -> dict:
                 note["created_at"] = ""
             # Only genuine boolean values are accepted for the persisted flag.
             note["pinned"] = note.get("pinned") is True
+            note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
         links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
@@ -908,6 +916,8 @@ class PocketDesk:
                                  highlightthickness=1, highlightbackground=BORDER,
                                  highlightcolor=ACCENT, padx=10, pady=12)
         self.note_body.pack(fill="both", expand=True, padx=12)
+        self.note_direction_var = tk.StringVar(value="ltr")
+        self.note_body.tag_configure("note_alignment", justify="left")
         self.note_body.bind("<<Modified>>", self._change_note_body)
         self.note_body.bind("<Button-3>", self._show_note_context_menu)
         # Right-click with a trackpad/alternate mouse mappings.
@@ -974,6 +984,7 @@ class PocketDesk:
         self.reminder_detail.config(text=format_reminder(n))
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
+        self._apply_note_direction(n)
         self.note_body.edit_modified(False)
         self._loading_note = False
         self.save_status.config(text="Autosaved", fg=MUTED)
@@ -1282,6 +1293,11 @@ class PocketDesk:
                          command=lambda: self._note_edit_action("paste"))
         menu.add_command(label="Select all     Ctrl+A", command=self._select_all_note_text)
         menu.add_separator()
+        menu.add_radiobutton(label="Right to Left (עברית)", variable=self.note_direction_var,
+                             value="rtl", command=lambda: self._set_note_direction("rtl"))
+        menu.add_radiobutton(label="Left to Right (English)", variable=self.note_direction_var,
+                             value="ltr", command=lambda: self._set_note_direction("ltr"))
+        menu.add_separator()
         menu.add_command(label="Copy entire note", command=self._copy_entire_note)
         menu.add_command(label="Insert date & time", command=self._insert_note_timestamp)
         menu.add_command(label="Open in Notepad", command=self.open_notepad)
@@ -1320,6 +1336,24 @@ class PocketDesk:
             menu.grab_release()
         return "break"
 
+    def _apply_note_direction(self, note):
+        """Align paragraphs without rewriting or reversing mixed-language text."""
+        direction = normalize_note_direction(note.get("direction"))
+        self.note_direction_var.set(direction)
+        self.note_body.tag_configure("note_alignment", justify="right" if direction == "rtl" else "left")
+        self.note_body.tag_add("note_alignment", "1.0", "end")
+
+    def _set_note_direction(self, direction):
+        note = self.active_note()
+        if note is None:
+            return
+        self._flush_current_note()
+        direction = normalize_note_direction(direction)
+        note["direction"] = direction
+        self._apply_note_direction(note)
+        self.note_body.focus_set()
+        self.schedule_save()
+
     def _change_note_body(self, _event=None):
         if not self.note_body.edit_modified():
             return
@@ -1327,6 +1361,8 @@ class PocketDesk:
         if self._loading_note:
             return
         note = self.active_note()
+        if note is not None:
+            self._apply_note_direction(note)
         if note is not None:
             note["body"] = self.note_body.get("1.0", "end-1c")
             self._edit_dirty()

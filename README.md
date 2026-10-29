@@ -51,7 +51,7 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 
 | Tool | Capabilities |
 |:---|:---|
-| **Notes & reminders** | Autosaved notes with titles, phone fields and creation dates. Pin, duplicate, delete, use right-click text actions, select per-note RTL/LTR direction (Windows native Unicode editor for Hebrew notes), insert timestamps, or edit in Notepad with saved changes imported into Pocket. Enable **Notify me…** on an individual note to schedule a one-time Windows notification. Selected IPs and CLI text can be sent to their respective tools. |
+| **Notes & reminders** | Autosaved notes with titles, phone fields and creation dates. Pin, duplicate, delete, use right-click text actions, select per-note RTL/LTR direction (a single native Windows Unicode editor for both modes), insert timestamps, or edit in Notepad with saved changes imported into Pocket. Enable **Notify me…** on an individual note to schedule a one-time Windows notification. Selected IPs and CLI text can be sent to their respective tools. |
 | **Shortcuts** | Save and open websites, local files and folders. Add shortcuts manually or by dragging items from your browser/File Explorer into a review form. The **compact live search** filters saved shortcuts by name, destination and type. Each shortcut card has direct **Open**, **Copy**, and overflow-menu actions. |
 | **TCP Ports** | Test one TCP port, predefined ports, or a custom list/range against an IPv4 or IPv6 address. See **OPEN**, **CLOSED**, **TIMEOUT** and **ERROR** results, with copy/export options. |
 | **MAC Lookup** | Look up hardware vendors using IEEE OUI prefix assignments. Supports multiple MAC addresses, downloading/importing registry data, offline lookup after caching, and CSV export. |
@@ -227,7 +227,7 @@ Development milestones shown below are drawn from repository commits and feature
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.26 (branch)** | 2026-10-29 | Native Windows bidirectional editing for Hebrew notes, Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
+| **v1.26 (branch)** | 2026-10-29 | Unified Windows Unicode editor for LTR/RTL (fixes mixed-language right-click crash), Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
 | **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |
 | **v1.23** | 2026-10-28 | Consolidated commands into a single writable local `commands.json` library, with optional machine names stored in the same file. |

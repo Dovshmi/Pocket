@@ -6,7 +6,7 @@
 
 A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.27 (development)** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.27** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -59,7 +59,7 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
 | **Clipboard** | Searchable, session-only history of copied **text**. Pin entries, copy an item back to Windows, or delete/clear history. Monitoring automatically runs while Clipboard is visible in Settings; captured text is **not persisted**. |
 
-### Mini Mode — v1.27 development
+### Mini Mode — v1.27
 
 Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 × 530 px** view. Return with **Settings → Return to Normal size**. The display mode is saved across restarts. There is **no title-bar mode toggle**.
 
@@ -73,7 +73,7 @@ Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 ×
 - **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.
 - Window positions for Normal and Mini are stored **separately**; notes, commands and shortcuts continue sharing the same underlying local data.
 
-The compact interface is under active development on `feature/v1.27-mini-mode`. A Windows visual and keyboard-accessibility pass is required before merging to `main`.
+Mini Mode is included in v1.27 on `main`. Windows visual, keyboard and display-scaling validation remains recommended for different devices.
 
 ### Personalize the workspace
 
@@ -238,13 +238,13 @@ Pocket/
 
 ## Version history
 
-> **Development:** Mini Mode is implemented on `feature/v1.27-mini-mode` for evaluation. The `main` branch remains on v1.26.
+> **Current version:** v1.27 is the default `main` version. Mini Mode is available through **Settings**, and Normal remains the default for existing installations unless changed.
 
 Development milestones shown below are drawn from repository commits and feature implementations; they are **not** a claim that each intermediate version has a separate downloadable GitHub Release.
 
 | Version | Date | Highlights |
 |:---|:---|:---|
-| **v1.27 (branch)** | 2026-10-29 | Compact Settings-controlled Mini layout, one-command search carousel, condensed Notes/Shortcuts, scrollable network tools and saved independent positions. Not merged. |
+| **v1.27** | 2026-10-30 | Settings-controlled Mini Mode with icon tabs; one-command carousel and keyboard navigation; compact Notes/Shortcuts; per-mode positions; scrollable Normal/Mini tools; four-row Normal Commands results with fixed header; improved IEEE CSV fallback and filter-wheel behavior. |
 | **v1.26** | 2026-10-29 | Unified Windows Unicode editor for LTR/RTL (fixes mixed-language right-click crash), Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
 | **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |
@@ -269,9 +269,9 @@ After installing dependencies, run all discoverable unit tests:
 py -3 -m unittest discover -v
 ```
 
-The project includes tests for data storage and migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnets, command management, clipboard preferences, reminder scheduling, note actions and network utilities.
+The project includes tests for data storage and migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnets, command management, clipboard preferences, reminder scheduling, note actions, Mini Mode, scroll behavior and network utilities.
 
-GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository does not currently claim a verified Windows CI release pipeline.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
+GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository includes Windows/Linux unit-test workflows; automated checks do not replace interactive Windows GUI testing.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
 
 ## Contributing and feedback
 

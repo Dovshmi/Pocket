@@ -741,14 +741,15 @@ class PocketDesk:
         else:
             return None
         widget = event.widget
-        if isinstance(widget, (tk.Text, tk.Listbox, ttk.Combobox)):
-            # Preserve an editor's own scroll while it has somewhere to go.
-            # When its contents fit (or reach the end), scroll the page.
-            if isinstance(widget, ttk.Combobox):
-                if not from_picker:
-                    return None  # Ordinary selectors preserve native behavior.
-                # Commands selectors pass wheel movement to the page instead
-                # of silently changing the selected machine or category.
+        if isinstance(widget, ttk.Combobox):
+            if not from_picker:
+                return None  # Unprotected selectors keep native behavior.
+            # ttk.Combobox inherits Entry, NOT a vertically scrollable widget.
+            # Calling yview() here raises TclError/AttributeError, previously
+            # allowing the Win32 combobox class binding to change the filter.
+            # Protected CLI selectors go straight to the outer page instead.
+        elif isinstance(widget, (tk.Text, tk.Listbox)):
+            # Preserve a text/list control's own scrolling until its edge.
             first, last = widget.yview()
             if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
                 return None
@@ -938,6 +939,10 @@ class PocketDesk:
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
+        if which == "commands" and self.display_mode == "normal":
+            # Keep the Normal Commands title/actions fixed in their usual top
+            # position while only the filters, results and editor scroll.
+            self._build_normal_commands_header()
         if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
                 or (self.display_mode == "normal" and which in ("ports", "mac", "commands", "subnet"))):
             self._scrolling_tool_body()
@@ -2427,20 +2432,24 @@ class PocketDesk:
         self._render_command_details()
         self._update_mini_command_pager()
 
-    def _build_commands(self):
-        if self.display_mode == "mini":
-            return self._build_mini_commands()
-        # Keep the Normal CLI header to one row. Commands actions live
-        # beside the title instead of consuming a separate backup row.
+    def _build_normal_commands_header(self):
+        """Fixed, compact Normal-mode header shared with the other tool titles."""
         heading = tk.Frame(self.body, bg=BG)
-        heading.pack(fill="x", pady=(0, 6))
+        heading.pack(fill="x", pady=(0, 7))
         tk.Label(heading, text="Command helper", bg=BG, fg=WHITE,
-                 font=(FONT, 13, "bold")).pack(side="left", fill="x", expand=True)
+                 font=(FONT, 14, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+        # Pack controls on the right without an extra 30px backup row.
         action_label(heading, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
                      bg=PANEL, hover=CARD, padx=7, pady=5, font_size=8).pack(side="right")
         action_label(heading, "+ New", self._add_custom_command, fg="#121622",
                      bg=ACCENT, hover="#BBC0FF", padx=8, pady=5, font_size=8
                      ).pack(side="right", padx=(0, 5))
+
+    def _build_commands(self):
+        if self.display_mode == "mini":
+            return self._build_mini_commands()
+        # Normal title and manual actions are drawn above the scrolling region
+        # by show_tab(); no duplicated heading inside the page.
         prefs = self.data["command_state"]
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")

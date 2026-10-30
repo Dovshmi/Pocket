@@ -1,49 +1,58 @@
 <div align="center">
 
+<img src="assets/app.png" width="82" alt="Pocket app icon" />
+
 # Pocket
 
 **Your everyday tools, one shortcut away.**
 
-A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
+A compact, local-first Windows tray toolbox for notes, network diagnostics, shortcuts and CLI references.
 
-**Windows 10 / 11** · **v1.28** · **Local-first** · **GPL-3.0** · **No Python required for Portable**
+<p>
+  <img src="https://img.shields.io/badge/Release-v1.28-8B80F9?style=for-the-badge" alt="Pocket v1.28" />
+  <img src="https://img.shields.io/badge/Windows-10_%2F_11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 10 and 11" />
+  <img src="https://img.shields.io/badge/Python-Tkinter-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python and Tkinter" />
+  <img src="https://img.shields.io/badge/Portable-ZIP-0F766E?style=for-the-badge" alt="Portable ZIP" />
+  <img src="https://img.shields.io/badge/Local--first-No_Account-334155?style=for-the-badge" alt="Local-first" />
+  <img src="https://img.shields.io/badge/License-GPL--3.0-64748B?style=for-the-badge" alt="GPL-3.0" />
+</p>
 
-[Download](https://github.com/Dovshmi/Pocket/releases/latest) · [Features](#features) · [App gallery](#app-gallery) · [Portable setup](#pocket-portable) · [Source installation](#getting-started) · [Changelog](#version-history)
+**[Download Pocket v1.28](https://github.com/Dovshmi/Pocket/releases/tag/v1.28)** · **[Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.28/Pocket-Portable-v1.28.zip)** · **[Source](https://github.com/Dovshmi/Pocket)**
 
 </div>
 
-<p align="center">
-  <a href="preview-window-position.png"><img src="preview-window-position.png" width="420" alt="Pocket desktop tray utility showing its Notes view"></a>
-</p>
+---
 
-> [!NOTE]
-> **Release:** **Pocket v1.28 Portable for Windows** is available in [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.28). Download the portable ZIP, extract it to a writable directory and run `PocketDesk.exe`—no Python installation required. To run directly from source, see [Getting started](#getting-started). Screenshots are from earlier builds and do not yet show Mini Mode.
+## Overview
 
+**Pocket** is a lightweight utility that stays in your Windows system tray until you need it. Save a note or phone number, open a shortcut, check a TCP port, identify a MAC vendor, search a CLI reference or calculate an IPv4 subnet—all from one small window.
 
-## What is Pocket?
+Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
-Pocket is designed for tasks that are too small to justify opening another full-size app: jotting down a phone number, launching a frequently used folder, checking a TCP port, identifying a MAC vendor, finding a CLI command or calculating a subnet.
+## Interface preview
 
-It stays out of the way until you need it, and stores your personal notes and preferences **on your own computer**.
+> **Illustrated UI previews (v1.28):** These SVGs depict the current Normal/Mini layouts and key controls. They are **not actual Windows screenshots**, and the sample notes/commands shown are illustrative. See the [legacy screenshot archive](#legacy-screenshot-archive) for real captures of earlier builds.
 
-## App gallery
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="docs/images/pocket-v128-normal-notes.svg" width="340" alt="Illustrated Pocket Normal Notes view with note list, title, phone, reminder and full-width editor" /><br/><strong>Normal · Notes</strong></td>
+      <td align="center"><img src="docs/images/pocket-v128-mini-notes.svg" width="243" alt="Illustrated Pocket Mini Notes view with icon navigation and compact note editor" /><br/><strong>Mini · Notes</strong></td>
+    </tr>
+    <tr>
+      <td align="center"><img src="docs/images/pocket-v128-normal-commands.svg" width="340" alt="Illustrated Normal Commands view with four result rows and editing pane" /><br/><strong>Normal · Commands</strong></td>
+      <td align="center"><img src="docs/images/pocket-v128-mini-mac.svg" width="243" alt="Illustrated Mini MAC vendor lookup form" /><br/><strong>Mini · MAC lookup</strong></td>
+    </tr>
+  </table>
+</div>
 
-Pocket has seven tool menus plus Settings in a compact movable window. The screenshots below are authentic captures from earlier versions; the current version also includes **Clipboard**, **Settings**, and **per-note reminders**.
+### Legacy screenshot archive
 
-<table>
-  <tr>
-    <td align="center" width="33%"><a href="preview-notes-pinned-v117.png"><img src="preview-notes-pinned-v117.png" width="220" alt="Pocket Notes screen"></a><br><strong>Notes</strong><br><sub>Autosave, pin and organize</sub></td>
-    <td align="center" width="33%"><a href="preview-shortcuts-fixed.png"><img src="preview-shortcuts-fixed.png" width="220" alt="Pocket Shortcuts screen"></a><br><strong>Shortcuts</strong><br><sub>Sites, files and folders</sub></td>
-    <td align="center" width="33%"><a href="preview-ports.png"><img src="preview-ports.png" width="220" alt="Pocket TCP port checker"></a><br><strong>TCP Ports</strong><br><sub>Fast connectivity checks</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><a href="preview-mac.png"><img src="preview-mac.png" width="220" alt="Pocket MAC vendor lookup"></a><br><strong>MAC Lookup</strong><br><sub>IEEE OUI identification</sub></td>
-    <td align="center"><a href="preview-commands-layout.png"><img src="preview-commands-layout.png" width="220" alt="Pocket CLI command helper"></a><br><strong>Commands</strong><br><sub>Search, edit and copy</sub></td>
-    <td align="center"><a href="preview-subnet-v117.png"><img src="preview-subnet-v117.png" width="220" alt="Pocket subnet calculator"></a><br><strong>Subnet Calculator</strong><br><sub>CIDR and network splits</sub></td>
-  </tr>
-</table>
+The images below are **real screenshots from earlier Pocket versions**, preserved for reference; some controls, spacing and menus have since changed.
 
-Additional detail captures: [Notes actions](preview-note-context-menu.png) · [Shortcut drag-and-drop](preview-shortcuts-drop.png) · [Command editor](preview-commands-edit.png) · [Saved window position](preview-window-position.png).
+| Notes | Shortcuts | Network tools |
+|:---:|:---:|:---:|
+| <img src="preview-notes-pinned-v117.png" width="195" alt="Legacy v1.17 Notes screenshot" /> | <img src="preview-shortcuts-fixed.png" width="195" alt="Legacy Shortcuts screenshot" /> | <img src="preview-ports.png" width="195" alt="Legacy TCP Ports screenshot" /> |
 
 ## Features
 
@@ -59,7 +68,7 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
 | **Clipboard** | Searchable, session-only history of copied **text**. Pin entries, copy an item back to Windows, or delete/clear history. Monitoring automatically runs while Clipboard is visible in Settings; captured text is **not persisted**. |
 
-### Mini Mode — v1.27
+### Mini Mode
 
 Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 × 530 px** view. Return with **Settings → Return to Normal size**. The display mode is saved across restarts. There is **no title-bar mode toggle**.
 
@@ -73,7 +82,7 @@ Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 ×
 - **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.
 - Window positions for Normal and Mini are stored **separately**; notes, commands and shortcuts continue sharing the same underlying local data.
 
-Mini Mode is included in v1.27 on `main`. Windows visual, keyboard and display-scaling validation remains recommended for different devices.
+Mini Mode is included in **v1.28** on `main`. The two views share the same notes, commands and shortcuts. Window positions are saved independently; Windows display-scaling behavior may vary by device.
 
 ### Single-instance protection — v1.28
 
@@ -121,7 +130,9 @@ Uncheck **Notify me** to cancel the reminder. To reschedule, select the reminder
 
 ## Getting started
 
-### Requirements
+**Recommended:** [Download the portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.28/Pocket-Portable-v1.28.zip), extract the entire folder, close any currently running Pocket instance, and launch `PocketDesk.exe`. Python is **not** required. Personal data stays in the portable folder’s `data/` directory.
+
+### Run from source — developer setup
 
 - **Windows 10 or 11** (tray integration and global popup shortcuts use native Windows APIs).
 - **Python 3.10 or newer**, installed with Tkinter and the Windows Python launcher (`py`).
@@ -208,13 +219,13 @@ dist\PocketDesk.exe
 The generated executable name remains **PocketDesk.exe**, while the window header says **Pocket**.
 
 > [!WARNING]
-> **Do not publish an EXE built with a private command library.** The build script uses `commands/commands.json` if it exists locally, which can bundle that file inside the executable. Build public artifacts without a private `commands/commands.json`. No prebuilt EXE is included in this repository.
+> **Build-script distinction:** `build-exe.bat` can embed a local `commands/commands.json`, which may contain private commands. **Do not distribute its output without auditing that file.** For public distribution use `build-portable.bat`: the [official v1.28 ZIP](https://github.com/Dovshmi/Pocket/releases/tag/v1.28) bundles only the public example library.
 
 **Packaging caveat:** Native Windows tray interaction, hotkey registration, icon refresh and multi-monitor behavior should be tested on a Windows machine before distributing a build. Passing headless tests alone does not validate those integrations.
 
 ## Files, settings and privacy
 
-Pocket saves user data under:
+When running from source without `portable.flag`, Pocket saves user data under:
 
 ```text
 %APPDATA%\PocketDesk\
@@ -225,6 +236,7 @@ Pocket saves user data under:
 └── notepad\             # Stable working .txt files for Notepad synchronization
 ```
 
+- **Portable data:** with `portable.flag` beside the EXE, notes, settings, vendor cache, icons, Notepad sync and the writable `commands.json` are stored in `Pocket-Portable/data/`. Standard source mode keeps its existing AppData behavior.
 - **Local-first:** no account, hosted database or synchronization service is required.
 - **Not encrypted:** notes, scheduled reminders, phone numbers and command libraries are stored as **plain-text JSON**. Do not store passwords or private keys there.
 - **Clipboard history:** text is held in memory only and is cleared when Pocket exits. Turning off the Clipboard menu stops future capture, not the Windows system clipboard itself.
@@ -235,7 +247,7 @@ Pocket saves user data under:
 
 ### CLI command library
 
-The Commands tab uses **one writable JSON library**: `commands/commands.json`. Commands may be searched by machine and category, edited, copied, favorited, or deleted. Edits are saved atomically. **No automatic backup is created on save, edit, delete, or migration.** To make a backup, open **Commands → Backup ▾ → Create new backup**; use **Use existing backup** to choose a previously saved JSON file. Restoring replaces the active command library, so make a manual backup first if you need to preserve current changes. See [the example format](commands/example_commands.json).
+The Commands tab uses **one writable JSON library**: `data/commands.json` in Portable Mode, or the resolved sidecar/AppData library in Standard Mode. Commands may be searched by machine and category, edited, copied, favorited, or deleted. Edits are saved atomically. **No automatic backup is created on save, edit, delete, or migration.** To make a backup, open **Commands → Backup ▾ → Create new backup**; use **Use existing backup** to choose a previously saved JSON file. Restoring replaces the active command library, so make a manual backup first if you need to preserve current changes. See [the example format](commands/example_commands.json).
 
 > [!WARNING]
 > **Public-repository review needed:** A command library is currently checked into this public repository, including a second copy at `Pocket_Commands_One_Library/commands/commands.json`. Review both copies for internal device names, infrastructure details, or other sensitive material before sharing. The `.gitignore` rule does **not** retroactively remove committed files. Do not commit secrets or workplace-only command collections.
@@ -252,6 +264,7 @@ Pocket/
 ├── note_sync.py            # Notepad working-file sync and conflict backups
 ├── mini_layout.py          # Mini geometry, layout preferences and command paging
 ├── single_instance.py      # Windows mutex and activation-event protection
+├── portable_storage.py     # Portable folder-local data paths
 ├── native_bidi.py          # Windows native right-to-left note editor
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
@@ -267,12 +280,18 @@ Pocket/
 │   ├── example_commands.json   # Example format
 │   └── README.md
 ├── install.bat / run.bat   # Set up and launch
-├── build-exe.bat           # Package a Windows executable
+├── build-exe.bat           # Optional standalone EXE for local/private use
+├── build-portable.bat      # Public Windows ZIP build
+├── package_portable.py     # Package clean portable ZIP from onedir output
+├── docs/images/            # Illustrated v1.28 interface previews
+├── .github/workflows/      # Tests and release automation
 ├── test_*.py               # Unit tests
 └── smoke_*.py              # Optional GUI smoke checks
 ```
 
-**Stack:** Python, Tkinter/ttk, Win32 APIs via `ctypes`, Pillow, `tkinterdnd2` and PyInstaller.
+**Stack:** Python 3.10+, Tkinter/ttk, native Win32 APIs via `ctypes`, Pillow, `tkinterdnd2` and PyInstaller.
+
+**Release:** [Pocket v1.28](https://github.com/Dovshmi/Pocket/releases/tag/v1.28) includes a GitHub Actions-built portable ZIP and SHA256 checksum; the Windows EXE itself is **not code-signed**.
 
 ## Version history
 

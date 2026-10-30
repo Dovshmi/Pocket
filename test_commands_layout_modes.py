@@ -15,8 +15,11 @@ class CommandsLayoutRegression(unittest.TestCase):
         self.assertIn('if self.display_mode == "mini":', block)
         self.assertIn('return self._build_mini_commands()', block)
         self.assertIn('orient=tk.VERTICAL', block)
-        self.assertIn('command_panes.add(results_panel, minsize=120', block)
+        self.assertIn('command_panes.add(results_panel, minsize=150', block)
         self.assertIn("self.command_tree = self._tree(results_panel,", block)
+        self.assertIn("(230, 185), rows=4", block)
+        self.assertIn('action_label(heading, "Backup ▾"', block)
+        self.assertIn('action_label(heading, "+ New"', block)
         self.assertIn("self.command_tree.bind('<<TreeviewSelect>>'", block)
         self.assertIn('command_panes.add(details, minsize=195', block)
 

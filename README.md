@@ -6,9 +6,9 @@
 
 A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.27** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **v1.28** · **Local-first** · **GPL-3.0** · **No Python required for Portable**
 
-[Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
+[Download](https://github.com/Dovshmi/Pocket/releases/latest) · [Features](#features) · [App gallery](#app-gallery) · [Portable setup](#pocket-portable) · [Source installation](#getting-started) · [Changelog](#version-history)
 
 </div>
 
@@ -17,7 +17,7 @@ A compact, local-first Windows tray toolbox for notes and reminders, clipboard h
 </p>
 
 > [!NOTE]
-> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; Mini Mode is new and is not yet shown in screenshots.
+> **Release:** **Pocket v1.28 Portable for Windows** is available in [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.28). Download the portable ZIP, extract it to a writable directory and run `PocketDesk.exe`—no Python installation required. To run directly from source, see [Getting started](#getting-started). Screenshots are from earlier builds and do not yet show Mini Mode.
 
 
 ## What is Pocket?
@@ -75,13 +75,13 @@ Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 ×
 
 Mini Mode is included in v1.27 on `main`. Windows visual, keyboard and display-scaling validation remains recommended for different devices.
 
-### Single-instance protection — before-release
+### Single-instance protection — v1.28
 
 On Windows, normal launches of Pocket now enforce **one running copy per signed-in Windows session** (including launches from different folders, `run.bat`, or the packaged EXE). Launching Pocket a second time **opens the existing window** instead of starting another tray icon or another process that could overwrite notes. The existing instance keeps its current notes, settings and position.
 
 This uses Windows named mutex and event objects locally, with **no internet connection, background service, registry changes or lock file**. It releases automatically on app exit or process termination. The optional `--preview` mode is excluded so development screenshots/tests can run separately. This safeguard prevents duplicate app processes; it does **not** prevent a separate text editor from changing files in the background.
 
-> **Pre-release status:** Single-instance protection is implemented on `before-release` and is **not yet in the stable `main` branch**. Verify tray activation on Windows before merging.
+Single-instance protection is included in v1.28. A second launch activates the existing Pocket window instead of starting another process. The native Windows tray integration has been tested by a user; different Windows configurations may still vary.
 
 ### Personalize the workspace
 
@@ -162,7 +162,7 @@ py -3 app.pyw
 4. Click the **pocket logo** to change themes, or click the shortcut label under Pocket to customize the global hotkey.
 5. Open **Subnet** and calculate `192.168.1.10/24`, or use **Commands → Backup ▾** to save a manual command-library backup.
 
-## Pocket Portable (before-release branch)
+## Pocket Portable
 
 Pocket Portable is a **Windows ZIP** containing `PocketDesk.exe`, its dependencies
 and a `portable.flag` marker. Extract the ZIP and run the EXE without installing
@@ -171,10 +171,12 @@ Python on the destination computer. The marker switches **all application data**
 to the adjacent `data/` directory. If that folder is not writable, startup
 shows an error instead of silently storing information in the host's AppData.
 
+**Download:** [Pocket Portable v1.28](https://github.com/Dovshmi/Pocket/releases/tag/v1.28). Extract the entire ZIP and launch `PocketDesk.exe`; do not execute it inside the compressed ZIP.
+
 To build the portable ZIP on a Windows **development** machine (Python + internet
 may be needed on the build machine), run `build-portable.bat`. It uses PyInstaller
 `--onedir` and then `package_portable.py`, producing
-`dist/Pocket-Portable-before-release.zip`.
+`dist/Pocket-Portable-v1.28.zip`.
 
 The archive contains only **public sample commands**. A first launch creates
 `data/commands.json` from that example. **It never bundles** the tracked
@@ -187,9 +189,7 @@ a Windows sign-in session: close one before opening the other. Portable mode
 does not bypass workplace policy or application allowlisting; use it only on
 computers on which you are permitted to run it.
 
-> This is an unmerged pre-release implementation. Windows ZIP smoke-testing,
-> signature/reputation checks and a clean-computer launch test are required
-> before publishing as a release.
+> **Security and compatibility:** The Windows EXE is not code-signed. Windows SmartScreen or organizational policies may block it; do not override workplace controls. The source and automated tests are available in this repository. Launching on every possible clean Windows configuration has not been independently verified.
 
 ## Building a Windows executable
 
@@ -276,12 +276,13 @@ Pocket/
 
 ## Version history
 
-> **Current version:** v1.27 is the default `main` version. Mini Mode is available through **Settings**, and Normal remains the default for existing installations unless changed.
+> **Current release:** v1.28 on `main`, with a portable Windows ZIP from [Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.28). Mini Mode remains available in Settings, and the existing Normal Mode continues to work.
 
 Development milestones shown below are drawn from repository commits and feature implementations; they are **not** a claim that each intermediate version has a separate downloadable GitHub Release.
 
 | Version | Date | Highlights |
 |:---|:---|:---|
+| **v1.28** | 2026-10-30 | Portable Windows ZIP with self-contained EXE and folder-local data, safe example command library, single-instance activation and Normal Notes focus correction; Windows/Linux regression tests and build workflows. |
 | **v1.27** | 2026-10-30 | Settings-controlled Mini Mode with icon tabs; one-command carousel and keyboard navigation; compact Notes/Shortcuts; per-mode positions; scrollable Normal/Mini tools; four-row Normal Commands results with fixed header; improved IEEE CSV fallback and filter-wheel behavior. |
 | **v1.26** | 2026-10-29 | Unified Windows Unicode editor for LTR/RTL (fixes mixed-language right-click crash), Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |

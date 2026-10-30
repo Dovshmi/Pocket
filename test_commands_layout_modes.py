@@ -18,8 +18,19 @@ class CommandsLayoutRegression(unittest.TestCase):
         self.assertIn('command_panes.add(results_panel, minsize=150', block)
         self.assertIn("self.command_tree = self._tree(results_panel,", block)
         self.assertIn("(230, 185), rows=4", block)
-        self.assertIn('action_label(heading, "Backup ▾"', block)
-        self.assertIn('action_label(heading, "+ New"', block)
+        self.assertNotIn('action_label(heading, "Backup ▾"', block)
+        self.assertNotIn('action_label(heading, "+ New"', block)
+        header_begin = self.source.index("    def _build_normal_commands_header(self):")
+        header_end = self.source.index("    def _build_commands(self):", header_begin)
+        header = self.source[header_begin:header_end]
+        self.assertIn('text="Command helper"', header)
+        self.assertIn('action_label(heading, "Backup ▾"', header)
+        self.assertIn('action_label(heading, "+ New"', header)
+        tab_start = self.source.index("    def show_tab(self, which):")
+        tab_end = self.source.index("    def _show_more_menu(self):", tab_start)
+        tab = self.source[tab_start:tab_end]
+        self.assertLess(tab.index("self._build_normal_commands_header()"),
+                        tab.index("self._scrolling_tool_body()"))
         self.assertIn("self.command_tree.bind('<<TreeviewSelect>>'", block)
         self.assertIn('command_panes.add(details, minsize=195', block)
 

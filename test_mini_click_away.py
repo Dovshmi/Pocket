@@ -48,6 +48,9 @@ class MiniFocusTests(TestCase):
         desk = SimpleNamespace(_note_context_menu=menu,
                                _note_context_menu_was_modal=False,
                                _modal=True)
+        # Attach the same bound helper a real PocketDesk instance provides.
+        # The bare SimpleNamespace fixture does not implement this method.
+        desk._release_note_context_menu = lambda item: PocketDesk._release_note_context_menu(desk, item)
         # The selection callback closes and clears the modal guard even if
         # Win32 does not dispatch Tk's <Unmap> for the menu.
         PocketDesk._finish_note_context_menu_action(desk)

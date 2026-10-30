@@ -2430,11 +2430,17 @@ class PocketDesk:
     def _build_commands(self):
         if self.display_mode == "mini":
             return self._build_mini_commands()
-        self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
-        backup_row = tk.Frame(self.body, bg=BG)
-        backup_row.pack(fill="x", pady=(0, 8))
-        action_label(backup_row, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=12, pady=6, font_size=9).pack(side="right")
+        # Keep the Normal CLI header to one row. Commands actions live
+        # beside the title instead of consuming a separate backup row.
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 6))
+        tk.Label(heading, text="Command helper", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(side="left", fill="x", expand=True)
+        action_label(heading, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
+                     bg=PANEL, hover=CARD, padx=7, pady=5, font_size=8).pack(side="right")
+        action_label(heading, "+ New", self._add_custom_command, fg="#121622",
+                     bg=ACCENT, hover="#BBC0FF", padx=8, pady=5, font_size=8
+                     ).pack(side="right", padx=(0, 5))
         prefs = self.data["command_state"]
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
@@ -2493,7 +2499,9 @@ class PocketDesk:
         results_panel = tk.Frame(command_panes, bg=BG)
         details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
                            highlightthickness=1)
-        command_panes.add(results_panel, minsize=120, stretch="always")
+        # Four data rows + column header need roughly 140px at the current
+        # tree style; reserve that even when the outer page scrolls.
+        command_panes.add(results_panel, minsize=150, stretch="always")
         command_panes.add(details, minsize=195, stretch="never")
         self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
@@ -2537,7 +2545,9 @@ class PocketDesk:
         self.command_feedback.pack(anchor='w', padx=12, pady=(0, 5))
         # Command first (left), description second (right); align Hebrew purposes to the right.
         self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
-                                       (230, 185), rows=8, aligns=('w', 'e'))
+                                       (230, 185), rows=4, aligns=('w', 'e'))
+        # The pane's requested height guarantees four full result rows; the
+        # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())
         self.command_tree.bind('<Return>', lambda _event: self._focus_command_editor())
@@ -3573,7 +3583,7 @@ class PocketDesk:
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
         if self.display_mode == "normal" and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            self.command_tree.configure(height=max(2, min(8, 8 + (height - HEIGHT) // 27)))
+            self.command_tree.configure(height=4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
 
     def _begin_window_drag(self, event):

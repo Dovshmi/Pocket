@@ -23,6 +23,22 @@ class FullSizeScrollTests(unittest.TestCase):
         self.assertIn('isinstance(widget, ttk.Treeview)', code)
         self.assertIn('canvas.yview_scroll(steps, "units")', code)
 
+    def test_cli_combobox_never_calls_vertical_yview(self):
+        start = SOURCE.index("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):")
+        end = SOURCE.index("    def _command_picker_on_wheel(self, event):", start)
+        code = SOURCE[start:end]
+        combobox = code.index("if isinstance(widget, ttk.Combobox):")
+        text_branch = code.index("elif isinstance(widget, (tk.Text, tk.Listbox)):")
+        self.assertLess(combobox, text_branch)
+        self.assertNotIn("widget.yview()", code[combobox:text_branch])
+
+    def test_normal_commands_title_is_outside_scroll_region(self):
+        start = SOURCE.index("    def show_tab(self, which):")
+        end = SOURCE.index("    def _show_more_menu(self):", start)
+        code = SOURCE[start:end]
+        self.assertLess(code.index("self._build_normal_commands_header()"),
+                        code.index("self._scrolling_tool_body()"))
+
     def test_page_scroll_rail_is_hidden_in_both_modes(self):
         start = SOURCE.index("    def _scrolling_tool_body(self):")
         end = SOURCE.index("    def _mini_scrolling_body(self):", start)

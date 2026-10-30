@@ -75,6 +75,14 @@ Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 ×
 
 Mini Mode is included in v1.27 on `main`. Windows visual, keyboard and display-scaling validation remains recommended for different devices.
 
+### Single-instance protection — before-release
+
+On Windows, normal launches of Pocket now enforce **one running copy per signed-in Windows session** (including launches from different folders, `run.bat`, or the packaged EXE). Launching Pocket a second time **opens the existing window** instead of starting another tray icon or another process that could overwrite notes. The existing instance keeps its current notes, settings and position.
+
+This uses Windows named mutex and event objects locally, with **no internet connection, background service, registry changes or lock file**. It releases automatically on app exit or process termination. The optional `--preview` mode is excluded so development screenshots/tests can run separately. This safeguard prevents duplicate app processes; it does **not** prevent a separate text editor from changing files in the background.
+
+> **Pre-release status:** Single-instance protection is implemented on `before-release` and is **not yet in the stable `main` branch**. Verify tray activation on Windows before merging.
+
 ### Personalize the workspace
 
 **Settings (⚙)** shows or hides tool menus without deleting their underlying saved data. When **Clipboard** is included in the visible menus, Pocket monitors new copied text while running—even when its window is hidden in the tray. Hide Clipboard to stop monitoring; there is **no second enable/disable switch**. Additional visible tools are accessible under **MORE**.
@@ -214,6 +222,7 @@ Pocket/
 ├── app.pyw                 # Desktop UI, notes, tabs and tray
 ├── note_sync.py            # Notepad working-file sync and conflict backups
 ├── mini_layout.py          # Mini geometry, layout preferences and command paging
+├── single_instance.py      # Windows mutex and activation-event protection
 ├── native_bidi.py          # Windows native right-to-left note editor
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut

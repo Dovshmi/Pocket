@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="850" viewBox="0 0 480 850" role="img" aria-label="Pocket v1.28 Normal interface layout illustration">
+<rect x="0" y="0" width="480" height="850" rx="15" fill="#11131A" stroke="#44465B" stroke-width="2"/>
+<defs><linearGradient id="icon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a267ef"/><stop offset="1" stop-color="#606bf3"/></linearGradient></defs>
+<rect x="18" y="19" width="58" height="58" rx="12" fill="url(#icon)" stroke="none" stroke-width="1"/>
+<text x="47" y="56" font-family="Segoe UI,Arial,sans-serif" font-size="29" fill="#fff" font-weight="700" text-anchor="middle" >↗</text>
+<text x="92" y="53" font-family="Segoe UI,Arial,sans-serif" font-size="24" fill="#F3F4FA" font-weight="750" text-anchor="start" >Pocket</text>
+<text x="92" y="76" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="400" text-anchor="start" >Ctrl + Shift + *  ·  Show / hide</text>
+<text x="394" y="51" font-family="Segoe UI,Arial,sans-serif" font-size="24" fill="#8F97AB" font-weight="600" text-anchor="middle" >×</text>
+<rect x="411" y="30" width="54" height="34" rx="5" fill="#222635" stroke="none" stroke-width="1"/><text x="438" y="52" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#BBC0FF" font-weight="600" text-anchor="middle" >PIN</text>
+<text x="45.5" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="700" text-anchor="middle" >NOTES</text>
+<text x="125.5" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="700" text-anchor="middle" >SHORTCUTS</text>
+<text x="207.5" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="700" text-anchor="middle" >PORTS</text>
+<text x="262" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="700" text-anchor="middle" >MAC</text>
+<text x="333" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#9EA6FF" font-weight="700" text-anchor="middle" >COMMANDS</text>
+<rect x="290" y="152" width="86" height="2" rx="0" fill="#9EA6FF" stroke="none" stroke-width="1"/>
+<text x="414.5" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="700" text-anchor="middle" >MORE ▾</text>
+<text x="461.5" y="139" font-family="Segoe UI,Arial,sans-serif" font-size="19" fill="#8F97AB" font-weight="700" text-anchor="middle" >⚙</text>
+<line x1="0" y1="155" x2="480" y2="155" stroke="#343848" stroke-width="1"/>
+<text x="20" y="190" font-family="Segoe UI,Arial,sans-serif" font-size="21" fill="#F3F4FA" font-weight="750" text-anchor="start" >Command helper</text>
+<rect x="321" y="165" width="63" height="33" rx="5" fill="#9EA6FF" stroke="none" stroke-width="1"/><text x="352.5" y="186.5" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#171923" font-weight="600" text-anchor="middle" >+ New</text>
+<rect x="390" y="165" width="71" height="33" rx="5" fill="#222635" stroke="none" stroke-width="1"/><text x="425.5" y="186.5" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#BBC0FF" font-weight="600" text-anchor="middle" >Backup ▾</text>
+<text x="23" y="228" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="700" text-anchor="start" >MACHINE</text>
+<rect x="20" y="236" width="441" height="43" rx="4" fill="#161923" stroke="#343848" stroke-width="1"/>
+<text x="33" y="264" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#F3F4FA" font-weight="400" text-anchor="start" >All machines</text>
+<text x="442" y="264" font-family="Segoe UI,Arial,sans-serif" font-size="16" fill="#8F97AB" font-weight="500" text-anchor="middle" >⌄</text>
+<rect x="20" y="289" width="441" height="41" rx="4" fill="#161923" stroke="#343848" stroke-width="1"/>
+<text x="33" y="315" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#8F97AB" font-weight="400" text-anchor="start" >Search commands or purpose...</text>
+<rect x="20" y="340" width="284" height="40" rx="4" fill="#161923" stroke="#343848" stroke-width="1"/>
+<text x="32" y="365" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#F3F4FA" font-weight="400" text-anchor="start" >All categories</text>
+<text x="291" y="365" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#8F97AB" font-weight="400" text-anchor="start" >⌄</text>
+<rect x="309" y="340" width="44" height="40" rx="5" fill="#222635" stroke="none" stroke-width="1"/><text x="331" y="365" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#BBC0FF" font-weight="600" text-anchor="middle" >All</text>
+<rect x="359" y="340" width="53" height="40" rx="5" fill="#222635" stroke="none" stroke-width="1"/><text x="385.5" y="365" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#BBC0FF" font-weight="600" text-anchor="middle" >★</text>
+<rect x="416" y="340" width="45" height="40" rx="5" fill="#222635" stroke="none" stroke-width="1"/><text x="438.5" y="365" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#BBC0FF" font-weight="600" text-anchor="middle" >Recent</text>
+<text x="23" y="407" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="400" text-anchor="start" >573 results · first 180</text>
+<rect x="20" y="421" width="441" height="184" rx="5" fill="#1A1D27" stroke="#343848" stroke-width="1"/>
+<rect x="28" y="429" width="425" height="31" rx="2" fill="#222635" stroke="none" stroke-width="1"/>
+<text x="39" y="449" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="700" text-anchor="start" >MACHINE / COMMAND</text>
+<text x="441" y="449" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="700" text-anchor="end" >PURPOSE</text>
+<rect x="28" y="462" width="425" height="31" rx="2" fill="#333653" stroke="none" stroke-width="1"/>
+<text x="39" y="483" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#F3F4FA" font-weight="550" text-anchor="start" >7750  ·  show lag port</text>
+<text x="441" y="483" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="400" text-anchor="end" >Interfaces</text>
+<text x="39" y="517" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="550" text-anchor="start" >Cisco  ·  show ip route</text>
+<text x="441" y="517" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="400" text-anchor="end" >Routing</text>
+<text x="39" y="551" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="550" text-anchor="start" >FortiGate  ·  get system status</text>
+<text x="441" y="551" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="400" text-anchor="end" >System</text>
+<text x="39" y="585" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="550" text-anchor="start" >Juniper  ·  show interfaces terse</text>
+<text x="441" y="585" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#8F97AB" font-weight="400" text-anchor="end" >Interfaces</text>
+<rect x="20" y="621" width="441" height="206" rx="5" fill="#1A1D27" stroke="#343848" stroke-width="1"/>
+<text x="33" y="646" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#9EA6FF" font-weight="700" text-anchor="start" >7750</text>
+<text x="448" y="646" font-family="Segoe UI,Arial,sans-serif" font-size="11" fill="#8F97AB" font-weight="500" text-anchor="end" >Interfaces</text>
+<text x="33" y="674" font-family="Segoe UI,Arial,sans-serif" font-size="15" fill="#F3F4FA" font-weight="650" text-anchor="start" >LAG port information</text>
+<text x="33" y="695" font-family="Segoe UI,Arial,sans-serif" font-size="9" fill="#8F97AB" font-weight="650" text-anchor="start" >EDIT BEFORE COPYING · CHANGES HERE ARE TEMPORARY</text>
+<rect x="31" y="709" width="418" height="65" rx="3" fill="#161923" stroke="#343848" stroke-width="1"/>
+<text x="43" y="739" font-family="Segoe UI,Arial,sans-serif" font-size="14" fill="#F3F4FA" font-weight="600" text-anchor="start" >show lag port</text>
+<text x="34" y="803" font-family="Segoe UI,Arial,sans-serif" font-size="10" fill="#BBC0FF" font-weight="550" text-anchor="start" >★ Save    Edit saved    Delete    Reset</text>
+<rect x="347" y="789" width="101" height="28" rx="5" fill="#9EA6FF" stroke="none" stroke-width="1"/><text x="397.5" y="808" font-family="Segoe UI,Arial,sans-serif" font-size="13" fill="#171923" font-weight="600" text-anchor="middle" >Copy edited</text></svg>

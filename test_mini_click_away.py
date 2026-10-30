@@ -43,6 +43,27 @@ class MiniFocusTests(TestCase):
         native.release_focus_to.assert_not_called()
         root.focus_set.assert_called_once()
 
+    def test_direction_change_clears_modal_guard_without_unmap(self):
+        menu = SimpleNamespace(unpost=Mock(), winfo_exists=Mock(return_value=True))
+        desk = SimpleNamespace(_note_context_menu=menu,
+                               _note_context_menu_was_modal=False,
+                               _modal=True)
+        # The selection callback closes and clears the modal guard even if
+        # Win32 does not dispatch Tk's <Unmap> for the menu.
+        PocketDesk._finish_note_context_menu_action(desk)
+        self.assertFalse(desk._modal)
+        self.assertIsNone(desk._note_context_menu)
+        menu.unpost.assert_called_once()
+
+    def test_prior_modal_state_is_preserved(self):
+        menu = object()
+        desk = SimpleNamespace(_note_context_menu=menu,
+                               _note_context_menu_was_modal=True,
+                               _modal=True)
+        PocketDesk._release_note_context_menu(desk, menu)
+        self.assertTrue(desk._modal)
+        self.assertIsNone(desk._note_context_menu)
+
     def test_no_focus_change_in_normal_mode_or_other_tools(self):
         desk = SimpleNamespace(display_mode="normal", _modal=False,
                                current_tab="commands", root=SimpleNamespace(focus_set=Mock()))

@@ -64,3 +64,25 @@ def require_writable_portable_data(root: Path | None = None) -> None:
             "Move the extracted Pocket folder to a writable location. "
             "Your notes will NOT be saved to AppData as a fallback."
         ) from exc
+
+def resolve_portable_library(data_dir: Path, bundle_dir: Path) -> Path:
+    """Copy only the public example library into writable portable storage."""
+    import shutil
+    from command_store import read_document
+    data_dir = Path(data_dir)
+    target = data_dir / "commands.json"
+    if target.is_file():
+        return target
+    source = Path(bundle_dir) / "commands" / "example_commands.json"
+    if not source.is_file():
+        raise FileNotFoundError("Pocket Portable is missing its bundled example commands")
+    read_document(source)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        with source.open("rb") as reader, target.open("xb") as writer:
+            shutil.copyfileobj(reader, writer)
+            writer.flush()
+            os.fsync(writer.fileno())
+    except FileExistsError:
+        pass
+    return target

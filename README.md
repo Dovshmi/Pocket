@@ -162,6 +162,35 @@ py -3 app.pyw
 4. Click the **pocket logo** to change themes, or click the shortcut label under Pocket to customize the global hotkey.
 5. Open **Subnet** and calculate `192.168.1.10/24`, or use **Commands → Backup ▾** to save a manual command-library backup.
 
+## Pocket Portable (before-release branch)
+
+Pocket Portable is a **Windows ZIP** containing `PocketDesk.exe`, its dependencies
+and a `portable.flag` marker. Extract the ZIP and run the EXE without installing
+Python on the destination computer. The marker switches **all application data**
+(notes, reminders, shortcuts, settings, cache, icons, Notepad sync and commands)
+to the adjacent `data/` directory. If that folder is not writable, startup
+shows an error instead of silently storing information in the host's AppData.
+
+To build the portable ZIP on a Windows **development** machine (Python + internet
+may be needed on the build machine), run `build-portable.bat`. It uses PyInstaller
+`--onedir` and then `package_portable.py`, producing
+`dist/Pocket-Portable-before-release.zip`.
+
+The archive contains only **public sample commands**. A first launch creates
+`data/commands.json` from that example. **It never bundles** the tracked
+`commands/commands.json`, personal notes, or backups. To migrate personal
+data, copy your own files manually **after extracting**, with Pocket closed,
+and do not overwrite existing files without reviewing them.
+
+Portable and standard installations share the same single-instance lock within
+a Windows sign-in session: close one before opening the other. Portable mode
+does not bypass workplace policy or application allowlisting; use it only on
+computers on which you are permitted to run it.
+
+> This is an unmerged pre-release implementation. Windows ZIP smoke-testing,
+> signature/reputation checks and a clean-computer launch test are required
+> before publishing as a release.
+
 ## Building a Windows executable
 
 To build a standalone executable on **Windows**, run:

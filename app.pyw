@@ -413,8 +413,12 @@ class PocketDesk:
                    else Path(__file__).resolve().parent)
         self.commands_error = None
         try:
-            self.commands_file = cs.resolve_library(install, self.path.parent,
-                                                     self.bundle_path(), portable=self.portable)
+            if self.portable:
+                self.commands_file = portable_storage.resolve_portable_library(
+                    self.path.parent, self.bundle_path())
+            else:
+                self.commands_file = cs.resolve_library(
+                    install, self.path.parent, self.bundle_path())
             cs.read_document(self.commands_file)
             if self.data["custom_commands"]:
                 cs.migrate_custom(self.commands_file, self.data["custom_commands"])

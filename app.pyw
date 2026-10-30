@@ -466,6 +466,11 @@ class PocketDesk:
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Escape>", lambda _e: self.hide())
+        # Wheel events from all child widgets bubble through the root binding.
+        # Unlike bind_all, this does not interfere with unrelated tabs.
+        self.root.bind("<MouseWheel>", self._scroll_tool_on_wheel, add="+")
+        self.root.bind("<Button-4>", self._scroll_tool_on_wheel, add="+")
+        self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
         # Tk labels/frames are not focusable, so clicking outside a Text editor
         # would otherwise leave the caret active and block Mini arrow paging.
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
@@ -689,26 +694,67 @@ class PocketDesk:
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
 
-    def _mini_scrolling_body(self):
-        """Scroll tall tools vertically rather than clip content on small screens."""
+    def _scrolling_tool_body(self):
+        """Scrollable tool content for either window mode.
+
+        Frame content lives inside a canvas so a short work area or large
+        Windows display scaling never hides the last control. The scrollbar
+        belongs to the tool, not to an individual results table.
+        """
         outer = self.body
-        self._mini_root_body = outer
-        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0)
-        scroller = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scroller.set)
+        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0,
+                           borderwidth=0, takefocus=0)
+        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
-        scroller.pack(side="right", fill="y")
         inner = tk.Frame(canvas, bg=BG)
-        ref = canvas.create_window((0, 0), window=inner, anchor="nw")
-        inner.bind("<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(ref, width=event.width))
-        def wheel(event):
-            if canvas.winfo_exists():
-                canvas.yview_scroll(int(-event.delta / 120), "units")
-        canvas.bind("<Enter>", lambda _e: canvas.bind_all("<MouseWheel>", wheel))
-        canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>",
+                   lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>",
+                    lambda event: canvas.itemconfigure(window_id, width=event.width))
         self.body = inner
-        self._mini_scroller = canvas
+        self._tool_scroll_canvas = canvas
+
+    def _mini_scrolling_body(self):
+        """Backward-compatible entry point for Mini's scrollable network tools."""
+        self._scrolling_tool_body()
+
+    def _scroll_tool_on_wheel(self, event):
+        """Route wheel to the outer tool only when an inner widget cannot scroll.
+
+        A Treeview should retain its own row scrolling until its edge is
+        reached. A Text editor, ComboBox or Listbox keeps native scrolling
+        and cursor behavior. The outer canvas handles every other area.
+        """
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is None or not canvas.winfo_exists():
+            return None
+        if self.current_tab not in ("ports", "mac", "subnet", "commands"):
+            return None
+        delta = getattr(event, "delta", 0)
+        if delta:
+            steps = -max(1, abs(delta) // 120) if delta > 0 else max(1, abs(delta) // 120)
+        elif getattr(event, "num", None) in (4, 5):
+            steps = -1 if event.num == 4 else 1
+        else:
+            return None
+        widget = event.widget
+        if isinstance(widget, (tk.Text, tk.Listbox, tk.Entry, tk.Spinbox,
+                               ttk.Combobox, ttk.Entry)):
+            return None
+        if isinstance(widget, ttk.Treeview):
+            # Let the table navigate rows without scrolling the entire page.
+            first, last = widget.yview()
+            if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
+                return None
+        if canvas.yview()[0] <= 0.001 and steps < 0:
+            return None
+        if canvas.yview()[1] >= 0.999 and steps > 0:
+            return None
+        canvas.yview_scroll(steps, "units")
+        return "break"
 
     def _mini_click_outside_editor(self, event):
         """Leave Mini edit focus when clicking an ordinary area of the window.
@@ -854,12 +900,10 @@ class PocketDesk:
         if which not in self.settings["visible_tabs"] and which != "settings":
             which = "settings"
         self.current_tab = which
-        if self.display_mode == "mini" and hasattr(self, "_mini_scroller"):
-            try:
-                self._mini_scroller.unbind_all("<MouseWheel>")
-            except tk.TclError:
-                pass
-        # Restore the original body frame when the previous tool used a scroller.
+        # Always restore the shell body before replacing scrollable tool pages.
+        # A previous canvas belongs to the old tab and must never retain wheel
+        # routing when a new tab is opened.
+        self._tool_scroll_canvas = None
         if hasattr(self, "_mini_root_body") and self._mini_root_body.winfo_exists():
             self.body = self._mini_root_body
         for child in self.body.winfo_children():
@@ -869,8 +913,9 @@ class PocketDesk:
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
-        if self.display_mode == "mini" and which in ("ports", "mac", "subnet"):
-            self._mini_scrolling_body()
+        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
+                or (self.display_mode == "normal" and which in ("ports", "mac", "commands", "subnet"))):
+            self._scrolling_tool_body()
         if which == "notes":
             self._build_notes()
         elif which == "links":

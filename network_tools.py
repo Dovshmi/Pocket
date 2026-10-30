@@ -7,6 +7,9 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
+import gzip
+import zlib
+from urllib.error import HTTPError, URLError
 import errno
 import io
 import ipaddress
@@ -142,9 +145,27 @@ def download_ieee_database(path: Path, on_progress=None) -> int:
             on_progress(f"Downloading {registry} assignments…")
         request = Request(url, headers={"User-Agent": "Mozilla/5.0 PocketDesk/1.1 (local OUI cache)",
                                         "Accept": "text/csv,*/*;q=0.7"})
-        with urlopen(request, timeout=25) as response:
-            content = response.read(12_000_001)
-        if len(content) > 12_000_000:
+        try:
+            with urlopen(request, timeout=25) as response:
+                # Read with an upper bound; a full registry is several MB.
+                content = response.read(30_000_001)
+                encoding = (response.headers.get("Content-Encoding", "") or "").lower()
+        except HTTPError as exc:
+            if exc.code in (403, 418, 429):
+                raise ValueError(
+                    f"IEEE {registry} blocked automated downloads (HTTP {exc.code}). "
+                    "Use Import CSV with the official IEEE registry files."
+                ) from exc
+            raise ValueError(f"IEEE {registry} download failed (HTTP {exc.code})") from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            raise ValueError(f"IEEE {registry} download failed: {exc}") from exc
+        if len(content) > 30_000_000:
+            raise ValueError(f"IEEE {registry} file is unexpectedly large")
+        if encoding == "gzip":
+            content = gzip.decompress(content)
+        elif encoding == "deflate":
+            content = zlib.decompress(content)
+        if len(content) > 30_000_000:
             raise ValueError(f"IEEE {registry} file is unexpectedly large")
         parsed = parse_ieee_csv(content, registry, nibbles)
         # IAB and MA-S share 36-bit address space; prefer current MA-S if duplicated.
@@ -180,8 +201,8 @@ def import_ieee_csv_files(files: list[Path], path: Path) -> int:
     lengths = {registry: nibbles for registry, _, nibbles in IEEE_LISTS}
     for file in files:
         with Path(file).open("rb") as handle:
-            source = handle.read(12_000_001)
-        if len(source) > 12_000_000:
+            source = handle.read(30_000_001)
+        if len(source) > 30_000_000:
             raise ValueError(f"{Path(file).name} is too large for an IEEE registry CSV")
         try:
             rows = csv.DictReader(io.StringIO(source.decode("utf-8-sig")))

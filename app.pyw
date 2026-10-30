@@ -3112,7 +3112,9 @@ class PocketDesk:
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
         action_label(status_line, "Import CSV", self._import_vendors, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=8, pady=5, font_size=8).pack(side="right")
+                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right")
+        action_label(status_line, "Get CSV ↗", self._show_ieee_downloads, fg=SECONDARY,
+                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         tk.Label(self.body, text="PASTE MAC ADDRESSES  (one per line or comma-separated)",
                  bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
         self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
@@ -3144,6 +3146,21 @@ class PocketDesk:
     def _vendor_summary(self):
         return (f"IEEE database: {len(self.vendors):,} prefixes • Updated {self.vendor_date}"
                 if self.vendors else f"IEEE database: {self.vendor_date} • Click Update IEEE DB")
+
+    def _show_ieee_downloads(self):
+        """Explicit browser downloads when IEEE blocks Python HTTP requests."""
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE)
+        for registry, url, _ in net.IEEE_LISTS:
+            menu.add_command(label=f"Download {registry} official CSV",
+                             command=lambda target=url: webbrowser.open(target))
+        menu.add_separator()
+        menu.add_command(label="Import downloaded CSV files…", command=self._import_vendors)
+        x, y = self.root.winfo_pointerxy()
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
 
     def _update_vendors(self):
         if self.updating_vendors:
@@ -3593,7 +3610,12 @@ class PocketDesk:
                 elif name == "vendor_error":
                     self.updating_vendors = False
                     if self.current_tab == "mac":
-                        self.vendor_info.config(text="Update failed — try Import CSV (see README)", fg=DANGER)
+                        message = str(xy)
+                        if len(message) > 130:
+                            message = message[:127] + "..."
+                        self.vendor_info.config(text=message, fg=DANGER, wraplength=285 if self.display_mode == "mini" else 420,
+                                                justify="left")
+                        self._last_ieee_error = str(xy)
                 elif name == "note_reminder":
                     note_id, title, message = xy
                     if self.preview or not self.tray or self.tray.error:

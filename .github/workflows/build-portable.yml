@@ -1,6 +1,8 @@
 name: Build Pocket Portable (pre-release)
 
 on:
+  push:
+    branches: [before-release]
   workflow_dispatch:
 
 permissions:

@@ -704,9 +704,13 @@ class PocketDesk:
         outer = self.body
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0,
                            borderwidth=0, takefocus=0)
-        scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        # Keep the canvas scrollable in both layouts, but show the vertical
+        # scrollbar only in Mini. Normal uses the mouse wheel / trackpad and
+        # keyboard, gaining the full width without a conspicuous right rail.
+        if self.display_mode == "mini":
+            scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+            canvas.configure(yscrollcommand=scrollbar.set)
+            scrollbar.pack(side="right", fill="y")
         canvas.pack(side="left", fill="both", expand=True)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
@@ -741,9 +745,16 @@ class PocketDesk:
         else:
             return None
         widget = event.widget
-        if isinstance(widget, (tk.Text, tk.Listbox, tk.Entry, tk.Spinbox,
-                               ttk.Combobox, ttk.Entry)):
-            return None
+        if isinstance(widget, (tk.Text, tk.Listbox, ttk.Combobox)):
+            # Preserve an editor's own scroll while it has somewhere to go.
+            # When its contents fit (or reach the end), scroll the page.
+            if isinstance(widget, ttk.Combobox):
+                return None  # Do not interfere with dropdown navigation.
+            first, last = widget.yview()
+            if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
+                return None
+        # Single-line Entry/Spinbox controls cannot scroll vertically: let
+        # the surrounding page receive the wheel as normal.
         if isinstance(widget, ttk.Treeview):
             # Let the table navigate rows without scrolling the entire page.
             first, last = widget.yview()

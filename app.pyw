@@ -2375,9 +2375,19 @@ class PocketDesk:
         self.command_count.pack(side="left")
         tk.Label(result_head, text="Select → edit → copy", bg=BG, fg=MUTED,
                  font=(FONT, 8)).pack(side="right")
-        details = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER,
+        # Always show both normal-mode regions. On high-DPI Windows screens
+        # the fixed editor used to consume the height and hide the list.
+        # A vertical sash reserves room for results and allows resizing.
+        command_panes = tk.PanedWindow(self.body, orient=tk.VERTICAL, bg=BG,
+                                       bd=0, relief="flat", sashwidth=7,
+                                       showhandle=False, opaqueresize=True)
+        command_panes.pack(fill="both", expand=True, pady=(6, 0))
+        results_panel = tk.Frame(command_panes, bg=BG)
+        details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
                            highlightthickness=1)
-        details.pack(side="bottom", fill="x", pady=(6, 0))
+        command_panes.add(results_panel, minsize=120, stretch="always")
+        command_panes.add(details, minsize=195, stretch="never")
+        self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
         line.pack(fill="x", padx=11, pady=(7, 1))
         self.command_machine_tag = tk.Label(line, text="SELECT A COMMAND", fg=ACCENT, bg=PANEL,
@@ -2418,7 +2428,7 @@ class PocketDesk:
                                          fg=MUTED, bg=PANEL, font=(FONT, 8))
         self.command_feedback.pack(anchor='w', padx=12, pady=(0, 5))
         # Command first (left), description second (right); align Hebrew purposes to the right.
-        self.command_tree = self._tree(self.body, ('Command', 'Purpose / Description'),
+        self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
                                        (230, 185), rows=8, aligns=('w', 'e'))
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())

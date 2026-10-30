@@ -149,7 +149,8 @@ def download_ieee_database(path: Path, on_progress=None) -> int:
             with urlopen(request, timeout=25) as response:
                 # Read with an upper bound; a full registry is several MB.
                 content = response.read(30_000_001)
-                encoding = (response.headers.get("Content-Encoding", "") or "").lower()
+                headers = getattr(response, "headers", {})
+                encoding = (headers.get("Content-Encoding", "") or "").lower()
         except HTTPError as exc:
             if exc.code in (403, 418, 429):
                 raise ValueError(

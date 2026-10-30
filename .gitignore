@@ -27,3 +27,6 @@ venv/
 
 # Copies exported for Windows Notepad (user content)
 **/notepad_exports/
+
+# Generated portable packaging outputs
+Pocket-Portable*/

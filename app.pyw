@@ -35,6 +35,8 @@ import hotkey_settings as hk
 import note_sync
 import native_bidi
 import mini_layout as mini
+import single_instance
+import portable_storage
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -60,10 +62,7 @@ FONT = "Segoe UI"
 
 
 def data_file() -> Path:
-    base = os.environ.get("APPDATA")
-    if not base:
-        base = str(Path.home() / ".local" / "share")
-    return Path(base) / APP_NAME / "data.json"
+    return portable_storage.data_file(APP_NAME)
 
 
 def new_id() -> str:
@@ -367,6 +366,7 @@ def action_label(parent, text, command, *, fg=WHITE, bg=CARD, hover=CARD_HOVER,
 class PocketDesk:
     def __init__(self, *, preview=False):
         self.preview = preview
+        self.portable = portable_storage.is_portable()
         self.path = data_file()
         self.data = load_data(self.path)
         self.settings = normalize_settings(self.data.get("settings"))
@@ -413,8 +413,12 @@ class PocketDesk:
                    else Path(__file__).resolve().parent)
         self.commands_error = None
         try:
-            self.commands_file = cs.resolve_library(install, self.path.parent,
-                                                     self.bundle_path())
+            if self.portable:
+                self.commands_file = portable_storage.resolve_portable_library(
+                    self.path.parent, self.bundle_path())
+            else:
+                self.commands_file = cs.resolve_library(
+                    install, self.path.parent, self.bundle_path())
             cs.read_document(self.commands_file)
             if self.data["custom_commands"]:
                 cs.migrate_custom(self.commands_file, self.data["custom_commands"])
@@ -474,6 +478,9 @@ class PocketDesk:
         # Tk labels/frames are not focusable, so clicking outside a Text editor
         # would otherwise leave the caret active and block Mini arrow paging.
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
+        # Normal Notes uses the same native RichEdit HWND as Mini. Clicking a
+        # title, phone, or surrounding area must also release its Win32 focus.
+        self.root.bind("<Button-1>", self._normal_note_click_outside_editor, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
@@ -809,6 +816,35 @@ class PocketDesk:
             if self.bidi_editor.has_focus():
                 self.bidi_editor.release_focus_to(self.root)
         self.root.focus_set()
+
+    def _normal_note_click_outside_editor(self, event):
+        """Move keyboard focus out of Win32 RichEdit on Normal Notes clicks.
+
+        The RichEdit child HWND is not in Tk's focus hierarchy. Tk may visually
+        activate Title/Phone while RichEdit still owns Windows keyboard focus,
+        so typing continues in the note. Handle only Normal Notes: the working
+        Mini click-away behavior must stay unchanged.
+        """
+        if self.display_mode != "normal" or self.current_tab != "notes" or self._modal:
+            return
+        if not self._bidi_active() or not self.bidi_editor.has_focus():
+            return
+        clicked = event.widget
+        if clicked is self.bidi_editor or clicked is self.note_body:
+            return
+
+        # Commit any pending RichEdit edits before leaving the note editor.
+        self._flush_current_note()
+
+        # Clicking a real input should give THAT control the caret. Clicking
+        # a frame, heading or action label should leave no note editor active.
+        if isinstance(clicked, (tk.Entry, ttk.Entry, tk.Listbox, tk.Spinbox,
+                                ttk.Combobox, ttk.Spinbox, ttk.Treeview)):
+            destination = clicked
+        else:
+            destination = self.root
+        self.bidi_editor.release_focus_to(destination)
+        destination.focus_set()
 
     def _mini_keyboard_step(self, event, step):
         """Only page Mini cards when focus is outside editable/selectable controls."""
@@ -3763,6 +3799,8 @@ class PocketDesk:
                     if "notes" in self.settings["visible_tabs"]:
                         self.data["active_note"] = xy
                         self.show_tab("notes")
+                elif name == "activate_existing":
+                    self.show()
                 elif name == "quit":
                     self.quit()
         except queue.Empty:
@@ -4112,5 +4150,36 @@ class WindowsTray:
             self.hwnd = None
 
 
+def main(argv=None):
+    """Refuse duplicate Windows launches before loading user files or Tk."""
+    args = sys.argv[1:] if argv is None else argv
+    preview = "--preview" in args
+    guard = None
+    if sys.platform == "win32" and not preview:
+        guard = single_instance.WindowsSingleInstance()
+        if not guard.acquire():
+            return 0  # Signal the already-running process, then exit quietly.
+    try:
+        # A read-only USB drive or locked-down folder must not silently
+        # redirect personal notes into AppData on the host computer.
+        try:
+            portable_storage.require_writable_portable_data()
+        except OSError as exc:
+            if sys.platform == "win32":
+                ctypes.windll.user32.MessageBoxW(None, str(exc), "Pocket Portable", 0x10)
+            else:
+                print(str(exc), file=sys.stderr)
+            return 1
+        app = PocketDesk(preview=preview)
+        if guard is not None:
+            # Tk is not thread-safe: only enqueue. _poll_events does the show().
+            guard.start(lambda: app.events.put(("activate_existing", None)))
+        app.run()
+        return 0
+    finally:
+        if guard is not None:
+            guard.close()
+
+
 if __name__ == "__main__":
-    PocketDesk(preview="--preview" in sys.argv).run()
+    sys.exit(main())

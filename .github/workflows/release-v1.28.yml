@@ -1,0 +1,46 @@
+name: Publish Pocket v1.28
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release v1.28]')
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run regression tests
+        run: python -m unittest discover -v
+      - name: Package Windows EXE and portable data mode
+        shell: cmd
+        run: call build-portable.bat
+      - name: SHA256 checksum
+        shell: pwsh
+        run: |
+          $file = 'dist/Pocket-Portable-v1.28.zip'
+          $hash = (Get-FileHash -Path $file -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  Pocket-Portable-v1.28.zip" | Out-File -FilePath 'dist/SHA256SUMS.txt' -Encoding ascii
+      - name: Publish GitHub Release with portable ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.28
+          target_commitish: ${{ github.sha }}
+          name: Pocket v1.28 — Portable Windows Release
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/Pocket-Portable-v1.28.zip
+            dist/SHA256SUMS.txt

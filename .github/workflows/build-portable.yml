@@ -1,0 +1,27 @@
+name: Build Pocket Portable v1.28
+
+on:
+  push:
+    branches: [before-release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable-zip:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build self-contained portable ZIP
+        shell: cmd
+        run: call build-portable.bat
+      - name: Upload portable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-Portable-v1.28
+          path: dist/Pocket-Portable-v1.28.zip
+          if-no-files-found: error

@@ -43,6 +43,57 @@ class MiniFocusTests(TestCase):
         native.release_focus_to.assert_not_called()
         root.focus_set.assert_called_once()
 
+    def test_normal_title_click_moves_native_focus_into_title(self):
+        native = SimpleNamespace(has_focus=Mock(return_value=True),
+                                 release_focus_to=Mock())
+        title = Mock()
+        # Use an actual Tk Entry type check without creating a display.
+        from unittest.mock import patch
+        import tkinter as tk
+        with patch.object(tk, "Entry", type("FakeEntry", (), {})):
+            entry = tk.Entry()
+            entry.focus_set = Mock()
+            root = SimpleNamespace(focus_set=Mock())
+            desk = SimpleNamespace(display_mode="normal", current_tab="notes",
+                                   _modal=False, bidi_editor=native, root=root,
+                                   note_body=object(), _bidi_active=Mock(return_value=True),
+                                   _flush_current_note=Mock())
+            PocketDesk._normal_note_click_outside_editor(
+                desk, SimpleNamespace(widget=entry))
+            desk._flush_current_note.assert_called_once()
+            native.release_focus_to.assert_called_once_with(entry)
+            entry.focus_set.assert_called_once()
+            root.focus_set.assert_not_called()
+
+    def test_normal_blank_click_exits_native_editor(self):
+        native = SimpleNamespace(has_focus=Mock(return_value=True),
+                                 release_focus_to=Mock())
+        root = SimpleNamespace(focus_set=Mock())
+        desk = SimpleNamespace(display_mode="normal", current_tab="notes",
+                               _modal=False, bidi_editor=native, root=root,
+                               note_body=object(), _bidi_active=Mock(return_value=True),
+                               _flush_current_note=Mock())
+        PocketDesk._normal_note_click_outside_editor(
+            desk, SimpleNamespace(widget=object()))
+        native.release_focus_to.assert_called_once_with(root)
+        root.focus_set.assert_called_once()
+
+    def test_normal_focus_remains_in_editor_on_editor_click_or_modal(self):
+        native = SimpleNamespace(has_focus=Mock(return_value=True),
+                                 release_focus_to=Mock())
+        root = SimpleNamespace(focus_set=Mock())
+        editor = object()
+        desk = SimpleNamespace(display_mode="normal", current_tab="notes",
+                               _modal=False, bidi_editor=native, root=root,
+                               note_body=editor, _bidi_active=Mock(return_value=True),
+                               _flush_current_note=Mock())
+        PocketDesk._normal_note_click_outside_editor(
+            desk, SimpleNamespace(widget=editor))
+        desk._modal = True
+        PocketDesk._normal_note_click_outside_editor(
+            desk, SimpleNamespace(widget=object()))
+        native.release_focus_to.assert_not_called()
+
     def test_direction_change_clears_modal_guard_without_unmap(self):
         menu = SimpleNamespace(unpost=Mock(), winfo_exists=Mock(return_value=True))
         desk = SimpleNamespace(_note_context_menu=menu,

@@ -478,6 +478,9 @@ class PocketDesk:
         # Tk labels/frames are not focusable, so clicking outside a Text editor
         # would otherwise leave the caret active and block Mini arrow paging.
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
+        # Normal Notes uses the same native RichEdit HWND as Mini. Clicking a
+        # title, phone, or surrounding area must also release its Win32 focus.
+        self.root.bind("<Button-1>", self._normal_note_click_outside_editor, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
@@ -813,6 +816,35 @@ class PocketDesk:
             if self.bidi_editor.has_focus():
                 self.bidi_editor.release_focus_to(self.root)
         self.root.focus_set()
+
+    def _normal_note_click_outside_editor(self, event):
+        """Move keyboard focus out of Win32 RichEdit on Normal Notes clicks.
+
+        The RichEdit child HWND is not in Tk's focus hierarchy. Tk may visually
+        activate Title/Phone while RichEdit still owns Windows keyboard focus,
+        so typing continues in the note. Handle only Normal Notes: the working
+        Mini click-away behavior must stay unchanged.
+        """
+        if self.display_mode != "normal" or self.current_tab != "notes" or self._modal:
+            return
+        if not self._bidi_active() or not self.bidi_editor.has_focus():
+            return
+        clicked = event.widget
+        if clicked is self.bidi_editor or clicked is self.note_body:
+            return
+
+        # Commit any pending RichEdit edits before leaving the note editor.
+        self._flush_current_note()
+
+        # Clicking a real input should give THAT control the caret. Clicking
+        # a frame, heading or action label should leave no note editor active.
+        if isinstance(clicked, (tk.Entry, ttk.Entry, tk.Listbox, tk.Spinbox,
+                                ttk.Combobox, ttk.Spinbox, ttk.Treeview)):
+            destination = clicked
+        else:
+            destination = self.root
+        self.bidi_editor.release_focus_to(destination)
+        destination.focus_set()
 
     def _mini_keyboard_step(self, event, step):
         """Only page Mini cards when focus is outside editable/selectable controls."""

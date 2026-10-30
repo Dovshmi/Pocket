@@ -704,13 +704,9 @@ class PocketDesk:
         outer = self.body
         canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0,
                            borderwidth=0, takefocus=0)
-        # Keep the canvas scrollable in both layouts, but show the vertical
-        # scrollbar only in Mini. Normal uses the mouse wheel / trackpad and
-        # keyboard, gaining the full width without a conspicuous right rail.
-        if self.display_mode == "mini":
-            scrollbar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
-            canvas.configure(yscrollcommand=scrollbar.set)
-            scrollbar.pack(side="right", fill="y")
+        # The outer tool page scrolls with mouse wheel / touchpad in either
+        # mode; keep its rail entirely invisible to maximize usable width.
+        # Result tables still have their own dedicated scrollbars.
         canvas.pack(side="left", fill="both", expand=True)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
@@ -725,7 +721,7 @@ class PocketDesk:
         """Backward-compatible entry point for Mini's scrollable network tools."""
         self._scrolling_tool_body()
 
-    def _scroll_tool_on_wheel(self, event):
+    def _scroll_tool_on_wheel(self, event, *, from_picker=False):
         """Route wheel to the outer tool only when an inner widget cannot scroll.
 
         A Treeview should retain its own row scrolling until its edge is
@@ -749,7 +745,10 @@ class PocketDesk:
             # Preserve an editor's own scroll while it has somewhere to go.
             # When its contents fit (or reach the end), scroll the page.
             if isinstance(widget, ttk.Combobox):
-                return None  # Do not interfere with dropdown navigation.
+                if not from_picker:
+                    return None  # Ordinary selectors preserve native behavior.
+                # Commands selectors pass wheel movement to the page instead
+                # of silently changing the selected machine or category.
             first, last = widget.yview()
             if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
                 return None
@@ -766,6 +765,21 @@ class PocketDesk:
             return None
         canvas.yview_scroll(steps, "units")
         return "break"
+
+    def _command_picker_on_wheel(self, event):
+        """Keep CLI device/category filters unchanged when scrolling the page.
+
+        Intercept at the widget before ttk.Combobox's class-level binding,
+        which otherwise changes the selection and unexpectedly re-filters the
+        results while the user is only trying to reach lower controls.
+        """
+        self._scroll_tool_on_wheel(event, from_picker=True)
+        return "break"
+
+    def _protect_command_picker(self, widget):
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            widget.bind(sequence, self._command_picker_on_wheel)
+        return widget
 
     def _mini_click_outside_editor(self, event):
         """Leave Mini edit focus when clicking an ordinary area of the window.

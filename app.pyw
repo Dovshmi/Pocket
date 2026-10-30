@@ -36,6 +36,7 @@ import note_sync
 import native_bidi
 import mini_layout as mini
 import single_instance
+import portable_storage
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -61,10 +62,7 @@ FONT = "Segoe UI"
 
 
 def data_file() -> Path:
-    base = os.environ.get("APPDATA")
-    if not base:
-        base = str(Path.home() / ".local" / "share")
-    return Path(base) / APP_NAME / "data.json"
+    return portable_storage.data_file(APP_NAME)
 
 
 def new_id() -> str:
@@ -368,6 +366,7 @@ def action_label(parent, text, command, *, fg=WHITE, bg=CARD, hover=CARD_HOVER,
 class PocketDesk:
     def __init__(self, *, preview=False):
         self.preview = preview
+        self.portable = portable_storage.is_portable()
         self.path = data_file()
         self.data = load_data(self.path)
         self.settings = normalize_settings(self.data.get("settings"))
@@ -415,7 +414,7 @@ class PocketDesk:
         self.commands_error = None
         try:
             self.commands_file = cs.resolve_library(install, self.path.parent,
-                                                     self.bundle_path())
+                                                     self.bundle_path(), portable=self.portable)
             cs.read_document(self.commands_file)
             if self.data["custom_commands"]:
                 cs.migrate_custom(self.commands_file, self.data["custom_commands"])
@@ -4125,6 +4124,16 @@ def main(argv=None):
         if not guard.acquire():
             return 0  # Signal the already-running process, then exit quietly.
     try:
+        # A read-only USB drive or locked-down folder must not silently
+        # redirect personal notes into AppData on the host computer.
+        try:
+            portable_storage.require_writable_portable_data()
+        except OSError as exc:
+            if sys.platform == "win32":
+                ctypes.windll.user32.MessageBoxW(None, str(exc), "Pocket Portable", 0x10)
+            else:
+                print(str(exc), file=sys.stderr)
+            return 1
         app = PocketDesk(preview=preview)
         if guard is not None:
             # Tk is not thread-safe: only enqueue. _poll_events does the show().

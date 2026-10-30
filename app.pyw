@@ -35,6 +35,7 @@ import hotkey_settings as hk
 import note_sync
 import native_bidi
 import mini_layout as mini
+import single_instance
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -3763,6 +3764,8 @@ class PocketDesk:
                     if "notes" in self.settings["visible_tabs"]:
                         self.data["active_note"] = xy
                         self.show_tab("notes")
+                elif name == "activate_existing":
+                    self.show()
                 elif name == "quit":
                     self.quit()
         except queue.Empty:
@@ -4112,5 +4115,26 @@ class WindowsTray:
             self.hwnd = None
 
 
+def main(argv=None):
+    """Refuse duplicate Windows launches before loading user files or Tk."""
+    args = sys.argv[1:] if argv is None else argv
+    preview = "--preview" in args
+    guard = None
+    if sys.platform == "win32" and not preview:
+        guard = single_instance.WindowsSingleInstance()
+        if not guard.acquire():
+            return 0  # Signal the already-running process, then exit quietly.
+    try:
+        app = PocketDesk(preview=preview)
+        if guard is not None:
+            # Tk is not thread-safe: only enqueue. _poll_events does the show().
+            guard.start(lambda: app.events.put(("activate_existing", None)))
+        app.run()
+        return 0
+    finally:
+        if guard is not None:
+            guard.close()
+
+
 if __name__ == "__main__":
-    PocketDesk(preview="--preview" in sys.argv).run()
+    sys.exit(main())

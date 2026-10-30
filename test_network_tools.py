@@ -92,7 +92,8 @@ class NetworkTests(unittest.TestCase):
 
     def test_ieee_gzip_and_large_registry_content(self):
         import gzip
-        row = b"Registry,Assignment,Organization Name,Organization Address\nMA-L,001122,Example,US\n"
+        row = bytes([10]).join([b"Registry,Assignment,Organization Name,Organization Address",
+                               b"MA-L,001122,Example,US", b""])
         body = gzip.compress(row)
         class Response:
             headers = {"Content-Encoding": "gzip"}

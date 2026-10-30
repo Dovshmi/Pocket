@@ -78,6 +78,31 @@ class NetworkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 net.import_ieee_csv_files([], cache)
 
+    def test_ieee_http_rejection_is_explained_without_overwriting_cache(self):
+        from urllib.error import HTTPError
+        sample = b"existing-cache"
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "vendors.json"
+            cache.write_bytes(sample)
+            error = HTTPError(net.IEEE_LISTS[0][1], 418, "Blocked", None, None)
+            with patch.object(net, "urlopen", side_effect=error):
+                with self.assertRaisesRegex(ValueError, r"HTTP 418.*Import CSV"):
+                    net.download_ieee_database(cache)
+            self.assertEqual(cache.read_bytes(), sample)
+
+    def test_ieee_gzip_and_large_registry_content(self):
+        import gzip
+        row = b"Registry,Assignment,Organization Name,Organization Address\\nMA-L,001122,Example,US\\n"
+        body = gzip.compress(row)
+        class Response:
+            headers = {"Content-Encoding": "gzip"}
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def read(self, limit): return body
+        with tempfile.TemporaryDirectory() as d, patch.object(net, "urlopen", return_value=Response()):
+            with patch.object(net, "IEEE_LISTS", [net.IEEE_LISTS[0]]):
+                self.assertEqual(net.download_ieee_database(Path(d) / "vendors.json"), 1)
+
     def test_full_download_uses_ieee_only_and_stores_cache(self):
         contents = {
             "MA-L": b"Registry,Assignment,Organization Name,Organization Address\nMA-L,001122,Large,US\n",

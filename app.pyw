@@ -1808,27 +1808,57 @@ class PocketDesk:
                              command=lambda text=lookup: self._find_selected_note_command(text))
         return menu
 
+    def _release_note_context_menu(self, menu):
+        """Clear the temporary menu focus guard exactly once.
+
+        Windows/Tk does not consistently fire <Unmap> when a native RichEdit
+        popup command is selected. If the guard stays set, Mini's click-away
+        and arrow-key navigation both remain disabled.
+        """
+        if getattr(self, "_note_context_menu", None) is not menu:
+            return
+        self._note_context_menu = None
+        self._modal = getattr(self, "_note_context_menu_was_modal", False)
+
+    def _finish_note_context_menu_action(self):
+        """Explicitly dismiss a selected menu action, even without <Unmap>."""
+        menu = getattr(self, "_note_context_menu", None)
+        if menu is None:
+            return
+        try:
+            if menu.winfo_exists():
+                menu.unpost()
+        except tk.TclError:
+            pass
+        finally:
+            self._release_note_context_menu(menu)
+
     def _show_note_context_menu(self, event):
-        """Post the menu without destroying it before Windows can render it."""
+        """Post a Win32-safe context menu with guaranteed focus-guard cleanup."""
         old = getattr(self, "_note_context_menu", None)
-        if old is not None and old.winfo_exists():
-            old.unpost()
-            old.destroy()
+        if old is not None:
+            try:
+                if old.winfo_exists():
+                    old.unpost()
+                    old.destroy()
+            finally:
+                self._release_note_context_menu(old)
 
         menu = self._build_note_context_menu()
         self._note_context_menu = menu
-        was_modal = self._modal
+        self._note_context_menu_was_modal = self._modal
         self._modal = True  # Prevent focus-loss auto-hide while menu is shown.
 
         def on_unmap(_event):
-            if self._note_context_menu is menu:
-                self._modal = was_modal
+            self._release_note_context_menu(menu)
 
         menu.bind("<Unmap>", on_unmap)
+        menu.bind("<Destroy>", lambda event: self._release_note_context_menu(menu)
+                  if event.widget is menu else None)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         except tk.TclError:
-            self._modal = was_modal
+            self._release_note_context_menu(menu)
         finally:
             menu.grab_release()
         return "break"
@@ -1875,6 +1905,10 @@ class PocketDesk:
         else:
             self.note_body.focus_set()
         self.schedule_save()
+        # On some Windows/Tk builds invoking the direction radio item never
+        # sends <Unmap>; explicitly clear the context-menu modal guard now.
+        # Otherwise a later click outside the editor cannot enable Mini arrows.
+        self._finish_note_context_menu_action()
 
     def _change_note_body(self, _event=None):
         if not self.note_body.edit_modified():

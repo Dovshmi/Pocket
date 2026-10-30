@@ -2318,6 +2318,7 @@ class PocketDesk:
                                             state="readonly", font=(FONT, 9))
         self.machine_picker.pack(fill="x", pady=(0, 7))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        self._protect_command_picker(self.machine_picker)
         self.command_query = tk.StringVar()
         self.command_search_entry = self._entry(self.body, self.command_query)
         self.command_search_entry.config(font=(FONT, 9), fg=MUTED)
@@ -2338,6 +2339,7 @@ class PocketDesk:
             font=(FONT, 8))
         self.command_category_picker.pack(side="left", fill="x", expand=True)
         self.command_category_picker.bind("<<ComboboxSelected>>", lambda _e: self._refresh_command_results())
+        self._protect_command_picker(self.command_category_picker)
         self.command_modes = {}
         modebar = tk.Frame(self.body, bg=BG)
         modebar.pack(fill="x", pady=(0, 6))
@@ -2441,6 +2443,7 @@ class PocketDesk:
                                            state="readonly", font=(FONT, 10), height=18)
         self.machine_picker.pack(fill="x", ipady=4, pady=(0, 8))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        self._protect_command_picker(self.machine_picker)
 
         self.command_query = tk.StringVar()
         search_box = tk.Frame(self.body, bg=BG)
@@ -2465,6 +2468,7 @@ class PocketDesk:
             font=(FONT, 9))
         self.command_category_picker.pack(side="left", fill="x", expand=True, ipady=3, padx=(0, 7))
         self.command_category_picker.bind('<<ComboboxSelected>>', lambda _event:self._refresh_command_results())
+        self._protect_command_picker(self.command_category_picker)
         self.command_modes = {}
         for mode,label in [('all','All'),('favorites','★ Saved'),('recent','Recent')]:
             btn = action_label(filterrow, label, lambda m=mode:self._set_command_mode(m),

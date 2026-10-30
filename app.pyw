@@ -1075,25 +1075,24 @@ class PocketDesk:
                  font=(FONT, 13, "bold")).pack(side="left")
         action_label(bar, "+ New", self.add_note, bg=PANEL, fg=ACCENT,
                      font_size=8, padx=9, pady=5).pack(side="right")
-        pager = tk.Frame(self.body, bg=BG)
-        pager.pack(fill="x", pady=(0, 6))
-        action_label(pager, "◀", lambda: self._move_mini_note(-1),
-                     bg=PANEL, fg=ACCENT, padx=11, pady=4, font_size=11).pack(side="left")
-        self.mini_note_page = tk.Label(pager, text="", bg=BG, fg=SECONDARY,
-                                       font=(FONT, 9), anchor="center")
-        self.mini_note_page.pack(side="left", fill="x", expand=True)
-        action_label(pager, "▶", lambda: self._move_mini_note(1),
-                     bg=PANEL, fg=ACCENT, padx=11, pady=4, font_size=11).pack(side="right")
-        picker = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        # One compact navigation row replaces the separate counter row plus
+        # two-line listbox. The note selector still provides direct access to
+        # large collections without taking vertical space from the editor.
+        picker = tk.Frame(self.body, bg=BG)
         picker.pack(fill="x", pady=(0, 6))
-        self.note_list = tk.Listbox(picker, height=2, bd=0, highlightthickness=0,
-                                    selectbackground=ACCENT_DARK, selectforeground=WHITE,
-                                    bg=PANEL, fg=SECONDARY, font=(FONT, 9),
-                                    exportselection=False, activestyle="none")
-        self.note_list.pack(fill="x", padx=6, pady=5)
-        self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
-        self.note_list.bind("<Button-3>", self._show_note_list_menu)
-        self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
+        action_label(picker, "◀", lambda: self._move_mini_note(-1),
+                     bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="left", padx=(0, 4))
+        self.mini_note_picker = ttk.Combobox(picker, state="readonly", font=(FONT, 9),
+                                             values=[], height=14)
+        self.mini_note_picker.pack(side="left", fill="x", expand=True)
+        self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
+        self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
+        action_label(picker, "▶", lambda: self._move_mini_note(1),
+                     bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right", padx=(4, 0))
+        self.mini_note_page = tk.Label(picker, text="", bg=BG, fg=SECONDARY,
+                                       font=(FONT, 8), width=5, anchor="center")
+        self.mini_note_page.pack(side="right", padx=(5, 0))
         details = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
         details.pack(fill="x", pady=(0, 6))
         self.created_label = tk.Label(details, text="", fg=MUTED, bg=PANEL, font=(FONT, 7))
@@ -1313,6 +1312,27 @@ class PocketDesk:
         return None
 
     def refresh_note_list(self):
+        if self.display_mode == "mini":
+            picker = getattr(self, "mini_note_picker", None)
+            if picker is None or not picker.winfo_exists():
+                return
+            self._loading_note = True
+            try:
+                self._note_rows = ordered_notes(self.data["notes"])
+                titles = [("★ " if n.get("pinned") else "") +
+                          (n["title"].strip() or "Untitled")[:42]
+                          for n in self._note_rows]
+                picker.configure(values=titles)
+                index = next((i for i, n in enumerate(self._note_rows)
+                              if n["id"] == self.data["active_note"]), -1)
+                if index >= 0:
+                    picker.current(index)
+                else:
+                    picker.set("")
+            finally:
+                self._loading_note = False
+            self._update_mini_note_pager()
+            return
         if not hasattr(self, "note_list") or not self.note_list.winfo_exists():
             return
         self._loading_note = True
@@ -1348,6 +1368,46 @@ class PocketDesk:
         self._loading_note = False
         self.save_status.config(text="Autosaved", fg=MUTED)
         self._update_mini_note_pager()
+
+    def _select_from_mini_note_picker(self, _event=None):
+        if self._loading_note or self.display_mode != "mini":
+            return
+        index = self.mini_note_picker.current()
+        if not (0 <= index < len(self._note_rows)):
+            return
+        target = self._note_rows[index]["id"]
+        if target == self.data["active_note"]:
+            return
+        self._flush_current_note()
+        self.data["active_note"] = target
+        self._load_selected_note()
+        self.schedule_save()
+
+    def _show_mini_note_menu(self, event):
+        """Keep pin, duplicate, reminder and delete on the compact selector."""
+        if self.display_mode != "mini":
+            return
+        menu = self._build_note_list_menu(self.data["active_note"])
+        previous = getattr(self, "_note_picker_context_menu", None)
+        if previous is not None and previous.winfo_exists():
+            previous.unpost()
+            previous.destroy()
+        self._note_picker_context_menu = menu
+        was_modal = self._modal
+        self._modal = True
+
+        def on_unmap(_event):
+            if self._note_picker_context_menu is menu:
+                self._modal = was_modal
+
+        menu.bind("<Unmap>", on_unmap)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._modal = was_modal
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _select_from_list(self, _event):
         if self._loading_note:

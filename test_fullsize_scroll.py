@@ -19,7 +19,7 @@ class FullSizeScrollTests(unittest.TestCase):
         start = SOURCE.index('    def _scroll_tool_on_wheel(self, event, *, from_picker=False):')
         end = SOURCE.index('    def _mini_click_outside_editor', start)
         code = SOURCE[start:end]
-        self.assertIn('isinstance(widget, (tk.Text, tk.Listbox, ttk.Combobox', code)
+        self.assertIn('elif isinstance(widget, (tk.Text, tk.Listbox)):', code)
         self.assertIn('isinstance(widget, ttk.Treeview)', code)
         self.assertIn('canvas.yview_scroll(steps, "units")', code)
 

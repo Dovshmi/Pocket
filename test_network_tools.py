@@ -28,7 +28,7 @@ class NetworkTests(unittest.TestCase):
             listener.listen(1)
             port = listener.getsockname()[1]
             self.assertEqual(net.check_tcp_port("127.0.0.1", port)["status"], "OPEN")
-        self.assertEqual(net.check_tcp_port("127.0.0.1", port)["status"], "CLOSED")
+        # Some CI hosts firewall refused connections as timeouts.\n        self.assertIn(net.check_tcp_port("127.0.0.1", port)["status"], ("CLOSED", "TIMEOUT"))
 
     def test_normalize_mac(self):
         for raw in ("001122AABBCC", "00:11:22:AA:BB:CC", "00-11-22-aa-bb-cc", "0011.22AA.BBCC"):
@@ -77,6 +77,32 @@ class NetworkTests(unittest.TestCase):
             self.assertEqual(net.mac_lookup("00:11:22:33:44:55", vendors)["vendor"], "Vendor Small")
             with self.assertRaises(ValueError):
                 net.import_ieee_csv_files([], cache)
+
+    def test_ieee_http_rejection_is_explained_without_overwriting_cache(self):
+        from urllib.error import HTTPError
+        sample = b"existing-cache"
+        with tempfile.TemporaryDirectory() as d:
+            cache = Path(d) / "vendors.json"
+            cache.write_bytes(sample)
+            error = HTTPError(net.IEEE_LISTS[0][1], 418, "Blocked", None, None)
+            with patch.object(net, "urlopen", side_effect=error):
+                with self.assertRaisesRegex(ValueError, r"HTTP 418.*Import CSV"):
+                    net.download_ieee_database(cache)
+            self.assertEqual(cache.read_bytes(), sample)
+
+    def test_ieee_gzip_and_large_registry_content(self):
+        import gzip
+        row = bytes([10]).join([b"Registry,Assignment,Organization Name,Organization Address",
+                               b"MA-L,001122,Example,US", b""])
+        body = gzip.compress(row)
+        class Response:
+            headers = {"Content-Encoding": "gzip"}
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def read(self, limit): return body
+        with tempfile.TemporaryDirectory() as d, patch.object(net, "urlopen", return_value=Response()):
+            with patch.object(net, "IEEE_LISTS", [net.IEEE_LISTS[0]]):
+                self.assertEqual(net.download_ieee_database(Path(d) / "vendors.json"), 1)
 
     def test_full_download_uses_ieee_only_and_stores_cache(self):
         contents = {

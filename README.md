@@ -6,7 +6,7 @@
 
 A compact, local-first Windows tray toolbox for notes and reminders, clipboard history, shortcuts, network diagnostics, CLI references, and subnet planning.
 
-**Windows 10 / 11** · **Python 3.10+** · **v1.26** · **Local-first** · **GPL-3.0**
+**Windows 10 / 11** · **Python 3.10+** · **v1.27** · **Local-first** · **GPL-3.0**
 
 [Features](#features) · [App gallery](#app-gallery) · [Installation](#getting-started) · [Build an EXE](#building-a-windows-executable) · [Changelog](#version-history)
 
@@ -17,7 +17,7 @@ A compact, local-first Windows tray toolbox for notes and reminders, clipboard h
 </p>
 
 > [!NOTE]
-> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; some controls and tabs differ from the current v1.26 interface.
+> **Project status:** Pocket is actively developed. This repository contains source code, not a prebuilt Windows release. Screenshots below are real captures of **earlier builds**; Mini Mode is new and is not yet shown in screenshots.
 
 
 ## What is Pocket?
@@ -58,6 +58,22 @@ Additional detail captures: [Notes actions](preview-note-context-menu.png) · [S
 | **Commands** | Search a network CLI library by device, category, syntax or purpose (including Hebrew). Edit before copying; favorite, add, edit and delete saved entries. Uses one writable `commands.json` with manual backup and restore. **Commands are never executed.** |
 | **Subnet Calculator** | IPv4 CIDR/netmask calculations: network and broadcast, wildcard mask, first/last usable address, usable/total address counts, and subdivision into smaller networks. Includes `/31` and `/32` handling. |
 | **Clipboard** | Searchable, session-only history of copied **text**. Pin entries, copy an item back to Windows, or delete/clear history. Monitoring automatically runs while Clipboard is visible in Settings; captured text is **not persisted**. |
+
+### Mini Mode — v1.27
+
+Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 × 530 px** view. Return with **Settings → Return to Normal size**. The display mode is saved across restarts. There is **no title-bar mode toggle**.
+
+- A compact header uses an always-visible **icon tab for every enabled tool**, with a short caption and active highlighting — no dropdown. Settings, PIN, close and themes remain accessible.
+- **Normal Commands** shows **four full result rows** above the editor, with a resizable divider. **+ New** and **Backup ▾** sit beside a fixed heading above the scrollable content, freeing a separate toolbar row; only Mini retains the original card layout.
+- **Normal-mode scrolling:** Ports, MAC Lookup, Commands and Subnet scroll vertically with the mouse wheel or touchpad **without a visible outer scrollbar**, including on short monitors and high-DPI Windows scaling. Tables retain their own scrollbars; editable text fields continue to scroll when their content overflows. **Mini's outer scrollbar is hidden too**, while its mouse-wheel scrolling remains available. The Commands machine and category dropdowns no longer change selection when the wheel is used over them in either Normal or Mini; in Normal, the wheel scrolls the page instead.
+- **Mini Commands** presents the most relevant CLI match first in one editable card. Use ◀ / ▶ to browse results, or the keyboard arrow keys **when focus is outside the command editor, search box and other input controls**. Favorites, Recents, device/category search, Copy, Edit, Delete, Reset and manual backup remain available; nothing executes commands.
+- **Notes** combines the note picker, compact page counter and ◀ / ▶ arrows in **one row** above the metadata, freeing vertical space for typing. Pinned notes remain first; keyboard paging works outside input fields. The Windows RTL/LTR editor, reminders and Notepad synchronization are unchanged.
+- **Shortcuts** uses denser rows with direct Open, Copy and overflow actions.
+- **Ports, MAC Lookup and Subnet** use scrollable views with compact result tables. Entering Mini Mode never initiates a network connection. For IEEE MAC registries, **Update IEEE DB** tries the official CSV downloads; **Get CSV ↗** opens each official IEEE file in your browser for manual **Import CSV** when automated requests are blocked by IEEE or your corporate network.
+- **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.
+- Window positions for Normal and Mini are stored **separately**; notes, commands and shortcuts continue sharing the same underlying local data.
+
+Mini Mode is included in v1.27 on `main`. Windows visual, keyboard and display-scaling validation remains recommended for different devices.
 
 ### Personalize the workspace
 
@@ -178,7 +194,7 @@ Pocket saves user data under:
 - **Notepad synchronization:** **Open in Notepad** opens a stable local working file. Saving in Notepad updates the Pocket note while Pocket is running (checked approximately every 1.2 seconds). If both editors changed the note, Pocket prompts before replacing content, and preserves a recovery copy when the Pocket version is selected. Older one-off exports remain separate and are not synchronized.
 - **Network activity:** TCP checks contact only the specified target. Registry downloads retrieve IEEE vendor data when requested. Pocket doesn't send notes to a lookup service.
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
-- **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner.
+- **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner. IEEE may block scripted requests (such as HTTP 403/418/429), and work PCs may block the IEEE domain; Pocket now shows the underlying error and provides **Get CSV ↗ → Import CSV** as a manual alternative. Downloading requires network access only when requested.
 
 ### CLI command library
 
@@ -197,6 +213,7 @@ The local application does not upload command edits automatically; GitHub publis
 Pocket/
 ├── app.pyw                 # Desktop UI, notes, tabs and tray
 ├── note_sync.py            # Notepad working-file sync and conflict backups
+├── mini_layout.py          # Mini geometry, layout preferences and command paging
 ├── native_bidi.py          # Windows native right-to-left note editor
 ├── icon_themes.py          # Theme palettes and generated icons
 ├── hotkey_settings.py      # Configurable popup shortcut
@@ -221,12 +238,13 @@ Pocket/
 
 ## Version history
 
-> **Next:** Mini Mode is planned for v1.27, on a separate development branch. The compact layout will be enabled from **Settings** rather than a header button.
+> **Current version:** v1.27 is the default `main` version. Mini Mode is available through **Settings**, and Normal remains the default for existing installations unless changed.
 
 Development milestones shown below are drawn from repository commits and feature implementations; they are **not** a claim that each intermediate version has a separate downloadable GitHub Release.
 
 | Version | Date | Highlights |
 |:---|:---|:---|
+| **v1.27** | 2026-10-30 | Settings-controlled Mini Mode with icon tabs; one-command carousel and keyboard navigation; compact Notes/Shortcuts; per-mode positions; scrollable Normal/Mini tools; four-row Normal Commands results with fixed header; improved IEEE CSV fallback and filter-wheel behavior. |
 | **v1.26** | 2026-10-29 | Unified Windows Unicode editor for LTR/RTL (fixes mixed-language right-click crash), Notepad save-to-Pocket synchronization with conflict handling, and direct Copy buttons for shortcuts. |
 | **v1.25** | 2026-10-28 | Clipboard capture now follows menu visibility (no separate toggle). Added per-note one-shot reminders with local date/time scheduling, persistent delivery state and Windows tray notification handling. |
 | **v1.24** | 2026-10-28 | Added Clipboard history, Settings, menu visibility controls, tray notification support and manual-only Commands backup/restore. |
@@ -251,9 +269,9 @@ After installing dependencies, run all discoverable unit tests:
 py -3 -m unittest discover -v
 ```
 
-The project includes tests for data storage and migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnets, command management, clipboard preferences, reminder scheduling, note actions and network utilities.
+The project includes tests for data storage and migration, theme settings, generated icons, configurable hotkeys, shortcut filtering, subnets, command management, clipboard preferences, reminder scheduling, note actions, Mini Mode, scroll behavior and network utilities.
 
-GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository does not currently claim a verified Windows CI release pipeline.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
+GUI smoke scripts are provided separately (see `smoke_*.py`) and need a functioning display. **The repository includes Windows/Linux unit-test workflows; automated checks do not replace interactive Windows GUI testing.** The new command coverage tests are source-level checks, not proof that every command works on every vendor model and firmware.
 
 ## Contributing and feedback
 

@@ -34,6 +34,7 @@ import icon_themes as themes
 import hotkey_settings as hk
 import note_sync
 import native_bidi
+import mini_layout as mini
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -176,7 +177,9 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
-        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"]},
+        "window_positions": {"normal": None, "mini": None},
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
+                     "display_mode": "normal"},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -198,7 +201,8 @@ def normalize_settings(raw):
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
-    return {"visible_tabs": visible}
+    return {"visible_tabs": visible,
+            "display_mode": mini.display_mode(raw.get("display_mode"))}
 
 
 def parse_reminder_time(date_text, time_text, now=None):
@@ -320,6 +324,8 @@ def load_data(path: Path) -> dict:
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
+                "window_positions": mini.window_positions(data.get("window_positions"),
+                                                              data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
                 "settings": normalize_settings(data.get("settings")),
                 "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
@@ -365,6 +371,9 @@ class PocketDesk:
         self.data = load_data(self.path)
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
+        self.display_mode = self.settings["display_mode"]
+        self.data["window_positions"] = mini.window_positions(
+            self.data.get("window_positions"), self.data.get("window_position"))
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
         self._clipboard_job = None
@@ -419,6 +428,8 @@ class PocketDesk:
         self.machine_catalog = ch.load_machine_names(self.commands_file) if self.commands_file else []
         self.command_library = ch.merged_commands(self.bundled_commands, self.data["custom_commands"])
         self.command_filtered = []
+        self.mini_command_index = 0
+        self._mini_command_filters = None
         self.selected_command_id = None
         self.command_mode = "all"
         self.command_draft_id = None
@@ -439,7 +450,8 @@ class PocketDesk:
             self.root = tk.Tk()
         self.root.title("Pocket")
         self.root.configure(bg=BG)
-        self.root.geometry(f"{WIDTH}x{HEIGHT}")
+        start_width, start_height = mini.view_dimensions(self.display_mode)
+        self.root.geometry(f"{start_width}x{start_height}")
         self.root.resizable(False, False)
         self.root.protocol("WM_DELETE_WINDOW", self.hide)
         if not preview:
@@ -454,6 +466,16 @@ class PocketDesk:
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Escape>", lambda _e: self.hide())
+        # Wheel events from all child widgets bubble through the root binding.
+        # Unlike bind_all, this does not interfere with unrelated tabs.
+        self.root.bind("<MouseWheel>", self._scroll_tool_on_wheel, add="+")
+        self.root.bind("<Button-4>", self._scroll_tool_on_wheel, add="+")
+        self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
+        # Tk labels/frames are not focusable, so clicking outside a Text editor
+        # would otherwise leave the caret active and block Mini arrow paging.
+        self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
+        for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
+            self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
         self.root.after(120, self._poll_events)
         self.root.after(650, self._clipboard_poll)
@@ -606,6 +628,8 @@ class PocketDesk:
         return "break"
 
     def _build_shell(self):
+        if self.display_mode == "mini":
+            return self._build_mini_shell()
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
         header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
@@ -666,8 +690,234 @@ class PocketDesk:
 
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=17, pady=(17, 8))
+        self._mini_root_body = self.body
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
+
+    def _scrolling_tool_body(self):
+        """Scrollable tool content for either window mode.
+
+        Frame content lives inside a canvas so a short work area or large
+        Windows display scaling never hides the last control. The scrollbar
+        belongs to the tool, not to an individual results table.
+        """
+        outer = self.body
+        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0,
+                           borderwidth=0, takefocus=0)
+        # The outer tool page scrolls with mouse wheel / touchpad in either
+        # mode; keep its rail entirely invisible to maximize usable width.
+        # Result tables still have their own dedicated scrollbars.
+        canvas.pack(side="left", fill="both", expand=True)
+        inner = tk.Frame(canvas, bg=BG)
+        window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>",
+                   lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>",
+                    lambda event: canvas.itemconfigure(window_id, width=event.width))
+        self.body = inner
+        self._tool_scroll_canvas = canvas
+
+    def _mini_scrolling_body(self):
+        """Backward-compatible entry point for Mini's scrollable network tools."""
+        self._scrolling_tool_body()
+
+    def _scroll_tool_on_wheel(self, event, *, from_picker=False):
+        """Route wheel to the outer tool only when an inner widget cannot scroll.
+
+        A Treeview should retain its own row scrolling until its edge is
+        reached. A Text editor, ComboBox or Listbox keeps native scrolling
+        and cursor behavior. The outer canvas handles every other area.
+        """
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is None or not canvas.winfo_exists():
+            return None
+        if self.current_tab not in ("ports", "mac", "subnet", "commands"):
+            return None
+        delta = getattr(event, "delta", 0)
+        if delta:
+            steps = -max(1, abs(delta) // 120) if delta > 0 else max(1, abs(delta) // 120)
+        elif getattr(event, "num", None) in (4, 5):
+            steps = -1 if event.num == 4 else 1
+        else:
+            return None
+        widget = event.widget
+        if isinstance(widget, ttk.Combobox):
+            if not from_picker:
+                return None  # Unprotected selectors keep native behavior.
+            # ttk.Combobox inherits Entry, NOT a vertically scrollable widget.
+            # Calling yview() here raises TclError/AttributeError, previously
+            # allowing the Win32 combobox class binding to change the filter.
+            # Protected CLI selectors go straight to the outer page instead.
+        elif isinstance(widget, (tk.Text, tk.Listbox)):
+            # Preserve a text/list control's own scrolling until its edge.
+            first, last = widget.yview()
+            if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
+                return None
+        # Single-line Entry/Spinbox controls cannot scroll vertically: let
+        # the surrounding page receive the wheel as normal.
+        if isinstance(widget, ttk.Treeview):
+            # Let the table navigate rows without scrolling the entire page.
+            first, last = widget.yview()
+            if (steps < 0 and first > 0.001) or (steps > 0 and last < 0.999):
+                return None
+        if canvas.yview()[0] <= 0.001 and steps < 0:
+            return None
+        if canvas.yview()[1] >= 0.999 and steps > 0:
+            return None
+        canvas.yview_scroll(steps, "units")
+        return "break"
+
+    def _command_picker_on_wheel(self, event):
+        """Keep CLI device/category filters unchanged when scrolling the page.
+
+        Intercept at the widget before ttk.Combobox's class-level binding,
+        which otherwise changes the selection and unexpectedly re-filters the
+        results while the user is only trying to reach lower controls.
+        """
+        self._scroll_tool_on_wheel(event, from_picker=True)
+        return "break"
+
+    def _protect_command_picker(self, widget):
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            widget.bind(sequence, self._command_picker_on_wheel)
+        return widget
+
+    def _mini_click_outside_editor(self, event):
+        """Leave Mini edit focus when clicking an ordinary area of the window.
+
+        Tk Label/Frame clicks do not move keyboard focus by default. In
+        particular, command_code kept focus after clicking the card's heading
+        or paging controls, so arrow keys continued moving its caret. Restore
+        focus to the window only on a non-input click; keep text editing,
+        search, selections and the Windows RichEdit editor untouched.
+        """
+        if self.display_mode != "mini" or self._modal:
+            return
+        if self.current_tab not in ("commands", "notes"):
+            return
+
+        target = event.widget
+        if isinstance(target, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+                               ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox,
+                               native_bidi.NativeBidiEditor)):
+            return
+        # A Win32 RichEdit control is a separate child HWND: Tk's logical
+        # focus alone can leave the native editor still receiving arrow keys.
+        # Transfer native focus explicitly after saving any pending note edits.
+        if self.current_tab == "notes" and self._bidi_active():
+            self._flush_current_note()
+            if self.bidi_editor.has_focus():
+                self.bidi_editor.release_focus_to(self.root)
+        self.root.focus_set()
+
+    def _mini_keyboard_step(self, event, step):
+        """Only page Mini cards when focus is outside editable/selectable controls."""
+        if self.display_mode != "mini" or self._modal or self.current_tab not in ("commands", "notes"):
+            return None
+        focused = self.root.focus_get()
+        if focused is not None and isinstance(
+                focused, (tk.Text, tk.Entry, tk.Listbox, tk.Spinbox,
+                          ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox)):
+            return None
+        if self.current_tab == "notes" and self._bidi_active() and self.bidi_editor.has_focus():
+            return None
+        if self.current_tab == "commands":
+            self._move_mini_command(step)
+        else:
+            self._move_mini_note(step)
+        return "break"
+
+    def _build_mini_shell(self):
+        """Compact chrome: one tool at a time, with Settings always accessible."""
+        outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
+        outer.pack(fill="both", expand=True)
+        header = tk.Frame(outer, bg=BG, height=46, cursor="fleur")
+        header.pack(fill="x", padx=11, pady=(9, 3))
+        header.pack_propagate(False)
+        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(13, 13)
+        icon = tk.Label(header, image=self._header_photo, bg=BG, cursor="hand2")
+        self.header_icon = icon
+        icon.pack(side="left", padx=(0, 6))
+        icon.bind("<Button-1>", self._show_theme_menu)
+        icon.bind("<Button-3>", self._show_theme_menu)
+        name = tk.Label(header, text="Pocket", bg=BG, fg=WHITE, font=(FONT, 14, "bold"),
+                        cursor="fleur")
+        name.pack(side="left", fill="y")
+        self.shortcut_hint = tk.Label(header, text=self._hotkey_hint(), bg=BG, fg=MUTED,
+                                      font=(FONT, 7), cursor="hand2")
+        self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
+        # Hidden in compact chrome but retained for hotkey-change status updates.
+        for handle in (header, name):
+            handle.bind("<ButtonPress-1>", self._begin_window_drag)
+            handle.bind("<B1-Motion>", self._continue_window_drag)
+            handle.bind("<ButtonRelease-1>", self._finish_window_drag)
+            handle.bind("<Button-3>", self._show_header_menu)
+        self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
+                                       bg=PANEL, padx=7, pady=5, font_size=7)
+        self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
+        action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
+                     padx=5, pady=1, font_size=15).pack(side="right")
+        # Eight compact icon tabs fit across the 346px mini window. Every
+        # visible tool has a permanent button; no hidden dropdown or overflow.
+        nav = tk.Frame(outer, bg=BG)
+        nav.pack(fill="x", padx=9, pady=(1, 6))
+        self.tab_buttons = {}  # Full-size text-tab API remains unchanged.
+        self.mini_icon_tabs = {}
+        for key, icon, caption in (
+            ("notes", "✎", "Notes"), ("links", "↗", "Links"),
+            ("ports", "⇄", "Ports"), ("mac", "▦", "MAC"),
+            ("commands", ">_", "CLI"), ("subnet", "⌗", "Subnet"),
+            ("clipboard", "▤", "Clip"), ("settings", "⚙", "More"),
+        ):
+            if key != "settings" and key not in self.settings["visible_tabs"]:
+                continue
+            tile = tk.Frame(nav, bg=BG, width=39, height=45, cursor="hand2")
+            tile.pack(side="left", padx=(0, 1))
+            tile.pack_propagate(False)
+            glyph = tk.Label(tile, text=icon, font=("Segoe UI Symbol", 14, "bold"),
+                             bg=BG, fg=SECONDARY, cursor="hand2", anchor="center")
+            glyph.pack(fill="x", pady=(1, 0))
+            caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
+                                      bg=BG, fg=MUTED, cursor="hand2", anchor="center")
+            caption_label.pack(fill="x")
+            for target in (tile, glyph, caption_label):
+                target.bind("<Button-1>", lambda _event, tool=key: self.show_tab(tool))
+            self.mini_icon_tabs[key] = (tile, glyph, caption_label)
+        self._style_mini_icon_tabs(self.current_tab)
+        tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
+        self.body = tk.Frame(outer, bg=BG)
+        self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
+        self._mini_root_body = self.body
+
+    def _style_mini_icon_tabs(self, selected):
+        """Show an active tab indicator while retaining labels on small screens."""
+        for key, (tile, glyph, caption) in getattr(self, "mini_icon_tabs", {}).items():
+            active = key == selected
+            bg = ACCENT_DARK if active else BG
+            tile.config(bg=bg)
+            glyph.config(bg=bg, fg=ACCENT if active else SECONDARY)
+            caption.config(bg=bg, fg=WHITE if active else MUTED)
+
+    def _build_mini_settings(self):
+        tk.Label(self.body, text="Settings", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(anchor="w", pady=(0, 6))
+        tk.Label(self.body, text="DISPLAY MODE", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
+        action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
+                     fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
+                     font_size=9).pack(fill="x", pady=(0, 13))
+        tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        for key, label in VISIBLE_TABS:
+            flag = tk.BooleanVar(value=key in self.settings["visible_tabs"])
+            tk.Checkbutton(self.body, text=label.title(), variable=flag,
+                           bg=BG, fg=WHITE, selectcolor=PANEL,
+                           activeforeground=WHITE, activebackground=BG,
+                           font=(FONT, 8), command=lambda k=key, v=flag:
+                           self._set_visible_tab(k, v.get())).pack(anchor="w", pady=1)
+        tk.Label(self.body, text="Clipboard monitoring follows menu visibility.",
+                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=295,
+                 justify="left").pack(anchor="w", pady=(8, 0))
 
     def show_tab(self, which):
         self._flush_current_note()
@@ -676,11 +926,26 @@ class PocketDesk:
         if which not in self.settings["visible_tabs"] and which != "settings":
             which = "settings"
         self.current_tab = which
+        # Always restore the shell body before replacing scrollable tool pages.
+        # A previous canvas belongs to the old tab and must never retain wheel
+        # routing when a new tab is opened.
+        self._tool_scroll_canvas = None
+        if hasattr(self, "_mini_root_body") and self._mini_root_body.winfo_exists():
+            self.body = self._mini_root_body
         for child in self.body.winfo_children():
             child.destroy()
+        if self.display_mode == "mini":
+            self._style_mini_icon_tabs(which)
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
+        if which == "commands" and self.display_mode == "normal":
+            # Keep the Normal Commands title/actions fixed in their usual top
+            # position while only the filters, results and editor scroll.
+            self._build_normal_commands_header()
+        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
+                or (self.display_mode == "normal" and which in ("ports", "mac", "commands", "subnet"))):
+            self._scrolling_tool_body()
         if which == "notes":
             self._build_notes()
         elif which == "links":
@@ -723,7 +988,21 @@ class PocketDesk:
         self._build_shell_refresh()
         self.schedule_save()
 
+    def _set_display_mode(self, mode):
+        """Switch layouts from Settings without losing notes or draft input."""
+        mode = mini.display_mode(mode)
+        if mode == self.display_mode:
+            return
+        self._flush_current_note()
+        if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
+            self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self.display_mode = mode
+        self.settings["display_mode"] = mode
+        self._build_shell_refresh()
+        self.schedule_save()
+
     def _build_shell_refresh(self):
+        self._flush_current_note()
         for child in self.root.winfo_children():
             child.destroy()
         self._header_context_menu = None
@@ -734,10 +1013,16 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
+        if self.display_mode == "mini":
+            return self._build_mini_settings()
         tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"),
                  bg=BG, fg=WHITE).pack(anchor="w")
         tk.Label(self.body, text="Choose which tools appear in Pocket",
                  bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
+        tk.Label(self.body, text="WINDOW SIZE", bg=BG, fg=SECONDARY,
+                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
+        action_label(self.body, "Switch to Mini mode", lambda: self._set_display_mode("mini"),
+                     fg=ACCENT, bg=PANEL, hover=CARD, font_size=10).pack(anchor="w", pady=(0, 15))
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
         for key, label in VISIBLE_TABS:
@@ -838,6 +1123,16 @@ class PocketDesk:
         self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
+        if self.display_mode == "mini":
+            heading = tk.Frame(parent, bg=BG)
+            heading.pack(fill="x", pady=(1, 7))
+            action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
+                         hover="#BBC0FF", padx=7, pady=6, font_size=8).pack(side="right")
+            tk.Label(heading, text=title, bg=BG, fg=WHITE, font=(FONT, 12, "bold"),
+                     anchor="w").pack(side="left", fill="x", expand=True)
+            tk.Label(parent, text=desc, bg=BG, fg=MUTED, font=(FONT, 8),
+                     wraplength=304, justify="left").pack(anchor="w", pady=(0, 7))
+            return
         heading = tk.Frame(parent, bg=BG)
         heading.pack(fill="x", pady=(1, 14))
         words = tk.Frame(heading, bg=BG)
@@ -847,7 +1142,128 @@ class PocketDesk:
         action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
                      hover="#BBC0FF", padx=12, pady=9, font_size=9).pack(side="right")
 
+    def _build_mini_notes(self):
+        """Compact notes: a short picker, note metadata and full-height editor."""
+        bar = tk.Frame(self.body, bg=BG)
+        bar.pack(fill="x", pady=(0, 5))
+        tk.Label(bar, text="Notes", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(side="left")
+        action_label(bar, "+ New", self.add_note, bg=PANEL, fg=ACCENT,
+                     font_size=8, padx=9, pady=5).pack(side="right")
+        # One compact navigation row replaces the separate counter row plus
+        # two-line listbox. The note selector still provides direct access to
+        # large collections without taking vertical space from the editor.
+        picker = tk.Frame(self.body, bg=BG)
+        picker.pack(fill="x", pady=(0, 6))
+        action_label(picker, "◀", lambda: self._move_mini_note(-1),
+                     bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="left", padx=(0, 4))
+        self.mini_note_picker = ttk.Combobox(picker, state="readonly", font=(FONT, 9),
+                                             values=[], height=14)
+        self.mini_note_picker.pack(side="left", fill="x", expand=True)
+        self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
+        self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
+        action_label(picker, "▶", lambda: self._move_mini_note(1),
+                     bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right", padx=(4, 0))
+        self.mini_note_page = tk.Label(picker, text="", bg=BG, fg=SECONDARY,
+                                       font=(FONT, 8), width=5, anchor="center")
+        self.mini_note_page.pack(side="right", padx=(5, 0))
+        details = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        details.pack(fill="x", pady=(0, 6))
+        self.created_label = tk.Label(details, text="", fg=MUTED, bg=PANEL, font=(FONT, 7))
+        self.created_label.pack(anchor="w", padx=8, pady=(5, 0))
+        self.title_var = tk.StringVar()
+        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+                                    insertbackground=WHITE, highlightthickness=1,
+                                    highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
+        self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
+        self.title_var.trace_add("write", self._change_note_title)
+        phone_row = tk.Frame(details, bg=PANEL)
+        phone_row.pack(fill="x", padx=8, pady=(0, 4))
+        tk.Label(phone_row, text="Phone", bg=PANEL, fg=MUTED,
+                 font=(FONT, 8)).pack(side="left", padx=(0, 4))
+        self.phone_var = tk.StringVar()
+        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+                                    insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
+        self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
+                     font_size=8, padx=6, pady=4).pack(side="right", padx=(5, 0))
+        self.phone_var.trace_add("write", self._change_note_phone)
+        reminders = tk.Frame(details, bg=PANEL)
+        reminders.pack(fill="x", padx=6, pady=(0, 5))
+        self.reminder_action = action_label(reminders, "☐ Notify me",
+                                            self._toggle_active_note_reminder,
+                                            bg=PANEL, fg=ACCENT, padx=2, pady=2, font_size=8)
+        self.reminder_action.pack(side="left")
+        self.reminder_detail = tk.Label(reminders, text="", bg=PANEL, fg=MUTED,
+                                        font=(FONT, 7), cursor="hand2")
+        self.reminder_detail.pack(side="right")
+        self.reminder_detail.bind("<Button-1>", lambda _e: self._edit_active_note_reminder())
+        editor = tk.Frame(self.body, bg=PANEL, highlightthickness=1, highlightbackground=BORDER)
+        editor.pack(fill="both", expand=True)
+        self.note_body = tk.Text(editor, wrap="word", undo=True, bg=INPUT, fg="#D7DAE6",
+                                 insertbackground=ACCENT, selectbackground=ACCENT_DARK,
+                                 relief="flat", bd=0, font=(FONT, 10), height=1, width=1,
+                                 highlightthickness=1, highlightbackground=BORDER, padx=8, pady=7)
+        self.note_body.pack(fill="both", expand=True, padx=7, pady=(7, 0))
+        self.bidi_editor = None
+        if sys.platform == "win32":
+            try:
+                self.bidi_editor = native_bidi.NativeBidiEditor(
+                    editor, background=INPUT, foreground="#D7DAE6",
+                    context_menu=self._show_note_context_menu)
+            except (OSError, RuntimeError) as exc:
+                print(f"Pocket native mini note editor unavailable: {exc}", file=sys.stderr)
+        self.note_direction_var = tk.StringVar(value="ltr")
+        self.note_body.tag_configure("note_alignment", justify="left")
+        self.note_body.bind("<<Modified>>", self._change_note_body)
+        self.note_body.bind("<Button-3>", self._show_note_context_menu)
+        self.note_body.bind("<Control-Button-1>", self._show_note_context_menu)
+        self.note_body.bind("<Control-a>", self._select_all_note_text)
+        footer = tk.Frame(editor, bg=PANEL)
+        footer.pack(fill="x", padx=6, pady=(4, 5))
+        self.save_status = tk.Label(footer, text="Autosaved", fg=MUTED,
+                                    bg=PANEL, font=(FONT, 7))
+        self.save_status.pack(side="left")
+        action_label(footer, "Delete", self.delete_note, fg=DANGER, bg=PANEL,
+                     font_size=8, padx=4, pady=3).pack(side="right")
+        action_label(footer, "Notepad ↗", self.open_notepad, fg=ACCENT, bg=PANEL,
+                     font_size=8, padx=5, pady=3).pack(side="right")
+        self.refresh_note_list()
+        self._load_selected_note()
+
+    def _update_mini_note_pager(self):
+        if self.display_mode != "mini" or self.current_tab != "notes":
+            return
+        page = getattr(self, "mini_note_page", None)
+        if page is None or not page.winfo_exists():
+            return
+        rows = getattr(self, "_note_rows", [])
+        current = next((i for i, n in enumerate(rows)
+                        if n["id"] == self.data["active_note"]), -1)
+        page.config(text=f"{current + 1 if current >= 0 else 0} / {len(rows)}")
+
+    def _move_mini_note(self, step):
+        """Navigate notes in pinned-first order without changing edit focus."""
+        if self.display_mode != "mini" or self.current_tab != "notes":
+            return
+        rows = getattr(self, "_note_rows", [])
+        if not rows:
+            return
+        index = next((i for i, n in enumerate(rows)
+                      if n["id"] == self.data["active_note"]), 0)
+        target = mini.carousel_index(index, len(rows), step)
+        if target == index:
+            return
+        self._flush_current_note()
+        self.data["active_note"] = rows[target]["id"]
+        self.refresh_note_list()
+        self._load_selected_note()
+        self.schedule_save()
+
     def _build_notes(self):
+        if self.display_mode == "mini":
+            return self._build_mini_notes()
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
         main = tk.Frame(self.body, bg=BG)
         main.pack(fill="both", expand=True, pady=(0, 5))
@@ -971,6 +1387,27 @@ class PocketDesk:
         return None
 
     def refresh_note_list(self):
+        if self.display_mode == "mini":
+            picker = getattr(self, "mini_note_picker", None)
+            if picker is None or not picker.winfo_exists():
+                return
+            self._loading_note = True
+            try:
+                self._note_rows = ordered_notes(self.data["notes"])
+                titles = [("★ " if n.get("pinned") else "") +
+                          (n["title"].strip() or "Untitled")[:42]
+                          for n in self._note_rows]
+                picker.configure(values=titles)
+                index = next((i for i, n in enumerate(self._note_rows)
+                              if n["id"] == self.data["active_note"]), -1)
+                if index >= 0:
+                    picker.current(index)
+                else:
+                    picker.set("")
+            finally:
+                self._loading_note = False
+            self._update_mini_note_pager()
+            return
         if not hasattr(self, "note_list") or not self.note_list.winfo_exists():
             return
         self._loading_note = True
@@ -983,6 +1420,7 @@ class PocketDesk:
                 self.note_list.selection_set(i)
                 self.note_list.activate(i)
         self._loading_note = False
+        self._update_mini_note_pager()
 
     def _load_selected_note(self):
         if self.current_tab != "notes":
@@ -1004,6 +1442,47 @@ class PocketDesk:
         self.note_body.edit_modified(False)
         self._loading_note = False
         self.save_status.config(text="Autosaved", fg=MUTED)
+        self._update_mini_note_pager()
+
+    def _select_from_mini_note_picker(self, _event=None):
+        if self._loading_note or self.display_mode != "mini":
+            return
+        index = self.mini_note_picker.current()
+        if not (0 <= index < len(self._note_rows)):
+            return
+        target = self._note_rows[index]["id"]
+        if target == self.data["active_note"]:
+            return
+        self._flush_current_note()
+        self.data["active_note"] = target
+        self._load_selected_note()
+        self.schedule_save()
+
+    def _show_mini_note_menu(self, event):
+        """Keep pin, duplicate, reminder and delete on the compact selector."""
+        if self.display_mode != "mini":
+            return
+        menu = self._build_note_list_menu(self.data["active_note"])
+        previous = getattr(self, "_note_picker_context_menu", None)
+        if previous is not None and previous.winfo_exists():
+            previous.unpost()
+            previous.destroy()
+        self._note_picker_context_menu = menu
+        was_modal = self._modal
+        self._modal = True
+
+        def on_unmap(_event):
+            if self._note_picker_context_menu is menu:
+                self._modal = was_modal
+
+        menu.bind("<Unmap>", on_unmap)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._modal = was_modal
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _select_from_list(self, _event):
         if self._loading_note:
@@ -1359,27 +1838,57 @@ class PocketDesk:
                              command=lambda text=lookup: self._find_selected_note_command(text))
         return menu
 
+    def _release_note_context_menu(self, menu):
+        """Clear the temporary menu focus guard exactly once.
+
+        Windows/Tk does not consistently fire <Unmap> when a native RichEdit
+        popup command is selected. If the guard stays set, Mini's click-away
+        and arrow-key navigation both remain disabled.
+        """
+        if getattr(self, "_note_context_menu", None) is not menu:
+            return
+        self._note_context_menu = None
+        self._modal = getattr(self, "_note_context_menu_was_modal", False)
+
+    def _finish_note_context_menu_action(self):
+        """Explicitly dismiss a selected menu action, even without <Unmap>."""
+        menu = getattr(self, "_note_context_menu", None)
+        if menu is None:
+            return
+        try:
+            if menu.winfo_exists():
+                menu.unpost()
+        except tk.TclError:
+            pass
+        finally:
+            self._release_note_context_menu(menu)
+
     def _show_note_context_menu(self, event):
-        """Post the menu without destroying it before Windows can render it."""
+        """Post a Win32-safe context menu with guaranteed focus-guard cleanup."""
         old = getattr(self, "_note_context_menu", None)
-        if old is not None and old.winfo_exists():
-            old.unpost()
-            old.destroy()
+        if old is not None:
+            try:
+                if old.winfo_exists():
+                    old.unpost()
+                    old.destroy()
+            finally:
+                self._release_note_context_menu(old)
 
         menu = self._build_note_context_menu()
         self._note_context_menu = menu
-        was_modal = self._modal
+        self._note_context_menu_was_modal = self._modal
         self._modal = True  # Prevent focus-loss auto-hide while menu is shown.
 
         def on_unmap(_event):
-            if self._note_context_menu is menu:
-                self._modal = was_modal
+            self._release_note_context_menu(menu)
 
         menu.bind("<Unmap>", on_unmap)
+        menu.bind("<Destroy>", lambda event: self._release_note_context_menu(menu)
+                  if event.widget is menu else None)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         except tk.TclError:
-            self._modal = was_modal
+            self._release_note_context_menu(menu)
         finally:
             menu.grab_release()
         return "break"
@@ -1426,6 +1935,10 @@ class PocketDesk:
         else:
             self.note_body.focus_set()
         self.schedule_save()
+        # On some Windows/Tk builds invoking the direction radio item never
+        # sends <Unmap>; explicitly clear the context-menu modal guard now.
+        # Otherwise a later click outside the editor cannot enable Mini arrows.
+        self._finish_note_context_menu_action()
 
     def _change_note_body(self, _event=None):
         if not self.note_body.edit_modified():
@@ -1475,7 +1988,8 @@ class PocketDesk:
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
                                    highlightthickness=1, height=74)
-        self.drop_panel.pack(fill="x", pady=(0, 12))
+        if self.display_mode != "mini":
+            self.drop_panel.pack(fill="x", pady=(0, 12))
         self.drop_panel.pack_propagate(False)
         self.drop_title = tk.Label(self.drop_panel, text="↓  DROP WEBSITE, FILE OR FOLDER HERE",
                                    font=(FONT, 9, 'bold'), fg=ACCENT, bg=PANEL)
@@ -1571,25 +2085,29 @@ class PocketDesk:
 
     def _link_tile(self, link):
         tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 10), padx=(2, 6), ipady=6)
+        tile.pack(fill="x", pady=(0, 5 if self.display_mode == "mini" else 10),
+                  padx=(1, 2 if self.display_mode == "mini" else 6),
+                  ipady=2 if self.display_mode == "mini" else 6)
         kind = link.get("kind", "url")
         badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
         tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 17, "bold"), width=3, height=2).pack(side="left", padx=(12, 10))
+                 font=(FONT, 12 if self.display_mode == "mini" else 17, "bold"),
+                 width=2 if self.display_mode == "mini" else 3,
+                 height=2).pack(side="left", padx=(6, 4) if self.display_mode == "mini" else (12, 10))
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
         title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 11, "bold"), cursor="hand2")
+                         font=(FONT, 9 if self.display_mode == "mini" else 11, "bold"), cursor="hand2")
         title.pack(fill="x", pady=(3, 2))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
-        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:28]}", anchor="w", fg=MUTED, bg=PANEL,
+        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:16 if self.display_mode == 'mini' else 28]}", anchor="w", fg=MUTED, bg=PANEL,
                  font=(FONT, 8)).pack(fill="x")
         title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
         self._register_shortcut_drop(tile)
         self._register_shortcut_drop(title)
         actions = tk.Frame(tile, bg=PANEL)
-        actions.pack(side="right", padx=(0, 8))
+        actions.pack(side="right", padx=(0, 2) if self.display_mode == "mini" else (0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
         action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
@@ -1775,21 +2293,163 @@ class PocketDesk:
                             style="Pocket.Treeview")
         if aligns is None:
             aligns = ("w",) * len(columns)
+        if self.display_mode == "mini":
+            widths = [max(55, int(value * (290 / max(1, sum(widths))))) for value in widths]
         for col, width, align in zip(columns, widths, aligns):
             tree.heading(col, text=col, anchor=align)
-            tree.column(col, width=width, minwidth=50, anchor=align, stretch=True)
+            tree.column(col, width=width, minwidth=40 if self.display_mode == "mini" else 50,
+                        anchor=align, stretch=True)
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         return tree
 
+    def _build_mini_commands(self):
+        """Ranked search with one editable CLI card, never a squeezed table."""
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 5))
+        tk.Label(heading, text="Commands", bg=BG, fg=WHITE,
+                 font=(FONT, 13, "bold")).pack(side="left")
+        action_label(heading, "+ New", self._add_custom_command, bg=PANEL, fg=ACCENT,
+                     padx=8, pady=5, font_size=8).pack(side="right")
+        action_label(heading, "Backup ▾", self._show_command_backup_menu,
+                     bg=PANEL, fg=MUTED, padx=7, pady=5, font_size=8).pack(side="right", padx=(0, 4))
+        prefs = self.data["command_state"]
+        names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
+        chosen = prefs.get("machine")
+        self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
+        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+                                            state="readonly", font=(FONT, 9))
+        self.machine_picker.pack(fill="x", pady=(0, 7))
+        self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        self._protect_command_picker(self.machine_picker)
+        self.command_query = tk.StringVar()
+        self.command_search_entry = self._entry(self.body, self.command_query)
+        self.command_search_entry.config(font=(FONT, 9), fg=MUTED)
+        self._command_placeholder = "Search CLI / חיפוש פקודה"
+        self._command_placeholder_active = True
+        self.command_search_entry.insert(0, self._command_placeholder)
+        self.command_search_entry.bind("<FocusIn>", self._command_focus_in)
+        self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
+        self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
+        self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
+        self.root.bind("<Control-f>", self._focus_command_search)
+        row = tk.Frame(self.body, bg=BG)
+        row.pack(fill="x", pady=(0, 4))
+        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
+        self.command_category_picker = ttk.Combobox(
+            row, textvariable=self.command_category_var, state="readonly",
+            values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
+            font=(FONT, 8))
+        self.command_category_picker.pack(side="left", fill="x", expand=True)
+        self.command_category_picker.bind("<<ComboboxSelected>>", lambda _e: self._refresh_command_results())
+        self._protect_command_picker(self.command_category_picker)
+        self.command_modes = {}
+        modebar = tk.Frame(self.body, bg=BG)
+        modebar.pack(fill="x", pady=(0, 6))
+        for mode, label in (("all", "All"), ("favorites", "★ Saved"), ("recent", "Recent")):
+            btn = action_label(modebar, label, lambda m=mode: self._set_command_mode(m),
+                               bg=PANEL, fg=SECONDARY, font_size=8, padx=10, pady=4)
+            btn.pack(side="left", padx=(0, 4))
+            self.command_modes[mode] = btn
+        pager = tk.Frame(self.body, bg=BG)
+        pager.pack(fill="x", pady=(0, 7))
+        self.command_count = tk.Label(pager, text="", bg=BG, fg=MUTED, font=(FONT, 8))
+        self.command_count.pack(side="left")
+        action_label(pager, "▶", lambda: self._move_mini_command(1), bg=PANEL,
+                     fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right")
+        self.mini_command_page = tk.Label(pager, text="0 / 0", bg=BG, fg=SECONDARY,
+                                          font=(FONT, 9))
+        self.mini_command_page.pack(side="right", padx=9)
+        action_label(pager, "◀", lambda: self._move_mini_command(-1), bg=PANEL,
+                     fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="right")
+        details = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        details.pack(fill="both", expand=True)
+        top = tk.Frame(details, bg=PANEL)
+        top.pack(fill="x", padx=9, pady=(9, 3))
+        self.command_machine_tag = tk.Label(top, text="", bg=PANEL, fg=ACCENT, font=(FONT, 8, "bold"))
+        self.command_machine_tag.pack(side="left")
+        self.command_category_tag = tk.Label(top, text="", bg=PANEL, fg=MUTED, font=(FONT, 8))
+        self.command_category_tag.pack(side="right")
+        self.command_description_label = tk.Label(details, text="", bg=PANEL, fg=WHITE,
+                                                   font=(FONT, 9), anchor="w",
+                                                   justify="left", wraplength=286)
+        self.command_description_label.pack(fill="x", padx=9, pady=(2, 5))
+        self.command_code = tk.Text(details, wrap="word", height=4, font=("Consolas", 9),
+                                     bg=INPUT, fg="#D3E4FF", insertbackground=ACCENT,
+                                     highlightthickness=1, highlightbackground=BORDER,
+                                     bd=0, padx=6, pady=6, undo=True)
+        self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
+        self.command_code.bind("<Control-a>", self._command_select_all)
+        self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        actions = tk.Frame(details, bg=PANEL)
+        actions.pack(fill="x", padx=7, pady=(0, 3))
+        self.command_star = action_label(actions, "☆ Save", self._toggle_command_favorite,
+                                         fg=SECONDARY, bg=PANEL, font_size=8, padx=5, pady=4)
+        self.command_star.pack(side="left")
+        self.command_edit = action_label(actions, "Edit", self._edit_custom_command,
+                                         fg=ACCENT, bg=PANEL, font_size=8, padx=5, pady=4)
+        self.command_edit.pack(side="left")
+        self.command_delete = action_label(actions, "Del", self._delete_custom_command,
+                                           fg=DANGER, bg=PANEL, font_size=8, padx=4, pady=4)
+        self.command_delete.pack(side="left")
+        self.command_reset = action_label(actions, "Reset", self._reset_command_draft,
+                                          fg=SECONDARY, bg=PANEL, font_size=8, padx=4, pady=4)
+        self.command_reset.pack(side="left")
+        action_label(details, "⧉  Copy command", self._copy_command,
+                     fg="#121622", bg=ACCENT, padx=8, pady=7,
+                     font_size=9).pack(fill="x", padx=9, pady=(0, 3))
+        self.command_feedback = tk.Label(details, text="", bg=PANEL, fg=MUTED,
+                                          font=(FONT, 7), wraplength=270)
+        self.command_feedback.pack(fill="x", padx=7, pady=(1, 6))
+        # Keep an unmounted Treeview as a selection model shared with the
+        # full-size command search and editing logic.
+        self.command_tree = ttk.Treeview(self.body, columns=("Command", "Purpose"),
+                                          show="headings", selectmode="browse")
+        self.command_tree.bind("<<TreeviewSelect>>", self._select_command)
+        self._style_command_modes()
+        self._refresh_command_results()
+
+    def _update_mini_command_pager(self):
+        """Show only the highest-ranked result or the explicitly selected one."""
+        if self.display_mode != "mini" or not hasattr(self, "mini_command_page"):
+            return
+        count = len(self.command_filtered)
+        idx = mini.selected_index(self.command_filtered, self.selected_command_id)
+        self.mini_command_index = idx
+        self.mini_command_page.config(text=f"{idx + 1 if idx >= 0 else 0} / {count}")
+
+    def _move_mini_command(self, step):
+        if self.current_tab != "commands" or self.display_mode != "mini":
+            return
+        index = mini.carousel_index(self.mini_command_index, len(self.command_filtered), step)
+        if index < 0:
+            return
+        self.selected_command_id = self.command_filtered[index]["id"]
+        self.command_tree.selection_set(self.selected_command_id)
+        self.mini_command_index = index
+        self._render_command_details()
+        self._update_mini_command_pager()
+
+    def _build_normal_commands_header(self):
+        """Fixed, compact Normal-mode header shared with the other tool titles."""
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 7))
+        tk.Label(heading, text="Command helper", bg=BG, fg=WHITE,
+                 font=(FONT, 14, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
+        # Pack controls on the right without an extra 30px backup row.
+        action_label(heading, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
+                     bg=PANEL, hover=CARD, padx=7, pady=5, font_size=8).pack(side="right")
+        action_label(heading, "+ New", self._add_custom_command, fg="#121622",
+                     bg=ACCENT, hover="#BBC0FF", padx=8, pady=5, font_size=8
+                     ).pack(side="right", padx=(0, 5))
+
     def _build_commands(self):
-        self._section_title(self.body, "Command helper", "Find · Customize · Copy", "+ New", self._add_custom_command)
-        backup_row = tk.Frame(self.body, bg=BG)
-        backup_row.pack(fill="x", pady=(0, 8))
-        action_label(backup_row, "Backup ▾", self._show_command_backup_menu, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=12, pady=6, font_size=9).pack(side="right")
+        if self.display_mode == "mini":
+            return self._build_mini_commands()
+        # Normal title and manual actions are drawn above the scrolling region
+        # by show_tab(); no duplicated heading inside the page.
         prefs = self.data["command_state"]
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
@@ -1798,6 +2458,7 @@ class PocketDesk:
                                            state="readonly", font=(FONT, 10), height=18)
         self.machine_picker.pack(fill="x", ipady=4, pady=(0, 8))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        self._protect_command_picker(self.machine_picker)
 
         self.command_query = tk.StringVar()
         search_box = tk.Frame(self.body, bg=BG)
@@ -1822,6 +2483,7 @@ class PocketDesk:
             font=(FONT, 9))
         self.command_category_picker.pack(side="left", fill="x", expand=True, ipady=3, padx=(0, 7))
         self.command_category_picker.bind('<<ComboboxSelected>>', lambda _event:self._refresh_command_results())
+        self._protect_command_picker(self.command_category_picker)
         self.command_modes = {}
         for mode,label in [('all','All'),('favorites','★ Saved'),('recent','Recent')]:
             btn = action_label(filterrow, label, lambda m=mode:self._set_command_mode(m),
@@ -1836,9 +2498,21 @@ class PocketDesk:
         self.command_count.pack(side="left")
         tk.Label(result_head, text="Select → edit → copy", bg=BG, fg=MUTED,
                  font=(FONT, 8)).pack(side="right")
-        details = tk.Frame(self.body, bg=PANEL, highlightbackground=BORDER,
+        # Always show both normal-mode regions. On high-DPI Windows screens
+        # the fixed editor used to consume the height and hide the list.
+        # A vertical sash reserves room for results and allows resizing.
+        command_panes = tk.PanedWindow(self.body, orient=tk.VERTICAL, bg=BG,
+                                       bd=0, relief="flat", sashwidth=7,
+                                       showhandle=False, opaqueresize=True)
+        command_panes.pack(fill="both", expand=True, pady=(6, 0))
+        results_panel = tk.Frame(command_panes, bg=BG)
+        details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
                            highlightthickness=1)
-        details.pack(side="bottom", fill="x", pady=(6, 0))
+        # Four data rows + column header need roughly 140px at the current
+        # tree style; reserve that even when the outer page scrolls.
+        command_panes.add(results_panel, minsize=150, stretch="always")
+        command_panes.add(details, minsize=195, stretch="never")
+        self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
         line.pack(fill="x", padx=11, pady=(7, 1))
         self.command_machine_tag = tk.Label(line, text="SELECT A COMMAND", fg=ACCENT, bg=PANEL,
@@ -1879,8 +2553,10 @@ class PocketDesk:
                                          fg=MUTED, bg=PANEL, font=(FONT, 8))
         self.command_feedback.pack(anchor='w', padx=12, pady=(0, 5))
         # Command first (left), description second (right); align Hebrew purposes to the right.
-        self.command_tree = self._tree(self.body, ('Command', 'Purpose / Description'),
-                                       (230, 185), rows=8, aligns=('w', 'e'))
+        self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
+                                       (230, 185), rows=4, aligns=('w', 'e'))
+        # The pane's requested height guarantees four full result rows; the
+        # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())
         self.command_tree.bind('<Return>', lambda _event: self._focus_command_editor())
@@ -1892,7 +2568,8 @@ class PocketDesk:
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         menu.add_command(label="Create new backup", command=self._create_command_backup)
         menu.add_command(label="Use existing backup", command=self._restore_command_backup)
-        menu.tk_popup(self.root.winfo_rootx()+WIDTH-165, self.root.winfo_rooty()+195)
+        menu.tk_popup(self.root.winfo_rootx()+self.root.winfo_width()-165,
+                      self.root.winfo_rooty()+(110 if self.display_mode == "mini" else 195))
 
     def _create_command_backup(self):
         if not self.commands_file:
@@ -1975,9 +2652,15 @@ class PocketDesk:
         if self.current_tab != 'commands' or not hasattr(self,'command_tree') or not self.command_tree.winfo_exists():
             return
         prefs = self.data['command_state']
-        matches = ch.find_commands(self.command_library, query=self._actual_command_query(),
-                                    machine=self.machine_var.get(), category=self.command_category_var.get(),
-                                    mode=self.command_mode, favorites=prefs['favorites'], recent=prefs['recent'])
+        filters = (self._actual_command_query(), self.machine_var.get(),
+                   self.command_category_var.get(), self.command_mode)
+        if self.display_mode == "mini" and filters != self._mini_command_filters:
+            # Each new search starts with the highest-ranked recommendation.
+            self.selected_command_id = None
+            self._mini_command_filters = filters
+        matches = ch.find_commands(self.command_library, query=filters[0],
+                                    machine=filters[1], category=filters[2],
+                                    mode=filters[3], favorites=prefs['favorites'], recent=prefs['recent'])
         self.command_filtered = matches[:ch.MAX_RESULTS]
         self.command_count.config(text=f"{len(matches)} results" +
                                   (f" · first {ch.MAX_RESULTS}" if len(matches)>ch.MAX_RESULTS else ''))
@@ -1998,6 +2681,8 @@ class PocketDesk:
         else:
             self.selected_command_id = None
         self._render_command_details()
+        if self.display_mode == "mini":
+            self._update_mini_command_pager()
         if not self.command_filtered and self.machine_var.get() != ch.ALL_MACHINES:
             self.command_description_label.config(
                 text="No matching reference commands. Use + New to add your own.")
@@ -2297,7 +2982,8 @@ class PocketDesk:
                            activebackground=BG, activeforeground=WHITE,
                            selectcolor=PANEL, font=(FONT, 8),
                            highlightthickness=0, anchor="w", width=12
-                           ).grid(row=i//4, column=i%4, sticky="w")
+                           ).grid(row=i//(2 if self.display_mode == "mini" else 4),
+                                  column=i%(2 if self.display_mode == "mini" else 4), sticky="w")
         tk.Label(self.port_selected_frame, text="ADDITIONAL PORTS  (e.g. 8000, 8443, 9000-9003)",
                  bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(9, 5))
         self._entry(self.port_selected_frame, self.custom_ports_var).pack(fill="x", ipady=7, pady=(0, 8))
@@ -2563,7 +3249,9 @@ class PocketDesk:
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
         action_label(status_line, "Import CSV", self._import_vendors, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=8, pady=5, font_size=8).pack(side="right")
+                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right")
+        action_label(status_line, "Get CSV ↗", self._show_ieee_downloads, fg=SECONDARY,
+                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         tk.Label(self.body, text="PASTE MAC ADDRESSES  (one per line or comma-separated)",
                  bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
         self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
@@ -2571,6 +3259,8 @@ class PocketDesk:
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
         self.mac_input.pack(fill="x", pady=(0, 10))
+        if self.display_mode == "mini":
+            self.mac_input.config(height=3)
         self.mac_input.insert("1.0", self.mac_draft)
         actions = tk.Frame(self.body, bg=BG)
         actions.pack(fill="x")
@@ -2593,6 +3283,21 @@ class PocketDesk:
     def _vendor_summary(self):
         return (f"IEEE database: {len(self.vendors):,} prefixes • Updated {self.vendor_date}"
                 if self.vendors else f"IEEE database: {self.vendor_date} • Click Update IEEE DB")
+
+    def _show_ieee_downloads(self):
+        """Explicit browser downloads when IEEE blocks Python HTTP requests."""
+        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+                       activebackground=ACCENT_DARK, activeforeground=WHITE)
+        for registry, url, _ in net.IEEE_LISTS:
+            menu.add_command(label=f"Download {registry} official CSV",
+                             command=lambda target=url: webbrowser.open(target))
+        menu.add_separator()
+        menu.add_command(label="Import downloaded CSV files…", command=self._import_vendors)
+        x, y = self.root.winfo_pointerxy()
+        try:
+            menu.tk_popup(x, y)
+        finally:
+            menu.grab_release()
 
     def _update_vendors(self):
         if self.updating_vendors:
@@ -2861,34 +3566,34 @@ class PocketDesk:
         return (0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight())
 
     def _place_popup(self, xy):
-        """Restore the user's position, or anchor to the tray until first drag.
-
-        Clamp to the nearest available monitor after screen/resolution changes.
-        All tabs use the same height, so changing tabs won't move the window.
-        """
+        """Clamp current layout to monitor and restore its own saved position."""
         self.root.update_idletasks()
-        saved = normalize_window_position(self.data.get("window_position"))
-        if saved is not None:
+        width, desired_height = mini.view_dimensions(self.display_mode)
+        positions = self.data.get("window_positions") or {}
+        saved = mini.window_position(positions.get(self.display_mode))
+        if saved is None and self.display_mode == "normal":
+            saved = normalize_window_position(self.data.get("window_position"))
+        if saved:
             px, py = saved["x"], saved["y"]
-            left, top, right, bottom = self._screen_work_area(px + WIDTH // 2, py + HEIGHT // 2)
-            height = min(HEIGHT, max(420, bottom - top - 16))
-            px, py = clamp_window_position(px, py, WIDTH, height, (left, top, right, bottom))
+            left, top, right, bottom = self._screen_work_area(px + width // 2, py + desired_height // 2)
         elif xy and sys.platform == "win32":
             x, y = xy
             left, top, right, bottom = self._screen_work_area(x, y)
-            height = min(HEIGHT, max(420, bottom - top - 16))
-            px = max(left + 8, min(x - WIDTH + 32, right - WIDTH - 8))
-            py = (bottom - height - 9) if y > (top + bottom) / 2 else (top + 9)
+            px, py = x - width + 32, top + 9
         else:
-            screen_h = self.root.winfo_screenheight()
-            height = min(HEIGHT, max(420, screen_h - 85))
-            px = max(0, self.root.winfo_screenwidth() - WIDTH - 35)
-            py = max(0, screen_h - height - 85)
-        if self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+            area = self._screen_work_area(max(0, self.root.winfo_screenwidth() - 1),
+                                          max(0, self.root.winfo_screenheight() - 1))
+            left, top, right, bottom = area
+            px, py = right - width - 35, bottom - desired_height - 35
+        width = min(width, max(240, right - left - 12))
+        height = min(desired_height, max(240, bottom - top - 12))
+        if not saved and xy and sys.platform == "win32":
+            py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
+        px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
+        if self.display_mode == "normal" and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            visible_rows = max(2, min(8, 8 + (height - HEIGHT) // 27))
-            self.command_tree.configure(height=visible_rows)
-        self.root.geometry(f"{WIDTH}x{height}{px:+d}{py:+d}")
+            self.command_tree.configure(height=4)
+        self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
 
     def _begin_window_drag(self, event):
         self._dragging_window = True
@@ -2918,7 +3623,9 @@ class PocketDesk:
                 px, py = clamp_window_position(px, py, self.root.winfo_width(),
                                                 self.root.winfo_height(), area)
                 self.root.geometry(f"{px:+d}{py:+d}")
-                self.data["window_position"] = {"x": px, "y": py}
+                self.data["window_positions"][self.display_mode] = {"x": px, "y": py}
+                if self.display_mode == "normal":
+                    self.data["window_position"] = {"x": px, "y": py}
                 self._flush_current_note()
                 self._write_now()
         finally:
@@ -2928,7 +3635,9 @@ class PocketDesk:
 
     def reset_window_position(self):
         """Restore the original tray-anchored placement, including after monitor changes."""
-        self.data["window_position"] = None
+        self.data["window_positions"][self.display_mode] = None
+        if self.display_mode == "normal":
+            self.data["window_position"] = None
         self._place_popup(self._last_tray_xy)
         self._flush_current_note()
         self._write_now()
@@ -3038,7 +3747,12 @@ class PocketDesk:
                 elif name == "vendor_error":
                     self.updating_vendors = False
                     if self.current_tab == "mac":
-                        self.vendor_info.config(text="Update failed — try Import CSV (see README)", fg=DANGER)
+                        message = str(xy)
+                        if len(message) > 130:
+                            message = message[:127] + "..."
+                        self.vendor_info.config(text=message, fg=DANGER, wraplength=285 if self.display_mode == "mini" else 420,
+                                                justify="left")
+                        self._last_ieee_error = str(xy)
                 elif name == "note_reminder":
                     note_id, title, message = xy
                     if self.preview or not self.tray or self.tray.error:

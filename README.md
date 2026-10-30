@@ -65,9 +65,9 @@ Open **Settings → Switch to Mini mode** to change Pocket to a compact **346 ×
 
 - A compact header uses an always-visible **icon tab for every enabled tool**, with a short caption and active highlighting — no dropdown. Settings, PIN, close and themes remain accessible.
 - **Commands** presents the most relevant CLI match first in one editable card. Use ◀ / ▶ to browse results, or the keyboard arrow keys **when focus is outside the command editor, search box and other input controls**. Favorites, Recents, device/category search, Copy, Edit, Delete, Reset and manual backup remain available; nothing executes commands.
-- **Notes** uses a small note selector and a full-width expanding editor with per-note RTL/LTR support, phone details, reminders and Notepad synchronization. The ◀ / ▶ buttons page through notes (pinned-first); keyboard arrow keys also page notes when focus is outside the text editor and other input controls.
+- **Notes** combines the note picker, compact page counter and ◀ / ▶ arrows in **one row** above the metadata, freeing vertical space for typing. Pinned notes remain first; keyboard paging works outside input fields. The Windows RTL/LTR editor, reminders and Notepad synchronization are unchanged.
 - **Shortcuts** uses denser rows with direct Open, Copy and overflow actions.
-- **Ports, MAC Lookup and Subnet** use scrollable views with compact result tables. Entering Mini Mode never initiates a network connection.
+- **Ports, MAC Lookup and Subnet** use scrollable views with compact result tables. Entering Mini Mode never initiates a network connection. For IEEE MAC registries, **Update IEEE DB** tries the official CSV downloads; **Get CSV ↗** opens each official IEEE file in your browser for manual **Import CSV** when automated requests are blocked by IEEE or your corporate network.
 - **Clipboard** keeps session-only history; monitoring still depends solely on menu visibility.
 - Window positions for Normal and Mini are stored **separately**; notes, commands and shortcuts continue sharing the same underlying local data.
 
@@ -192,7 +192,7 @@ Pocket saves user data under:
 - **Notepad synchronization:** **Open in Notepad** opens a stable local working file. Saving in Notepad updates the Pocket note while Pocket is running (checked approximately every 1.2 seconds). If both editors changed the note, Pocket prompts before replacing content, and preserves a recovery copy when the Pocket version is selected. Older one-off exports remain separate and are not synchronized.
 - **Network activity:** TCP checks contact only the specified target. Registry downloads retrieve IEEE vendor data when requested. Pocket doesn't send notes to a lookup service.
 - **Authorization:** only scan systems you own or are authorized to test. A port timeout does not prove a port is closed.
-- **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner.
+- **MAC limitations:** an OUI indicates a registered vendor prefix, not proof of the exact device manufacturer or owner. IEEE may block scripted requests (such as HTTP 403/418/429), and work PCs may block the IEEE domain; Pocket now shows the underlying error and provides **Get CSV ↗ → Import CSV** as a manual alternative. Downloading requires network access only when requested.
 
 ### CLI command library
 

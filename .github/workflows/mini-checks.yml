@@ -87,6 +87,16 @@ jobs:
                   assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
               assert archive.testzip() is None, "ZIP integrity failure"
           print("PASS: runnable portable EXE is packaged with only the public command seed")
+      - name: Make downloadable branch-preview ZIP
+        shell: pwsh
+        run: Copy-Item 'dist/Pocket-Portable-v1.29.1.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'
+      - name: Upload private development preview (not a public release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-SmartTemplates-ExtraMini-Preview-Windows
+          path: dist/Pocket-SmartTemplates-ExtraMini-Preview.zip
+          if-no-files-found: error
+          retention-days: 14
       - name: Launch packaged Pocket EXE in isolated preview mode
         shell: pwsh
         run: |

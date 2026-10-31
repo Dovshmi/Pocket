@@ -496,7 +496,7 @@ class PocketDesk:
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Control-k>", self._open_global_search)
-        self.root.bind("<Control-f>", self._open_global_search)
+        self.root.bind("<Control-f>", self._handle_find_shortcut)
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
         # Unlike bind_all, this does not interfere with unrelated tabs.
@@ -579,6 +579,13 @@ class PocketDesk:
 
     def _hotkey_hint(self):
         return hk.hotkey_label(self.hotkey) + "  ·  Show / hide  ✎"
+
+    def _handle_find_shortcut(self, event=None):
+        """Keep Ctrl+F in Commands locally scoped; search globally elsewhere."""
+        if self.current_tab == "commands" and self.display_mode != "compact":
+            self._focus_command_search()
+            return "break"
+        return self._open_global_search(event)
 
     def _navigate_search_result(self, hit):
         """Open a result in the original tool UI, never execute its contents."""
@@ -2586,7 +2593,6 @@ class PocketDesk:
         self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
         self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
         self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
-        self.root.bind("<Control-f>", self._focus_command_search)
         row = tk.Frame(self.body, bg=BG)
         row.pack(fill="x", pady=(0, 4))
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
@@ -2724,7 +2730,6 @@ class PocketDesk:
         self.command_search_entry.bind('<FocusOut>', self._command_focus_out)
         self.command_search_entry.pack(fill="x", expand=True, ipady=9)
         self.command_query.trace_add('write', lambda *_: self._refresh_command_results())
-        self.root.bind('<Control-f>', self._focus_command_search)
 
         filterrow = tk.Frame(self.body, bg=BG)
         filterrow.pack(fill="x", pady=(0, 2))

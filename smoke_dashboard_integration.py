@@ -86,6 +86,29 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
+                if page == "commands":
+                    check(hasattr(app, "smart_template_edit") and
+                          app.smart_template_edit.winfo_exists(),
+                          f"{mode}: missing Smart Template control")
+                    check("Plain command" in app.smart_template_badge.cget("text") or
+                          "Template" in app.smart_template_badge.cget("text"),
+                          f"{mode}: template status not shown")
+                    app.smart_template_edit.invoke()
+                    app.root.update()
+                    dialogs = [w for w in app.root.winfo_children()
+                               if isinstance(w, tk.Toplevel)]
+                    check(dialogs, f"{mode}: template review editor did not open")
+                    dialog = dialogs[-1]
+                    check(any(isinstance(w, tk.Text) for w in widgets(dialog)),
+                          f"{mode}: missing editable template format")
+                    cancels = [w for w in widgets(dialog)
+                               if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
+                    check(cancels, f"{mode}: template editor cannot cancel")
+                    cancels[-1].invoke()
+                    app.root.update()
+                    check(not app._modal, f"{mode}: template editor did not close")
+                    check(app.command_code.winfo_exists(),
+                          f"{mode}: original command editor lost")
                 desired = view_dimensions(mode)[0]
                 actual = app.root.winfo_width()
                 # The wide Dashboard clamps to the monitor work area.
@@ -264,6 +287,41 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(app._quick_search_dialog is None, working + ": search popup did not close")
             check(app.current_tab == "notes", working + ": local tool result did not navigate")
         print("PASS: Ctrl+K Quick Search popup and local results in every working layout")
+        # Fully exercise fill-and-copy with synthetic reference data. The
+        # entered address must not be persisted to user data or commands.json.
+        import smart_templates as smart
+        import template_ui
+        example = {"id": "synthetic", "machine": "FortiGate", "category": "Diagnostics",
+                   "description": "Synthetic test", "command": "execute ping x.x.x.x"}
+        example["template"] = smart.validate_template(
+            smart.suggest_template(example["command"]), example["command"])
+        app._set_display_mode("mini")
+        app.show_tab("commands")
+        app.root.update()
+        copied = []
+        template_ui.open_filler(app, example,
+                                on_copy=lambda command, ident: copied.append((command, ident)))
+        app.root.update()
+        dialogs = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel)]
+        check(dialogs, "Synthetic Smart Template fill dialog did not open")
+        dialog = dialogs[-1]
+        entries = [w for w in widgets(dialog) if isinstance(w, tk.Entry)]
+        check(entries, "Smart Template fill field missing")
+        entries[0].insert(0, "192.0.2.10")
+        app.root.update()
+        copy_buttons = [w for w in widgets(dialog)
+                        if isinstance(w, tk.Button) and w.cget("text") == "Generate & Copy"]
+        check(copy_buttons and copy_buttons[0].cget("state") == "normal",
+              "Validated template cannot be copied")
+        copy_buttons[0].invoke()
+        app.root.update()
+        check(copied == [("execute ping 192.0.2.10", "synthetic")],
+              "Generated command did not use entered IP")
+        check(not app._modal, "Fill form did not close")
+        check("192.0.2.10" not in app.path.read_text(encoding="utf-8")
+              if app.path.exists() else True,
+              "Filled command leaked to data file")
+        print("PASS: Smart Template edit dialog in every layout, optional generated copy and privacy")
 
         app._set_display_mode("normal")
         app.show_tab("clipboard")

@@ -70,22 +70,65 @@ In v1.30.0, use **‹ / ›**, the mouse wheel, or the page dots to switch betwe
 
 Quick actions can open an exact **note**, **command**, **approved Smart Template**, or **saved shortcut**, in addition to menu tools. A regular command can optionally be copied directly but is **never executed**. **All tools** remains available even when it isn't in one of the twelve slots. Hiding a menu does not erase its tile preference.
 
-### The current interface
+### The current interface — real Pocket v1.30.0 screenshots
 
-> The illustrations below are **v1.28 concepts**, not screenshots of the current v1.29+ source interface. They are retained as layout references. Actual screenshots of earlier builds are available in the [historical gallery](#historical-screenshots).
+These are **actual captures of Pocket running in Windows GUI tests**, not illustrations, renders or redesigned mockups. They were generated with a temporary test profile containing sample data, never private user content. Screen size may appear smaller in automated tests due to the test runner's display resolution.
+
+<div align="center">
+<img src="docs/images/pocket-v130-real/dashboard_home.png" width="860" alt="Real Pocket v1.30.0 Dashboard home with sidebar, status counters and tool cards on Windows" />
+<br /><strong>Dashboard · Home</strong>
+</div>
+
+### Work in Dashboard mode
 
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="docs/images/pocket-v128-normal-notes.svg" width="340" alt="Illustrated older Normal Notes interface"/><br/><strong>Normal · Notes (illustration)</strong></td>
-<td align="center"><img src="docs/images/pocket-v128-mini-notes.svg" width="240" alt="Illustrated older Mini Notes interface"/><br/><strong>Mini · Notes (illustration)</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_notes.png" width="460" alt="Actual Pocket Dashboard Notes editor" /><br /><strong>Notes</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_commands.png" width="460" alt="Actual Pocket Dashboard CLI command library" /><br /><strong>CLI Commands &amp; Templates</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/pocket-v128-normal-commands.svg" width="340" alt="Illustrated older Normal Commands interface"/><br/><strong>Normal · Commands (illustration)</strong></td>
-<td align="center"><img src="docs/images/pocket-v128-mini-mac.svg" width="240" alt="Illustrated older Mini MAC lookup interface"/><br/><strong>Mini · MAC lookup (illustration)</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_subnet.png" width="460" alt="Actual Pocket Dashboard Subnet Calculator" /><br /><strong>Subnet Calculator</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_clipboard.png" width="460" alt="Actual Pocket Dashboard Clipboard History" /><br /><strong>Clipboard History</strong></td>
 </tr>
 </table>
 </div>
+
+### Normal mode — everyday tools
+
+<div align="center">
+<table>
+<tr>
+<td align="center"><img src="docs/images/pocket-v130-real/normal_notes.png" width="300" alt="Real Pocket Normal Notes window on Windows" /><br /><strong>Notes</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/normal_commands.png" width="300" alt="Real Pocket Normal Commands window on Windows" /><br /><strong>Commands</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/pocket-v130-real/normal_ports.png" width="300" alt="Real Pocket Normal TCP Port Checker window" /><br /><strong>TCP Ports</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/normal_mac.png" width="300" alt="Real Pocket Normal MAC Vendor Lookup window" /><br /><strong>MAC Lookup</strong></td>
+</tr>
+</table>
+</div>
+
+### Compact layouts
+
+<div align="center">
+<table>
+<tr>
+<td align="center"><img src="docs/images/pocket-v130-real/mini_notes.png" width="235" alt="Real Pocket Mini Notes interface" /><br /><strong>Mini · Notes</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/mini_commands.png" width="235" alt="Real Pocket Mini Commands interface" /><br /><strong>Mini · Commands</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/extra_mini.png" width="240" alt="Real Pocket three-page Extra Mini quick-action launcher" /><br /><strong>Extra Mini · Launcher</strong></td>
+</tr>
+</table>
+</div>
+
+<details>
+<summary><strong>Settings and more screenshot files</strong></summary>
+
+<img src="docs/images/pocket-v130-real/dashboard_settings.png" width="800" alt="Actual Pocket Dashboard Settings screen" />
+
+The screenshots shown above come from the automated **Windows GUI smoke test**, using an isolated temporary profile. The CI workflow also captures the Shortcuts page, additional network tools, and each page under Normal, Mini and Dashboard. Find the complete latest Windows and Linux screenshot archives in the [Pocket regression checks Actions runs](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) under **pocket-ui-Windows** and **pocket-ui-Linux**.
+
+</details>
 
 ## UI improvements retained from v1.29.1
 
@@ -298,7 +341,7 @@ Pocket/
 ├── portable_storage.py    Folder-local portable mode
 ├── icon_themes.py         Six saved icon/color palettes
 ├── commands/              Public example and local library files
-├── docs/images/           Historical UI illustrations
+├── docs/images/           Actual v1.30 Windows UI captures and historical references
 ├── test_*.py              Automated regression tests
 └── .github/workflows/     Windows/Linux tests and releases
 ```
@@ -309,7 +352,7 @@ Run the unit tests:
 py -3 -m unittest discover -v
 ```
 
-The repository also contains real Tk GUI smoke tests for Normal/Mini/Dashboard, Extra Mini tile editing, theme and dropdown readability, and Dashboard scrolling. CI runs on Windows and Linux and verifies the Windows portable package. **Passing CI doesn't replace hands-on testing** of real Windows tray behavior, right-to-left text editing, display scaling, multi-monitor movement and native menus.
+The repository also contains real Tk GUI smoke tests and Windows screenshot captures for every tool in Normal/Mini/Dashboard, Extra Mini tile editing, theme and dropdown readability, and Dashboard scrolling. CI runs on Windows and Linux and verifies the Windows portable package. **Passing CI doesn't replace hands-on testing** of real Windows tray behavior, right-to-left text editing, display scaling, multi-monitor movement and native menus.
 
 **Packaging caution:** `build-exe.bat` is intended for personal/local builds and can bundle a local `commands/commands.json`, which may contain private entries. Review it before distributing anything. Public release automation instead packages the **public example command library**.
 

@@ -194,42 +194,76 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Removing tile did not preserve empty slot")
         check(tile_button(0, "+") is not None,
               "Missing plus button after removing a tile")
-        # On headless Windows GitHub runners, native tk_popup can block forever
-        # waiting for a real menu-dismiss event. Linux/Xvfb exercises the actual
-        # plus popup; Windows verifies the UI state and selection data helper.
-        if os.name == "nt":
-            from compact_dashboard import available_tools, choose_tile
-            check(bool(available_tools(app.settings["visible_tabs"],
-                                       app.settings["extra_mini_tiles"], 0)),
-                  "No available tools after removing a tile")
-            app.settings["extra_mini_tiles"] = choose_tile(
-                app.settings["extra_mini_tiles"], 0, "links",
-                app.settings["visible_tabs"])
-            app.compact_render_cards()
-            app.schedule_save()
-        else:
-            preexisting = set(app.root.winfo_children())
-            tile_button(0, "+").invoke()
-            app.root.update_idletasks()
-            choices = [w for w in app.root.winfo_children()
-                       if isinstance(w, tk.Menu) and w not in preexisting]
-            check(bool(choices), "Plus did not open tool-picker menu")
-            picker = choices[-1]
-            check(picker.index("end") is not None, "Empty picker menu")
-            picker.invoke(0)
-            picker.unpost()
-            app.root.update()
+        # The new searchable picker replaces the native popup menu on all OSes.
+        tile_button(0, "+").invoke()
+        app.root.update()
+        dialogs = [w for w in app.root.winfo_children()
+                   if isinstance(w, tk.Toplevel)]
+        check(dialogs, "Plus did not open searchable quick-action picker")
+        picker_dialog = dialogs[-1]
+        choices = [w for w in widgets(picker_dialog) if isinstance(w, tk.Listbox)]
+        check(choices and choices[0].size() > 0,
+              "Quick-action picker has no available Pocket tools")
+        add_buttons = [w for w in widgets(picker_dialog)
+                       if isinstance(w, tk.Button) and w.cget("text") == "Add to tile"]
+        check(add_buttons, "Picker has no Add to tile button")
+        add_buttons[0].invoke()
+        app.root.update()
+        check(not app._modal, "Quick-action picker did not close")
         check(app.settings["extra_mini_tiles"][0] is not None,
               "Picker selection did not save replacement")
-        check(len(set(k for k in app.settings["extra_mini_tiles"] if k)) ==
-              len([k for k in app.settings["extra_mini_tiles"] if k]),
-              "Duplicate tile assignments")
+        check(len(app._compact_pages()) == 3 and
+              all(len(page["tiles"]) == 4 for page in app._compact_pages()),
+              "Extra Mini did not migrate into three pages of four tiles")
         check(app.compact_edit_button.cget("text") == "Done", "Missing Done control")
         app.compact_edit_button.invoke()
         app.root.update()
         check(not app._compact_editing, "Done did not leave Edit mode")
         capture(app, output, "extra_mini")
         print("PASS: Extra Mini real Edit, ×, +, selection and Done controls")
+
+        # Three-page launcher, scroll/arrow paging, reference tiles, and
+        # deletion/hidden-menu handling with original working layout retained.
+        from launcher_pages import put, lookup, rename_page, move, PAGE_COUNT
+        note_id = app.data["notes"][0]["id"]
+        pages = app._compact_pages()
+        pages = put(pages, 1, 0, {"kind": "note", "id": note_id})
+        pages = rename_page(pages, 1, "Work")
+        app._save_compact_pages(pages)
+        app._set_compact_page(1)
+        app.root.update()
+        check("Work" in app.compact_status.cget("text"), "Page rename not reflected")
+        check(app.data["extra_mini_page"] == 1, "Page selection did not persist")
+        check(len(app.compact_cards.winfo_children()) == 4,
+              "Extra Mini page does not show four tiles")
+        check(lookup(pages[1]["tiles"][0], app.data, app.command_library,
+                     app.settings["visible_tabs"])["status"] == "ready",
+              "Saved note quick action does not resolve")
+        app.compact_switch_page(1)
+        check(app.data["extra_mini_page"] == 2, "Next-page control broken")
+        app.compact_switch_page(-1)
+        check(app.data["extra_mini_page"] == 1, "Previous-page control broken")
+        pages = move(app._compact_pages(), 1, 0, 2, 2)
+        app._save_compact_pages(pages)
+        check(pages[1]["tiles"][0] is None and
+              pages[2]["tiles"][2]["id"] == note_id,
+              "Cross-page move did not move note reference")
+        app._set_compact_page(2)
+        app._launch_compact_item(pages[2]["tiles"][2])
+        app.root.update()
+        check(app.display_mode == "normal" and app.current_tab == "notes" and
+              app.data["active_note"] == note_id,
+              "Saved note tile did not restore working mode and open exact note")
+        app._return_to_compact()
+        app.root.update()
+        check(app.data["extra_mini_page"] == 2, "Launcher page reset after closing")
+        check(lookup({"kind": "note", "id": "deleted-not-found"}, app.data,
+                     app.command_library, app.settings["visible_tabs"])["status"] == "missing",
+              "Deleted note tile does not show missing state")
+        check(lookup({"kind": "tool", "id": "commands"}, app.data,
+                     app.command_library, ["notes"])["status"] == "hidden",
+              "Hidden tool still active in launcher")
+        print("PASS: Extra Mini paging, rename, saved note, moves and missing item protections")
 
         # The tiny launcher must restore the *selected* base layout, not Mini.
         for mode in MODES:

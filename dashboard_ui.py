@@ -143,6 +143,9 @@ def build_shell(app, colors):
         widget.bind("<Button-3>", app._show_header_menu)
 
     _link(header, "×", app.hide, c, padx=12, pady=4).pack(side="right", padx=(7, 0))
+    if app.settings["extra_mini_enabled"]:
+        _link(header, "▾ Extra Mini", app._return_to_compact, c, emphasis=True,
+              padx=8, pady=6).pack(side="right", padx=3)
     app.pin_button = _link(header, "PIN", app.toggle_pin, c, padx=12, pady=6)
     app.pin_button.pack(side="right", padx=3)
     app.shortcut_hint = _link(header, app._hotkey_hint(), lambda: app._open_hotkey_picker(), c,

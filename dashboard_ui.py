@@ -6,6 +6,7 @@ tray behavior remain implemented by PocketDesk in app.pyw. No network calls.
 from __future__ import annotations
 
 import tkinter as tk
+import pocket_design as design
 
 NAVIGATION = (
     ("home", "⌂", "Overview"),
@@ -93,27 +94,25 @@ def build_shell(app, colors):
            fg=c["MUTED"]).pack(anchor="w", padx=23, pady=(14, 10))
     app.tab_buttons = {}
     app.dashboard_nav = {}
-    for key, icon, caption in NAVIGATION:
+    for key, glyph, caption in NAVIGATION:
         if key not in ("home", "settings") and key not in app.settings["visible_tabs"]:
             continue
         if key == "settings":
             tk.Frame(side, bg=c["BORDER"], height=1).pack(fill="x", padx=18, pady=(14, 12))
-        row = tk.Frame(side, bg=c["SIDEBAR"], height=43, cursor="hand2")
-        row.pack(fill="x", padx=12, pady=2)
-        row.pack_propagate(False)
-        glyph = _label(row, icon, c, size=15, strong=True, bg=c["SIDEBAR"],
-                       fg=c["SECONDARY"], width=3, cursor="hand2", anchor="center")
-        glyph.pack(side="left", padx=(6, 0))
-        title = _label(row, caption, c, size=10, bg=c["SIDEBAR"],
-                       fg=c["SECONDARY"], cursor="hand2", anchor="w")
-        title.pack(side="left", fill="x", expand=True, padx=(4, 0))
-        for widget in (row, glyph, title):
-            widget.bind("<Button-1>", lambda _event, tab=key: app.show_tab(tab))
-            widget.bind("<Enter>", lambda _event, bar=row, a=glyph, b=title, k=key:
-                        _hover_nav(app, bar, a, b, k, True))
-            widget.bind("<Leave>", lambda _event, bar=row, a=glyph, b=title, k=key:
-                        _hover_nav(app, bar, a, b, k, False))
-        app.dashboard_nav[key] = (row, glyph, title)
+        selected = key == app.current_tab
+        entry = tk.Button(
+            side, text=f"  {glyph}    {caption}", command=lambda tab=key: app.show_tab(tab),
+            bg=c["ACCENT_DARK"] if selected else c["SIDEBAR"],
+            fg=c["WHITE"] if selected else c["SECONDARY"],
+            activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
+            relief="flat", bd=0, highlightthickness=1,
+            highlightbackground=c["ACCENT_DARK"] if selected else c["SIDEBAR"],
+            highlightcolor=c["ACCENT"], takefocus=True,
+            font=("Segoe UI", 10, "bold" if selected else "normal"),
+            cursor="hand2", padx=12, pady=10, anchor="w")
+        entry.pack(fill="x", padx=12, pady=2)
+        design.Tooltip(entry, TITLES.get(key, (caption, caption))[1], app.theme)
+        app.dashboard_nav[key] = entry
 
     tk.Frame(side, bg=c["SIDEBAR"]).pack(fill="both", expand=True)
     status = _card(side, c)
@@ -151,8 +150,8 @@ def build_shell(app, colors):
     app.shortcut_hint = _link(header, app._hotkey_hint(), lambda: app._open_hotkey_picker(), c,
                               padx=12, pady=6)
     app.shortcut_hint.pack(side="right", padx=3)
-    _link(header, "⌕  Find command", lambda: _find_command(app), c, emphasis=True,
-          padx=14, pady=8).pack(side="right", padx=5)
+    design.button(header, "⌕  Search", app._open_global_search,
+                  app.theme, primary=True, compact=True).pack(side="right", padx=5)
 
     tk.Frame(workspace, bg=c["BORDER"], height=1).pack(fill="x")
     app.body = tk.Frame(workspace, bg=c["BG"])
@@ -181,15 +180,14 @@ def _hover_nav(app, row, glyph, title, key, hover):
 
 
 def style_nav(app, selected):
-    """Color active sidebar item and keep header text in sync with the tool."""
+    """Reflect the selected menu in a keyboard-accessible sidebar."""
     c = app._dashboard_colors
-    for key, (row, glyph, title) in getattr(app, "dashboard_nav", {}).items():
-        bg = c["ACCENT_DARK"] if key == selected else c["SIDEBAR"]
-        fg = c["ACCENT"] if key == selected else c["SECONDARY"]
-        row.configure(bg=bg)
-        glyph.configure(bg=bg, fg=fg)
-        title.configure(bg=bg, fg=c["WHITE"] if key == selected else fg,
-                        font=("Segoe UI", 10, "bold" if key == selected else "normal"))
+    for key, button in getattr(app, "dashboard_nav", {}).items():
+        active = key == selected
+        button.configure(bg=c["ACCENT_DARK"] if active else c["SIDEBAR"],
+                         fg=c["WHITE"] if active else c["SECONDARY"],
+                         highlightbackground=c["ACCENT_DARK"] if active else c["SIDEBAR"],
+                         font=("Segoe UI", 10, "bold" if active else "normal"))
     main, subtitle = TITLES.get(selected, TITLES["home"])
     app.dashboard_heading.configure(text=main)
     app.dashboard_subtitle.configure(text=subtitle)
@@ -206,8 +204,8 @@ def _dashboard_tile(parent, app, c, icon, title, detail, destination, row, col):
     _label(top, title, c, size=12, strong=True, anchor="w").pack(side="left")
     _label(frame, detail, c, size=9, fg=c["MUTED"], anchor="w",
            justify="left", wraplength=320).pack(fill="x", padx=17)
-    _link(frame, "Open  →", lambda: app.show_tab(destination), c, emphasis=True
-          ).pack(anchor="w", padx=17, pady=(11, 17))
+    design.button(frame, "Open  →", lambda: app.show_tab(destination), app.theme,
+                  primary=True, compact=True).pack(anchor="w", padx=17, pady=(11, 17))
 
 
 def build_home(app):
@@ -224,8 +222,9 @@ def build_home(app):
            ).pack(anchor="w", pady=(5, 4))
     _label(hero_left, "A compact, offline-first toolbox for real work.",
            c, size=10, fg=c["SECONDARY"]).pack(anchor="w")
-    _link(hero, "Open Notes  →", lambda: app.show_tab("notes"), c,
-          emphasis=True, padx=15).pack(side="right", padx=20)
+    if "notes" in app.settings["visible_tabs"]:
+        design.button(hero, "Open Notes  →", lambda: app.show_tab("notes"), app.theme,
+                      primary=True).pack(side="right", padx=20)
 
     stats = tk.Frame(body, bg=c["BG"])
     stats.pack(fill="x", pady=(0, 18))
@@ -246,21 +245,24 @@ def build_home(app):
 
     _label(body, "QUICK ACCESS", c, size=9, strong=True, bg=c["BG"],
            fg=c["SECONDARY"]).pack(anchor="w", pady=(0, 12))
-    tools = (
+    all_tools = (
         ("⌘", "CLI command library", "Search and copy commands without running them.", "commands"),
         ("▤", "Notes and reminders", "Your notes, phone fields and scheduled alerts.", "notes"),
         ("⌗", "Subnet calculator", "IPv4 address ranges, masks and subnet division.", "subnet"),
         ("↗", "Shortcuts", "Open your saved local folders and websites.", "links"),
+        ("⇄", "TCP port checks", "Diagnose network connectivity when you request it.", "ports"),
+        ("▦", "MAC vendor lookup", "Identify vendors with your locally cached IEEE data.", "mac"),
+        ("▣", "Clipboard history", "Search your current session's copied text.", "clipboard"),
     )
+    visible = [t for t in all_tools if t[3] in app.settings["visible_tabs"]]
     grid = tk.Frame(body, bg=c["BG"])
-    grid.pack(fill="both", expand=True)
+    grid.pack(fill="x")
     grid.columnconfigure(0, weight=1, uniform="tools")
     grid.columnconfigure(1, weight=1, uniform="tools")
-    for index, (icon, title, detail, key) in enumerate(tools):
-        if key not in app.settings["visible_tabs"]:
-            continue
+    for index, (icon, title, detail, key) in enumerate(visible):
         _dashboard_tile(grid, app, c, icon, title, detail, key, index // 2, index % 2)
-
+    if not visible:
+        design.empty_state(body, "No tools enabled", "Show tools in Settings to see quick access here.", app.theme)
     _label(body, "Pocket stores notes and settings locally. Network requests happen only "
            "when you invoke a tool that needs them.", c, size=9, bg=c["BG"],
            fg=c["MUTED"], anchor="w").pack(fill="x", pady=(9, 0))

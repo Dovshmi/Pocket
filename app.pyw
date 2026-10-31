@@ -1043,8 +1043,13 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        previous_mode = self.display_mode
         self.display_mode = mode
         self.settings["display_mode"] = mode
+        if mode == "dashboard" and previous_mode != "dashboard":
+            self.current_tab = "home"
+        elif mode != "dashboard" and self.current_tab == "home":
+            self.current_tab = "notes"
         self._build_shell_refresh()
         self.schedule_save()
 

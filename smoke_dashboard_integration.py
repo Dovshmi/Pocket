@@ -206,6 +206,40 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app.show_tab("commands")
         app.root.update()
         check(hasattr(app, "command_search_entry"), "CLI search missing")
+        # Quick Search is a local, working popup in all three layouts.
+        for working in MODES:
+            app._set_display_mode(working)
+            app.root.update()
+            app._open_global_search()
+            app.root.update()
+            dialog = app._quick_search_dialog
+            check(dialog is not None and dialog.winfo_exists(),
+                  working + ": Quick Search failed to open")
+            entries = [w for w in widgets(dialog) if isinstance(w, tk.Entry)]
+            check(len(entries) == 1, working + ": search input absent")
+            entries[0].insert(0, "notes")
+            app.root.update()
+            lists = [w for w in widgets(dialog) if isinstance(w, tk.Listbox)]
+            check(lists and lists[0].size() > 0, working + ": missing local matches")
+            dialog.event_generate("<Escape>")
+            app.root.update()
+            check(app._quick_search_dialog is None, working + ": search popup did not close")
+        print("PASS: Ctrl+K Quick Search popup and local results in every working layout")
+
+        app._set_display_mode("normal")
+        app.show_tab("clipboard")
+        app.root.update()
+        app._set_clipboard_paused(True)
+        check(app.settings["clipboard_paused"], "Clipboard pause not set")
+        app._set_clipboard_sensitive_filter(False)
+        check(not app.settings["clipboard_sensitive_filter"], "Privacy setting not saved")
+        app._set_clipboard_paused(False)
+        app._set_clipboard_sensitive_filter(True)
+        app.root.update()
+        check("capture ON" in app.clipboard_status.cget("text"),
+              "Clipboard status failed to refresh")
+        print("PASS: Clipboard pause, resume and optional sensitive filtering")
+
         # Clipboard should remain in RAM and never be serialized.
         appmod["clipboard_add"](app.clipboard_items, "TEST AUDIT PRIVATE CLIPBOARD")
         app._write_now()

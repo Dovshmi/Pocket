@@ -75,7 +75,7 @@ class CompactDashboardTests(unittest.TestCase):
             display_mode="compact", current_tab="home", _compact_return=False,
             settings={"visible_tabs": ["notes", "commands"], "display_mode": "compact"},
             data={"notes": [{"id": "n1"}], "active_note": "other"},
-            _build_shell_refresh=Mock(), _command_focus_in=Mock(),
+            _build_shell_refresh=Mock(), _command_focus_in=Mock(), schedule_save=Mock(),
         )
         app["PocketDesk"]._open_compact_tool(
             desk, "notes", {"kind": "note", "destination": "notes", "id": "n1"})

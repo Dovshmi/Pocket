@@ -1,30 +1,34 @@
-# Pocket v1.28 — Portable Windows Release
+# Pocket v1.29 — Modern Windows Desktop
 
-**Windows 10/11 · Local-first · No Python installation required**
+**Windows 10/11 · Free and open source · No Python required**
 
-This release adds the portable distribution and the final note-editing fixes to Pocket v1.27.
+This release brings the redesigned Pocket interface to the public stable branch.
 
-## Highlights
+## What's new
 
-- **Portable Windows ZIP:** extract the whole folder and run `PocketDesk.exe`; no installer or Python required on the destination PC.
-- **Local-first storage:** notes, reminders, shortcuts, window positions, settings, generated icons, MAC vendor cache, commands and Notepad working files live alongside the app in `data/`.
-- **Single-instance protection:** running Pocket twice opens the first instance instead of adding duplicate tray icons or risking competing writes.
-- **Notes focus fix:** in Normal Mode, clicking Title, Phone, or outside the note editor releases native Windows RichEdit focus. Mini Mode remains unchanged.
-- **Existing tools:** Notes, Shortcuts, TCP Ports, MAC Lookup, Commands, Subnet, Clipboard, Notifications, RTL/LTR, and Normal/Mini Mode.
+- **Three working layouts:** Normal, Mini and the wide Dashboard.
+- **Optional Extra Mini:** 322 × 256 launcher with four customizable tiles. Minimize into it from any working mode and return to the same mode when opening a tool.
+- **Modern Settings and controls:** theme-aware, keyboard-accessible actions, improved cards, inputs and tables.
+- **Quick Search:** Ctrl+K searches notes, tool menus, saved shortcuts and CLI reference commands locally. Ctrl+F continues to focus Commands search inside Commands.
+- **Clipboard privacy:** Pause/Resume capture and optional heuristic filtering for recognized passwords, keys and tokens. Clipboard history is never stored on disk.
+- **All existing tools:** notes/reminders, shortcuts, TCP checks, MAC vendors, CLI commands, subnet calculator and clipboard history. CLI commands remain copy-only; manual command backups remain manual.
 
-## Install / update
+## Downloads
 
-1. Download `Pocket-Portable-v1.28.zip` from the release assets.
-2. Extract **all** files to a writable folder (not inside Program Files or the ZIP).
-3. Double-click `Pocket-Portable/PocketDesk.exe`. No Python installation is necessary.
-4. To update an existing Pocket Portable folder, **exit Pocket completely**, preserve its `data/` folder, then replace only application files (`PocketDesk.exe`, `_internal/`, marker/README) with the new version. Do not overwrite `data/`.
+- **Pocket-Portable-v1.29.zip (recommended):** extract the entire folder to a writable location and run `PocketDesk.exe`. A `data/` folder beside the executable stores portable settings, commands and notes.
+- **Pocket-v1.29.exe:** standalone Windows executable; no separate installation of Python or extracting a ZIP. This uses the regular local app-data location (not portable folder mode).
+- **SHA256SUMS.txt:** checksums for both downloads.
 
-The archive includes only safe public **example CLI commands**, not your own command library, notes, or backups. To migrate from a non-portable installation, close Pocket first and copy your files manually after reviewing them. The active data folder of a standard source installation is `%APPDATA%\\PocketDesk`.
+## Update without losing notes
 
-## Notes
+Exit Pocket completely from the tray before updating. For portable installations, keep your existing `data/` folder and replace only the program files with those from the new ZIP. Back up your `data/` directory before replacing application files. Do not merge an old `_internal/` folder with the new one.
 
-- Clipboard history intentionally exists in memory only and is not transferred.
-- Shortcut targets pointing to local files/folders need to exist on the destination computer.
-- The EXE is **unsigned**; employer policies/SmartScreen may limit execution. Do not bypass organizational security controls.
-- Internet access is not required for ordinary notes/commands/subnet lookups. Network operations use internet/network access only when explicitly invoked.
-- The included ZIP and SHA256 checksum are generated automatically on a Windows GitHub Actions runner; automated tests passed on the previous development branch. Real-world device compatibility is not guaranteed.
+Portable packages contain **only public example commands**, never personal notes, clipboard text, user-created command libraries, or private backups.
+
+## Important notes
+
+- Executables are **not code-signed**, so Windows SmartScreen or employer policies may restrict them; follow company device policy.
+- Search and most utilities work offline. Network checks and IEEE-data downloads only require network access when explicitly invoked.
+- The clipboard sensitive-text exclusion recognizes common credential patterns, but **cannot guarantee** that all secrets will be detected. Turn off capture or hide the Clipboard menu for sensitive work.
+- Automated unit/GUI smoke tests and Windows packaged-EXE startup checks were run. Display scaling, native RTL editing, tray shortcuts and Windows menu interaction should still be verified on the user's device.
+- **Smart Command Templates are not included** in this release; they will be developed separately after v1.29.

@@ -909,6 +909,9 @@ class PocketDesk:
         reached. A Text editor, ComboBox or Listbox keeps native scrolling
         and cursor behavior. The outer canvas handles every other area.
         """
+        if self.display_mode == "compact":
+            handler = getattr(self, "compact_handle_wheel", None)
+            return handler(event) if callable(handler) else None
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
@@ -1291,7 +1294,20 @@ class PocketDesk:
                 self._style_command_modes()
                 self.command_query.set("")
                 self._refresh_command_results()
-            if self.command_tree.exists(chosen):
+            if chosen and not self.command_tree.exists(chosen):
+                # Direct ID-based actions may not appear in the top 180 search
+                # results. Display the exact record rather than another item.
+                match = next((r for r in self.command_library if r["id"] == chosen), None)
+                if match is not None:
+                    self.command_filtered = [match]
+                    for existing in self.command_tree.get_children():
+                        self.command_tree.delete(existing)
+                    self.command_tree.insert("", "end", iid=chosen,
+                                             values=(match["command"], match["description"]))
+                    if self.display_mode == "mini":
+                        self.mini_command_index = 0
+                        self._update_mini_command_pager()
+            if chosen and self.command_tree.exists(chosen):
                 self.selected_command_id = chosen
                 self.command_tree.selection_set(chosen)
                 self._render_command_details()

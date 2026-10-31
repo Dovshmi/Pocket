@@ -11,7 +11,7 @@ class FullSizeScrollTests(unittest.TestCase):
         end = SOURCE.index("    def _show_more_menu(self):", start)
         code = SOURCE[start:end]
         self.assertIn('self.display_mode in ("normal", "dashboard", "compact")', code)
-        self.assertIn('("ports", "mac", "commands", "subnet")', code)
+        self.assertIn('("ports", "mac", "commands", "subnet", "settings")', code)
         self.assertIn('self._scrolling_tool_body()', code)
 
     def test_wheel_bubbles_to_outer_canvas_without_stealing_text_editing(self):

@@ -103,7 +103,16 @@ def put(pages, page, slot, tile):
     state = normalize_pages(pages)
     if not valid_slot(page, slot):
         return state
-    state[page]["tiles"][slot] = clean_tile(tile)
+    new_item = clean_tile(tile)
+    slots = state[page]["tiles"]
+    if new_item is not None and new_item["kind"] == "tool":
+        for i, previous in enumerate(slots):
+            if i != slot and previous is not None and previous.get("kind") == "tool" and previous.get("id") == new_item["id"]:
+                # Preserve the legacy first-page behavior: moving an already
+                # assigned tool swaps the two positions, never duplicates it.
+                slots[i] = slots[slot]
+                break
+    slots[slot] = new_item
     return state
 
 

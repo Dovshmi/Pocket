@@ -200,6 +200,8 @@ def lookup(tile, data, commands, visible_tabs):
         detail = "Open shortcut" if record else "Shortcut deleted"
         if record is None:
             status = "missing"
+    if status == "hidden":
+        detail = "Menu hidden"
     title = item.get("label") or title
     return {"status": status, "title": title[:35], "detail": detail,
             "icon": KIND_ICONS[kind], "kind": kind, "id": ident,

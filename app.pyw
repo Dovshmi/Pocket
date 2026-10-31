@@ -39,6 +39,7 @@ import native_bidi
 import mini_layout as mini
 import dashboard_ui as dashboard
 import compact_dashboard as compact
+import launcher_pages as lp
 import settings_ui
 import pocket_design as design
 import quick_search
@@ -181,6 +182,8 @@ def default_data() -> dict:
             new_link("Gmail", "https://mail.google.com"),
         ],
         "command_state": ch.safe_prefs({}),
+        "extra_mini_pages": lp.default_pages(),
+        "extra_mini_page": 0,
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
@@ -335,6 +338,9 @@ def load_data(path: Path) -> dict:
                 ("split", subnet_pref.get("split"), "/26"))
         }
         return {"notes": notes, "active_note": active_id, "links": links,
+                "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
+                     normalize_settings(data.get("settings"))["extra_mini_tiles"]),
+                "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
                 "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
@@ -1195,6 +1201,68 @@ class PocketDesk:
         self._build_shell_refresh()
         self.schedule_save()
 
+    def _compact_pages(self):
+        """Use saved pages, preserving the original four legacy tool slots."""
+        raw = self.data.get("extra_mini_pages")
+        pages = lp.normalize_pages(raw, self.settings["extra_mini_tiles"])
+        # Legacy callers may still update extra_mini_tiles directly. Only sync
+        # those older preferences when no modern page data exists.
+        self.data["extra_mini_pages"] = pages
+        return pages
+
+    def _set_compact_page(self, index):
+        index = lp.page_index(index)
+        self.data["extra_mini_page"] = index
+        self.schedule_save()
+        refresh = getattr(self, "compact_render_cards", None)
+        if self.display_mode == "compact" and callable(refresh):
+            refresh()
+
+    def _save_compact_pages(self, pages):
+        self.data["extra_mini_pages"] = lp.normalize_pages(pages)
+        self.settings["extra_mini_tiles"] = lp.legacy_first_page(self.data["extra_mini_pages"])
+        self.schedule_save()
+        refresh = getattr(self, "compact_render_cards", None)
+        if self.display_mode == "compact" and callable(refresh):
+            refresh()
+
+    def _launch_compact_item(self, tile):
+        """Dispatch only to an existing saved ID; never execute a CLI."""
+        resolved = lp.lookup(tile, self.data, self.command_library, self.settings["visible_tabs"])
+        if resolved["status"] != "ready":
+            if resolved["status"] == "needs_review":
+                self._warning("Template needs review", "Open this command and approve the template again.")
+            return
+        kind, ident = resolved["kind"], resolved["id"]
+        if kind == "tool":
+            self._open_compact_tool(ident)
+            return
+        if kind == "shortcut":
+            selected = next((row for row in self.data["links"] if row["id"] == ident), None)
+            if selected:
+                self.open_shortcut(selected)
+            return
+        if kind == "note":
+            self._open_compact_tool("notes", {"kind": "note", "id": ident, "destination": "notes"})
+            return
+        record = next((row for row in self.command_library if row["id"] == ident), None)
+        if record is None:
+            return
+        if kind == "command" and resolved["action"] == "copy":
+            self.root.clipboard_clear()
+            self.root.clipboard_append(record["command"])
+            self._clipboard_last = record["command"]
+            self.data["command_state"]["recent"] = ch.updated_recent(
+                self.data["command_state"]["recent"], ident)
+            self.schedule_save()
+            return
+        # Build the real Commands view before selecting the matching ID;
+        # command text is still copied only after a user presses Copy.
+        self._open_compact_tool("commands", {"kind": "command", "id": ident,
+                                             "destination": "commands", "query": ""})
+        if kind == "template" and smart.template_state(record) == "configured":
+            self._open_smart_template_fill()
+
     def _open_compact_tool(self, destination, hit=None):
         """Leave the launcher and open the destination in the user's base layout."""
         if destination != "settings" and destination not in self.settings["visible_tabs"]:
@@ -1214,6 +1282,15 @@ class PocketDesk:
             self._command_focus_in()
             self.command_query.set(hit.get("query", ""))
             chosen = hit.get("id")
+            # Direct launcher references must remain reachable even when the
+            # previously saved machine/category/favorites filter excludes them.
+            if chosen and not self.command_tree.exists(chosen):
+                self.machine_var.set(ch.ALL_MACHINES)
+                self.command_category_var.set(ch.ALL_CATEGORIES)
+                self.command_mode = "all"
+                self._style_command_modes()
+                self.command_query.set("")
+                self._refresh_command_results()
             if self.command_tree.exists(chosen):
                 self.selected_command_id = chosen
                 self.command_tree.selection_set(chosen)

@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile Pocket
-        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py native_bidi.py note_sync.py single_instance.py
+        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py pocket_design.py quick_search.py clipboard_policy.py native_bidi.py note_sync.py single_instance.py
       - name: Run unit tests
         run: python -m unittest discover -v
 

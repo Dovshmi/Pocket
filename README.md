@@ -10,19 +10,19 @@
 
 A lightweight, customizable, **local-first Windows tray utility** that keeps practical tools close without requiring a browser tab, account or cloud service.
 
-[![Latest public release](https://img.shields.io/badge/Release-v1.29-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29)
+[![Latest public release](https://img.shields.io/badge/Release-v1.29.1-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)
 ![Windows 10 & 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Local first](https://img.shields.io/badge/Local--first-No%20account-177E6B?style=for-the-badge)
 ![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-526274?style=for-the-badge)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-Portable-v1.29.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-v1.29.exe)** · **[Release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-v1.29.1.exe)** · **[Release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!IMPORTANT]
-> **Source vs. download:** The `main` branch now includes additional UI fixes **after** the published v1.29 binaries: readable dark dropdown selections, Dashboard scrolling, clearer Home navigation and keyboard/tooltips improvements. The v1.29 ZIP and EXE above are the **last published binaries** and do **not** automatically include those post-release changes. To try the newest source code, [run from source](#run-the-latest-source-code), or use a future release when published.
+> **Latest download:** **v1.29.1** includes the latest UI fixes previously available only in source: readable dropdowns, Dashboard Home scrolling, improved navigation, and keyboard/tooltips refinements. The source and Windows download now match this maintenance release.
 
 ## Why Pocket?
 
@@ -79,6 +79,18 @@ To edit the four tiles, click **Edit** in Extra Mini. Use **×** to clear a slot
 </tr>
 </table>
 </div>
+
+## What's fixed in v1.29.1
+
+This maintenance release updates the Windows binaries to include the improvements tested on `main`:
+
+- Dark, readable Notes and Commands dropdowns (including their selection menus)
+- Working mouse-wheel navigation and visible vertical scrollbar on Dashboard Home
+- Clearer separation of Dashboard information counters and clickable tool cards
+- More discoverable Normal/Mini navigation and keyboard-accessible Extra Mini controls
+- The same notes, CLI, network, search and clipboard functionality as v1.29
+
+See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
 
 ## Seven tools, one window
 
@@ -151,7 +163,7 @@ Pause Capture stops collecting new entries. The optional sensitive-text filter t
 
 ### Option 1 — Portable ZIP (recommended)
 
-**[Pocket-Portable-v1.29.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-Portable-v1.29.zip)**
+**[Pocket-Portable-v1.29.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)**
 
 1. Download and extract the **entire** ZIP to a writable folder.
 2. Launch `PocketDesk.exe` from the extracted folder (not from inside the ZIP).
@@ -161,7 +173,7 @@ Portable mode uses the included `portable.flag` marker to keep application data 
 
 ### Option 2 — Standalone executable
 
-**[Pocket-v1.29.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-v1.29.exe)**
+**[Pocket-v1.29.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-v1.29.1.exe)**
 
 Run the EXE directly. Python installation is unnecessary, but this build stores its data in the regular Windows application-data location, **not beside the EXE**.
 
@@ -176,7 +188,7 @@ The public portable ZIP contains a **public example command library**, not your 
 
 ### Run the latest source code
 
-The latest source includes fixes not yet present in the public v1.29 EXE/ZIP.
+The v1.29.1 source matches the published Windows binaries at its release tag. Development changes to main after this release may require building from source.
 
 **Requirements:** Windows 10/11 and Python 3.10+ with Tkinter.
 
@@ -258,8 +270,8 @@ Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/i
 
 | Milestone | Highlights |
 |:---|:---|
-| **Current `main` source (post-v1.29)** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; **not yet a separate binary release** |
-| **v1.29 — published** | Wide Dashboard, optional editable Extra Mini launcher, modern Settings/design system, global Quick Search, clipboard Pause/Resume and heuristic sensitive-text filtering; standalone EXE and portable ZIP |
+| **v1.29.1 — published** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
+| **v1.29** | Wide Dashboard, optional editable Extra Mini launcher, modern Settings/design system, global Quick Search, clipboard Pause/Resume and heuristic sensitive-text filtering; standalone EXE and portable ZIP |
 | **v1.28** | Public portable packaging, single-instance Windows startup, Normal/Mini improvements |
 | **v1.27** | Mini tools, icon tabs, keyboard paging and tool scrolling |
 | **v1.26** | Native mixed-direction note editing and Notepad sync |

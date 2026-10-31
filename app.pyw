@@ -368,13 +368,18 @@ def normalize_url(raw: str) -> str:
 
 
 def action_label(parent, text, command, *, fg=WHITE, bg=CARD, hover=CARD_HOVER,
-                 padx=13, pady=8, font_size=10, bold=True) -> tk.Label:
-    label = tk.Label(parent, text=text, font=(FONT, font_size, "bold" if bold else "normal"),
-                     fg=fg, bg=bg, padx=padx, pady=pady, cursor="hand2")
-    label.bind("<Button-1>", lambda _e: command())
-    label.bind("<Enter>", lambda _e: label.config(bg=hover))
-    label.bind("<Leave>", lambda _e: label.config(bg=bg))
-    return label
+                 padx=13, pady=8, font_size=10, bold=True) -> tk.Button:
+    """Reusable native, keyboard-accessible themed action (Tab, Space, Enter)."""
+    control = tk.Button(
+        parent, text=text, command=command,
+        font=(FONT, font_size, "bold" if bold else "normal"),
+        fg=fg, bg=bg, activebackground=hover, activeforeground=WHITE,
+        relief="flat", bd=0, highlightthickness=1,
+        highlightbackground=BORDER, highlightcolor=ACCENT,
+        padx=padx, pady=pady, cursor="hand2", takefocus=True)
+    control.bind("<Enter>", lambda _e: control.config(bg=hover))
+    control.bind("<Leave>", lambda _e: control.config(bg=bg))
+    return control
 
 
 class PocketDesk:

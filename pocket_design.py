@@ -21,12 +21,30 @@ def colors(theme):
 
 
 def configure_ttk(root, theme):
-    """Consistent editable/picker/table styling on Windows and fallback Tk."""
+    """Use one dark, genuinely readable palette for every Pocket ttk widget.
+
+    The default Windows 'vista'/'xpnative' ttk themes draw the Combobox entry
+    with a native *white* fill, ignoring fieldbackground. Pocket sets a light
+    foreground, so the selected option was invisible. The cross-platform Clam
+    theme honors field, arrow and dropdown state colors; choosing it here is
+    intentional and applies only to ttk widgets (not native RichEdit or Tk).
+    """
     c = colors(theme)
     style = ttk.Style(root)
-    # Clam honors colored fields/headings; switching it for a single widget
-    # would change styling elsewhere, so configure Pocket-prefixed styles only.
-    style.configure("Pocket.Treeview", background=c["PANEL"], foreground=c["WHITE"],
+    if "clam" in style.theme_names() and style.theme_use() != "clam":
+        style.theme_use("clam")
+
+    # ttk creates the dropdown Listbox lazily in its popdown Toplevel. These
+    # option-db entries color the popup itself, not only the closed selection.
+    root.option_add("*TCombobox*Listbox.background", c["PANEL"], 90)
+    root.option_add("*TCombobox*Listbox.foreground", c["WHITE"], 90)
+    root.option_add("*TCombobox*Listbox.selectBackground", c["ACCENT_DARK"], 90)
+    root.option_add("*TCombobox*Listbox.selectForeground", c["WHITE"], 90)
+    root.option_add("*TCombobox*Listbox.font", (FONT, 10), 90)
+    root.option_add("*TCombobox*Listbox.relief", "flat", 90)
+
+    style.configure("Pocket.Treeview",
+                    background=c["PANEL"], foreground=c["WHITE"],
                     fieldbackground=c["PANEL"], borderwidth=0, rowheight=30,
                     font=(FONT, 9))
     style.configure("Pocket.Treeview.Heading", background=c["CARD"],
@@ -35,18 +53,38 @@ def configure_ttk(root, theme):
     style.map("Pocket.Treeview",
               background=[("selected", c["ACCENT_DARK"])],
               foreground=[("selected", c["WHITE"])])
-    style.configure("Pocket.TCombobox", fieldbackground=c["INPUT"],
-                    background=c["CARD"], foreground=c["WHITE"],
-                    borderwidth=1, padding=(8, 6), arrowsize=12)
+    style.configure("Pocket.TCombobox",
+                    fieldbackground=c["INPUT"], background=c["CARD"],
+                    foreground=c["WHITE"], selectforeground=c["WHITE"],
+                    selectbackground=c["ACCENT_DARK"],
+                    arrowcolor=c["SECONDARY"], bordercolor=c["BORDER"],
+                    lightcolor=c["BORDER"], darkcolor=c["BORDER"],
+                    focuscolor=c["ACCENT"], borderwidth=1, relief="flat",
+                    padding=(9, 7), arrowsize=13, font=(FONT, 10))
+    # Order matters: disabled must precede readonly, so a disabled selector
+    # never appears active. Focus preserves the same high contrast.
     style.map("Pocket.TCombobox",
-              fieldbackground=[("readonly", c["INPUT"]), ("focus", c["INPUT"])],
-              foreground=[("readonly", c["WHITE"])])
+              fieldbackground=[("disabled", c["CARD"]),
+                               ("readonly", c["INPUT"]),
+                               ("focus", c["INPUT"]), ("!disabled", c["INPUT"])],
+              foreground=[("disabled", c["MUTED"]),
+                          ("readonly", c["WHITE"]), ("!disabled", c["WHITE"])],
+              selectforeground=[("disabled", c["MUTED"]),
+                                ("readonly", c["WHITE"])],
+              selectbackground=[("readonly", c["ACCENT_DARK"])],
+              background=[("active", c["CARD_HOVER"]), ("!active", c["CARD"])],
+              arrowcolor=[("disabled", c["MUTED"]),
+                          ("active", c["WHITE"]), ("!disabled", c["SECONDARY"])],
+              bordercolor=[("focus", c["ACCENT"]), ("!focus", c["BORDER"])])
     style.configure("Pocket.Vertical.TScrollbar",
                     background=c["CARD"], troughcolor=c["BG"],
-                    borderwidth=0, arrowsize=11)
+                    bordercolor=c["BORDER"], lightcolor=c["CARD"],
+                    darkcolor=c["CARD"], arrowcolor=c["SECONDARY"],
+                    borderwidth=0, arrowsize=11, width=10)
+    style.map("Pocket.Vertical.TScrollbar",
+              background=[("active", c["CARD_HOVER"]), ("!active", c["CARD"])])
     style.configure("Pocket.TSeparator", background=c["BORDER"])
     return c
-
 
 def panel(parent, theme, *, background=None):
     c = colors(theme)

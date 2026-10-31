@@ -1,26 +1,44 @@
-# Pocket v1.29.1 — UI Reliability Update
+# Pocket v1.30.0-beta.1 — Smart Templates and Extra Mini Quick Actions
 
-**Windows 10/11 · Free, open source · No Python required to run**
+**PUBLIC BETA · Windows 10/11 · Unsigned EXEs · Optional new features**
 
-This maintenance release ships the interface fixes already merged into the Pocket `main` branch since v1.29. All existing tools, saved data formats, manual CLI backup behavior, and working layouts are retained.
+This is a **pre-release for testing**, not a replacement for stable v1.29.1. It includes all previous Pocket tools and the major new Extra Mini and Commands upgrades.
 
-## Fixed and improved
-- **Readable dropdowns:** dark, high-contrast text and option lists for Notes, Commands, Settings and other themed selectors, including selected, focused and disabled states.
-- **Dashboard Home scrolling:** mouse-wheel support plus a visible vertical scrollbar to reach all enabled tool cards on shorter displays.
-- **Clearer Dashboard navigation:** distinguish informational counters from clickable tool cards; all seven enabled tools have direct Home access.
-- **Normal navigation:** more discoverable additional-menu count and Quick Search access.
-- **Mini and Extra Mini:** clearer tooltips and improved keyboard navigation without changing their window dimensions.
-- **Preserves v1.29 features:** modern Settings, local Quick Search, note reminders, CLI reference manager (copy-only), subnet calculator, TCP/MAC tools, shortcuts, and session-only clipboard history.
+## What is new
 
-## Downloads
-- **Pocket-Portable-v1.29.1.zip** — recommended: extract the entire ZIP and run `PocketDesk.exe`. Keep your personal `data/` folder when upgrading.
-- **Pocket-v1.29.1.exe** — standalone one-file Windows executable, storing settings in the regular app-data location.
-- **SHA256SUMS.txt** — SHA-256 checksums for both public assets.
+### Smart Command Templates (optional)
+- Create and approve a template for an existing CLI command without changing its original text.
+- Conservative suggestions handle familiar placeholder patterns, but you always review the suggested format.
+- Simple template creator: original command, editable format, **Refresh fields** count, optional **Field options** for advanced validation.
+- **Fill & copy** opens a dedicated form with a generated-command preview and visible **Copy command** button.
+- No CLI is executed. Entered values are not saved in the command library or copied into Pocket's session Clipboard History.
+- Existing command search, plain copying, editing, favorites, recent history, and **manual** backups continue to work.
 
-## Updating from v1.29
-Close Pocket completely from the tray first. Make a copy of your current data before updating. In portable mode, preserve the existing `data/` folder when copying new program files; do not overwrite it with an empty folder. The public release bundles only public example commands, never private user notes, credentials or custom command backups.
+### Extra Mini: 3 pages × 4 tiles
+- **Twelve slots** over three pages in the same compact 322×256 launcher.
+- Page dots, previous/next arrows and mouse-wheel paging; remembers the last page.
+- Searchable picker for an enabled Pocket tool, specific saved note, exact command, approved Smart Template or saved shortcut.
+- Optional direct copy of a specific **plain CLI command**; Smart Templates still require filling and confirmation.
+- Rename tiles or pages, replace/remove tiles, and move or swap tiles between pages.
+- Existing users' four original tiles migrate to page one in their saved order. Other pages start empty.
+- Missing items, hidden menus and stale templates are disabled rather than silently redirecting.
+- Extra Mini still restores the user's chosen Normal, Mini or Dashboard working layout.
 
-## Verification and important limitations
-Windows and Linux unit/GUI integration tests, a Windows portable ZIP build and an isolated standalone EXE startup check run before publication. The files are unsigned; Windows SmartScreen or workplace policies may restrict execution. Clipboard sensitive-text filtering is heuristic, not a guarantee. Real high-DPI monitors, Windows tray/hotkey behavior and right-to-left notes should still be tested on the end-user machine.
+## Download and installation
 
-**Smart Command Templates are not included in v1.29.1.**
+- **Pocket-Portable-v1.30.0-beta.1.zip (recommended)**: Extract everything, then run `PocketDesk.exe`. Preserve the existing `data/` directory when upgrading from a portable installation.
+- **Pocket-v1.30.0-beta.1.exe**: Standalone one-file Windows EXE that uses Pocket's standard AppData storage location.
+- **SHA256SUMS.txt**: checksums for both files.
+
+**Before installing this beta:** Close Pocket fully from the notification area; make a safe copy of your existing `data/` folder and personal `commands.json`. If you test the beta alongside stable, use separate portable data directories and do not run both against the same data files.
+
+## Compatibility and limits
+
+- All seven established tools and three working modes remain available. Pocket stays local-first.
+- Existing CLI commands remain **copy-only**; templates do not execute commands and never require an internet connection.
+- One-time reminders and other existing controls retain their behavior.
+- Windows/Linux unit and Tk GUI regression tests, Windows portable/standalone packaging, integrity and packaged-EXE launch checks run before publishing.
+- **Beta warning:** Visual layout and drag-and-drop on different Windows DPI scales, native RTL note editing, and tray/hotkey behavior need real-device feedback. This beta is not code-signed, and your organization's device policy may block it.
+- Report issues at https://github.com/Dovshmi/Pocket/issues and exclude sensitive user/network data from reports.
+
+Stable users can continue using [Pocket v1.29.1](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1). This beta is deliberately marked **Pre-release** and is **not** set as the repository's latest stable release.

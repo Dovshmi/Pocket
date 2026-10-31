@@ -757,7 +757,7 @@ class PocketDesk:
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
-        if self.current_tab not in ("ports", "mac", "subnet", "commands"):
+        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings"):
             return None
         delta = getattr(event, "delta", 0)
         if delta:
@@ -1011,8 +1011,8 @@ class PocketDesk:
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
-        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
-                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet"))):
+        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet", "settings"))
+                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings"))):
             self._scrolling_tool_body()
         if which == "home":
             (compact.build_home(self) if self.display_mode == "compact"

@@ -92,6 +92,24 @@ This maintenance release updates the Windows binaries to include the improvement
 
 See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
 
+## Extra Mini quick-action pages (development branch preview)
+
+> These changes are **unreleased**, committed only to `feature/smart-command-templates`. The stable `main` version remains v1.29.1 with its original four-tile launcher.
+
+**Extra Mini stays 322 × 256** but now has **three switchable pages with four tiles each**, for a total of twelve optional quick actions. Your previous four tools are retained on the first page during migration; the other two pages initially have empty + slots. Page names, selected page and tile assignments are saved locally.
+
+- **Switch pages:** scroll the mouse wheel over the launcher, click the ‹/› arrows, or click a page dot. The last selected page remains active after closing and reopening Extra Mini.
+- **Edit / Done:** click **Edit**, then **+** on a blank slot to open the searchable picker. Choose a **Pocket tool**, **specific saved command**, **approved Smart Template**, **specific note**, or **saved shortcut**. Nothing is added until you confirm.
+- **Right-click a tile:** Open, Replace, Rename, Move, or Remove. A rename changes only its launcher label. Drag a tile to another slot to swap it; to move between pages, scroll while dragging or use the accessible **Move to another slot** picker.
+- **Rename a page:** right-click the page name in the launcher footer and enter a short label.
+- **Behavior:** Tool tiles open the selected menu; note tiles select that exact note; command tiles open the exact CLI reference, or optionally copy its text directly; Smart Template tiles open the existing validated Fill & Copy form; shortcut tiles open the saved file, folder or URL **only when clicked**. No CLI is ever executed.
+- **Safe missing/hidden items:** deleted notes, shortcuts, commands or hidden menus appear unavailable instead of opening another record. Configurations are retained so you can restore or replace them. Unapproved/stale Smart Templates cannot generate output.
+- **Search:** remains global and separate from page switching. Extra Mini still returns to the user's chosen Normal, Mini, or Dashboard layout.
+
+The existing `extra_mini_tiles` preference is mirrored for backwards compatibility. New reference/page metadata is stored locally in `data.json`; clipboard contents and generated template input values are not persisted.
+
+---
+
 ## Smart Command Templates (development branch preview)
 
 > **Unreleased and optional.** Smart Templates are being developed on `feature/smart-command-templates` only. The public v1.29.1 Windows downloads and `main` do **not** contain this feature.
@@ -106,7 +124,7 @@ Pocket's Commands screen now has a small **Template…** option for a selected c
 
 **Important:** Suggestions are heuristic—not a CLI syntax validator. Some library entries are notes, alternative commands, fixed examples, or multiple CLI steps. These require manual review, and incorrect suggestions should be corrected or discarded. If you edit the underlying command after approving a template, Pocket marks its template **Needs review** and disables generated copying until you approve an updated format. Templates follow the existing **manual** command backup/restore workflow and store no filled-in input values on disk.
 
-Extra Mini continues to open the Commands tool in whichever working mode you selected; there is no extra top-level menu. Smart Templates work entirely offline.
+Extra Mini can now open a **specific approved Smart Template** directly in whichever working mode you selected; there is no extra top-level menu. Smart Templates work entirely offline.
 
 ---
 

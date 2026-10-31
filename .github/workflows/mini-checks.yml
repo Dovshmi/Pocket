@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, before-release]
   pull_request:
-    branches: [main]
+    branches: [main, feature/dashboard-ui-refresh]
   workflow_dispatch:
 
 jobs:

@@ -954,7 +954,7 @@ class PocketDesk:
         action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
                      fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 6))
-        action_label(self.body, "Open Compact dashboard", lambda: self._set_display_mode("compact"),
+        action_label(self.body, "Open Extra Mini launcher", lambda: self._set_display_mode("compact"),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 6))
         action_label(self.body, "Open Dashboard layout", lambda: self._set_display_mode("dashboard"),
@@ -1065,6 +1065,7 @@ class PocketDesk:
         if hit and hit.get("kind") == "note":
             if any(note["id"] == hit.get("id") for note in self.data["notes"]):
                 self.data["active_note"] = hit["id"]
+                self.schedule_save()
         self._build_shell_refresh()
         if hit and hit.get("kind") == "command" and self.current_tab == "commands":
             self._command_focus_in()
@@ -3746,6 +3747,10 @@ class PocketDesk:
                     self.data["window_position"] = {"x": px, "y": py}
                 self._flush_current_note()
                 self._write_now()
+                if self.display_mode == "compact":
+                    status = getattr(self, "compact_status", None)
+                    if status is not None and status.winfo_exists():
+                        status.config(text="Position saved")
         finally:
             self._drag_origin = None
             self._drag_moved = False

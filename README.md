@@ -29,6 +29,19 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
+## Dashboard usability refinements (feature branch only)
+
+The `feature/pocket-design-system-and-polish` branch includes additional visual/navigation work **not yet in the published v1.29**. These changes do not add tools, run commands, change private user data or alter the portable release.
+
+- **Wide Dashboard:** An accessible, tab-focusable sidebar; the Home view exposes every enabled tool instead of just four shortcuts. The Home page scrolls on smaller monitors; search now opens global Quick Search rather than forcing Commands.
+- **Normal:** A visible Quick Search icon next to the window controls; an overflow label that shows how many additional enabled menus are available; hover/focus descriptions for navigation.
+- **Mini:** A Quick Search icon, focusable icon tabs, Enter/Space navigation and descriptive tooltips without making the 346×530 popup larger.
+- **Extra Mini:** Descriptions for launcher tiles, Edit, Remove and Add controls; Enter/Space for focused tiles. Four saved slots and original tool behavior are preserved.
+
+The UI changes are tested in the existing Python unit, Tk GUI and Windows portable-EXE matrix. Real Windows high-DPI, tray and RTL editor checks remain necessary before a new release.
+
+---
+
 ## Modern Pocket design + privacy + Quick Search (new development branch)
 
 > **Experimental:** This work is on `feature/pocket-design-system-and-polish`, based on the tested Dashboard/Extra Mini branch. It has not been merged or published. The source/CI build is not a new v1.28 release.

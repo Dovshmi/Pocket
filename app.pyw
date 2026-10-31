@@ -876,6 +876,11 @@ class PocketDesk:
         # mode; keep its rail entirely invisible to maximize usable width.
         # Result tables still have their own dedicated scrollbars.
         canvas.pack(side="left", fill="both", expand=True)
+        # A visible rail makes long Dashboard Home and Settings discoverable.
+        scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
+                               style="Pocket.Vertical.TScrollbar")
+        scroll.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scroll.set)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
         inner.bind("<Configure>",
@@ -899,7 +904,7 @@ class PocketDesk:
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
-        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings"):
+        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home"):
             return None
         delta = getattr(event, "delta", 0)
         if delta:

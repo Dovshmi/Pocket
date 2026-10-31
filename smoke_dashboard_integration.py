@@ -101,6 +101,20 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     dialog = dialogs[-1]
                     check(any(isinstance(w, tk.Text) for w in widgets(dialog)),
                           f"{mode}: missing editable template format")
+                    field_count = [w for w in widgets(dialog)
+                                   if isinstance(w, tk.Label) and
+                                   "detected" in str(w.cget("text"))]
+                    check(field_count, f"{mode}: missing detected-fields count")
+                    check(not any(isinstance(w, ttk.Combobox) for w in widgets(dialog)),
+                          f"{mode}: advanced selectors displayed without request")
+                    refresh_buttons = [w for w in widgets(dialog)
+                                       if isinstance(w, tk.Button) and
+                                       "Refresh fields" in str(w.cget("text"))]
+                    check(refresh_buttons, f"{mode}: Refresh fields button missing")
+                    refresh_buttons[0].invoke()
+                    app.root.update()
+                    check(not any(isinstance(w, ttk.Combobox) for w in widgets(dialog)),
+                          f"{mode}: Refresh reintroduced complicated field controls")
                     cancels = [w for w in widgets(dialog)
                                if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
                     check(cancels, f"{mode}: template editor cannot cancel")
@@ -311,8 +325,14 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(entries, "Smart Template fill field missing")
         entries[0].insert(0, "192.0.2.10")
         app.root.update()
+        # Copy is immediately below the completed command preview and remains
+        # accessible as a real native button.
+        check(any(isinstance(w, tk.Text) and
+                  "execute ping 192.0.2.10" in w.get("1.0", "end-1c")
+                  for w in widgets(dialog)),
+              "Generated command preview did not update")
         copy_buttons = [w for w in widgets(dialog)
-                        if isinstance(w, tk.Button) and w.cget("text") == "Generate & Copy"]
+                        if isinstance(w, tk.Button) and w.cget("text") == "Copy command"]
         check(copy_buttons and copy_buttons[0].cget("state") == "normal",
               "Validated template cannot be copied")
         copy_buttons[0].invoke()

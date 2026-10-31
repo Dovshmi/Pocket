@@ -98,13 +98,13 @@ def install_cards(app, cards, c):
             menu.add_command(label="Move to another slot", command=lambda: move_picker(index))
             menu.add_separator()
             menu.add_command(label="Remove tile", command=lambda: remove(index))
-        previous = app._modal
-        app._modal = True
+        # Tk's menu owns the pointer grab. Do not alter app._modal here:
+        # menu callbacks may open the searchable Toplevel picker, and resetting
+        # the flag afterwards would incorrectly unmark a live modal dialog.
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
-            app._modal = previous
 
     def drag(phase, index, event):
         if not app._compact_editing:

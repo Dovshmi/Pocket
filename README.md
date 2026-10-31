@@ -29,6 +29,39 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
+## Experimental Dashboard layout (development branch)
+
+> **In development:** This layout is available on the `feature/dashboard-ui-refresh` branch, not in the published v1.28 download or on `main`. It adapts the earlier promotional concept art to the existing **Tkinter Windows app**; the concept images are not screenshots and some illustrated capabilities are not Pocket features.
+
+Pocket now has three opt-in layouts:
+
+| Layout | Size | Purpose |
+|:---|:---|:---|
+| **Normal** | 480 × 850 | Original tray-first popup; remains the default. |
+| **Mini** | 346 × 530 | Compact icon navigation and quick access. |
+| **Dashboard** | 1160 × 800 | Wide desktop workspace with a permanent left sidebar, dashboard home, and the original functional tools. |
+
+**What Dashboard includes:** a themed left navigation rail (respecting visible menus), a home page with real counts of saved notes, shortcuts, CLI references and session clipboard items, quick links into existing tools, a top command-search action, native window dragging, theme selection, PIN and saved dashboard-specific position. Notes and CLI views take advantage of the extra horizontal space. All controls route to existing Pocket tools; no demonstration or placeholder network actions are introduced.
+
+**Try it from source (Windows):**
+
+```powershell
+git clone --branch feature/dashboard-ui-refresh https://github.com/Dovshmi/Pocket.git
+cd Pocket
+install.bat
+run.bat
+```
+
+In Pocket choose **Settings → Dashboard**. To return, choose **Settings → Normal** or **Settings → Mini**. The existing `data.json` and `commands.json` formats and command backup behavior remain intact. Each layout remembers its own position. **Normal remains the default for new installations.**
+
+**Important differences from concept art:** no artificial favorites panels, editable rich-text toolbar, binary subnet visualization, or universal home search are added merely because they appear in generated images. Only real application functionality is presented. Commands are still copied, never executed. Clipboard data remains session-only; note reminders still require Pocket to run in the tray. Do not use concept images as evidence of implemented functionality.
+
+### Development and testing
+
+Dashboard is an optional UI layer (`dashboard_ui.py`) that reuses the existing `PocketDesk` tool builders. The branch includes display-mode storage tests and a Windows/Linux unit-test workflow. **Visual behavior, window scaling and native editor placement still need hands-on testing on Windows before release.**
+
+---
+
 ## Interface preview
 
 > **Illustrated UI previews (v1.28):** These SVGs depict the current Normal/Mini layouts and key controls. They are **not actual Windows screenshots**, and the sample notes/commands shown are illustrative. See the [legacy screenshot archive](#legacy-screenshot-archive) for real captures of earlier builds.

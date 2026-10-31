@@ -49,3 +49,30 @@ jobs:
       - name: Exercise Pocket UI (Linux virtual display)
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python smoke_dashboard_integration.py
+
+  portable-build-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build production-style Windows portable ZIP
+        shell: cmd
+        run: call build-portable.bat
+      - name: Verify portable contents and privacy exclusions
+        shell: python
+        run: |
+          import zipfile
+          from pathlib import Path
+          artifact = Path("dist/Pocket-Portable-v1.28.zip")
+          assert artifact.is_file(), "No portable ZIP produced"
+          with zipfile.ZipFile(artifact) as archive:
+              names = archive.namelist()
+              assert "Pocket-Portable/PocketDesk.exe" in names
+              assert any(name.endswith("/commands/example_commands.json") for name in names)
+              forbidden = ("data.json", "vendors.json", "notepad/", "backups/", "commands/commands.json")
+              for path in names:
+                  assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
+              assert archive.testzip() is None, "ZIP integrity failure"
+          print("PASS: runnable portable EXE is packaged with only the public command seed")

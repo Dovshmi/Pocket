@@ -80,217 +80,327 @@ def _read_box(widget):
     return widget.get("1.0", "end-1c")
 
 
+def _status(parent, c, message):
+    """Small inline validation/status line; avoid blocking popups for mistakes."""
+    label = tk.Label(parent, text=message, bg=c["BG"], fg=c["MUTED"],
+                     font=(FONT, 9), anchor="w", justify="left",
+                     wraplength=490)
+    label.pack(fill="x", pady=(4, 6))
+    return label
+
+
+def _input_hint(kind):
+    return {
+        "ipv4": "e.g. 192.0.2.10",
+        "ipv6": "e.g. 2001:db8::10",
+        "cidr": "e.g. 192.0.2.0/24",
+        "ipv6_cidr": "e.g. 2001:db8::/64",
+        "vlan": "1–4094",
+        "port": "1–65535",
+        "interface": "e.g. ge-0/0/1",
+        "vrf": "Enter VRF name",
+        "mac": "e.g. aa:bb:cc:dd:ee:ff",
+        "integer": "Enter a whole number",
+        "text": "Enter a value",
+    }.get(kind, "Select an option")
+
+
 def open_editor(app, row, *, on_changed):
-    """Manually review suggestions, field metadata, and live format before save."""
-    popup, c, close = _window(app, "Smart Template Editor", width=640, height=695)
+    """Simple by default: command text, Refresh, field count, Save.
+
+    Advanced field types/choice values are preserved, but hidden until the user
+    explicitly selects Field options. Refresh always collapses those controls.
+    """
+    popup, c, close = _window(app, "Smart Template", width=570, height=530)
     shell = tk.Frame(popup, bg=c["BG"])
-    shell.pack(fill="both", expand=True, padx=18, pady=14)
-    _text(shell, "SMART TEMPLATE EDITOR", c, size=13, bold=True)
-    _text(shell, f"{row['machine']}  ·  {row['description'][:100]}", c, muted=True)
+    shell.pack(fill="both", expand=True, padx=18, pady=(15, 12))
+
+    _text(shell, "Create a Smart Template", c, size=14, bold=True)
+    _text(shell, f"{row['machine']}  ·  {row['description'][:88]}", c, muted=True)
     state = smart.template_state(row)
     suggestion = smart.suggest_template(row["command"])
-    original = row.get("template") if state == "configured" else None
-    selected = original or suggestion
+    # A stale template is still useful to *review*; never use it to generate
+    # until explicitly reapproved with the new original command.
+    existing = row.get("template") if isinstance(row.get("template"), dict) else None
+    selected = existing if existing and isinstance(existing.get("format"), str) else suggestion
     if state == "needs_review":
-        _text(shell, "This command changed since its template was saved. Review and save again before use.",
-              c, muted=True, wrap=565)
-    elif selected and selected.get("warnings"):
-        _text(shell, "Suggestion only — review syntax carefully. No changes are automatic.",
-              c, muted=True, wrap=565)
+        _text(shell, "The original command changed. Check the format before saving again.",
+              c, muted=True, wrap=505)
     else:
-        _text(shell, "Define {{FIELD_NAME}} in the format, then choose each field's type.",
-              c, muted=True, wrap=565)
+        _text(shell, "Replace variable parts with {{FIELD_NAME}}. "
+              "Only reviewed templates are saved.", c, muted=True, wrap=505)
 
     form = _scroll_form(shell, c)
-    _text(form, "ORIGINAL COMMAND (READ ONLY)", c, size=8, bold=True)
-    original_box = tk.Text(form, bg=c["PANEL"], fg=c["SECONDARY"], wrap="word",
-                           height=min(5, max(2, row["command"].count("\n") + 2)),
-                           font=PREVIEW_FONT, bd=0, padx=10, pady=8)
+    _text(form, "ORIGINAL COMMAND", c, size=8, bold=True)
+    original_box = tk.Text(form, bg=c["PANEL"], fg=c["SECONDARY"],
+                           wrap="word", height=min(4, max(2, row["command"].count("\n") + 2)),
+                           font=PREVIEW_FONT, bd=0, padx=10, pady=8,
+                           takefocus=False)
     original_box.insert("1.0", row["command"])
     original_box.configure(state="disabled")
-    original_box.pack(fill="x", pady=(0, 12))
+    original_box.pack(fill="x", pady=(0, 11))
 
-    _text(form, "TEMPLATE FORMAT  ·  Use {{FIELD_NAME}} for each input", c, size=8, bold=True)
+    _text(form, "TEMPLATE FORMAT", c, size=9, bold=True)
     fmt = tk.Text(form, bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["ACCENT"],
-                  wrap="word", height=5, font=PREVIEW_FONT,
-                  bd=0, padx=10, pady=8, undo=True, highlightthickness=1,
-                  highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"])
+                  selectbackground=c["ACCENT_DARK"], wrap="word", height=4,
+                  font=PREVIEW_FONT, bd=0, padx=10, pady=8, undo=True,
+                  highlightthickness=1, highlightbackground=c["BORDER"],
+                  highlightcolor=c["ACCENT"])
     fmt.insert("1.0", selected["format"] if selected else row["command"])
     fmt.pack(fill="x", pady=(0, 5))
-    _text(form, "You can replace any fixed value or unclear marker manually. "
-          "Use distinct names when two IPs have different meanings.", c, muted=True)
+    _text(form, "Example: execute ping {{TARGET_IP}}", c, muted=True)
 
-    fields_area = tk.Frame(form, bg=c["BG"])
-    fields_area.pack(fill="x", pady=(10, 2))
-    field_widgets = {}
-    field_source = selected.get("fields", []) if selected else []
+    count_card = tk.Frame(form, bg=c["PANEL"], highlightthickness=1,
+                          highlightbackground=c["BORDER"])
+    count_card.pack(fill="x", pady=(12, 5))
+    count_label = tk.Label(count_card, bg=c["PANEL"], fg=c["WHITE"],
+                           font=(FONT, 12, "bold"), anchor="w", padx=12, pady=12)
+    count_label.pack(side="left", fill="x", expand=True)
+    count_hint = tk.Label(count_card, text="Click Refresh after editing",
+                          bg=c["PANEL"], fg=c["MUTED"], font=(FONT, 8),
+                          padx=10, anchor="e")
+    count_hint.pack(side="right")
 
-    def rebuild_fields():
+    # Details are never drawn after Refresh. Users can reveal advanced options
+    # deliberately, and older labels/types/choices remain intact.
+    field_source = [dict(field) for field in (selected or {}).get("fields", [])
+                    if isinstance(field, dict)]
+    active_widgets = {}
+    advanced_area = tk.Frame(form, bg=c["BG"])
+    advanced_open = False
+    advanced_btn = None
+
+    def collect_changes():
         nonlocal field_source
-        existing = []
-        for name, (label_var, type_var, choices_var) in field_widgets.items():
-            item = {"name": name, "label": label_var.get(),
+        if not active_widgets:
+            return
+        updates = []
+        for name, (label_var, type_var, choices_var) in active_widgets.items():
+            item = {"name": name, "label": label_var.get().strip(),
                     "type": type_var.get()}
             if item["type"] == "choice":
-                item["options"] = [x.strip() for x in choices_var.get().split("|") if x.strip()]
-            existing.append(item)
-        if existing:
-            field_source = existing
-        for widget in fields_area.winfo_children():
+                item["options"] = [v.strip() for v in choices_var.get().split("|")
+                                   if v.strip()]
+            updates.append(item)
+        field_source = updates
+
+    def hide_advanced():
+        nonlocal advanced_open
+        collect_changes()
+        for widget in advanced_area.winfo_children():
             widget.destroy()
-        field_widgets.clear()
-        current = _read_box(fmt)
-        defaults = smart.default_fields(current, field_source)
-        if not defaults:
-            _text(fields_area, "No valid placeholders found. Use {{TARGET_IP}} to add one.",
-                  c, muted=True)
+        active_widgets.clear()
+        advanced_area.pack_forget()
+        advanced_open = False
+        advanced_btn.configure(text="Field options ▾")
+
+    def show_advanced():
+        nonlocal advanced_open
+        if advanced_open:
+            hide_advanced()
             return
-        _text(fields_area, f"FIELDS  ·  {len(defaults)} unique input(s)", c, size=9, bold=True)
-        for field in defaults:
-            name = field["name"]
-            container = tk.Frame(fields_area, bg=c["PANEL"], highlightthickness=1,
-                                 highlightbackground=c["BORDER"])
-            container.pack(fill="x", pady=4)
-            line = tk.Frame(container, bg=c["PANEL"])
-            line.pack(fill="x", padx=9, pady=(9, 4))
-            tk.Label(line, text="{{" + name + "}}", bg=c["PANEL"],
-                     fg=c["ACCENT"], font=("Consolas", 9, "bold")).pack(side="left")
-            tk.Label(line, text="Validation type", bg=c["PANEL"],
-                     fg=c["MUTED"], font=(FONT, 8)).pack(side="right")
-            controls = tk.Frame(container, bg=c["PANEL"])
-            controls.pack(fill="x", padx=9, pady=(0, 5))
+        fields = smart.default_fields(_read_box(fmt), field_source)
+        if not fields:
+            return
+        advanced_open = True
+        advanced_btn.configure(text="Field options ▴")
+        advanced_area.pack(fill="x", pady=(5, 5))
+        _text(advanced_area, "Optional: adjust field labels, validation, or choices.",
+              c, muted=True)
+        for field in fields:
+            item = tk.Frame(advanced_area, bg=c["PANEL"],
+                            highlightthickness=1, highlightbackground=c["BORDER"])
+            item.pack(fill="x", pady=4)
+            tk.Label(item, text="{{" + field["name"] + "}}", bg=c["PANEL"],
+                     fg=c["ACCENT"], font=("Consolas", 9, "bold"),
+                     anchor="w").pack(anchor="w", padx=10, pady=(9, 3))
+            line = tk.Frame(item, bg=c["PANEL"])
+            line.pack(fill="x", padx=10, pady=(0, 7))
             label_var = tk.StringVar(value=field["label"])
-            name_input = tk.Entry(controls, textvariable=label_var,
-                                  bg=c["INPUT"], fg=c["WHITE"],
-                                  insertbackground=c["WHITE"], bd=0,
-                                  font=(FONT, 9))
-            name_input.pack(side="left", fill="x", expand=True, ipady=6, padx=(0, 7))
+            label_entry = design.entry(line, label_var, app.theme, compact=True)
+            label_entry.pack(side="left", fill="x", expand=True, ipady=5, padx=(0, 7))
             type_var = tk.StringVar(value=field["type"])
-            picker = ttk.Combobox(controls, style="Pocket.TCombobox", textvariable=type_var,
-                                   values=smart.FIELD_TYPES, state="readonly", width=13)
+            picker = ttk.Combobox(line, textvariable=type_var,
+                                   values=smart.FIELD_TYPES, state="readonly",
+                                   width=13, style="Pocket.TCombobox")
             picker.pack(side="right")
             choices_var = tk.StringVar(value=" | ".join(field.get("options", [])))
-            option_entry = tk.Entry(container, textvariable=choices_var,
-                                    bg=c["INPUT"], fg=c["WHITE"], bd=0,
-                                    font=(FONT, 9), insertbackground=c["WHITE"])
-            option_entry.pack(fill="x", padx=9, pady=(0, 8), ipady=5)
-            option_entry.configure(state="normal" if field["type"] == "choice" else "disabled")
-            def update_choice(*_, v=type_var, control=option_entry):
-                control.configure(state="normal" if v.get() == "choice" else "disabled")
+            option_entry = design.entry(item, choices_var, app.theme, compact=True)
+            option_entry.pack(fill="x", padx=10, pady=(0, 7), ipady=5)
+            def update_choice(*_, v=type_var, widget=option_entry):
+                widget.configure(state="normal" if v.get() == "choice" else "disabled")
             type_var.trace_add("write", update_choice)
-            field_widgets[name] = (label_var, type_var, choices_var)
+            update_choice()
+            active_widgets[field["name"]] = (label_var, type_var, choices_var)
+        _text(advanced_area, "Choice type: separate options with |", c, muted=True)
 
     controls = tk.Frame(form, bg=c["BG"])
-    controls.pack(fill="x", pady=(3, 8))
-    design.button(controls, "Refresh fields from format", rebuild_fields, app.theme,
-                  compact=True).pack(side="left")
-    _text(form, "For Choice fields, separate allowed values with | (example: enable | disable).",
-          c, muted=True)
-    rebuild_fields()
+    controls.pack(fill="x", pady=(7, 5))
+    refresh = design.button(controls, "↻  Refresh fields", lambda: refresh_count(),
+                            app.theme, primary=True, compact=True)
+    refresh.pack(side="left")
+    advanced_btn = design.button(controls, "Field options ▾", show_advanced,
+                                 app.theme, compact=True)
+    advanced_btn.pack(side="right")
 
-    actions = tk.Frame(shell, bg=c["BG"])
-    actions.pack(fill="x", pady=(10, 1))
-    def current_template():
-        rows = []
-        for name, (label_var, type_var, choices_var) in field_widgets.items():
-            row_meta = {"name": name, "label": label_var.get(), "type": type_var.get()}
-            if row_meta["type"] == "choice":
-                row_meta["options"] = [x.strip() for x in choices_var.get().split("|") if x.strip()]
-            rows.append(row_meta)
-        return smart.validate_template({"format": _read_box(fmt), "fields": rows},
-                                       row["command"])
+    def refresh_count():
+        hide_advanced()
+        fields = smart.default_fields(_read_box(fmt), field_source)
+        number = len(fields)
+        count_label.configure(
+            text=f"{number} field{'s' if number != 1 else ''} detected",
+            fg=c["ACCENT"] if number else c["NOTICE"])
+        count_hint.configure(text="Ready to save" if number else "Add {{NAME}} to the format")
+        # No large field cards are displayed here — only the number.
+        advanced_btn.configure(state="normal" if number else "disabled")
+        return fields
+
+    def format_changed(_event=None):
+        if fmt.edit_modified():
+            count_hint.configure(text="Changes pending · Refresh")
+            fmt.edit_modified(False)
+    fmt.bind("<<Modified>>", format_changed)
+    refresh_count()
+
+    footer = tk.Frame(shell, bg=c["BG"])
+    footer.pack(side="bottom", fill="x", pady=(10, 0))
+    feedback = _status(footer, c, "Templates are optional. The original command is unchanged.")
+
     def save():
+        # Save is safe even if the user forgot Refresh: refresh definitions from
+        # the CURRENT format and preserve any optional advanced configuration.
+        collect_changes()
+        fields = smart.default_fields(_read_box(fmt), field_source)
         try:
-            metadata = current_template()
+            metadata = smart.validate_template(
+                {"format": _read_box(fmt), "fields": fields}, row["command"])
             app._save_smart_template(row, metadata)
         except (ValueError, OSError, KeyError) as exc:
-            messagebox.showwarning("Review template", str(exc), parent=popup)
+            feedback.configure(text=str(exc), fg=c["DANGER"])
             return
         close()
         on_changed()
+
     def remove():
         if not isinstance(row.get("template"), dict):
             close()
             return
-        if not messagebox.askyesno("Remove template",
-                    "Remove the saved Smart Template for this command?\n"
-                    "The original command will remain unchanged.", parent=popup):
+        if not messagebox.askyesno(
+                "Remove template",
+                "Remove this template? The original command stays unchanged.",
+                parent=popup):
             return
         try:
             app._save_smart_template(row, None)
         except (ValueError, OSError, KeyError) as exc:
-            messagebox.showwarning("Template not removed", str(exc), parent=popup)
+            feedback.configure(text=str(exc), fg=c["DANGER"])
             return
         close()
         on_changed()
-    design.button(actions, "Save approved template", save, app.theme,
+
+    buttons = tk.Frame(footer, bg=c["BG"])
+    buttons.pack(fill="x", pady=(3, 0))
+    design.button(buttons, "Save template", save, app.theme,
                   primary=True).pack(side="right")
-    design.button(actions, "Cancel", close, app.theme).pack(side="right", padx=7)
+    design.button(buttons, "Cancel", close, app.theme).pack(side="right", padx=7)
     if isinstance(row.get("template"), dict):
-        design.button(actions, "Remove", remove, app.theme,
-                      compact=True).pack(side="left")
+        design.button(buttons, "Remove", remove, app.theme,
+                      compact=True, destructive=True).pack(side="left")
+    fmt.focus_set()
 
 
 def open_filler(app, row, *, on_copy):
-    """Template values are transient. Copy alone; never mutate command storage."""
+    """Simple fill screen: inputs, live read-only preview, sticky Copy button."""
     if smart.template_state(row) != "configured":
         raise ValueError("Approve or repair this template before using it.")
     meta = smart.validate_template(row["template"], row["command"])
-    popup, c, close = _window(app, "Fill Smart Template", width=525,
-                               height=min(690, 315 + 75 * len(meta["fields"])))
+    height = min(690, 330 + 66 * len(meta["fields"]))
+    popup, c, close = _window(app, "Fill Smart Template", width=510, height=height)
     shell = tk.Frame(popup, bg=c["BG"])
-    shell.pack(fill="both", expand=True, padx=18, pady=13)
-    _text(shell, "FILL & COPY COMMAND", c, bold=True, size=13)
-    _text(shell, f"{row['machine']}  ·  {row['description'][:100]}", c, muted=True)
-    _text(shell, "Values are not stored in history, preferences or your command library.",
-          c, muted=True)
+    shell.pack(fill="both", expand=True, padx=18, pady=(16, 13))
+    _text(shell, "Fill in your command", c, bold=True, size=14)
+    _text(shell, f"{row['machine']}  ·  {row['description'][:86]}", c, muted=True)
+
+    # Sticky bottom action: remains visible when many fields require scrolling.
+    footer = tk.Frame(shell, bg=c["BG"])
+    footer.pack(side="bottom", fill="x", pady=(10, 0))
+    action_line = tk.Frame(footer, bg=c["BG"])
+    action_line.pack(fill="x")
+    status = _status(footer, c, "Fill the fields to enable copying.")
+    # Pack status above controls while leaving the action bar at the bottom.
+    action_line.pack_forget()
+    action_line.pack(side="bottom", fill="x", pady=(2, 0))
+
     form = _scroll_form(shell, c)
     vars_by_name = {}
-    for field in meta["fields"]:
-        _text(form, field["label"] + "  ·  " + field["type"], c, size=9, bold=True)
-        var = tk.StringVar()
+    first_widget = None
+    for index, field in enumerate(meta["fields"], start=1):
+        name = field["name"]
+        _text(form, f"{index}.  {field['label']}", c, size=10, bold=True)
+        variable = tk.StringVar()
         if field["type"] == "choice":
-            widget = ttk.Combobox(form, style="Pocket.TCombobox", textvariable=var,
-                                   values=field["options"], state="readonly")
+            widget = ttk.Combobox(form, style="Pocket.TCombobox",
+                                   textvariable=variable, values=field["options"],
+                                   state="readonly")
         else:
-            widget = design.entry(form, var, app.theme)
-        widget.pack(fill="x", ipady=4, pady=(0, 10))
-        vars_by_name[field["name"]] = var
-    _text(form, "GENERATED COMMAND  ·  READ ONLY", c, size=8, bold=True)
-    preview = tk.Text(form, height=5, bg=c["PANEL"], fg=c["WHITE"],
-                      font=PREVIEW_FONT, wrap="word", bd=0, padx=9, pady=9)
-    preview.pack(fill="x", pady=(0, 5))
+            widget = design.entry(form, variable, app.theme)
+        widget.pack(fill="x", ipady=5, pady=(0, 13))
+        if field["type"] != "choice":
+            widget.insert(0, "")
+        vars_by_name[name] = variable
+        if first_widget is None:
+            first_widget = widget
+
+    _text(form, "COMMAND PREVIEW", c, size=8, bold=True)
+    preview = tk.Text(form, height=4, bg=c["PANEL"], fg=c["WHITE"],
+                      selectbackground=c["ACCENT_DARK"], font=PREVIEW_FONT,
+                      wrap="word", bd=0, padx=10, pady=9, takefocus=False)
+    preview.pack(fill="x", pady=(0, 10))
     preview.configure(state="disabled")
-    feedback = _text(form, "Fill all fields to enable Copy.", c, muted=True)
+
+    def values():
+        return {name: var.get() for name, var in vars_by_name.items()}
+
     def update(*_):
-        vals = {name: var.get() for name, var in vars_by_name.items()}
         try:
-            output = smart.render_template(row, vals)
+            result = smart.render_template(row, values())
             error = ""
         except ValueError as exc:
-            output = smart.TOKEN.sub(lambda m: vals.get(m.group(1)) or m.group(0), meta["format"])
+            result = smart.TOKEN.sub(
+                lambda m: values().get(m.group(1)) or m.group(0), meta["format"])
             error = str(exc)
         preview.configure(state="normal")
         preview.delete("1.0", "end")
-        preview.insert("1.0", output)
+        preview.insert("1.0", result)
         preview.configure(state="disabled")
-        feedback.configure(text=error or "Ready to copy · Nothing is executed",
-                           fg=c["MUTED"] if error else c["ACCENT"])
         copy_btn.configure(state="disabled" if error else "normal")
-    actions = tk.Frame(shell, bg=c["BG"])
-    actions.pack(fill="x", pady=(10, 0))
+        if error:
+            status.configure(text="Enter valid values to enable Copy.", fg=c["MUTED"])
+        else:
+            status.configure(text="Ready to copy · Pocket never executes commands",
+                             fg=c["ACCENT"])
+
     def copy():
         try:
-            result = smart.render_template(row,
-                    {name: var.get() for name, var in vars_by_name.items()})
+            generated = smart.render_template(row, values())
         except ValueError as exc:
-            messagebox.showwarning("Check template values", str(exc), parent=popup)
+            status.configure(text=str(exc), fg=c["DANGER"])
             return
-        on_copy(result, row["id"])
+        try:
+            on_copy(generated, row["id"])
+        except (ValueError, OSError, tk.TclError) as exc:
+            status.configure(text=f"Could not copy: {exc}", fg=c["DANGER"])
+            return
         close()
-    copy_btn = design.button(actions, "Generate & Copy", copy, app.theme, primary=True)
-    copy_btn.pack(side="right")
-    design.button(actions, "Cancel", close, app.theme).pack(side="right", padx=(0, 7))
-    for var in vars_by_name.values():
-        var.trace_add("write", update)
+
+    design.button(action_line, "Cancel", close, app.theme,
+                  compact=True).pack(side="left")
+    copy_btn = design.button(action_line, "Copy command", copy,
+                             app.theme, primary=True)
+    copy_btn.pack(side="right", fill="x", expand=True, padx=(9, 0))
+
+    for variable in vars_by_name.values():
+        variable.trace_add("write", update)
     update()
+    if first_widget is not None:
+        first_widget.focus_set()

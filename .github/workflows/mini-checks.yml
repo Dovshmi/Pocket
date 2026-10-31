@@ -76,7 +76,7 @@ jobs:
         run: |
           import zipfile
           from pathlib import Path
-          artifact = Path("dist/Pocket-Portable-v1.28.zip")
+          artifact = Path("dist/Pocket-Portable-v1.29.zip")
           assert artifact.is_file(), "No portable ZIP produced"
           with zipfile.ZipFile(artifact) as archive:
               names = archive.namelist()

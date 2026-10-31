@@ -575,6 +575,110 @@ class PocketDesk:
     def _hotkey_hint(self):
         return hk.hotkey_label(self.hotkey) + "  ·  Show / hide  ✎"
 
+    def _navigate_search_result(self, hit):
+        """Open a result in the original tool UI, never execute its contents."""
+        if self.display_mode == "compact":
+            self._open_compact_tool(hit["destination"], hit)
+            return
+        destination = hit["destination"]
+        if hit.get("kind") == "note" and any(n["id"] == hit.get("id") for n in self.data["notes"]):
+            self._flush_current_note()
+            self.data["active_note"] = hit["id"]
+            self.schedule_save()
+        self.show_tab(destination)
+        if hit.get("kind") == "command" and hasattr(self, "command_query"):
+            self._command_focus_in()
+            self.command_query.set(hit.get("query", ""))
+            tree = getattr(self, "command_tree", None)
+            if tree is not None and tree.winfo_exists() and tree.exists(hit["id"]):
+                self.selected_command_id = hit["id"]
+                tree.selection_set(hit["id"])
+                self._render_command_details()
+
+    def _open_global_search(self, _event=None):
+        """Ctrl+K / Ctrl+F: local search across enabled menus, no network."""
+        if self.display_mode == "compact":
+            return compact.focus_search(self)
+        old = getattr(self, "_quick_search_dialog", None)
+        if old is not None and old.winfo_exists():
+            old.lift()
+            old.focus_set()
+            return "break"
+        c = themes.palette(self.theme)
+        dialog = tk.Toplevel(self.root)
+        self._quick_search_dialog = dialog
+        self._modal = True
+        dialog.title("Pocket · Quick Search")
+        dialog.configure(bg=c["BG"])
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        width, height = (420, 330) if self.display_mode != "mini" else (315, 315)
+        x = max(0, self.root.winfo_x() + 12)
+        y = max(0, self.root.winfo_y() + 35)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+        tk.Label(dialog, text="QUICK SEARCH", bg=c["BG"], fg=c["ACCENT"],
+                 font=(FONT, 9, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(dialog, text="Search tools, notes, shortcuts and CLI commands",
+                 bg=c["BG"], fg=c["SECONDARY"], font=(FONT, 9),
+                 wraplength=width-32).pack(anchor="w", padx=16, pady=(0, 9))
+        query = tk.StringVar()
+        entry = design.entry(dialog, query, self.theme)
+        entry.pack(fill="x", padx=16, ipady=8, pady=(0, 10))
+        results = tk.Listbox(dialog, bg=c["PANEL"], fg=c["WHITE"],
+                             selectbackground=c["ACCENT_DARK"],
+                             selectforeground=c["WHITE"], borderwidth=0,
+                             highlightthickness=1, highlightbackground=c["BORDER"],
+                             font=(FONT, 9), exportselection=False,
+                             activestyle="none")
+        results.pack(fill="both", expand=True, padx=16, pady=(0, 7))
+        status = tk.Label(dialog, text="Enter a keyword · ↑ ↓ navigate · Enter open · Esc close",
+                          bg=c["BG"], fg=c["MUTED"], font=(FONT, 8))
+        status.pack(anchor="w", padx=16, pady=(0, 12))
+        matches = []
+        def refresh(*_args):
+            matches[:] = quick_search.results(
+                self.data, self.command_library, query.get(),
+                self.settings["visible_tabs"])
+            results.delete(0, tk.END)
+            for hit in matches:
+                results.insert(tk.END, f"{hit['title'][:38]}    ·  {hit['subtitle'][:22]}")
+            if matches:
+                results.selection_set(0)
+            status.configure(text=f"{len(matches)} local match(es) · Enter to open")
+        def close(_evt=None):
+            if dialog.winfo_exists():
+                dialog.destroy()
+            self._modal = False
+            self._quick_search_dialog = None
+            return "break"
+        def launch(_evt=None):
+            selection = results.curselection()
+            if selection and selection[0] < len(matches):
+                item = matches[selection[0]]
+                close()
+                self._navigate_search_result(item)
+            return "break"
+        query.trace_add("write", refresh)
+        entry.bind("<Escape>", close)
+        results.bind("<Escape>", close)
+        entry.bind("<Return>", launch)
+        results.bind("<Return>", launch)
+        results.bind("<Double-1>", launch)
+        def move(step):
+            if not matches:
+                return "break"
+            index = results.curselection()[0] if results.curselection() else 0
+            results.selection_clear(0, tk.END)
+            index = (index + step) % len(matches)
+            results.selection_set(index)
+            results.see(index)
+            return "break"
+        entry.bind("<Down>", lambda _e: move(1))
+        entry.bind("<Up>", lambda _e: move(-1))
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        entry.focus_set()
+        return "break"
+
     def _open_hotkey_picker(self, _event=None):
         if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():
             self._hotkey_picker.lift()
@@ -2414,8 +2518,11 @@ class PocketDesk:
 
     @staticmethod
     def _entry(parent, value, *, width=None):
-        e = design.entry(parent, value, themes.valid_theme(getattr(parent, "_pocket_theme", "blue")),
-                         width=width or 1)
+        e = tk.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
+                     insertbackground=WHITE, selectbackground=ACCENT_DARK,
+                     highlightthickness=1, highlightbackground=BORDER,
+                     highlightcolor=ACCENT, relief="flat", font=(FONT, 10),
+                     width=width or 1)
         return e
 
     def _tree(self, parent, columns, widths, *, rows=4, aligns=None):

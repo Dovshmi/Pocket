@@ -28,6 +28,8 @@ from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
+import smart_templates as smart
+import template_ui
 import command_store as cs
 import subnet_calculator as subnet
 import icon_themes as themes
@@ -2645,6 +2647,7 @@ class PocketDesk:
         self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
         self.command_code.bind("<Control-a>", self._command_select_all)
         self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        self._build_template_actions(details, mini=True)
         actions = tk.Frame(details, bg=PANEL)
         actions.pack(fill="x", padx=7, pady=(0, 3))
         self.command_star = action_label(actions, "☆ Save", self._toggle_command_favorite,
@@ -2793,6 +2796,7 @@ class PocketDesk:
         self.command_code.pack(fill='x', padx=11)
         self.command_code.bind('<Control-a>', self._command_select_all)
         self.command_code.bind('<Control-Return>', lambda _e: (self._copy_command(), 'break')[1])
+        self._build_template_actions(details, mini=False)
         bottom = tk.Frame(details, bg=PANEL)
         bottom.pack(fill='x', padx=8, pady=(4, 6))
         self.command_star = action_label(bottom, '☆ Save', self._toggle_command_favorite,
@@ -2977,6 +2981,92 @@ class PocketDesk:
             self.command_feedback.config(text='Restored the saved command', fg=MUTED)
             self.command_code.focus_set()
 
+    def _build_template_actions(self, parent, *, mini=False):
+        """One optional entry point across Mini, Normal and Dashboard.
+
+        The original command's editor and Copy edited action are untouched.
+        A configured template is used only by explicit Generate & Copy.
+        """
+        self.smart_template_row = tk.Frame(parent, bg=PANEL)
+        self.smart_template_row.pack(fill="x", padx=(7 if mini else 10),
+                                     pady=(1, 3))
+        self.smart_template_badge = tk.Label(
+            self.smart_template_row, text="Plain command",
+            bg=PANEL, fg=MUTED, font=(FONT, 8))
+        self.smart_template_badge.pack(side="left")
+        self.smart_template_fill = action_label(
+            self.smart_template_row, "Fill & copy", self._open_smart_template_fill,
+            fg="#121622", bg=ACCENT, font_size=8, padx=7, pady=4)
+        self.smart_template_edit = action_label(
+            self.smart_template_row, "Template…", self._open_smart_template_editor,
+            fg=ACCENT, bg=PANEL, font_size=8, padx=6, pady=4)
+        self.smart_template_edit.pack(side="right")
+        self.smart_template_fill.pack(side="right", padx=(0, 4))
+        self.smart_template_fill.pack_forget()
+
+    def _update_template_actions(self, entry):
+        if not hasattr(self, "smart_template_badge"):
+            return
+        if entry is None:
+            self.smart_template_badge.configure(text="No command", fg=MUTED)
+            self.smart_template_edit.configure(state="disabled")
+            self.smart_template_fill.pack_forget()
+            return
+        self.smart_template_edit.configure(state="normal")
+        state = smart.template_state(entry)
+        if state == "configured":
+            self.smart_template_badge.configure(text="✓ Smart Template", fg=ACCENT)
+            self.smart_template_fill.pack(side="right", before=self.smart_template_edit,
+                                          padx=(0, 4))
+        else:
+            self.smart_template_fill.pack_forget()
+            if state == "needs_review":
+                self.smart_template_badge.configure(text="⚠ Template needs review", fg=DANGER)
+            elif smart.suggest_template(entry["command"]):
+                self.smart_template_badge.configure(text="◇ Template available", fg=SECONDARY)
+            else:
+                self.smart_template_badge.configure(text="Plain command", fg=MUTED)
+
+    def _save_smart_template(self, entry, template):
+        """User-requested metadata change; no automatic library backup."""
+        if self.commands_file is None:
+            raise ValueError(self.commands_error or "Command library unavailable.")
+        cs.save_template(self.commands_file, entry, template)
+
+    def _open_smart_template_editor(self):
+        entry = self._selected_command()
+        if entry is None:
+            return
+        if self.commands_file is None:
+            self._warning("Smart Templates", "A writable commands.json is required.")
+            return
+        def refresh():
+            self._reload_command_library()
+            self._refresh_command_catalog(machine=entry["machine"], select_id=entry["id"])
+        template_ui.open_editor(self, entry, on_changed=refresh)
+
+    def _open_smart_template_fill(self):
+        entry = self._selected_command()
+        if entry is None:
+            return
+        if smart.template_state(entry) != "configured":
+            self._warning("Template needs review",
+                          "Open Template… and save a reviewed definition first.")
+            return
+        template_ui.open_filler(self, entry, on_copy=self._copy_generated_command)
+
+    def _copy_generated_command(self, output, command_id):
+        """Copy a validated command without writing the filled values to disk."""
+        if not isinstance(output, str) or not output.strip():
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(output)
+        prefs = self.data["command_state"]
+        prefs["recent"] = ch.updated_recent(prefs["recent"], command_id)
+        self.schedule_save()
+        if hasattr(self, "command_feedback") and self.command_feedback.winfo_exists():
+            self.command_feedback.config(text="Generated & copied · Never executed", fg=ACCENT)
+
     def _render_command_details(self):
         item = self._selected_command()
         self.command_code.delete('1.0', tk.END)
@@ -3002,6 +3092,7 @@ class PocketDesk:
             self.command_delete.pack_forget()
         self.command_draft_id = item['id'] if item else None
         self.command_feedback.config(text='Draft edits are temporary · use Edit saved to save · Never executed', fg=MUTED)
+        self._update_template_actions(item)
 
     def _toggle_command_favorite(self):
         item=self._selected_command()

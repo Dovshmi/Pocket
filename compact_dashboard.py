@@ -56,7 +56,7 @@ def _label(parent, text, c, *, size=10, bold=False, bg=None, fg=None, **kwargs):
                     font=("Segoe UI", size, "bold" if bold else "normal"), **kwargs)
 
 
-def _button(parent, caption, command, c, *, primary=False, **kwargs):
+def _button(parent, caption, command, c, *, primary=False, padx=11, pady=7, **kwargs):
     return tk.Button(
         parent, text=caption, command=command,
         bg=c["ACCENT_DARK"] if primary else c["CARD"],
@@ -64,7 +64,7 @@ def _button(parent, caption, command, c, *, primary=False, **kwargs):
         activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
         relief="flat", bd=0, highlightthickness=0, takefocus=1,
         cursor="hand2", font=("Segoe UI", 9, "bold" if primary else "normal"),
-        padx=11, pady=7, **kwargs,
+        padx=padx, pady=pady, **kwargs,
     )
 
 

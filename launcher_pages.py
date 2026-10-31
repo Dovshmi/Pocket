@@ -21,6 +21,10 @@ TOOL_NAMES = {
     "subnet": "Subnet", "clipboard": "Clipboard",
 }
 KIND_ICONS = {"tool": "⌘", "command": ">_", "template": "{}", "note": "✎", "shortcut": "↗"}
+TOOL_ICONS = {
+    "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
+    "commands": ">_", "subnet": "⌗", "clipboard": "▣",
+}
 
 
 def safe_name(raw, fallback):
@@ -204,7 +208,9 @@ def lookup(tile, data, commands, visible_tabs):
         detail = "Menu hidden"
     title = item.get("label") or title
     return {"status": status, "title": title[:35], "detail": detail,
-            "icon": KIND_ICONS[kind], "kind": kind, "id": ident,
+            "icon": TOOL_ICONS.get(ident, KIND_ICONS[kind])
+                    if kind == "tool" else KIND_ICONS[kind],
+            "kind": kind, "id": ident,
             "destination": destination, "action": item.get("action", "open")}
 
 

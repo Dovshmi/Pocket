@@ -29,22 +29,24 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
-## Experimental Dashboard and Extra Mini launcher (development branch)
+## Experimental Dashboard and optional Extra Mini (development branch)
 
-> **In development:** This layout is available on the `feature/dashboard-ui-refresh` branch, not in the published v1.28 download or on `main`. It adapts the earlier promotional concept art to the existing **Tkinter Windows app**; the concept images are not screenshots and some illustrated capabilities are not Pocket features.
+> **In development:** These options are only on the `feature/dashboard-ui-refresh` branch. The published v1.28 release and `main` remain unchanged. The reference images are concepts, not screenshots.
 
-Pocket now has four layouts:
+Pocket offers **three working layouts**, with a separately optional tiny launcher:
 
-| Layout | Size | Purpose |
+| Working layout | Size | Purpose |
 |:---|:---|:---|
-| **Normal** | 480 × 850 | Original tray-first popup; remains the default. |
-| **Mini** | 346 × 530 | Compact icon navigation and quick access. |
-| **Dashboard** | 1160 × 800 | Wide desktop workspace with a permanent left sidebar, dashboard home, and the original functional tools. |
-| **Extra Mini (Compact)** | 322 × 256 | Tiny four-card launcher inspired by the Windows 11 Pocket concept; search and All tools open real Mini workflows. |
+| **Normal** | 480 × 850 | Original tray-first popup (default). |
+| **Mini** | 346 × 530 | Compact working tools and icon tabs. |
+| **Dashboard** | 1160 × 800 | Wide desktop workspace and sidebar. |
+| **Extra Mini (optional)** | 322 × 256 | Four-tile launcher available from **any** of the above. |
 
-**What Extra Mini includes:** a tiny screenshot-inspired Pocket launcher with the actual Pocket logo, small title bar, local text search, four quick-launch cards (Commands, Notes, Clipboard, Subnet where visible), **All tools** menu, PIN, hide-to-tray controls, and saved launcher position. Search finds existing tools, saved notes, saved shortcuts and CLI commands without a network request. Selecting a card, search result or All tools entry temporarily opens the **real Mini view** of that feature. **‹ Back** in Mini returns to the small launcher; the saved layout preference remains Extra Mini. This avoids squeezing the full note editor, CLI controls, TCP results and subnet calculator into 322 px. Compact cards honor the menu visibility settings and fill from other enabled tools when any featured menu is hidden. Notes and CLI search hits open their existing editors; saved shortcut hits open the Shortcuts menu, not an unprompted URL. No command is executed. Settings can still switch to any other layout.
+**Enable Extra Mini:** In **Settings**, check **Enable Extra Mini** and click **Choose the 4 launcher tiles…** to assign four different enabled menus. The default four are Commands, Notes, Clipboard and Subnet. Hidden menu items are replaced temporarily with other visible tools, without forgetting your preferences. Settings and all enabled menus remain accessible from **All tools ▾**, even when not featured.
 
-**What Dashboard includes:** a themed left navigation rail (respecting visible menus), a home page with real counts of saved notes, shortcuts, CLI references and session clipboard items, quick links into existing tools, a top command-search action, native window dragging, theme selection, PIN and saved dashboard-specific position. Notes and CLI views take advantage of the extra horizontal space. All controls route to existing Pocket tools; no demonstration or placeholder network actions are introduced.
+When enabled, the Normal, Mini and Dashboard headers each show a **▾ Extra Mini** minimize control. Click it to shrink Pocket to the 322×256 launcher. Click any tile, search result or All tools entry to expand back to **the same working layout**, directly in the selected tool. The launcher's **↗** button expands back to the previous tool without choosing a tile. This also works with the wide Dashboard: Extra Mini does **not** force the Mini layout. The permanent working layout remains saved independently of the launcher state.
+
+Extra Mini supports local search across enabled tools, saved notes, saved shortcuts and CLI references. It never executes a command, triggers a network lookup or opens a shortcut URL automatically. Clipboard data remains session-only and note reminders still run only while Pocket is active.
 
 **Try it from source (Windows):**
 
@@ -55,13 +57,9 @@ install.bat
 run.bat
 ```
 
-In Pocket choose **Settings → Extra Mini** for the tiny launcher, or **Settings → Dashboard** for the wide layout. From Extra Mini, click a card or **All tools ▾** to open its real Mini tool; use **‹ Back** to return. Change the permanent layout in Settings. The existing `data.json` and `commands.json` formats and command backup behavior remain intact. Each layout remembers its own position. **Normal remains the default for new installations.**
+Choose the base working mode in Settings (**Normal**, **Mini**, **Dashboard**), enable Extra Mini, and configure its four quick-launch tiles. The previous experimental version that saved `display_mode: compact` is migrated safely to the Mini working layout with Extra Mini enabled. The command library and its **manual backup** behavior are unchanged.
 
-**Important differences from concept art:** no artificial favorites panels, editable rich-text toolbar, binary subnet visualization, or universal home search are added merely because they appear in generated images. Only real application functionality is presented. Commands are still copied, never executed. Clipboard data remains session-only; note reminders still require Pocket to run in the tray. Do not use concept images as evidence of implemented functionality.
-
-### Development and testing
-
-Dashboard and Extra Mini are optional UI layers (`dashboard_ui.py` and `compact_dashboard.py`) that reuses the existing `PocketDesk` tool builders. The branch includes display-mode storage tests and a Windows/Linux unit-test workflow. **Visual behavior, window scaling and native editor placement still need hands-on testing on Windows before release.**
+The wider Dashboard adds a themed sidebar, real local-data counters and functional shortcuts to existing tools. Both interfaces are built in native Python/Tkinter (`dashboard_ui.py`, `compact_dashboard.py`). Headless regression tests are run on Windows/Linux CI, but native Windows scaling, keyboard focus, window placement, and tray operation still require a hands-on review before release.
 
 ---
 

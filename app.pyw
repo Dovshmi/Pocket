@@ -1383,27 +1383,10 @@ class PocketDesk:
         self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
-        design.section_header(parent, title, desc, button_text, button_action,
-                              self.theme, compact=self.display_mode == "mini")
-        return
-        if self.display_mode == "mini":
-            heading = tk.Frame(parent, bg=BG)
-            heading.pack(fill="x", pady=(1, 7))
-            action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
-                         hover="#BBC0FF", padx=7, pady=6, font_size=8).pack(side="right")
-            tk.Label(heading, text=title, bg=BG, fg=WHITE, font=(FONT, 12, "bold"),
-                     anchor="w").pack(side="left", fill="x", expand=True)
-            tk.Label(parent, text=desc, bg=BG, fg=MUTED, font=(FONT, 8),
-                     wraplength=304, justify="left").pack(anchor="w", pady=(0, 7))
-            return
-        heading = tk.Frame(parent, bg=BG)
-        heading.pack(fill="x", pady=(1, 14))
-        words = tk.Frame(heading, bg=BG)
-        words.pack(side="left", fill="x", expand=True)
-        tk.Label(words, text=title, bg=BG, fg=WHITE, font=(FONT, 15, "bold")).pack(anchor="w")
-        tk.Label(words, text=desc, bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(4, 0))
-        action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
-                     hover="#BBC0FF", padx=12, pady=9, font_size=9).pack(side="right")
+        """Shared presentation across Pocket tools; preserve original callbacks."""
+        return design.section_header(parent, title, desc, button_text,
+                                     button_action, self.theme,
+                                     compact=self.display_mode == "mini")
 
     def _build_mini_notes(self):
         """Compact notes: a short picker, note metadata and full-height editor."""

@@ -221,7 +221,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             app.root.update()
             lists = [w for w in widgets(dialog) if isinstance(w, tk.Listbox)]
             check(lists and lists[0].size() > 0, working + ": missing local matches")
-            entries[0].event_generate("<Escape>")
+            close_buttons = [w for w in widgets(dialog)
+                             if isinstance(w, tk.Button) and w.cget("text") == "Close"]
+            check(close_buttons, working + ": Quick Search missing close control")
+            close_buttons[0].invoke()
             app.root.update()
             check(app._quick_search_dialog is None, working + ": search popup did not close")
         print("PASS: Ctrl+K Quick Search popup and local results in every working layout")

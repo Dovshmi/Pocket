@@ -102,6 +102,22 @@ class MultiPageModelTests(unittest.TestCase):
         self.assertEqual(len(pages), 3)
         self.assertTrue(all(len(page["tiles"]) == 4 for page in pages))
 
+    def test_legacy_saved_profile_preserves_four_configured_tools(self):
+        with tempfile.TemporaryDirectory() as temp:
+            file = Path(temp) / "data.json"
+            legacy = app["default_data"]()
+            del legacy["extra_mini_pages"]
+            del legacy["extra_mini_page"]
+            legacy["settings"]["extra_mini_tiles"] = [
+                "ports", None, "commands", "mac"]
+            app["save_data"](file, legacy)
+            migrated = app["load_data"](file)
+            self.assertEqual(lp.legacy_first_page(migrated["extra_mini_pages"]),
+                             ["ports", None, "commands", "mac"])
+            self.assertEqual(migrated["extra_mini_page"], 0)
+            self.assertEqual(migrated["extra_mini_pages"][1]["tiles"], [None]*4)
+            self.assertEqual(migrated["extra_mini_pages"][2]["tiles"], [None]*4)
+
     def test_persist_references_and_page_without_clipboard_history(self):
         with tempfile.TemporaryDirectory() as temp:
             file = Path(temp) / "data.json"

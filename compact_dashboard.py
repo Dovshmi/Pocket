@@ -60,49 +60,70 @@ def visible_navigation(visible_tabs):
 
 
 def configured_tiles(raw):
-    """Normalize four unique and known tool keys, preserving hidden choices."""
+    """Return exactly four persisted slots; None is an intentional empty tile.
+
+    Never silently refill a deleted slot: it should remain a visible + until
+    the user chooses a replacement. Legacy installations without preferences
+    start with the same four defaults as before.
+    """
     valid = {key for key, _icon, _name in NAVIGATION} - {"home", "settings"}
-    chosen = []
-    if isinstance(raw, (list, tuple)):
-        for key in raw:
-            if isinstance(key, str) and key in valid and key not in chosen:
-                chosen.append(key)
-                if len(chosen) == 4:
-                    break
-    for key in FEATURED:
-        if len(chosen) >= 4:
-            break
-        if key not in chosen:
-            chosen.append(key)
-    return chosen
+    if not isinstance(raw, (list, tuple)):
+        return list(FEATURED)
+    slots = []
+    used = set()
+    for index in range(4):
+        key = raw[index] if index < len(raw) else None
+        if isinstance(key, str) and key in valid and key not in used:
+            slots.append(key)
+            used.add(key)
+        else:
+            slots.append(None)
+    return slots
+
+
+def display_slots(visible_tabs, selected=None):
+    """Fixed four-slot view; hidden tools are placeholders, not deleted."""
+    enabled = set(visible_tabs)
+    return tuple(key if key in enabled else None
+                 for key in configured_tiles(selected))
 
 
 def featured_tools(visible_tabs, selected=None, limit=4):
-    """Prioritize configured slots, with fallbacks for hidden tools."""
-    allowed = set(visible_tabs)
-    chosen = [key for key in configured_tiles(selected) if key in allowed]
-    chosen.extend(key for key, _icon, _label in NAVIGATION
-                  if key not in ("home", "settings") and key in allowed
-                  and key not in chosen)
-    return tuple(chosen[:max(0, limit)])
+    """Return just the active quick actions (empty/hidden slots excluded)."""
+    return tuple(key for key in display_slots(visible_tabs, selected)
+                 if key is not None)[:max(0, limit)]
+
+
+def remove_tile(current, index):
+    """Clear one slot without shifting neighbors or changing menu visibility."""
+    slots = configured_tiles(current)
+    if 0 <= index < 4:
+        slots[index] = None
+    return slots
 
 
 def choose_tile(current, index, key, visible_tabs):
-    """Replace a slot, swapping an existing selection instead of duplicating it."""
+    """Set a slot to a visible tool; swap duplicates instead of duplicating."""
+    slots = configured_tiles(current)
+    valid = {item for item in visible_tabs if item in TOOL_DESCRIPTIONS}
+    if not 0 <= index < 4 or key not in valid:
+        return slots
+    if key in slots and slots.index(key) != index:
+        other_index = slots.index(key)
+        slots[other_index] = slots[index]
+    slots[index] = key
+    return slots
+
+
+def available_tools(visible_tabs, selected=None, slot=None):
+    """Candidates for a + slot. Never offer hidden or already-used tools."""
+    used = set(configured_tiles(selected))
+    if isinstance(slot, int) and 0 <= slot < 4:
+        used.discard(configured_tiles(selected)[slot])
     allowed = set(visible_tabs)
-    chosen = list(featured_tools(visible_tabs, current))
-    if key not in allowed or key not in TOOL_DESCRIPTIONS:
-        return configured_tiles(current)
-    if not 0 <= index < 4 or index >= len(chosen):
-        return configured_tiles(current)
-    if key in chosen:
-        other = chosen.index(key)
-        chosen[other] = chosen[index]
-    chosen[index] = key
-    for old in configured_tiles(current):
-        if len(chosen) < 4 and old not in chosen:
-            chosen.append(old)
-    return configured_tiles(chosen)
+    return tuple((key, icon, title) for key, icon, title in NAVIGATION
+                 if key in allowed and key not in used and key in TOOL_DESCRIPTIONS)
+
 
 def search_items(data, command_library, query, visible_tabs, limit=4):
     """Pure, bounded local search across tools, saved notes/links and CLI.
@@ -189,33 +210,58 @@ def _launch_hit(app, result):
     app._open_compact_tool(result["destination"], result)
 
 
-def _card(parent, app, c, key):
+def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
+    """Always render one of four stable slots, including an actionable +."""
+    tile = tk.Frame(parent, width=68, height=102, bg=c["PANEL"],
+                    highlightbackground=c["BORDER"], highlightthickness=1)
+    tile.grid(row=0, column=index, padx=(0, 5) if index < 3 else 0,
+              sticky="nsew")
+    tile.grid_propagate(False)
+    if key is None:
+        add = tk.Button(tile, text="+", command=lambda: picker_action(index),
+                        bg=c["CARD"], fg=c["ACCENT"], activebackground=c["ACCENT_DARK"],
+                        activeforeground=c["WHITE"], relief="flat", bd=0,
+                        cursor="hand2", font=("Segoe UI", 21), padx=0, pady=0)
+        add.pack(fill="x", padx=7, pady=(13, 7))
+        _label(tile, "Add tool", bg=c["PANEL"], fg=c["SECONDARY"],
+               size=8).pack()
+        return tile
+
     icon = next(row[1] for row in NAVIGATION if row[0] == key)
     title = next(row[2] for row in NAVIGATION if row[0] == key)
     accent = ICON_COLORS.get(key, c["ACCENT"])
-    tile = tk.Frame(parent, width=70, height=96, bg=c["PANEL"],
-                    highlightbackground=c["BORDER"], highlightthickness=1, cursor="hand2")
-    tile.pack(side="left", fill="y", expand=True, padx=(0, 6) if key != parent._last_key else 0)
-    tile.pack_propagate(False)
-    glyph = _label(tile, icon, bg=c["CARD"], fg=accent,
-                   size=16, bold=True, padx=9, pady=3, cursor="hand2")
-    glyph.pack(pady=(6, 4))
-    label = _label(tile, title if key != "subnet" else "Subnet",
+    glyph = _label(tile, icon, bg=c["CARD"], fg=accent, size=16, bold=True,
+                   padx=8, pady=2, cursor="hand2" if not editing else "arrow")
+    glyph.pack(pady=(13 if editing else 7, 5))
+    label = _label(tile, "Subnet" if key == "subnet" else title,
                    bg=c["PANEL"], fg=c["WHITE"], size=8, bold=True,
-                   cursor="hand2", anchor="center")
+                   cursor="hand2" if not editing else "arrow", anchor="center")
     label.pack(fill="x")
     detail = _label(tile, TOOL_DESCRIPTIONS[key],
-                    bg=c["PANEL"], fg=c["MUTED"], size=7, wraplength=68,
-                    justify="center", cursor="hand2")
-    detail.pack(fill="x", padx=2, pady=(2, 1))
-    def set_hover(hover):
-        tile.configure(bg=c["CARD_HOVER"] if hover else c["PANEL"])
-        label.configure(bg=c["CARD_HOVER"] if hover else c["PANEL"])
-        detail.configure(bg=c["CARD_HOVER"] if hover else c["PANEL"])
-    for target in (tile, glyph, label, detail):
-        target.bind("<Button-1>", lambda _event, dest=key: app._open_compact_tool(dest))
-        target.bind("<Enter>", lambda _event: set_hover(True))
-        target.bind("<Leave>", lambda _event: set_hover(False))
+                    bg=c["PANEL"], fg=c["MUTED"], size=7, wraplength=66,
+                    justify="center", cursor="hand2" if not editing else "arrow")
+    detail.pack(fill="x", padx=1, pady=(3, 0))
+
+    if editing:
+        remove = tk.Button(tile, text="×", command=lambda: remove_action(index),
+                           bg=c["ACCENT_DARK"], fg=c["DANGER"],
+                           activebackground=c["CARD_HOVER"],
+                           activeforeground=c["WHITE"], font=("Segoe UI", 10, "bold"),
+                           relief="flat", bd=0, highlightthickness=0, cursor="hand2",
+                           padx=0, pady=0)
+        remove.place(relx=1.0, x=-2, y=2, anchor="ne", width=20, height=20)
+    else:
+        widgets = (tile, glyph, label, detail)
+        def hover(active):
+            bg = c["CARD_HOVER"] if active else c["PANEL"]
+            tile.configure(bg=bg)
+            label.configure(bg=bg)
+            detail.configure(bg=bg)
+        for target in widgets:
+            target.configure(cursor="hand2")
+            target.bind("<Button-1>", lambda _event, dest=key: app._open_compact_tool(dest))
+            target.bind("<Enter>", lambda _event: hover(True))
+            target.bind("<Leave>", lambda _event: hover(False))
     return tile
 
 
@@ -307,11 +353,62 @@ def build_shell(app, colors):
     area.pack_propagate(False)
     cards = tk.Frame(area, bg=c["BG"])
     cards.pack(fill="both", expand=True)
-    featured = featured_tools(app.settings["visible_tabs"], app.settings.get("extra_mini_tiles"))
-    cards._last_key = featured[-1] if featured else None
-    for key in featured:
-        _card(cards, app, c, key)
     app.compact_cards = cards
+
+    def choose_new_tool(index, anchor=None):
+        candidates = available_tools(app.settings["visible_tabs"],
+                                     app.settings.get("extra_mini_tiles"), index)
+        menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+                       activebackground=c["ACCENT_DARK"],
+                       activeforeground=c["WHITE"], bd=1, relief="flat")
+        for key, glyph, title in candidates:
+            menu.add_command(
+                label=f"  {glyph}   {title}",
+                command=lambda chosen=key: set_tile(index, chosen))
+        if not candidates:
+            menu.add_command(label="All enabled tools are already selected", state="disabled")
+        widget = anchor or cards.winfo_children()[index]
+        app._modal = True
+        try:
+            menu.tk_popup(widget.winfo_rootx(), widget.winfo_rooty()+widget.winfo_height()-4)
+        finally:
+            menu.grab_release()
+            app._modal = False
+
+    def set_tile(index, key):
+        app.settings["extra_mini_tiles"] = choose_tile(
+            app.settings.get("extra_mini_tiles"), index, key,
+            app.settings["visible_tabs"])
+        app.schedule_save()
+        render_cards()
+
+    def remove_selected(index):
+        app.settings["extra_mini_tiles"] = remove_tile(
+            app.settings.get("extra_mini_tiles"), index)
+        app.schedule_save()
+        render_cards()
+
+    def render_cards():
+        for widget in cards.winfo_children():
+            widget.destroy()
+        for column in range(4):
+            cards.columnconfigure(column, weight=1, uniform="quick-tile")
+        slots = display_slots(app.settings["visible_tabs"],
+                              app.settings.get("extra_mini_tiles"))
+        for index, key in enumerate(slots):
+            _tile(cards, app, c, index, key,
+                  bool(getattr(app, "_compact_editing", False)),
+                  remove_selected, choose_new_tool)
+        status = getattr(app, "compact_status", None)
+        if status is not None and status.winfo_exists():
+            if getattr(app, "_compact_editing", False):
+                status.config(text="Edit tiles · × remove · + add")
+            else:
+                saved = bool(app.data.get("window_positions", {}).get("compact"))
+                status.config(text="Position saved" if saved else "Ready when you are")
+
+    app.compact_render_cards = render_cards
+    render_cards()
     results = tk.Frame(area, bg=c["BG"])
     app.compact_results = results
     app.compact_matches = []
@@ -319,6 +416,11 @@ def build_shell(app, colors):
 
     def render_results(*_args):
         query = "" if app.compact_placeholder_active else entry.get().strip()
+        if query and getattr(app, "_compact_editing", False):
+            app._compact_editing = False
+            render_cards()
+            if getattr(app, "compact_edit_button", None) is not None:
+                app.compact_edit_button.configure(text="Edit")
         if not query:
             results.pack_forget()
             cards.pack(fill="both", expand=True)
@@ -396,6 +498,26 @@ def build_shell(app, colors):
                            cursor="hand2", highlightthickness=0, font=("Segoe UI", 8))
     all_button.configure(command=lambda: _show_tools(app, all_button))
     all_button.pack(side="right")
+    def toggle_edit():
+        app._compact_editing = not bool(getattr(app, "_compact_editing", False))
+        if app._compact_editing:
+            app.compact_placeholder_active = True
+            entry.delete(0, tk.END)
+            entry.insert(0, app.compact_placeholder)
+            results.pack_forget()
+            cards.pack(fill="both", expand=True)
+        edit_btn.configure(text="Done" if app._compact_editing else "Edit")
+        render_cards()
+    edit_btn = tk.Button(
+        footer, text="Done" if getattr(app, "_compact_editing", False) else "Edit",
+        command=toggle_edit, relief="flat", bd=0, bg=c["ACCENT_DARK"],
+        fg=c["ACCENT"], activebackground=c["CARD_HOVER"],
+        activeforeground=c["WHITE"], padx=7, pady=5,
+        cursor="hand2", highlightthickness=0, font=("Segoe UI", 8, "bold"))
+    edit_btn.pack(side="right", padx=(0, 6))
+    app.compact_edit_button = edit_btn
+    if getattr(app, "_compact_editing", False):
+        render_cards()
     app.body = tk.Frame(outer, bg=c["BG"])
     app._mini_root_body = app.body
     app.compact_render_results = render_results

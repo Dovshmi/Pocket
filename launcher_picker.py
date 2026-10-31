@@ -21,7 +21,8 @@ def _base_dialog(app, caption, width, height):
     win = tk.Toplevel(app.root)
     win.title("Pocket · " + caption)
     win.configure(bg=c["BG"])
-    win.minsize(365, 300)
+    # A short rename form should stay short; the searchable picker needs space.
+    win.minsize(365, min(height, 300))
     win.geometry(f"{width}x{height}")
     win.transient(app.root)
     previous = app._modal

@@ -220,12 +220,14 @@ def build_home(app):
            strong=True).pack(anchor="w")
     _label(hero_left, "Welcome to Pocket", c, size=22, strong=True
            ).pack(anchor="w", pady=(5, 4))
-    _label(hero_left, "A compact, offline-first toolbox for real work.",
+    _label(hero_left, "Choose a tool card below to open its working page.",
            c, size=10, fg=c["SECONDARY"]).pack(anchor="w")
     if "notes" in app.settings["visible_tabs"]:
         design.button(hero, "Open Notes  →", lambda: app.show_tab("notes"), app.theme,
                       primary=True).pack(side="right", padx=20)
 
+    _label(body, "AT A GLANCE  ·  Counts are informational, not buttons", c,
+           size=8, bg=c["BG"], fg=c["MUTED"]).pack(anchor="w", pady=(0, 7))
     stats = tk.Frame(body, bg=c["BG"])
     stats.pack(fill="x", pady=(0, 18))
     values = (
@@ -243,7 +245,7 @@ def build_home(app):
         _label(frame, caption, c, size=9, fg=c["MUTED"]
                ).pack(anchor="w", padx=17, pady=(0, 14))
 
-    _label(body, "QUICK ACCESS", c, size=9, strong=True, bg=c["BG"],
+    _label(body, "OPEN A TOOL  ·  SELECT OPEN TO START", c, size=9, strong=True, bg=c["BG"],
            fg=c["SECONDARY"]).pack(anchor="w", pady=(0, 12))
     all_tools = (
         ("⌘", "CLI command library", "Search and copy commands without running them.", "commands"),

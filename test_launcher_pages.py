@@ -76,7 +76,7 @@ class MultiPageModelTests(unittest.TestCase):
         self.assertEqual(pages[1]["name"], "Operations")
         pages = lp.move(pages, 1, 2, 0, 0)
         self.assertEqual(pages[0]["tiles"][0]["id"], "n1")
-        self.assertIsNone(pages[1]["tiles"][2])
+        self.assertEqual(pages[1]["tiles"][2], {"kind": "tool", "id": "commands"})
         self.assertEqual(lp.legacy_first_page(pages)[0], None)
         self.assertEqual(self.data["notes"][0]["id"], "n1")
 

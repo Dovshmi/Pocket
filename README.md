@@ -46,23 +46,30 @@ Pocket stays in the **Windows notification area** and appears only when you need
 
 ### How Extra Mini works
 
-Choose a working layout under **Settings → Appearance & layout**. Enable **Extra Mini launcher**, then use the minimize-to-Extra-Mini control in the chosen working window.
+Choose a working layout under **Settings → Appearance & layout**. Enable **Extra Mini launcher**, then minimize the working window into the launcher.
 
 ```text
 Normal / Mini / Dashboard
            │
            ▼  Minimize to Extra Mini
-    Extra Mini launcher
+       Extra Mini launcher
+     Page 1  ● ○ ○  ←/→ scroll
      ◻ ◻ ◻ ◻  + search + All tools
+     Page 2  ○ ● ○  ←/→ scroll
+     ◻ ◻ ◻ ◻  (another 4 actions)
+     Page 3  ○ ○ ●  ←/→ scroll
+     ◻ ◻ ◻ ◻  (another 4 actions)
            │
-           ▼  Choose a tool
+           ▼  Open selected item
 Same Normal / Mini / Dashboard layout
-  → directly in the chosen tool
+  → directly to a note, command or tool
 ```
 
-Extra Mini does **not** force you into Mini. Click the **expand** control to return to your previously open tool without selecting another one.
+Extra Mini does **not** force you into Mini. The **expand** control restores your previous working layout without choosing a new action.
 
-To edit the four tiles, click **Edit** in Extra Mini. Use **×** to clear a slot, then **+** to choose an enabled tool; **Done** exits editing. The positions remain fixed and changes are saved. You can also open the same editor from Settings. Any enabled tool remains accessible from **All tools**, even when it isn't one of the four tiles. Hiding a menu doesn't erase its saved tile preference.
+In beta v1.30.0, use **‹ / ›**, the mouse wheel, or the page dots to switch between **three pages of four slots**. Click **Edit**, then **+** to choose a tool or an exact saved item. Right-click an existing tile to **Replace**, **Rename**, **Move** or **Remove** it; use **Done** when finished. Right-click the page label (or click it during Edit) to rename the page. Previously configured tiles remain on page one. The other pages initially start empty.
+
+Quick actions can open an exact **note**, **command**, **approved Smart Template**, or **saved shortcut**, in addition to menu tools. A regular command can optionally be copied directly but is **never executed**. **All tools** remains available even when it isn't in one of the twelve slots. Hiding a menu does not erase its tile preference.
 
 ### The current interface
 

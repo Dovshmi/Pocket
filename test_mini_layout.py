@@ -34,7 +34,7 @@ class MiniLayoutTests(unittest.TestCase):
                     {"x": True, "y": 2}, {"x": 100001, "y": 0}, []):
             self.assertIsNone(mini.window_position(bad))
         self.assertEqual(mini.window_positions({"normal": [], "mini": {"x": 2, "y": -6}}),
-                         {"normal": None, "mini": {"x": 2, "y": -6}})
+                         {"normal": None, "mini": {"x": 2, "y": -6}, "dashboard": None})
 
     def test_carousel_uses_ranked_first_result_and_limits(self):
         ranked = [{"id": "best"}, {"id": "next"}, {"id": "last"}]

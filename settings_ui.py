@@ -161,6 +161,25 @@ def build_settings(app, parent):
           wraplength=wrap).pack(anchor="w", pady=(3, 7))
     _button(row, "Change shortcut", app._open_hotkey_picker, c).pack(anchor="w")
     _separator(behavior, c)
+    _toggle(behavior, c, "Pause clipboard capture",
+            "Stop collecting new text; existing session history remains accessible.",
+            app.settings["clipboard_paused"],
+            lambda enabled: app._set_clipboard_paused(enabled), compact=mini)
+    _separator(behavior, c)
+    _toggle(behavior, c, "Skip recognized sensitive text",
+            "Avoid capturing common passwords, API tokens and private keys. "
+            "Pattern checks cannot guarantee detection of every secret.",
+            app.settings["clipboard_sensitive_filter"],
+            app._set_clipboard_sensitive_filter, compact=mini)
+    _separator(behavior, c)
+    search_row = tk.Frame(behavior, bg=c["PANEL"])
+    search_row.pack(fill="x", padx=14, pady=(10, 8))
+    _text(search_row, "Quick Search", c, bold=True).pack(anchor="w")
+    _text(search_row, "Ctrl+K or Ctrl+F · local search only", c,
+          size=8, fg=c["MUTED"]).pack(anchor="w", pady=(3, 7))
+    _button(search_row, "Open Quick Search", app._open_global_search, c,
+            primary=True).pack(anchor="w")
+    _separator(behavior, c)
     _text(behavior, "Clipboard captures only while its menu is enabled. "
           "Captured text stays in memory, not in your saved settings.",
           c, fg=c["MUTED"], size=8, wraplength=wrap, justify="left",

@@ -443,7 +443,9 @@ def build_shell(app, colors):
                                 size=7, anchor="w")
     app.compact_status.pack(side="left", fill="y", padx=(1, 0))
     app.compact_status.bind("<Button-3>", lambda _e: app.compact_rename_page())
-    design.Tooltip(app.compact_status, "Right-click to rename page", app.theme)
+    app.compact_status.bind("<Button-1>", lambda _e:
+                            app.compact_rename_page() if app._compact_editing else None)
+    design.Tooltip(app.compact_status, "Right-click, or click while editing, to rename page", app.theme)
     all_button = tk.Button(footer, text="All tools ▾", relief="flat", bd=0,
                            bg=c["CARD"], fg=c["ACCENT"], activebackground=c["CARD_HOVER"],
                            activeforeground=c["WHITE"], padx=7, pady=5,

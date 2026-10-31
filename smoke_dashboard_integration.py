@@ -285,6 +285,74 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(app.current_tab == "subnet", mode + ": previous menu not restored")
             print("PASS: launcher minimize / restore / expand from", mode)
 
+        # Direct saved command references, copy-only, Smart Template and
+        # shortcut tiles must dispatch to the exact saved item.
+        from types import SimpleNamespace
+        app._set_display_mode("normal")
+        app._return_to_compact()
+        app._set_compact_page(0)
+        app.root.update()
+        app.compact_handle_wheel(SimpleNamespace(
+            widget=app.compact_cards, delta=-120, num=None))
+        check(app.data["extra_mini_page"] == 1, "Mouse-wheel paging broken")
+        app.compact_handle_wheel(SimpleNamespace(
+            widget=app.compact_cards, delta=120, num=None))
+        check(app.data["extra_mini_page"] == 0, "Reverse wheel paging broken")
+        reference = app.command_library[0]
+        app._launch_compact_item({"kind": "command", "id": reference["id"],
+                                  "action": "copy"})
+        check(app.display_mode == "compact", "Direct Copy changed layout")
+        check(app.root.clipboard_get() == reference["command"],
+              "Direct Copy changed or executed original command")
+        check(app._clipboard_last == reference["command"],
+              "Direct Copy should not enter session Clipboard History")
+        app._launch_compact_item({"kind": "command", "id": reference["id"]})
+        app.root.update()
+        check(app.current_tab == "commands" and
+              app.selected_command_id == reference["id"],
+              "Specific command action did not open its exact record")
+        app._return_to_compact()
+        app.root.update()
+
+        local_link = app.data["links"][0]
+        launched = []
+        previous_opener = app.open_shortcut
+        app.open_shortcut = lambda item: launched.append(item["id"])
+        try:
+            app._launch_compact_item({"kind": "shortcut", "id": local_link["id"]})
+            check(launched == [local_link["id"]],
+                  "Shortcut tile did not dispatch through existing shortcut handler")
+        finally:
+            app.open_shortcut = previous_opener
+
+        template_record = {
+            "id": "test:extra-mini-template", "machine": "FortiGate",
+            "category": "Diagnostics", "description": "Test ping",
+            "command": "execute ping x.x.x.x",
+        }
+        template_record["template"] = smart.validate_template(
+            smart.suggest_template(template_record["command"]),
+            template_record["command"])
+        app.command_library.append(template_record)
+        try:
+            app._launch_compact_item({"kind": "template", "id": template_record["id"]})
+            app.root.update()
+            check(app.current_tab == "commands" and
+                  app.selected_command_id == template_record["id"],
+                  "Smart Template tile did not select exact command")
+            template_dialogs = [w for w in app.root.winfo_children()
+                                if isinstance(w, tk.Toplevel)]
+            check(template_dialogs, "Smart Template tile did not open fill form")
+            cancel_buttons = [w for w in widgets(template_dialogs[-1])
+                              if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
+            check(cancel_buttons, "Smart Template tile has no Cancel action")
+            cancel_buttons[0].invoke()
+            app.root.update()
+            check(not app._modal, "Smart Template dialog left modal state enabled")
+        finally:
+            app.command_library.remove(template_record)
+        print("PASS: wheel paging and exact direct command, template, copy and shortcut actions")
+
         # Theme and visibility must not mutate data or change the base layout.
         app._choose_theme("purple")
         app.root.update()

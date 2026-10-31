@@ -92,6 +92,24 @@ This maintenance release updates the Windows binaries to include the improvement
 
 See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
 
+## Smart Command Templates (development branch preview)
+
+> **Unreleased and optional.** Smart Templates are being developed on `feature/smart-command-templates` only. The public v1.29.1 Windows downloads and `main` do **not** contain this feature.
+
+Pocket's Commands screen now has a small **Template…** option for a selected command. Your ordinary **Copy edited**, editing, search, categories, favorites, recent history, command backups, and plain-command behavior continue unchanged.
+
+1. Select a command in **Normal**, **Mini**, or **Dashboard**, then choose **Template…**. Pocket may suggest fields for recognizable placeholders (`{vrf}`, `<IP>`, `[interface]`, `x.x.x.x`, `x/x/x`, and a few other forms). Suggestions do not modify the library.
+2. Review or change the generated format using **`{{FIELD_NAME}}`** markers. Give each field a label and a validation type (IPv4/IPv6, CIDR, VLAN, port, VRF, interface, MAC, integer, choice, or free text). Select **Refresh fields from format** when modifying the markers.
+3. Click **Save approved template** to add metadata to that command in your writable `commands.json`. This **does not** overwrite the original CLI text, create a backup, or affect other commands.
+4. The command then shows **Fill & copy**. Enter the values, review the generated CLI, then click **Generate & Copy**. Pocket copies the result to the clipboard **without executing it or saving the entered values**. The normal Copy action remains available.
+5. To disable the feature for one command, select **Template… → Remove**. The saved original command and other command functions remain intact.
+
+**Important:** Suggestions are heuristic—not a CLI syntax validator. Some library entries are notes, alternative commands, fixed examples, or multiple CLI steps. These require manual review, and incorrect suggestions should be corrected or discarded. If you edit the underlying command after approving a template, Pocket marks its template **Needs review** and disables generated copying until you approve an updated format. Templates follow the existing **manual** command backup/restore workflow and store no filled-in input values on disk.
+
+Extra Mini continues to open the Commands tool in whichever working mode you selected; there is no extra top-level menu. Smart Templates work entirely offline.
+
+---
+
 ## Seven tools, one window
 
 | Tool | What you can do |

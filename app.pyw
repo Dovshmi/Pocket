@@ -1330,7 +1330,9 @@ class PocketDesk:
         details = tk.Frame(top_row, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         details.pack(side="left", fill="x", expand=True)
 
-        sidebar = tk.Frame(top_row, bg=PANEL, width=144, height=154,
+        sidebar = tk.Frame(top_row, bg=PANEL,
+                           width=290 if self.display_mode == "dashboard" else 144,
+                           height=188 if self.display_mode == "dashboard" else 154,
                            highlightbackground=BORDER, highlightthickness=1)
         sidebar.pack(side="right", fill="y", padx=(10, 0))
         sidebar.pack_propagate(False)
@@ -2609,7 +2611,8 @@ class PocketDesk:
         self.command_feedback.pack(anchor='w', padx=12, pady=(0, 5))
         # Command first (left), description second (right); align Hebrew purposes to the right.
         self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
-                                       (230, 185), rows=4, aligns=('w', 'e'))
+                                       (540, 335) if self.display_mode == "dashboard" else (230, 185),
+                                       rows=4, aligns=('w', 'e'))
         # The pane's requested height guarantees four full result rows; the
         # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)

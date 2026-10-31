@@ -77,6 +77,23 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               self_color["MUTED"], "Disabled dropdown lacks contrast")
         print("PASS: real ttk Combobox readonly and disabled dark-theme colors")
 
+        # Populate only the temporary, isolated test profile with harmless
+        # example content so captures show working tool views, not blank states.
+        app.data["notes"][0].update({
+            "title": "Network shift notes",
+            "body": "Shift handover checklist:\n\n"
+                    "- Review interface status and routing changes\n"
+                    "- Check important uplinks\n"
+                    "- Record follow-up tasks for the next shift",
+            "phone": "",
+        })
+        for example_clip in (
+            "show ip interface brief",
+            "get router info routing-table all",
+            "192.168.10.0/24",
+        ):
+            appmod["clipboard_add"](app.clipboard_items, example_clip)
+
         for mode in MODES:
             app._set_display_mode(mode)
             app.root.update()
@@ -86,6 +103,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
+                # Capture every actual tool page in every working layout.
+                capture(app, output, mode + "_" + page)
                 if page == "commands":
                     check(hasattr(app, "smart_template_edit") and
                           app.smart_template_edit.winfo_exists(),
@@ -150,6 +169,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update_idletasks()
                 check(canvas.yview()[0] > initial_scroll,
                       "Dashboard Home cannot scroll to lower tools")
+                capture(app, output, "dashboard_home_scrolled")
+                canvas.yview_moveto(0)
+                app.root.update()
+                capture(app, output, "dashboard_home")
             if mode == "mini":
                 check(len(app.mini_icon_tabs) == len(app.settings["visible_tabs"])+1,
                       "Mini navigation should show every enabled menu plus Settings")

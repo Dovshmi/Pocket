@@ -1,9 +1,7 @@
 """Screenshot-inspired pocket-sized launcher for the existing Pocket desktop app.
 
-The Compact mode is deliberately smaller than Mini. It is a real, keyboard-
-accessible local search and navigation surface. Opening a tool temporarily
-uses the existing 346x530 Mini interface; Back returns to Compact without
-changing the user's saved Compact mode or executing network requests.
+Extra Mini is a temporary launcher for a selected Normal, Mini or Dashboard.
+Opening a tool restores that layout, and search remains entirely local.
 """
 from __future__ import annotations
 
@@ -61,14 +59,50 @@ def visible_navigation(visible_tabs):
                  if row[0] in ("home", "settings") or row[0] in allowed)
 
 
-def featured_tools(visible_tabs, limit=4):
-    """Four quick-launch cards; remaining tools are always in All tools."""
-    allowed = set(visible_tabs)
-    chosen = [key for key in FEATURED if key in allowed]
-    chosen.extend(key for key, _icon, _label in NAVIGATION
-                  if key not in ("home", "settings") and key in allowed and key not in chosen)
-    return tuple(chosen[:limit])
+def configured_tiles(raw):
+    """Normalize four unique and known tool keys, preserving hidden choices."""
+    valid = {key for key, _icon, _name in NAVIGATION} - {"home", "settings"}
+    chosen = []
+    if isinstance(raw, (list, tuple)):
+        for key in raw:
+            if isinstance(key, str) and key in valid and key not in chosen:
+                chosen.append(key)
+                if len(chosen) == 4:
+                    break
+    for key in FEATURED:
+        if len(chosen) >= 4:
+            break
+        if key not in chosen:
+            chosen.append(key)
+    return chosen
 
+
+def featured_tools(visible_tabs, selected=None, limit=4):
+    """Prioritize configured slots, with fallbacks for hidden tools."""
+    allowed = set(visible_tabs)
+    chosen = [key for key in configured_tiles(selected) if key in allowed]
+    chosen.extend(key for key, _icon, _label in NAVIGATION
+                  if key not in ("home", "settings") and key in allowed
+                  and key not in chosen)
+    return tuple(chosen[:max(0, limit)])
+
+
+def choose_tile(current, index, key, visible_tabs):
+    """Replace a slot, swapping an existing selection instead of duplicating it."""
+    allowed = set(visible_tabs)
+    chosen = list(featured_tools(visible_tabs, current))
+    if key not in allowed or key not in TOOL_DESCRIPTIONS:
+        return configured_tiles(current)
+    if not 0 <= index < 4 or index >= len(chosen):
+        return configured_tiles(current)
+    if key in chosen:
+        other = chosen.index(key)
+        chosen[other] = chosen[index]
+    chosen[index] = key
+    for old in configured_tiles(current):
+        if len(chosen) < 4 and old not in chosen:
+            chosen.append(old)
+    return configured_tiles(chosen)
 
 def search_items(data, command_library, query, visible_tabs, limit=4):
     """Pure, bounded local search across tools, saved notes/links and CLI.
@@ -222,8 +256,8 @@ def build_shell(app, colors):
         widget.bind("<B1-Motion>", app._continue_window_drag)
         widget.bind("<ButtonRelease-1>", app._finish_window_drag)
         widget.bind("<Button-3>", app._show_header_menu)
-    for symbol in ("×", "−"):
-        button = tk.Button(header, text=symbol, command=app.hide, relief="flat", bd=0,
+    for symbol, action in (("×", app.hide), ("↗", app._expand_from_extra_mini)):
+        button = tk.Button(header, text=symbol, command=action, relief="flat", bd=0,
                            bg=c["BG"], fg=c["MUTED"], activebackground=c["CARD"],
                            activeforeground=c["WHITE"], cursor="hand2",
                            font=("Segoe UI", 11), padx=5, pady=0,
@@ -273,7 +307,7 @@ def build_shell(app, colors):
     area.pack_propagate(False)
     cards = tk.Frame(area, bg=c["BG"])
     cards.pack(fill="both", expand=True)
-    featured = featured_tools(app.settings["visible_tabs"])
+    featured = featured_tools(app.settings["visible_tabs"], app.settings.get("extra_mini_tiles"))
     cards._last_key = featured[-1] if featured else None
     for key in featured:
         _card(cards, app, c, key)

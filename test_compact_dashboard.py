@@ -40,6 +40,58 @@ class CompactDashboardTests(unittest.TestCase):
         self.assertEqual(keys[-1], "settings")
         self.assertEqual(len(keys), len(compact.NAVIGATION))
 
+    def test_featured_cards_and_fallback_respect_visibility(self):
+        self.assertEqual(compact.featured_tools(
+            ["notes", "links", "ports", "mac", "commands", "subnet", "clipboard"]),
+            ("commands", "notes", "clipboard", "subnet"))
+        self.assertEqual(compact.featured_tools(["links", "ports", "mac"]),
+                         ("links", "ports", "mac"))
+        self.assertEqual(compact.featured_tools([]), ())
+
+    def test_search_finds_real_local_items_without_executing(self):
+        data = {"notes": [{"id": "note-1", "title": "Router checklist",
+                            "body": "Check OSPF adjacency"}],
+                "links": [{"id": "link-1", "title": "Device docs",
+                            "url": "https://example.test/docs"}]}
+        library = [{"id": "cmd-1", "machine": "Cisco", "category": "Routing",
+                    "description": "Show OSPF neighbors",
+                    "command": "show ip ospf neighbor"}]
+        visible = [key for key, _caption in app["VISIBLE_TABS"]]
+        note_hits = compact.search_items(data, library, "checklist", visible)
+        self.assertEqual(note_hits[0]["kind"], "note")
+        self.assertEqual(note_hits[0]["id"], "note-1")
+        self.assertEqual(note_hits[0]["destination"], "notes")
+        shortcut_hits = compact.search_items(data, library, "Device docs", visible)
+        self.assertEqual(shortcut_hits[0]["destination"], "links")
+        command_hits = compact.search_items(data, library, "ospf", visible)
+        self.assertTrue(any(hit["kind"] == "command" for hit in command_hits))
+        self.assertEqual(compact.search_items(data, library, "ospf", ["notes"]), [])
+        self.assertEqual(compact.search_items(data, library, "", visible), [])
+
+    def test_launcher_dispatches_through_existing_mini_without_saving_mode(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        desk = SimpleNamespace(
+            display_mode="compact", current_tab="home", _compact_return=False,
+            settings={"visible_tabs": ["notes", "commands"], "display_mode": "compact"},
+            data={"notes": [{"id": "n1"}], "active_note": "other"},
+            _build_shell_refresh=Mock(), _command_focus_in=Mock(),
+        )
+        app["PocketDesk"]._open_compact_tool(
+            desk, "notes", {"kind": "note", "destination": "notes", "id": "n1"})
+        self.assertEqual(desk.display_mode, "mini")
+        self.assertTrue(desk._compact_return)
+        self.assertEqual(desk.current_tab, "notes")
+        self.assertEqual(desk.data["active_note"], "n1")
+        self.assertEqual(desk.settings["display_mode"], "compact")
+        desk._flush_current_note = Mock()
+        app["PocketDesk"]._return_to_compact(desk)
+        self.assertEqual(desk.display_mode, "compact")
+        self.assertEqual(desk.current_tab, "home")
+        self.assertFalse(desk._compact_return)
+        self.assertEqual(desk.settings["display_mode"], "compact")
+        self.assertEqual(desk._build_shell_refresh.call_count, 2)
+
     def test_independent_saved_position_and_settings_roundtrip(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "data.json"

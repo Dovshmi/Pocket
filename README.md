@@ -29,6 +29,20 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
+## Modern Pocket design + privacy + Quick Search (new development branch)
+
+> **Experimental:** This work is on `feature/pocket-design-system-and-polish`, based on the tested Dashboard/Extra Mini branch. It has not been merged or published. The source/CI build is not a new v1.28 release.
+
+**What's new in this branch:** A shared theme-aware toolkit (`pocket_design.py`) now provides consistent clickable keyboard-accessible actions, modern section headers, input focus borders and table styles. Every existing feature still uses its original callbacks and storage. Settings retains its redesigned card layout. Extra Mini retains four customizable tile slots, and its existing tool-navigation behavior.
+
+**Global Quick Search:** Press **Ctrl+K** from Normal, Mini or Dashboard to search enabled tools, notes, saved shortcuts and CLI references locally. Open a result with Enter or double-click; Escape or Close dismisses the dialog. Ctrl+F continues to focus the command search in Commands and opens Quick Search elsewhere. Extra Mini keeps its own inline searchable launcher. Search never launches a shortcut or executes a command automatically.
+
+**Clipboard privacy:** The Clipboard page has **Pause capture / Resume capture**. Settings includes **Pause clipboard capture** and **Skip recognized sensitive text**, enabled by default for new and migrated profiles. The optional filter excludes common token/password/private-key patterns, but is **heuristic, not a guarantee**; passwords or other sensitive text may still be captured. Clipboard history remains entirely in memory and never saves with settings. Capturing occurs only when the Clipboard menu is enabled *and* capture is not paused.
+
+**Testing:** The pull request runs unit tests on Windows and Linux, a GUI integration smoke test across all layouts, and a Windows portable executable build/startup check. Still perform hands-on Windows DPI, multi-monitor, focus/RTL, tray and shortcut testing before merging.
+
+---
+
 ## Experimental Dashboard and optional Extra Mini (development branch)
 
 > **In development:** These options are only on the `feature/dashboard-ui-refresh` branch. The published v1.28 release and `main` remain unchanged. The reference images are concepts, not screenshots.

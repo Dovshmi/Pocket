@@ -468,7 +468,7 @@ class PocketDesk:
         except (tk.TclError, OSError):
             pass
         self._build_shell()
-        self.show_tab("notes")
+        self.show_tab("home" if self.display_mode in ("dashboard", "compact") else "notes")
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Escape>", lambda _e: self.hide())
@@ -832,7 +832,7 @@ class PocketDesk:
         so typing continues in the note. Handle only Normal Notes: the working
         Mini click-away behavior must stay unchanged.
         """
-        if self.display_mode != "normal" or self.current_tab != "notes" or self._modal:
+        if self.display_mode not in ("normal", "dashboard", "compact") or self.current_tab != "notes" or self._modal:
             return
         if not self._bidi_active() or not self.bidi_editor.has_focus():
             return

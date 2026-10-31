@@ -73,8 +73,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
-                check(app.root.winfo_width() == view_dimensions(mode)[0],
-                      f"{mode}/{page}: incorrect window width")
+                desired = view_dimensions(mode)[0]
+                actual = app.root.winfo_width()
+                # The wide Dashboard clamps to the monitor work area.
+                max_safe = max(240, app.root.winfo_screenwidth() - 12)
+                check(actual == min(desired, max_safe),
+                      f"{mode}/{page}: width {actual}, expected "
+                      f"{min(desired, max_safe)} (screen {app.root.winfo_screenwidth()})")
             if mode == "dashboard":
                 app.show_tab("home")
                 app.root.update()
@@ -210,4 +215,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.after_cancel(job)
             except (tk.TclError, RuntimeError):
                 pass
-        app.root.destroy()
+        try:
+            app.root.destroy()
+        except tk.TclError as exc:
+            # Windows TkDnD cleanup can encounter already-removed commands.
+            if "can't delete Tcl command" not in str(exc):
+                raise

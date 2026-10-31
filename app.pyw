@@ -636,9 +636,11 @@ class PocketDesk:
                              font=(FONT, 9), exportselection=False,
                              activestyle="none")
         results.pack(fill="both", expand=True, padx=16, pady=(0, 7))
-        status = tk.Label(dialog, text="Enter a keyword · ↑ ↓ navigate · Enter open · Esc close",
+        footer = tk.Frame(dialog, bg=c["BG"])
+        footer.pack(fill="x", padx=16, pady=(0, 12))
+        status = tk.Label(footer, text="↑ ↓ select · Enter open · Esc close",
                           bg=c["BG"], fg=c["MUTED"], font=(FONT, 8))
-        status.pack(anchor="w", padx=16, pady=(0, 12))
+        status.pack(side="left")
         matches = []
         def refresh(*_args):
             matches[:] = quick_search.results(
@@ -664,6 +666,8 @@ class PocketDesk:
                 self._navigate_search_result(item)
             return "break"
         query.trace_add("write", refresh)
+        design.button(footer, "Close", close, self.theme, compact=True).pack(side="right")
+        dialog.bind("<Escape>", close)
         entry.bind("<Escape>", close)
         results.bind("<Escape>", close)
         entry.bind("<Return>", launch)

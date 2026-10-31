@@ -674,6 +674,8 @@ class PocketDesk:
             return "break"
         query.trace_add("write", refresh)
         design.button(footer, "Close", close, self.theme, compact=True).pack(side="right")
+        design.button(footer, "Open", launch, self.theme, primary=True,
+                      compact=True).pack(side="right", padx=(0, 6))
         dialog.bind("<Escape>", close)
         entry.bind("<Escape>", close)
         results.bind("<Escape>", close)

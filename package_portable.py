@@ -7,7 +7,7 @@ import sys
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "build" / "portable-binaries" / "PocketDesk"
 PACKAGE_DIR = ROOT / "build" / "portable-package" / "Pocket-Portable"
-OUTPUT = ROOT / "dist" / "Pocket-Portable-v1.30.0-beta.1.zip"
+OUTPUT = ROOT / "dist" / "Pocket-Portable-v1.30.0.zip"
 
 def package():
     if not (APP_DIR / "PocketDesk.exe").is_file():
@@ -30,7 +30,7 @@ def package():
         "Pocket Portable: store all application data inside the data folder.\n",
         encoding="utf-8")
     (PACKAGE_DIR / "README.txt").write_text(
-        "Pocket Portable v1.30.0-beta.1\n"
+        "Pocket Portable v1.30.0\n"
         "1. Extract the entire ZIP to a writable folder on Windows.\n"
         "2. Launch PocketDesk.exe; Python is not needed on this PC.\n"
         "3. Personal data stays inside the data folder beside the EXE.\n"

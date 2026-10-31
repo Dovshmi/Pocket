@@ -1276,12 +1276,15 @@ class PocketDesk:
                 pass
         self._clipboard_job = self.root.after(600, self._clipboard_poll)
 
-    def _toggle_clipboard_pause(self):
-        self.settings["clipboard_paused"] = not self.settings["clipboard_paused"]
+    def _set_clipboard_paused(self, paused):
+        self.settings["clipboard_paused"] = bool(paused)
         self._clipboard_last = None
         self.schedule_save()
         if self.current_tab == "clipboard":
             self.show_tab("clipboard")
+
+    def _toggle_clipboard_pause(self):
+        self._set_clipboard_paused(not self.settings["clipboard_paused"])
 
     def _set_clipboard_sensitive_filter(self, enabled):
         self.settings["clipboard_sensitive_filter"] = bool(enabled)

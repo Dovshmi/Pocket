@@ -299,8 +299,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app.show_tab("commands")
         app.root.update()
         copied = []
-        template_ui.open_filler(app, example,
-                                on_copy=lambda command, ident: copied.append((command, ident)))
+        def capture_generated(command, ident):
+            copied.append((command, ident))
+            app._copy_generated_command(command, ident)
+        template_ui.open_filler(app, example, on_copy=capture_generated)
         app.root.update()
         dialogs = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel)]
         check(dialogs, "Synthetic Smart Template fill dialog did not open")
@@ -318,6 +320,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(copied == [("execute ping 192.0.2.10", "synthetic")],
               "Generated command did not use entered IP")
         check(not app._modal, "Fill form did not close")
+        check(app._clipboard_last == "execute ping 192.0.2.10",
+              "Generated text was not excluded from automatic clipboard monitoring")
+        app._clipboard_poll()
+        check(not any("192.0.2.10" in value.get("text", "")
+                      for value in app.clipboard_items if isinstance(value, dict)),
+              "Generated command leaked into clipboard history")
         check("192.0.2.10" not in app.path.read_text(encoding="utf-8")
               if app.path.exists() else True,
               "Filled command leaked to data file")

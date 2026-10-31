@@ -177,7 +177,7 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
-        "window_positions": {"normal": None, "mini": None},
+        "window_positions": {"normal": None, "mini": None, "dashboard": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal"},
         "theme": "blue",

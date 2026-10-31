@@ -201,6 +201,8 @@ def install_cards(app, cards, c):
             status.configure(text=state[selected_page]["name"][:12] +
                              f" · {selected_page+1}/3")
         for index, button in enumerate(getattr(app, "compact_page_buttons", [])):
+            if not button.winfo_exists():
+                continue  # Old layout controls were destroyed during mode switch.
             button.configure(fg=c["ACCENT"] if index == selected_page else c["MUTED"],
                              bg=c["ACCENT_DARK"] if index == selected_page else c["BG"])
 

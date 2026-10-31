@@ -28,6 +28,8 @@ from tkinter import messagebox, filedialog, ttk
 
 import network_tools as net
 import command_helper as ch
+import smart_templates as smart
+import template_ui
 import command_store as cs
 import subnet_calculator as subnet
 import icon_themes as themes
@@ -37,6 +39,7 @@ import native_bidi
 import mini_layout as mini
 import dashboard_ui as dashboard
 import compact_dashboard as compact
+import launcher_pages as lp
 import settings_ui
 import pocket_design as design
 import quick_search
@@ -179,6 +182,8 @@ def default_data() -> dict:
             new_link("Gmail", "https://mail.google.com"),
         ],
         "command_state": ch.safe_prefs({}),
+        "extra_mini_pages": lp.default_pages(),
+        "extra_mini_page": 0,
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
@@ -333,6 +338,9 @@ def load_data(path: Path) -> dict:
                 ("split", subnet_pref.get("split"), "/26"))
         }
         return {"notes": notes, "active_note": active_id, "links": links,
+                "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
+                     normalize_settings(data.get("settings"))["extra_mini_tiles"]),
+                "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
                 "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
@@ -901,6 +909,9 @@ class PocketDesk:
         reached. A Text editor, ComboBox or Listbox keeps native scrolling
         and cursor behavior. The outer canvas handles every other area.
         """
+        if self.display_mode == "compact":
+            handler = getattr(self, "compact_handle_wheel", None)
+            return handler(event) if callable(handler) else None
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
@@ -1193,6 +1204,68 @@ class PocketDesk:
         self._build_shell_refresh()
         self.schedule_save()
 
+    def _compact_pages(self):
+        """Use saved pages, preserving the original four legacy tool slots."""
+        raw = self.data.get("extra_mini_pages")
+        pages = lp.normalize_pages(raw, self.settings["extra_mini_tiles"])
+        # Legacy callers may still update extra_mini_tiles directly. Only sync
+        # those older preferences when no modern page data exists.
+        self.data["extra_mini_pages"] = pages
+        return pages
+
+    def _set_compact_page(self, index):
+        index = lp.page_index(index)
+        self.data["extra_mini_page"] = index
+        self.schedule_save()
+        refresh = getattr(self, "compact_render_cards", None)
+        if self.display_mode == "compact" and callable(refresh):
+            refresh()
+
+    def _save_compact_pages(self, pages):
+        self.data["extra_mini_pages"] = lp.normalize_pages(pages)
+        self.settings["extra_mini_tiles"] = lp.legacy_first_page(self.data["extra_mini_pages"])
+        self.schedule_save()
+        refresh = getattr(self, "compact_render_cards", None)
+        if self.display_mode == "compact" and callable(refresh):
+            refresh()
+
+    def _launch_compact_item(self, tile):
+        """Dispatch only to an existing saved ID; never execute a CLI."""
+        resolved = lp.lookup(tile, self.data, self.command_library, self.settings["visible_tabs"])
+        if resolved["status"] != "ready":
+            if resolved["status"] == "needs_review":
+                self._warning("Template needs review", "Open this command and approve the template again.")
+            return
+        kind, ident = resolved["kind"], resolved["id"]
+        if kind == "tool":
+            self._open_compact_tool(ident)
+            return
+        if kind == "shortcut":
+            selected = next((row for row in self.data["links"] if row["id"] == ident), None)
+            if selected:
+                self.open_shortcut(selected)
+            return
+        if kind == "note":
+            self._open_compact_tool("notes", {"kind": "note", "id": ident, "destination": "notes"})
+            return
+        record = next((row for row in self.command_library if row["id"] == ident), None)
+        if record is None:
+            return
+        if kind == "command" and resolved["action"] == "copy":
+            self.root.clipboard_clear()
+            self.root.clipboard_append(record["command"])
+            self._clipboard_last = record["command"]
+            self.data["command_state"]["recent"] = ch.updated_recent(
+                self.data["command_state"]["recent"], ident)
+            self.schedule_save()
+            return
+        # Build the real Commands view before selecting the matching ID;
+        # command text is still copied only after a user presses Copy.
+        self._open_compact_tool("commands", {"kind": "command", "id": ident,
+                                             "destination": "commands", "query": ""})
+        if kind == "template" and smart.template_state(record) == "configured":
+            self._open_smart_template_fill()
+
     def _open_compact_tool(self, destination, hit=None):
         """Leave the launcher and open the destination in the user's base layout."""
         if destination != "settings" and destination not in self.settings["visible_tabs"]:
@@ -1212,7 +1285,29 @@ class PocketDesk:
             self._command_focus_in()
             self.command_query.set(hit.get("query", ""))
             chosen = hit.get("id")
-            if self.command_tree.exists(chosen):
+            # Direct launcher references must remain reachable even when the
+            # previously saved machine/category/favorites filter excludes them.
+            if chosen and not self.command_tree.exists(chosen):
+                self.machine_var.set(ch.ALL_MACHINES)
+                self.command_category_var.set(ch.ALL_CATEGORIES)
+                self.command_mode = "all"
+                self._style_command_modes()
+                self.command_query.set("")
+                self._refresh_command_results()
+            if chosen and not self.command_tree.exists(chosen):
+                # Direct ID-based actions may not appear in the top 180 search
+                # results. Display the exact record rather than another item.
+                match = next((r for r in self.command_library if r["id"] == chosen), None)
+                if match is not None:
+                    self.command_filtered = [match]
+                    for existing in self.command_tree.get_children():
+                        self.command_tree.delete(existing)
+                    self.command_tree.insert("", "end", iid=chosen,
+                                             values=(match["command"], match["description"]))
+                    if self.display_mode == "mini":
+                        self.mini_command_index = 0
+                        self._update_mini_command_pager()
+            if chosen and self.command_tree.exists(chosen):
                 self.selected_command_id = chosen
                 self.command_tree.selection_set(chosen)
                 self._render_command_details()
@@ -2645,6 +2740,7 @@ class PocketDesk:
         self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
         self.command_code.bind("<Control-a>", self._command_select_all)
         self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        self._build_template_actions(details, mini=True)
         actions = tk.Frame(details, bg=PANEL)
         actions.pack(fill="x", padx=7, pady=(0, 3))
         self.command_star = action_label(actions, "☆ Save", self._toggle_command_favorite,
@@ -2793,6 +2889,7 @@ class PocketDesk:
         self.command_code.pack(fill='x', padx=11)
         self.command_code.bind('<Control-a>', self._command_select_all)
         self.command_code.bind('<Control-Return>', lambda _e: (self._copy_command(), 'break')[1])
+        self._build_template_actions(details, mini=False)
         bottom = tk.Frame(details, bg=PANEL)
         bottom.pack(fill='x', padx=8, pady=(4, 6))
         self.command_star = action_label(bottom, '☆ Save', self._toggle_command_favorite,
@@ -2977,6 +3074,95 @@ class PocketDesk:
             self.command_feedback.config(text='Restored the saved command', fg=MUTED)
             self.command_code.focus_set()
 
+    def _build_template_actions(self, parent, *, mini=False):
+        """One optional entry point across Mini, Normal and Dashboard.
+
+        The original command's editor and Copy edited action are untouched.
+        A configured template is used only by explicit Generate & Copy.
+        """
+        self.smart_template_row = tk.Frame(parent, bg=PANEL)
+        self.smart_template_row.pack(fill="x", padx=(7 if mini else 10),
+                                     pady=(1, 3))
+        self.smart_template_badge = tk.Label(
+            self.smart_template_row, text="Plain command",
+            bg=PANEL, fg=MUTED, font=(FONT, 8))
+        self.smart_template_badge.pack(side="left")
+        self.smart_template_fill = action_label(
+            self.smart_template_row, "Fill & copy", self._open_smart_template_fill,
+            fg="#121622", bg=ACCENT, font_size=8, padx=7, pady=4)
+        self.smart_template_edit = action_label(
+            self.smart_template_row, "Template…", self._open_smart_template_editor,
+            fg=ACCENT, bg=PANEL, font_size=8, padx=6, pady=4)
+        self.smart_template_edit.pack(side="right")
+        self.smart_template_fill.pack(side="right", padx=(0, 4))
+        self.smart_template_fill.pack_forget()
+
+    def _update_template_actions(self, entry):
+        if not hasattr(self, "smart_template_badge"):
+            return
+        if entry is None:
+            self.smart_template_badge.configure(text="No command", fg=MUTED)
+            self.smart_template_edit.configure(state="disabled")
+            self.smart_template_fill.pack_forget()
+            return
+        self.smart_template_edit.configure(state="normal")
+        state = smart.template_state(entry)
+        if state == "configured":
+            self.smart_template_badge.configure(text="✓ Smart Template", fg=ACCENT)
+            self.smart_template_fill.pack(side="right", before=self.smart_template_edit,
+                                          padx=(0, 4))
+        else:
+            self.smart_template_fill.pack_forget()
+            if state == "needs_review":
+                self.smart_template_badge.configure(text="⚠ Template needs review", fg=DANGER)
+            elif smart.suggest_template(entry["command"]):
+                self.smart_template_badge.configure(text="◇ Template available", fg=SECONDARY)
+            else:
+                self.smart_template_badge.configure(text="Plain command", fg=MUTED)
+
+    def _save_smart_template(self, entry, template):
+        """User-requested metadata change; no automatic library backup."""
+        if self.commands_file is None:
+            raise ValueError(self.commands_error or "Command library unavailable.")
+        cs.save_template(self.commands_file, entry, template)
+
+    def _open_smart_template_editor(self):
+        entry = self._selected_command()
+        if entry is None:
+            return
+        if self.commands_file is None:
+            self._warning("Smart Templates", "A writable commands.json is required.")
+            return
+        def refresh():
+            self._reload_command_library()
+            self._refresh_command_catalog(machine=entry["machine"], select_id=entry["id"])
+        template_ui.open_editor(self, entry, on_changed=refresh)
+
+    def _open_smart_template_fill(self):
+        entry = self._selected_command()
+        if entry is None:
+            return
+        if smart.template_state(entry) != "configured":
+            self._warning("Template needs review",
+                          "Open Template… and save a reviewed definition first.")
+            return
+        template_ui.open_filler(self, entry, on_copy=self._copy_generated_command)
+
+    def _copy_generated_command(self, output, command_id):
+        """Copy a validated command without writing the filled values to disk."""
+        if not isinstance(output, str) or not output.strip():
+            return
+        self.root.clipboard_clear()
+        self.root.clipboard_append(output)
+        # Smart Templates may contain temporary customer details. Do not add
+        # this generated text to Pocket's optional session clipboard history.
+        self._clipboard_last = output
+        prefs = self.data["command_state"]
+        prefs["recent"] = ch.updated_recent(prefs["recent"], command_id)
+        self.schedule_save()
+        if hasattr(self, "command_feedback") and self.command_feedback.winfo_exists():
+            self.command_feedback.config(text="Generated & copied · Never executed", fg=ACCENT)
+
     def _render_command_details(self):
         item = self._selected_command()
         self.command_code.delete('1.0', tk.END)
@@ -3002,6 +3188,7 @@ class PocketDesk:
             self.command_delete.pack_forget()
         self.command_draft_id = item['id'] if item else None
         self.command_feedback.config(text='Draft edits are temporary · use Edit saved to save · Never executed', fg=MUTED)
+        self._update_template_actions(item)
 
     def _toggle_command_favorite(self):
         item=self._selected_command()

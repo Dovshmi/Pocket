@@ -86,6 +86,43 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
+                if page == "commands":
+                    check(hasattr(app, "smart_template_edit") and
+                          app.smart_template_edit.winfo_exists(),
+                          f"{mode}: missing Smart Template control")
+                    check("Plain command" in app.smart_template_badge.cget("text") or
+                          "Template" in app.smart_template_badge.cget("text"),
+                          f"{mode}: template status not shown")
+                    app.smart_template_edit.invoke()
+                    app.root.update()
+                    dialogs = [w for w in app.root.winfo_children()
+                               if isinstance(w, tk.Toplevel)]
+                    check(dialogs, f"{mode}: template review editor did not open")
+                    dialog = dialogs[-1]
+                    check(any(isinstance(w, tk.Text) for w in widgets(dialog)),
+                          f"{mode}: missing editable template format")
+                    field_count = [w for w in widgets(dialog)
+                                   if isinstance(w, tk.Label) and
+                                   "detected" in str(w.cget("text"))]
+                    check(field_count, f"{mode}: missing detected-fields count")
+                    check(not any(isinstance(w, ttk.Combobox) for w in widgets(dialog)),
+                          f"{mode}: advanced selectors displayed without request")
+                    refresh_buttons = [w for w in widgets(dialog)
+                                       if isinstance(w, tk.Button) and
+                                       "Refresh fields" in str(w.cget("text"))]
+                    check(refresh_buttons, f"{mode}: Refresh fields button missing")
+                    refresh_buttons[0].invoke()
+                    app.root.update()
+                    check(not any(isinstance(w, ttk.Combobox) for w in widgets(dialog)),
+                          f"{mode}: Refresh reintroduced complicated field controls")
+                    cancels = [w for w in widgets(dialog)
+                               if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
+                    check(cancels, f"{mode}: template editor cannot cancel")
+                    cancels[-1].invoke()
+                    app.root.update()
+                    check(not app._modal, f"{mode}: template editor did not close")
+                    check(app.command_code.winfo_exists(),
+                          f"{mode}: original command editor lost")
                 desired = view_dimensions(mode)[0]
                 actual = app.root.winfo_width()
                 # The wide Dashboard clamps to the monitor work area.
@@ -157,42 +194,76 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Removing tile did not preserve empty slot")
         check(tile_button(0, "+") is not None,
               "Missing plus button after removing a tile")
-        # On headless Windows GitHub runners, native tk_popup can block forever
-        # waiting for a real menu-dismiss event. Linux/Xvfb exercises the actual
-        # plus popup; Windows verifies the UI state and selection data helper.
-        if os.name == "nt":
-            from compact_dashboard import available_tools, choose_tile
-            check(bool(available_tools(app.settings["visible_tabs"],
-                                       app.settings["extra_mini_tiles"], 0)),
-                  "No available tools after removing a tile")
-            app.settings["extra_mini_tiles"] = choose_tile(
-                app.settings["extra_mini_tiles"], 0, "links",
-                app.settings["visible_tabs"])
-            app.compact_render_cards()
-            app.schedule_save()
-        else:
-            preexisting = set(app.root.winfo_children())
-            tile_button(0, "+").invoke()
-            app.root.update_idletasks()
-            choices = [w for w in app.root.winfo_children()
-                       if isinstance(w, tk.Menu) and w not in preexisting]
-            check(bool(choices), "Plus did not open tool-picker menu")
-            picker = choices[-1]
-            check(picker.index("end") is not None, "Empty picker menu")
-            picker.invoke(0)
-            picker.unpost()
-            app.root.update()
+        # The new searchable picker replaces the native popup menu on all OSes.
+        tile_button(0, "+").invoke()
+        app.root.update()
+        dialogs = [w for w in app.root.winfo_children()
+                   if isinstance(w, tk.Toplevel)]
+        check(dialogs, "Plus did not open searchable quick-action picker")
+        picker_dialog = dialogs[-1]
+        choices = [w for w in widgets(picker_dialog) if isinstance(w, tk.Listbox)]
+        check(choices and choices[0].size() > 0,
+              "Quick-action picker has no available Pocket tools")
+        add_buttons = [w for w in widgets(picker_dialog)
+                       if isinstance(w, tk.Button) and w.cget("text") == "Add to tile"]
+        check(add_buttons, "Picker has no Add to tile button")
+        add_buttons[0].invoke()
+        app.root.update()
+        check(not app._modal, "Quick-action picker did not close")
         check(app.settings["extra_mini_tiles"][0] is not None,
               "Picker selection did not save replacement")
-        check(len(set(k for k in app.settings["extra_mini_tiles"] if k)) ==
-              len([k for k in app.settings["extra_mini_tiles"] if k]),
-              "Duplicate tile assignments")
+        check(len(app._compact_pages()) == 3 and
+              all(len(page["tiles"]) == 4 for page in app._compact_pages()),
+              "Extra Mini did not migrate into three pages of four tiles")
         check(app.compact_edit_button.cget("text") == "Done", "Missing Done control")
         app.compact_edit_button.invoke()
         app.root.update()
         check(not app._compact_editing, "Done did not leave Edit mode")
         capture(app, output, "extra_mini")
         print("PASS: Extra Mini real Edit, ×, +, selection and Done controls")
+
+        # Three-page launcher, scroll/arrow paging, reference tiles, and
+        # deletion/hidden-menu handling with original working layout retained.
+        from launcher_pages import put, lookup, rename_page, move, PAGE_COUNT
+        note_id = app.data["notes"][0]["id"]
+        pages = app._compact_pages()
+        pages = put(pages, 1, 0, {"kind": "note", "id": note_id})
+        pages = rename_page(pages, 1, "Work")
+        app._save_compact_pages(pages)
+        app._set_compact_page(1)
+        app.root.update()
+        check("Work" in app.compact_status.cget("text"), "Page rename not reflected")
+        check(app.data["extra_mini_page"] == 1, "Page selection did not persist")
+        check(len(app.compact_cards.winfo_children()) == 4,
+              "Extra Mini page does not show four tiles")
+        check(lookup(pages[1]["tiles"][0], app.data, app.command_library,
+                     app.settings["visible_tabs"])["status"] == "ready",
+              "Saved note quick action does not resolve")
+        app.compact_switch_page(1)
+        check(app.data["extra_mini_page"] == 2, "Next-page control broken")
+        app.compact_switch_page(-1)
+        check(app.data["extra_mini_page"] == 1, "Previous-page control broken")
+        pages = move(app._compact_pages(), 1, 0, 2, 2)
+        app._save_compact_pages(pages)
+        check(pages[1]["tiles"][0] is None and
+              pages[2]["tiles"][2]["id"] == note_id,
+              "Cross-page move did not move note reference")
+        app._set_compact_page(2)
+        app._launch_compact_item(pages[2]["tiles"][2])
+        app.root.update()
+        check(app.display_mode == "normal" and app.current_tab == "notes" and
+              app.data["active_note"] == note_id,
+              "Saved note tile did not restore working mode and open exact note")
+        app._return_to_compact()
+        app.root.update()
+        check(app.data["extra_mini_page"] == 2, "Launcher page reset after closing")
+        check(lookup({"kind": "note", "id": "deleted-not-found"}, app.data,
+                     app.command_library, app.settings["visible_tabs"])["status"] == "missing",
+              "Deleted note tile does not show missing state")
+        check(lookup({"kind": "tool", "id": "commands"}, app.data,
+                     app.command_library, ["notes"])["status"] == "hidden",
+              "Hidden tool still active in launcher")
+        print("PASS: Extra Mini paging, rename, saved note, moves and missing item protections")
 
         # The tiny launcher must restore the *selected* base layout, not Mini.
         for mode in MODES:
@@ -213,6 +284,75 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(app.display_mode == mode, mode + ": expand failed")
             check(app.current_tab == "subnet", mode + ": previous menu not restored")
             print("PASS: launcher minimize / restore / expand from", mode)
+
+        # Direct saved command references, copy-only, Smart Template and
+        # shortcut tiles must dispatch to the exact saved item.
+        from types import SimpleNamespace
+        import smart_templates as smart
+        app._set_display_mode("normal")
+        app._return_to_compact()
+        app._set_compact_page(0)
+        app.root.update()
+        app.compact_handle_wheel(SimpleNamespace(
+            widget=app.compact_cards, delta=-120, num=None))
+        check(app.data["extra_mini_page"] == 1, "Mouse-wheel paging broken")
+        app.compact_handle_wheel(SimpleNamespace(
+            widget=app.compact_cards, delta=120, num=None))
+        check(app.data["extra_mini_page"] == 0, "Reverse wheel paging broken")
+        reference = app.command_library[0]
+        app._launch_compact_item({"kind": "command", "id": reference["id"],
+                                  "action": "copy"})
+        check(app.display_mode == "compact", "Direct Copy changed layout")
+        check(app.root.clipboard_get() == reference["command"],
+              "Direct Copy changed or executed original command")
+        check(app._clipboard_last == reference["command"],
+              "Direct Copy should not enter session Clipboard History")
+        app._launch_compact_item({"kind": "command", "id": reference["id"]})
+        app.root.update()
+        check(app.current_tab == "commands" and
+              app.selected_command_id == reference["id"],
+              "Specific command action did not open its exact record")
+        app._return_to_compact()
+        app.root.update()
+
+        local_link = app.data["links"][0]
+        launched = []
+        previous_opener = app.open_shortcut
+        app.open_shortcut = lambda item: launched.append(item["id"])
+        try:
+            app._launch_compact_item({"kind": "shortcut", "id": local_link["id"]})
+            check(launched == [local_link["id"]],
+                  "Shortcut tile did not dispatch through existing shortcut handler")
+        finally:
+            app.open_shortcut = previous_opener
+
+        template_record = {
+            "id": "test:extra-mini-template", "machine": "FortiGate",
+            "category": "Diagnostics", "description": "Test ping",
+            "command": "execute ping x.x.x.x",
+        }
+        template_record["template"] = smart.validate_template(
+            smart.suggest_template(template_record["command"]),
+            template_record["command"])
+        app.command_library.append(template_record)
+        try:
+            app._launch_compact_item({"kind": "template", "id": template_record["id"]})
+            app.root.update()
+            check(app.current_tab == "commands" and
+                  app.selected_command_id == template_record["id"],
+                  "Smart Template tile did not select exact command")
+            template_dialogs = [w for w in app.root.winfo_children()
+                                if isinstance(w, tk.Toplevel)]
+            check(template_dialogs, "Smart Template tile did not open fill form")
+            cancel_buttons = [w for w in widgets(template_dialogs[-1])
+                              if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
+            check(cancel_buttons, "Smart Template tile has no Cancel action")
+            cancel_buttons[0].invoke()
+            app.root.update()
+            check(not app._modal, "Smart Template dialog left modal state enabled")
+        finally:
+            app.command_library.remove(template_record)
+        print("PASS: wheel paging and exact direct command, template, copy and shortcut actions")
 
         # Theme and visibility must not mutate data or change the base layout.
         app._choose_theme("purple")
@@ -264,6 +404,55 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(app._quick_search_dialog is None, working + ": search popup did not close")
             check(app.current_tab == "notes", working + ": local tool result did not navigate")
         print("PASS: Ctrl+K Quick Search popup and local results in every working layout")
+        # Fully exercise fill-and-copy with synthetic reference data. The
+        # entered address must not be persisted to user data or commands.json.
+        import smart_templates as smart
+        import template_ui
+        example = {"id": "synthetic", "machine": "FortiGate", "category": "Diagnostics",
+                   "description": "Synthetic test", "command": "execute ping x.x.x.x"}
+        example["template"] = smart.validate_template(
+            smart.suggest_template(example["command"]), example["command"])
+        app._set_display_mode("mini")
+        app.show_tab("commands")
+        app.root.update()
+        copied = []
+        def capture_generated(command, ident):
+            copied.append((command, ident))
+            app._copy_generated_command(command, ident)
+        template_ui.open_filler(app, example, on_copy=capture_generated)
+        app.root.update()
+        dialogs = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel)]
+        check(dialogs, "Synthetic Smart Template fill dialog did not open")
+        dialog = dialogs[-1]
+        entries = [w for w in widgets(dialog) if isinstance(w, tk.Entry)]
+        check(entries, "Smart Template fill field missing")
+        entries[0].insert(0, "192.0.2.10")
+        app.root.update()
+        # Copy is immediately below the completed command preview and remains
+        # accessible as a real native button.
+        check(any(isinstance(w, tk.Text) and
+                  "execute ping 192.0.2.10" in w.get("1.0", "end-1c")
+                  for w in widgets(dialog)),
+              "Generated command preview did not update")
+        copy_buttons = [w for w in widgets(dialog)
+                        if isinstance(w, tk.Button) and w.cget("text") == "Copy command"]
+        check(copy_buttons and copy_buttons[0].cget("state") == "normal",
+              "Validated template cannot be copied")
+        copy_buttons[0].invoke()
+        app.root.update()
+        check(copied == [("execute ping 192.0.2.10", "synthetic")],
+              "Generated command did not use entered IP")
+        check(not app._modal, "Fill form did not close")
+        check(app._clipboard_last == "execute ping 192.0.2.10",
+              "Generated text was not excluded from automatic clipboard monitoring")
+        app._clipboard_poll()
+        check(not any("192.0.2.10" in value.get("text", "")
+                      for value in app.clipboard_items if isinstance(value, dict)),
+              "Generated command leaked into clipboard history")
+        check("192.0.2.10" not in app.path.read_text(encoding="utf-8")
+              if app.path.exists() else True,
+              "Filled command leaked to data file")
+        print("PASS: Smart Template edit dialog in every layout, optional generated copy and privacy")
 
         app._set_display_mode("normal")
         app.show_tab("clipboard")

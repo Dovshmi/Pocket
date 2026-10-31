@@ -10,19 +10,20 @@
 
 A lightweight, customizable, **local-first Windows tray utility** that keeps practical tools close without requiring a browser tab, account or cloud service.
 
-[![Latest public release](https://img.shields.io/badge/Release-v1.29.1-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)
+[![Current beta](https://img.shields.io/badge/Beta-v1.30.0--beta.1-FF9500?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.30.0-beta.1)
+[![Latest stable](https://img.shields.io/badge/Stable-v1.29.1-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)
 ![Windows 10 & 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Local first](https://img.shields.io/badge/Local--first-No%20account-177E6B?style=for-the-badge)
 ![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-526274?style=for-the-badge)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-v1.29.1.exe)** · **[Release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
+**[Beta portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-Portable-v1.30.0-beta.1.zip)** · **[Beta EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-v1.30.0-beta.1.exe)** · **[Latest stable v1.29.1](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!IMPORTANT]
-> **Latest download:** **v1.29.1** includes the latest UI fixes previously available only in source: readable dropdowns, Dashboard Home scrolling, improved navigation, and keyboard/tooltips refinements. The source and Windows download now match this maintenance release.
+> **Beta release:** **v1.30.0-beta.1** adds Smart Command Templates and three-page Extra Mini quick actions. It is a **public pre-release for testing**, not the latest stable release. **v1.29.1** remains the recommended stable Windows download. Back up your portable `data/` directory and personal `commands.json` before testing the beta.
 
 ## Why Pocket?
 
@@ -45,23 +46,30 @@ Pocket stays in the **Windows notification area** and appears only when you need
 
 ### How Extra Mini works
 
-Choose a working layout under **Settings → Appearance & layout**. Enable **Extra Mini launcher**, then use the minimize-to-Extra-Mini control in the chosen working window.
+Choose a working layout under **Settings → Appearance & layout**. Enable **Extra Mini launcher**, then minimize the working window into the launcher.
 
 ```text
 Normal / Mini / Dashboard
            │
            ▼  Minimize to Extra Mini
-    Extra Mini launcher
+       Extra Mini launcher
+     Page 1  ● ○ ○  ←/→ scroll
      ◻ ◻ ◻ ◻  + search + All tools
+     Page 2  ○ ● ○  ←/→ scroll
+     ◻ ◻ ◻ ◻  (another 4 actions)
+     Page 3  ○ ○ ●  ←/→ scroll
+     ◻ ◻ ◻ ◻  (another 4 actions)
            │
-           ▼  Choose a tool
+           ▼  Open selected item
 Same Normal / Mini / Dashboard layout
-  → directly in the chosen tool
+  → directly to a note, command or tool
 ```
 
-Extra Mini does **not** force you into Mini. Click the **expand** control to return to your previously open tool without selecting another one.
+Extra Mini does **not** force you into Mini. The **expand** control restores your previous working layout without choosing a new action.
 
-To edit the four tiles, click **Edit** in Extra Mini. Use **×** to clear a slot, then **+** to choose an enabled tool; **Done** exits editing. The positions remain fixed and changes are saved. You can also open the same editor from Settings. Any enabled tool remains accessible from **All tools**, even when it isn't one of the four tiles. Hiding a menu doesn't erase its saved tile preference.
+In beta v1.30.0, use **‹ / ›**, the mouse wheel, or the page dots to switch between **three pages of four slots**. Click **Edit**, then **+** to choose a tool or an exact saved item. Right-click an existing tile to **Replace**, **Rename**, **Move** or **Remove** it; use **Done** when finished. Right-click the page label (or click it during Edit) to rename the page. Previously configured tiles remain on page one. The other pages initially start empty.
+
+Quick actions can open an exact **note**, **command**, **approved Smart Template**, or **saved shortcut**, in addition to menu tools. A regular command can optionally be copied directly but is **never executed**. **All tools** remains available even when it isn't in one of the twelve slots. Hiding a menu does not erase its tile preference.
 
 ### The current interface
 
@@ -91,6 +99,42 @@ This maintenance release updates the Windows binaries to include the improvement
 - The same notes, CLI, network, search and clipboard functionality as v1.29
 
 See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
+
+## Extra Mini quick-action pages (v1.30.0 beta)
+
+> **Beta functionality:** Available in Pocket v1.30.0-beta.1 and the current `main` source. Stable v1.29.1 retains its original four-tile launcher.
+
+**Extra Mini stays 322 × 256** but now has **three switchable pages with four tiles each**, for a total of twelve optional quick actions. Your previous four tools are retained on the first page during migration; the other two pages initially have empty + slots. Page names, selected page and tile assignments are saved locally.
+
+- **Switch pages:** scroll the mouse wheel over the launcher, click the ‹/› arrows, or click a page dot. The last selected page remains active after closing and reopening Extra Mini.
+- **Edit / Done:** click **Edit**, then **+** on a blank slot to open the searchable picker. Choose a **Pocket tool**, **specific saved command**, **approved Smart Template**, **specific note**, or **saved shortcut**. Nothing is added until you confirm.
+- **Right-click a tile:** Open, Replace, Rename, Move, or Remove. A rename changes only its launcher label. Drag a tile to another slot to swap it; to move between pages, scroll while dragging or use the accessible **Move to another slot** picker.
+- **Rename a page:** right-click the page name in the launcher footer and enter a short label.
+- **Behavior:** Tool tiles open the selected menu; note tiles select that exact note; command tiles open the exact CLI reference, or optionally copy its text directly; Smart Template tiles open the existing validated Fill & Copy form; shortcut tiles open the saved file, folder or URL **only when clicked**. No CLI is ever executed.
+- **Safe missing/hidden items:** deleted notes, shortcuts, commands or hidden menus appear unavailable instead of opening another record. Configurations are retained so you can restore or replace them. Unapproved/stale Smart Templates cannot generate output.
+- **Search:** remains global and separate from page switching. Extra Mini still returns to the user's chosen Normal, Mini, or Dashboard layout.
+
+The existing `extra_mini_tiles` preference is mirrored for backwards compatibility. New reference/page metadata is stored locally in `data.json`; clipboard contents and generated template input values are not persisted.
+
+---
+
+## Smart Command Templates (v1.30.0 beta)
+
+> **Beta, optional feature.** Smart Templates are included in the v1.30.0-beta.1 download and current `main` source. They are not available in stable v1.29.1.
+
+Pocket's Commands screen now has a small **Template…** option for a selected command. Your ordinary **Copy edited**, editing, search, categories, favorites, recent history, command backups, and plain-command behavior continue unchanged.
+
+1. Select a command in **Normal**, **Mini**, or **Dashboard**, then choose **Template…**. Pocket may suggest fields for recognizable placeholders (`{vrf}`, `<IP>`, `[interface]`, `x.x.x.x`, `x/x/x`, and a few other forms). Suggestions do not modify the library.
+2. Review the suggested format using **`{{FIELD_NAME}}`** markers, then click **Refresh fields**. The editor shows only **how many fields were detected**, not a long form of field editors. For more control, open the optional **Field options** disclosure to adjust a label, validation type (IPv4/IPv6, CIDR, VLAN, port, VRF, interface, MAC, integer, choice, free text), or choice values. Refresh collapses those advanced controls again without discarding their saved settings.
+3. Click **Save template** to add metadata to that command in your writable `commands.json`. This **does not** overwrite the original CLI text, create a backup, or affect other commands.
+4. The command then shows **Fill & copy**. Enter the values, review the generated CLI, then click **Copy command**. Pocket copies the result to the clipboard **without executing it or saving the entered values**. The normal Copy action remains available.
+5. To disable the feature for one command, select **Template… → Remove**. The saved original command and other command functions remain intact.
+
+**Important:** Suggestions are heuristic—not a CLI syntax validator. Some library entries are notes, alternative commands, fixed examples, or multiple CLI steps. These require manual review, and incorrect suggestions should be corrected or discarded. If you edit the underlying command after approving a template, Pocket marks its template **Needs review** and disables generated copying until you approve an updated format. Templates follow the existing **manual** command backup/restore workflow and store no filled-in input values on disk.
+
+Extra Mini can now open a **specific approved Smart Template** directly in whichever working mode you selected; there is no extra top-level menu. Smart Templates work entirely offline.
+
+---
 
 ## Seven tools, one window
 
@@ -161,6 +205,14 @@ Pause Capture stops collecting new entries. The optional sensitive-text filter t
 
 ## Download, install and update
 
+### Beta testing — Pocket v1.30.0-beta.1
+
+**[Download beta portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-Portable-v1.30.0-beta.1.zip)** · **[Download beta standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-v1.30.0-beta.1.exe)**
+
+The beta is separate from the stable release. Test it in a **separate writable portable directory** if possible. Back up your personal `data/` and command library before changing versions. Never launch both against the same data directory simultaneously.
+
+
+
 ### Option 1 — Portable ZIP (recommended)
 
 **[Pocket-Portable-v1.29.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)**
@@ -188,7 +240,7 @@ The public portable ZIP contains a **public example command library**, not your 
 
 ### Run the latest source code
 
-The v1.29.1 source matches the published Windows binaries at its release tag. Development changes to main after this release may require building from source.
+To run the current beta source, use `main` or checkout tag `v1.30.0-beta.1`. Stable binaries are available under the separate v1.29.1 release.
 
 **Requirements:** Windows 10/11 and Python 3.10+ with Tkinter.
 
@@ -270,7 +322,8 @@ Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/i
 
 | Milestone | Highlights |
 |:---|:---|
-| **v1.29.1 — published** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
+| **v1.30.0-beta.1 — public beta** | Optional Smart Command Templates; three Extra Mini pages with 12 slots, exact note/command/template/shortcut actions, searchable picker and saved layouts |
+| **v1.29.1 — stable** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
 | **v1.29** | Wide Dashboard, optional editable Extra Mini launcher, modern Settings/design system, global Quick Search, clipboard Pause/Resume and heuristic sensitive-text filtering; standalone EXE and portable ZIP |
 | **v1.28** | Public portable packaging, single-instance Windows startup, Normal/Mini improvements |
 | **v1.27** | Mini tools, icon tabs, keyboard paging and tool scrolling |
@@ -278,7 +331,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/i
 | **v1.24–v1.25** | Clipboard, menu visibility, reminders and manual command backup/restore |
 | **Earlier** | Notes, commands, shortcuts, subnet calculation, network tools, custom themes and saved window position |
 
-See [all GitHub releases](https://github.com/Dovshmi/Pocket/releases) and the [commit history](https://github.com/Dovshmi/Pocket/commits/main). **Smart Command Templates are a planned future upgrade**, not an implemented feature in this version.
+See [all GitHub releases](https://github.com/Dovshmi/Pocket/releases) and the [commit history](https://github.com/Dovshmi/Pocket/commits/main). **Smart Command Templates are included in the beta**, but not in stable v1.29.1.
 
 ### Historical screenshots
 

@@ -9,6 +9,7 @@ import tkinter as tk
 
 import command_helper as ch
 import pocket_design as design
+import launcher_extra_ui as extra
 
 NAVIGATION = (
     ("home", "⌂", "Home"),
@@ -362,60 +363,8 @@ def build_shell(app, colors):
     cards.pack(fill="both", expand=True)
     app.compact_cards = cards
 
-    def choose_new_tool(index, anchor=None):
-        candidates = available_tools(app.settings["visible_tabs"],
-                                     app.settings.get("extra_mini_tiles"), index)
-        menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
-                       activebackground=c["ACCENT_DARK"],
-                       activeforeground=c["WHITE"], bd=1, relief="flat")
-        for key, glyph, title in candidates:
-            menu.add_command(
-                label=f"  {glyph}   {title}",
-                command=lambda chosen=key: set_tile(index, chosen))
-        if not candidates:
-            menu.add_command(label="All enabled tools are already selected", state="disabled")
-        widget = anchor or cards.winfo_children()[index]
-        app._modal = True
-        try:
-            menu.tk_popup(widget.winfo_rootx(), widget.winfo_rooty()+widget.winfo_height()-4)
-        finally:
-            menu.grab_release()
-            app._modal = False
-
-    def set_tile(index, key):
-        app.settings["extra_mini_tiles"] = choose_tile(
-            app.settings.get("extra_mini_tiles"), index, key,
-            app.settings["visible_tabs"])
-        app.schedule_save()
-        render_cards()
-
-    def remove_selected(index):
-        app.settings["extra_mini_tiles"] = remove_tile(
-            app.settings.get("extra_mini_tiles"), index)
-        app.schedule_save()
-        render_cards()
-
-    def render_cards():
-        for widget in cards.winfo_children():
-            widget.destroy()
-        for column in range(4):
-            cards.columnconfigure(column, weight=1, uniform="quick-tile")
-        slots = display_slots(app.settings["visible_tabs"],
-                              app.settings.get("extra_mini_tiles"))
-        for index, key in enumerate(slots):
-            _tile(cards, app, c, index, key,
-                  bool(getattr(app, "_compact_editing", False)),
-                  remove_selected, choose_new_tool)
-        status = getattr(app, "compact_status", None)
-        if status is not None and status.winfo_exists():
-            if getattr(app, "_compact_editing", False):
-                status.config(text="Edit tiles · × remove · + add")
-            else:
-                saved = bool(app.data.get("window_positions", {}).get("compact"))
-                status.config(text="Position saved" if saved else "Ready when you are")
-
-    app.compact_render_cards = render_cards
-    render_cards()
+    extra.install_cards(app, cards, c)
+    render_cards = app.compact_render_cards
     results = tk.Frame(area, bg=c["BG"])
     app.compact_results = results
     app.compact_matches = []
@@ -489,16 +438,14 @@ def build_shell(app, colors):
     footer = tk.Frame(outer, bg=c["BG"], height=41)
     footer.pack(fill="x", padx=11, pady=(4, 4))
     footer.pack_propagate(False)
-    _label(footer, "⌖", bg=c["BG"], fg=c["ACCENT"], size=15
-           ).pack(side="left", padx=(0, 6))
-    info = tk.Frame(footer, bg=c["BG"])
-    info.pack(side="left", fill="both", expand=True)
-    saved = bool(app.data.get("window_positions", {}).get("compact"))
-    app.compact_status = _label(info, "Position saved" if saved else "Ready when you are",
-                                bg=c["BG"], fg=c["SECONDARY"], size=8, anchor="w")
-    app.compact_status.pack(anchor="w")
-    _label(info, "Local-first · always at hand",
-           bg=c["BG"], fg=c["MUTED"], size=7, anchor="w").pack(anchor="w")
+    extra.install_pager(app, footer, c)
+    app.compact_status = _label(footer, "", bg=c["BG"], fg=c["MUTED"],
+                                size=7, anchor="w")
+    app.compact_status.pack(side="left", fill="y", padx=(1, 0))
+    app.compact_status.bind("<Button-3>", lambda _e: app.compact_rename_page())
+    app.compact_status.bind("<Button-1>", lambda _e:
+                            app.compact_rename_page() if app._compact_editing else None)
+    design.Tooltip(app.compact_status, "Right-click, or click while editing, to rename page", app.theme)
     all_button = tk.Button(footer, text="All tools ▾", relief="flat", bd=0,
                            bg=c["CARD"], fg=c["ACCENT"], activebackground=c["CARD_HOVER"],
                            activeforeground=c["WHITE"], padx=7, pady=5,
@@ -522,14 +469,16 @@ def build_shell(app, colors):
         activeforeground=c["WHITE"], padx=7, pady=5,
         cursor="hand2", highlightthickness=0, font=("Segoe UI", 8, "bold"))
     edit_btn.pack(side="right", padx=(0, 6))
-    design.Tooltip(edit_btn, "Edit the four launcher tiles: × remove, + add", app.theme)
+    design.Tooltip(edit_btn, "Edit four tiles on the current page", app.theme)
     design.Tooltip(all_button, "Access every enabled Pocket tool", app.theme)
     app.compact_edit_button = edit_btn
+    render_cards()
     if getattr(app, "_compact_editing", False):
         render_cards()
     app.body = tk.Frame(outer, bg=c["BG"])
     app._mini_root_body = app.body
     app.compact_render_results = render_results
+    app.compact_handle_wheel = lambda event: extra.handle_wheel(app, event)
 
 
 def style_nav(app, selected):

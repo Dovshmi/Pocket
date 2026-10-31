@@ -65,7 +65,7 @@ class CompactDashboardTests(unittest.TestCase):
         self.assertEqual(shortcut_hits[0]["destination"], "links")
         command_hits = compact.search_items(data, library, "ospf", visible)
         self.assertTrue(any(hit["kind"] == "command" for hit in command_hits))
-        self.assertEqual(compact.search_items(data, library, "ospf", ["notes"]), [])
+        self.assertEqual(compact.search_items(data, library, "ospf", ["links"]), [])
         self.assertEqual(compact.search_items(data, library, "", visible), [])
 
     def test_launcher_dispatches_through_existing_mini_without_saving_mode(self):

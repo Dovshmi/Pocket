@@ -37,6 +37,7 @@ import native_bidi
 import mini_layout as mini
 import dashboard_ui as dashboard
 import compact_dashboard as compact
+import settings_ui
 import single_instance
 import portable_storage
 
@@ -371,6 +372,8 @@ def action_label(parent, text, command, *, fg=WHITE, bg=CARD, hover=CARD_HOVER,
 
 
 class PocketDesk:
+    VISIBLE_TABS_REFERENCE = VISIBLE_TABS
+
     def __init__(self, *, preview=False):
         self.preview = preview
         self.portable = portable_storage.is_portable()
@@ -398,6 +401,7 @@ class PocketDesk:
         self._modal = False
         self.pinned = False
         self._compact_return = False  # True after opening a tool from the launcher.
+        self._compact_editing = False
         self._extra_mini_previous_tab = "notes"
         self.current_tab = "notes"
         self._last_tray_xy = None
@@ -957,29 +961,8 @@ class PocketDesk:
             caption.config(bg=bg, fg=WHITE if active else MUTED)
 
     def _build_mini_settings(self):
-        tk.Label(self.body, text="Settings", bg=BG, fg=WHITE,
-                 font=(FONT, 13, "bold")).pack(anchor="w", pady=(0, 6))
-        tk.Label(self.body, text="DISPLAY MODE", bg=BG, fg=SECONDARY,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
-        action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
-                     fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
-                     font_size=9).pack(fill="x", pady=(0, 6))
-        self._extra_mini_settings_controls(self.body, mini_mode=True)
-        action_label(self.body, "Open Dashboard layout", lambda: self._set_display_mode("dashboard"),
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
-                     font_size=9).pack(fill="x", pady=(0, 13))
-        tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
-        for key, label in VISIBLE_TABS:
-            flag = tk.BooleanVar(value=key in self.settings["visible_tabs"])
-            tk.Checkbutton(self.body, text=label.title(), variable=flag,
-                           bg=BG, fg=WHITE, selectcolor=PANEL,
-                           activeforeground=WHITE, activebackground=BG,
-                           font=(FONT, 8), command=lambda k=key, v=flag:
-                           self._set_visible_tab(k, v.get())).pack(anchor="w", pady=1)
-        tk.Label(self.body, text="Clipboard monitoring follows menu visibility.",
-                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=295,
-                 justify="left").pack(anchor="w", pady=(8, 0))
+        """Share the same themed Settings screen, optimized for Mini width."""
+        return settings_ui.build_settings(self, self.body)
 
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
@@ -1066,6 +1049,7 @@ class PocketDesk:
         if self.display_mode != "compact":
             return self.show_tab(destination)
         self.display_mode = self.settings["display_mode"]
+        self._compact_editing = False
         self._compact_return = True
         self.current_tab = destination
         if hit and hit.get("kind") == "note":
@@ -1087,6 +1071,7 @@ class PocketDesk:
         if self.display_mode != "compact":
             return
         self.display_mode = self.settings["display_mode"]
+        self._compact_editing = False
         self._compact_return = False
         chosen = self._extra_mini_previous_tab
         self.current_tab = (chosen if chosen in self.settings["visible_tabs"] or chosen == "settings"
@@ -1115,75 +1100,16 @@ class PocketDesk:
             self._build_shell_refresh()
         self.schedule_save()
 
-    def _extra_mini_tile_dialog(self):
-        """Choose four distinct tool tiles with each selection saved immediately."""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Pocket · Extra Mini tiles")
-        dialog.configure(bg=BG)
-        dialog.geometry(f"380x345+{max(0, self.root.winfo_x()+30)}+{max(0, self.root.winfo_y()+35)}")
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        self._modal = True
-        tk.Label(dialog, text="Extra Mini quick-access tiles", bg=BG, fg=WHITE,
-                 font=(FONT, 14, "bold")).pack(anchor="w", padx=18, pady=(16, 4))
-        tk.Label(dialog, text="Pick four different tools. Changes save automatically.",
-                 bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", padx=18, pady=(0, 13))
-        choices = [(key, label.title()) for key, label in VISIBLE_TABS
-                   if key in self.settings["visible_tabs"]]
-        names = {name: key for key, name in choices}
-        keys_to_names = {key: name for key, name in choices}
-        selected = tk.StringVar()
-        slots = []
-        def refresh_slots():
-            shown = compact.featured_tools(self.settings["visible_tabs"],
-                                          self.settings["extra_mini_tiles"])
-            for index, variable in enumerate(slots):
-                variable.set(keys_to_names.get(shown[index], "") if index < len(shown) else "")
-        def change(index, variable):
-            key = names.get(variable.get())
-            if not key:
-                return
-            self.settings["extra_mini_tiles"] = compact.choose_tile(
-                self.settings["extra_mini_tiles"], index, key, self.settings["visible_tabs"])
-            refresh_slots()
-            self.schedule_save()
-        for index in range(4):
-            row = tk.Frame(dialog, bg=BG)
-            row.pack(fill="x", padx=18, pady=(0, 9))
-            tk.Label(row, text=f"Tile {index+1}", bg=BG, fg=SECONDARY,
-                     font=(FONT, 9), width=7, anchor="w").pack(side="left")
-            value = tk.StringVar()
-            slots.append(value)
-            picker = ttk.Combobox(row, textvariable=value,
-                                  values=[name for _key, name in choices],
-                                  state="readonly" if choices else "disabled")
-            picker.pack(side="left", fill="x", expand=True)
-            picker.bind("<<ComboboxSelected>>", lambda _event, i=index, v=value: change(i, v))
-        refresh_slots()
-        tk.Label(dialog, text="Hidden tools keep their preference and are replaced\n"
-                 "temporarily by another visible tool.",
-                 bg=BG, fg=MUTED, font=(FONT, 8), justify="left").pack(
-                 anchor="w", padx=18, pady=(3, 8))
-        def close():
-            self._modal = False
-            dialog.destroy()
-        tk.Button(dialog, text="Done", command=close, bg=ACCENT_DARK,
-                  fg=WHITE, relief="flat", padx=15, pady=6).pack(side="right", padx=18)
-        dialog.protocol("WM_DELETE_WINDOW", close)
-        dialog.grab_set()
+    def _edit_extra_mini_from_settings(self):
+        """Open the one canonical tile editor inside Extra Mini itself."""
+        self.settings["extra_mini_enabled"] = True
+        self._compact_editing = True
+        self._return_to_compact()
+        self.schedule_save()
 
-    def _extra_mini_settings_controls(self, parent, mini_mode=False):
-        tk.Label(parent, text="EXTRA MINI LAUNCHER", bg=BG, fg=SECONDARY,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(6, 5))
-        enabled = tk.BooleanVar(value=self.settings["extra_mini_enabled"])
-        tk.Checkbutton(parent, text="Enable Extra Mini", variable=enabled,
-                       command=lambda: self._set_extra_mini_enabled(enabled.get()),
-                       bg=BG, fg=WHITE, activebackground=BG, activeforeground=WHITE,
-                       selectcolor=PANEL, font=(FONT, 9)).pack(anchor="w")
-        action_label(parent, "Choose the 4 launcher tiles…", self._extra_mini_tile_dialog,
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=9, pady=7,
-                     font_size=8 if mini_mode else 9).pack(
-                     fill="x" if mini_mode else "none", anchor="w", pady=(5, 10))
+    def _extra_mini_tile_dialog(self):
+        """Legacy entry point for tile editing; use in-launcher editor."""
+        self._edit_extra_mini_from_settings()
 
     def _set_display_mode(self, mode):
         """Set the permanent working layout; Extra Mini remains an optional toggle."""
@@ -1217,44 +1143,8 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
-        if self.display_mode == "mini":
-            return self._build_mini_settings()
-        tk.Label(self.body, text="Settings", font=(FONT, 16, "bold"),
-                 bg=BG, fg=WHITE).pack(anchor="w")
-        tk.Label(self.body, text="Choose which tools appear in Pocket",
-                 bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
-        tk.Label(self.body, text="WINDOW SIZE", bg=BG, fg=SECONDARY,
-                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
-        layout_actions = tk.Frame(self.body, bg=BG)
-        layout_actions.pack(fill="x", pady=(0, 15))
-        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("dashboard", "Dashboard")):
-            selected = mode == self.display_mode
-            action_label(layout_actions, ("● " if selected else "") + caption,
-                         lambda target=mode: self._set_display_mode(target),
-                         fg=ACCENT if selected else WHITE,
-                         bg=ACCENT_DARK if selected else PANEL,
-                         hover=CARD, font_size=10, padx=13, pady=8
-                         ).pack(side="left", padx=(0, 9))
-        self._extra_mini_settings_controls(self.body)
-        tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
-                 font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
-        for key, label in VISIBLE_TABS:
-            value = tk.BooleanVar(value=key in self.settings["visible_tabs"])
-            tk.Checkbutton(self.body, text=label.title(), variable=value,
-                           bg=BG, fg=WHITE, activebackground=BG,
-                           activeforeground=WHITE, selectcolor=PANEL,
-                           command=lambda k=key,v=value:self._set_visible_tab(k,v.get())
-                           ).pack(anchor="w", pady=5)
-        tk.Label(self.body,
-                 text="Clipboard monitoring is automatic whenever Clipboard is visible. "
-                      "Hide that menu to stop capturing new copied text.",
-                 bg=BG, fg=MUTED, font=(FONT, 9), wraplength=415,
-                 justify="left").pack(anchor="w", pady=(18, 8))
-        tk.Label(self.body,
-                 text="Notifications are scheduled for individual notes. "
-                      "They appear while Pocket runs in the system tray.",
-                 bg=BG, fg=MUTED, font=(FONT, 9), wraplength=415,
-                 justify="left").pack(anchor="w", pady=8)
+        """Modern themed Settings, shared by Normal, Mini and Dashboard."""
+        return settings_ui.build_settings(self, self.body)
 
     def _clipboard_poll(self):
         if "clipboard" in self.settings["visible_tabs"]:

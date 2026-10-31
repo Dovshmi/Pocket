@@ -816,6 +816,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
+        search_button = design.tool_button(header, "⌕", self._open_global_search, self.theme,
+                                           tip="Quick Search · Ctrl+K", compact=True)
+        search_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
@@ -840,12 +843,15 @@ class PocketDesk:
             button = action_label(tabs, label, lambda k=key: self.show_tab(k),
                                   bg=BG, hover=PANEL, fg=SECONDARY, padx=5, pady=8, font_size=8)
             button.pack(side="left", padx=(0, 2))
+            design.Tooltip(button, f"Open {label.title()} · {key}", self.theme)
             self.tab_buttons[key] = button
         extras = [pair for pair in VISIBLE_TABS
                   if pair[0] in self.settings["visible_tabs"] and pair[0] not in self.tab_buttons]
         if extras:
-            action_label(tabs, "MORE ▾", self._show_more_menu, bg=BG,
-                         hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8).pack(side="left")
+            more_button = action_label(tabs, f"MORE ({len(extras)}) ▾", self._show_more_menu, bg=BG,
+                                       hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8)
+            more_button.pack(side="left")
+            design.Tooltip(more_button, "Open additional enabled tools", self.theme)
         action_label(tabs, "⚙", lambda: self.show_tab("settings"), bg=BG,
                      hover=PANEL, fg=ACCENT, padx=5, pady=8, font_size=11).pack(side="right")
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
@@ -870,6 +876,11 @@ class PocketDesk:
         # mode; keep its rail entirely invisible to maximize usable width.
         # Result tables still have their own dedicated scrollbars.
         canvas.pack(side="left", fill="both", expand=True)
+        # A visible rail makes long Dashboard Home and Settings discoverable.
+        scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
+                               style="Pocket.Vertical.TScrollbar")
+        scroll.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scroll.set)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
         inner.bind("<Configure>",
@@ -893,7 +904,7 @@ class PocketDesk:
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
-        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings"):
+        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home"):
             return None
         delta = getattr(event, "delta", 0)
         if delta:
@@ -1043,6 +1054,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
+        mini_search = design.tool_button(header, "⌕", self._open_global_search, self.theme,
+                                         tip="Search all tools · Ctrl+K", compact=True)
+        mini_search.pack(side="right", padx=(3, 0), pady=(2, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
@@ -1065,7 +1079,8 @@ class PocketDesk:
         ):
             if key != "settings" and key not in self.settings["visible_tabs"]:
                 continue
-            tile = tk.Frame(nav, bg=BG, width=39, height=45, cursor="hand2")
+            tile = tk.Frame(nav, bg=BG, width=39, height=45, cursor="hand2",
+                            takefocus=1, highlightthickness=0)
             tile.pack(side="left", padx=(0, 1))
             tile.pack_propagate(False)
             glyph = tk.Label(tile, text=icon, font=("Segoe UI Symbol", 14, "bold"),
@@ -1076,6 +1091,9 @@ class PocketDesk:
             caption_label.pack(fill="x")
             for target in (tile, glyph, caption_label):
                 target.bind("<Button-1>", lambda _event, tool=key: self.show_tab(tool))
+            tile.bind("<Return>", lambda _event, tool=key: self.show_tab(tool))
+            tile.bind("<space>", lambda _event, tool=key: self.show_tab(tool))
+            design.Tooltip(tile, f"{caption} · open {key}", self.theme)
             self.mini_icon_tabs[key] = (tile, glyph, caption_label)
         self._style_mini_icon_tabs(self.current_tab)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
@@ -1127,7 +1145,8 @@ class PocketDesk:
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
         if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet", "settings"))
-                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings"))):
+                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings"))
+                or (self.display_mode == "dashboard" and which == "home")):
             self._scrolling_tool_body()
         if which == "home":
             (compact.build_home(self) if self.display_mode == "compact"

@@ -3061,6 +3061,9 @@ class PocketDesk:
             return
         self.root.clipboard_clear()
         self.root.clipboard_append(output)
+        # Smart Templates may contain temporary customer details. Do not add
+        # this generated text to Pocket's optional session clipboard history.
+        self._clipboard_last = output
         prefs = self.data["command_state"]
         prefs["recent"] = ch.updated_recent(prefs["recent"], command_id)
         self.schedule_save()

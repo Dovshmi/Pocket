@@ -38,6 +38,9 @@ import mini_layout as mini
 import dashboard_ui as dashboard
 import compact_dashboard as compact
 import settings_ui
+import pocket_design as design
+import quick_search
+import clipboard_policy
 import single_instance
 import portable_storage
 
@@ -182,7 +185,8 @@ def default_data() -> dict:
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal", "extra_mini_enabled": False,
-                     "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"]},
+                     "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
+                     "clipboard_paused": False, "clipboard_sensitive_filter": True},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -209,7 +213,9 @@ def normalize_settings(raw):
     return {"visible_tabs": visible,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
-            "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles"))}
+            "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
+            "clipboard_paused": raw.get("clipboard_paused") is True,
+            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False}
 
 
 def parse_reminder_time(date_text, time_text, now=None):
@@ -362,13 +368,18 @@ def normalize_url(raw: str) -> str:
 
 
 def action_label(parent, text, command, *, fg=WHITE, bg=CARD, hover=CARD_HOVER,
-                 padx=13, pady=8, font_size=10, bold=True) -> tk.Label:
-    label = tk.Label(parent, text=text, font=(FONT, font_size, "bold" if bold else "normal"),
-                     fg=fg, bg=bg, padx=padx, pady=pady, cursor="hand2")
-    label.bind("<Button-1>", lambda _e: command())
-    label.bind("<Enter>", lambda _e: label.config(bg=hover))
-    label.bind("<Leave>", lambda _e: label.config(bg=bg))
-    return label
+                 padx=13, pady=8, font_size=10, bold=True) -> tk.Button:
+    """Reusable native, keyboard-accessible themed action (Tab, Space, Enter)."""
+    control = tk.Button(
+        parent, text=text, command=command,
+        font=(FONT, font_size, "bold" if bold else "normal"),
+        fg=fg, bg=bg, activebackground=hover, activeforeground=WHITE,
+        relief="flat", bd=0, highlightthickness=1,
+        highlightbackground=BORDER, highlightcolor=ACCENT,
+        padx=padx, pady=pady, cursor="hand2", takefocus=True)
+    control.bind("<Enter>", lambda _e: control.config(bg=hover))
+    control.bind("<Leave>", lambda _e: control.config(bg=bg))
+    return control
 
 
 class PocketDesk:
@@ -386,6 +397,7 @@ class PocketDesk:
             self.data.get("window_positions"), self.data.get("window_position"))
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
+        self._quick_search_dialog = None
         self._clipboard_job = None
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
@@ -478,11 +490,13 @@ class PocketDesk:
             self.root.iconbitmap(str(self.theme_icons[self.theme]["ico"]))
         except (tk.TclError, OSError):
             pass
+        design.configure_ttk(self.root, self.theme)
         self._build_shell()
         self.show_tab("home" if self.display_mode in ("dashboard", "compact") else "notes")
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
-        self.root.bind("<Control-k>", lambda _e: compact.focus_search(self))
+        self.root.bind("<Control-k>", self._open_global_search)
+        self.root.bind("<Control-f>", self._handle_find_shortcut)
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
         # Unlike bind_all, this does not interfere with unrelated tabs.
@@ -533,6 +547,7 @@ class PocketDesk:
         self.theme = name
         self.data["theme"] = name
         self._apply_palette(name)
+        design.configure_ttk(self.root, name)
         self.root.configure(bg=BG)
         try:
             self.root.iconbitmap(str(self.theme_icons[name]["ico"]))
@@ -564,6 +579,123 @@ class PocketDesk:
 
     def _hotkey_hint(self):
         return hk.hotkey_label(self.hotkey) + "  ·  Show / hide  ✎"
+
+    def _handle_find_shortcut(self, event=None):
+        """Keep Ctrl+F in Commands locally scoped; search globally elsewhere."""
+        if self.current_tab == "commands" and self.display_mode != "compact":
+            self._focus_command_search()
+            return "break"
+        return self._open_global_search(event)
+
+    def _navigate_search_result(self, hit):
+        """Open a result in the original tool UI, never execute its contents."""
+        if self.display_mode == "compact":
+            self._open_compact_tool(hit["destination"], hit)
+            return
+        destination = hit["destination"]
+        if hit.get("kind") == "note" and any(n["id"] == hit.get("id") for n in self.data["notes"]):
+            self._flush_current_note()
+            self.data["active_note"] = hit["id"]
+            self.schedule_save()
+        self.show_tab(destination)
+        if hit.get("kind") == "command" and hasattr(self, "command_query"):
+            self._command_focus_in()
+            self.command_query.set(hit.get("query", ""))
+            tree = getattr(self, "command_tree", None)
+            if tree is not None and tree.winfo_exists() and tree.exists(hit["id"]):
+                self.selected_command_id = hit["id"]
+                tree.selection_set(hit["id"])
+                self._render_command_details()
+
+    def _open_global_search(self, _event=None):
+        """Ctrl+K / Ctrl+F: local search across enabled menus, no network."""
+        if self.display_mode == "compact":
+            return compact.focus_search(self)
+        old = getattr(self, "_quick_search_dialog", None)
+        if old is not None and old.winfo_exists():
+            old.lift()
+            old.focus_set()
+            return "break"
+        c = themes.palette(self.theme)
+        dialog = tk.Toplevel(self.root)
+        self._quick_search_dialog = dialog
+        self._modal = True
+        dialog.title("Pocket · Quick Search")
+        dialog.configure(bg=c["BG"])
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        width, height = (420, 330) if self.display_mode != "mini" else (315, 315)
+        x = max(0, self.root.winfo_x() + 12)
+        y = max(0, self.root.winfo_y() + 35)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
+        tk.Label(dialog, text="QUICK SEARCH", bg=c["BG"], fg=c["ACCENT"],
+                 font=(FONT, 9, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
+        tk.Label(dialog, text="Search tools, notes, shortcuts and CLI commands",
+                 bg=c["BG"], fg=c["SECONDARY"], font=(FONT, 9),
+                 wraplength=width-32).pack(anchor="w", padx=16, pady=(0, 9))
+        query = tk.StringVar()
+        entry = design.entry(dialog, query, self.theme)
+        entry.pack(fill="x", padx=16, ipady=8, pady=(0, 10))
+        results = tk.Listbox(dialog, bg=c["PANEL"], fg=c["WHITE"],
+                             selectbackground=c["ACCENT_DARK"],
+                             selectforeground=c["WHITE"], borderwidth=0,
+                             highlightthickness=1, highlightbackground=c["BORDER"],
+                             font=(FONT, 9), exportselection=False,
+                             activestyle="none")
+        results.pack(fill="both", expand=True, padx=16, pady=(0, 7))
+        footer = tk.Frame(dialog, bg=c["BG"])
+        footer.pack(fill="x", padx=16, pady=(0, 12))
+        status = tk.Label(footer, text="↑ ↓ select · Enter open · Esc close",
+                          bg=c["BG"], fg=c["MUTED"], font=(FONT, 8))
+        status.pack(side="left")
+        matches = []
+        def refresh(*_args):
+            matches[:] = quick_search.results(
+                self.data, self.command_library, query.get(),
+                self.settings["visible_tabs"])
+            results.delete(0, tk.END)
+            for hit in matches:
+                results.insert(tk.END, f"{hit['title'][:38]}    ·  {hit['subtitle'][:22]}")
+            if matches:
+                results.selection_set(0)
+            status.configure(text=f"{len(matches)} local match(es) · Enter to open")
+        def close(_evt=None):
+            if dialog.winfo_exists():
+                dialog.destroy()
+            self._modal = False
+            self._quick_search_dialog = None
+            return "break"
+        def launch(_evt=None):
+            selection = results.curselection()
+            if selection and selection[0] < len(matches):
+                item = matches[selection[0]]
+                close()
+                self._navigate_search_result(item)
+            return "break"
+        query.trace_add("write", refresh)
+        design.button(footer, "Close", close, self.theme, compact=True).pack(side="right")
+        design.button(footer, "Open", launch, self.theme, primary=True,
+                      compact=True).pack(side="right", padx=(0, 6))
+        dialog.bind("<Escape>", close)
+        entry.bind("<Escape>", close)
+        results.bind("<Escape>", close)
+        entry.bind("<Return>", launch)
+        results.bind("<Return>", launch)
+        results.bind("<Double-1>", launch)
+        def move(step):
+            if not matches:
+                return "break"
+            index = results.curselection()[0] if results.curselection() else 0
+            results.selection_clear(0, tk.END)
+            index = (index + step) % len(matches)
+            results.selection_set(index)
+            results.see(index)
+            return "break"
+        entry.bind("<Down>", lambda _e: move(1))
+        entry.bind("<Up>", lambda _e: move(-1))
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        entry.focus_set()
+        return "break"
 
     def _open_hotkey_picker(self, _event=None):
         if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():
@@ -610,7 +742,7 @@ class PocketDesk:
                  fg=MUTED, bg=BG, font=(FONT, 8)).pack(anchor="w", padx=18)
         letters = tk.Frame(dialog, bg=BG)
         letters.pack(fill="x", padx=18, pady=(2, 4))
-        key_choices = ttk.Combobox(letters, values=hk.KEYS, state="readonly",
+        key_choices = ttk.Combobox(letters, style="Pocket.TCombobox", values=hk.KEYS, state="readonly",
                                    textvariable=key_var, width=8)
         key_choices.pack(side="left")
         status = tk.Label(dialog, text="", fg=DANGER, bg=BG, font=(FONT, 8))
@@ -1147,22 +1279,48 @@ class PocketDesk:
         return settings_ui.build_settings(self, self.body)
 
     def _clipboard_poll(self):
-        if "clipboard" in self.settings["visible_tabs"]:
+        if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
             try:
                 value = self.root.clipboard_get()
                 if isinstance(value, str) and value != self._clipboard_last:
                     self._clipboard_last = value
                     before = len(self.clipboard_items)
-                    clipboard_add(self.clipboard_items, value)
+                    if clipboard_policy.should_capture(value, paused=self.settings["clipboard_paused"],
+                                                       sensitive_filter=self.settings["clipboard_sensitive_filter"]):
+                        clipboard_add(self.clipboard_items, value)
                     if self.current_tab == "clipboard" and (len(self.clipboard_items) != before or self.clipboard_items):
                         self._refresh_clipboard()
             except (tk.TclError, RuntimeError):
                 pass
         self._clipboard_job = self.root.after(600, self._clipboard_poll)
 
+    def _set_clipboard_paused(self, paused):
+        self.settings["clipboard_paused"] = bool(paused)
+        self._clipboard_last = None
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
+    def _toggle_clipboard_pause(self):
+        self._set_clipboard_paused(not self.settings["clipboard_paused"])
+
+    def _set_clipboard_sensitive_filter(self, enabled):
+        self.settings["clipboard_sensitive_filter"] = bool(enabled)
+        self._clipboard_last = None
+        self.schedule_save()
+
     def _build_clipboard(self):
         self._section_title(self.body, "Clipboard history", "Session-only text · Never saved to disk",
                             "Clear all", self._clear_clipboard)
+        privacy_row = tk.Frame(self.body, bg=BG)
+        privacy_row.pack(fill="x", pady=(0, 9))
+        self.clipboard_pause_button = design.button(
+            privacy_row, "Resume capture" if self.settings["clipboard_paused"] else "Pause capture",
+            self._toggle_clipboard_pause, self.theme, compact=True)
+        self.clipboard_pause_button.pack(side="left")
+        tk.Label(privacy_row, text="Sensitive-text filter: " +
+                 ("On" if self.settings["clipboard_sensitive_filter"] else "Off"),
+                 bg=BG, fg=MUTED, font=(FONT, 8)).pack(side="right")
         self.clipboard_query = tk.StringVar()
         entry = self._entry(self.body, self.clipboard_query)
         entry.pack(fill="x", ipady=9, pady=(0, 9))
@@ -1194,7 +1352,8 @@ class PocketDesk:
             preview = " ".join(item["text"].split())[:65]
             self.clipboard_list.insert(tk.END, ("★ " if item["pinned"] else "   ") + preview)
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
-                                     ("ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
+                                     ("PAUSED" if self.settings["clipboard_paused"] else
+                                      "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):
@@ -1226,24 +1385,10 @@ class PocketDesk:
         self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
-        if self.display_mode == "mini":
-            heading = tk.Frame(parent, bg=BG)
-            heading.pack(fill="x", pady=(1, 7))
-            action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
-                         hover="#BBC0FF", padx=7, pady=6, font_size=8).pack(side="right")
-            tk.Label(heading, text=title, bg=BG, fg=WHITE, font=(FONT, 12, "bold"),
-                     anchor="w").pack(side="left", fill="x", expand=True)
-            tk.Label(parent, text=desc, bg=BG, fg=MUTED, font=(FONT, 8),
-                     wraplength=304, justify="left").pack(anchor="w", pady=(0, 7))
-            return
-        heading = tk.Frame(parent, bg=BG)
-        heading.pack(fill="x", pady=(1, 14))
-        words = tk.Frame(heading, bg=BG)
-        words.pack(side="left", fill="x", expand=True)
-        tk.Label(words, text=title, bg=BG, fg=WHITE, font=(FONT, 15, "bold")).pack(anchor="w")
-        tk.Label(words, text=desc, bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(4, 0))
-        action_label(heading, button_text, button_action, fg="#121622", bg=ACCENT,
-                     hover="#BBC0FF", padx=12, pady=9, font_size=9).pack(side="right")
+        """Shared presentation across Pocket tools; preserve original callbacks."""
+        return design.section_header(parent, title, desc, button_text,
+                                     button_action, self.theme,
+                                     compact=self.display_mode == "mini")
 
     def _build_mini_notes(self):
         """Compact notes: a short picker, note metadata and full-height editor."""
@@ -1260,7 +1405,7 @@ class PocketDesk:
         picker.pack(fill="x", pady=(0, 6))
         action_label(picker, "◀", lambda: self._move_mini_note(-1),
                      bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="left", padx=(0, 4))
-        self.mini_note_picker = ttk.Combobox(picker, state="readonly", font=(FONT, 9),
+        self.mini_note_picker = ttk.Combobox(picker, style="Pocket.TCombobox", state="readonly", font=(FONT, 9),
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
@@ -2378,20 +2523,14 @@ class PocketDesk:
     @staticmethod
     def _entry(parent, value, *, width=None):
         e = tk.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
-                     insertbackground=WHITE, highlightthickness=1,
-                     highlightbackground=BORDER, highlightcolor=ACCENT,
-                     relief="flat", font=(FONT, 10), width=width or 1)
+                     insertbackground=WHITE, selectbackground=ACCENT_DARK,
+                     highlightthickness=1, highlightbackground=BORDER,
+                     highlightcolor=ACCENT, relief="flat", font=(FONT, 10),
+                     width=width or 1)
         return e
 
     def _tree(self, parent, columns, widths, *, rows=4, aligns=None):
-        style = ttk.Style(self.root)
-        style.configure("Pocket.Treeview", background=PANEL, foreground=WHITE,
-                        fieldbackground=PANEL, rowheight=27, borderwidth=0,
-                        font=(FONT, 9))
-        style.configure("Pocket.Treeview.Heading", background=CARD,
-                        foreground=SECONDARY, relief="flat", font=(FONT, 9, "bold"))
-        style.map("Pocket.Treeview", background=[("selected", ACCENT_DARK)],
-                  foreground=[("selected", WHITE)])
+        design.configure_ttk(self.root, self.theme)
         container = tk.Frame(parent, bg=BG)
         container.pack(fill="both", expand=True, pady=(8, 0))
         tree = ttk.Treeview(container, columns=columns, show="headings", height=rows,
@@ -2404,7 +2543,8 @@ class PocketDesk:
             tree.heading(col, text=col, anchor=align)
             tree.column(col, width=width, minwidth=40 if self.display_mode == "mini" else 50,
                         anchor=align, stretch=True)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview,
+                                  style="Pocket.Vertical.TScrollbar")
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -2424,7 +2564,7 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         chosen = prefs.get("machine")
         self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
                                             state="readonly", font=(FONT, 9))
         self.machine_picker.pack(fill="x", pady=(0, 7))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
@@ -2439,12 +2579,10 @@ class PocketDesk:
         self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
         self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
         self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
-        self.root.bind("<Control-f>", self._focus_command_search)
         row = tk.Frame(self.body, bg=BG)
         row.pack(fill="x", pady=(0, 4))
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(
-            row, textvariable=self.command_category_var, state="readonly",
+        self.command_category_picker = ttk.Combobox(row, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly",
             values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
             font=(FONT, 8))
         self.command_category_picker.pack(side="left", fill="x", expand=True)
@@ -2559,7 +2697,7 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
         self.machine_var = tk.StringVar(value=machine if machine in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
                                            state="readonly", font=(FONT, 10), height=18)
         self.machine_picker.pack(fill="x", ipady=4, pady=(0, 8))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
@@ -2577,13 +2715,11 @@ class PocketDesk:
         self.command_search_entry.bind('<FocusOut>', self._command_focus_out)
         self.command_search_entry.pack(fill="x", expand=True, ipady=9)
         self.command_query.trace_add('write', lambda *_: self._refresh_command_results())
-        self.root.bind('<Control-f>', self._focus_command_search)
 
         filterrow = tk.Frame(self.body, bg=BG)
         filterrow.pack(fill="x", pady=(0, 2))
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(
-            filterrow, textvariable=self.command_category_var, state="readonly", width=19,
+        self.command_category_picker = ttk.Combobox(filterrow, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly", width=19,
             values=[ch.ALL_CATEGORIES]+ch.categories_for(self.command_library, self.machine_var.get()),
             font=(FONT, 9))
         self.command_category_picker.pack(side="left", fill="x", expand=True, ipady=3, padx=(0, 7))
@@ -2974,7 +3110,7 @@ class PocketDesk:
             tk.Label(pane, text=text, bg=BG, fg=SECONDARY, font=(FONT, 8, 'bold')).pack(anchor='w', pady=(6, 3))
         labelled('MACHINE')
         device = tk.StringVar(value=entry['machine'] if entry else (current_machine if current_machine != ch.ALL_MACHINES else ''))
-        picker = ttk.Combobox(pane, textvariable=device, state='normal', font=(FONT, 10),
+        picker = ttk.Combobox(pane, style="Pocket.TCombobox", textvariable=device, state='normal', font=(FONT, 10),
                               values=ch.machines_for(self.command_library, self.machine_catalog))
         picker.pack(fill='x', ipady=3)
         labelled('PURPOSE / DESCRIPTION  (also searchable)')
@@ -2983,7 +3119,7 @@ class PocketDesk:
         purpose_input.pack(fill='x', ipady=6)
         labelled('CATEGORY')
         category = tk.StringVar(value=entry['category'] if entry else 'Custom')
-        category_picker = ttk.Combobox(pane, textvariable=category, state='normal', font=(FONT, 10),
+        category_picker = ttk.Combobox(pane, style="Pocket.TCombobox", textvariable=category, state='normal', font=(FONT, 10),
                                        values=ch.categories_for(self.command_library, device.get()) or ['Custom'])
         category_picker.pack(fill='x', ipady=3)
         labelled('COMMAND  (multiline allowed)')
@@ -3257,7 +3393,7 @@ class PocketDesk:
         tk.Label(subnet_actions, text="New prefix", fg=MUTED, bg=BG,
                  font=(FONT, 9)).pack(side="left", padx=(0, 8))
         self.subnet_split_var = tk.StringVar(value=prefs["split"])
-        self.subnet_split_choice = ttk.Combobox(subnet_actions, textvariable=self.subnet_split_var,
+        self.subnet_split_choice = ttk.Combobox(subnet_actions, style="Pocket.TCombobox", textvariable=self.subnet_split_var,
                                                  state="readonly", width=6,
                                                  values=[f"/{n}" for n in range(24, 33)])
         self.subnet_split_choice.pack(side="left")

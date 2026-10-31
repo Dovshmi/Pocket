@@ -34,7 +34,7 @@ class MiniLayoutTests(unittest.TestCase):
                     {"x": True, "y": 2}, {"x": 100001, "y": 0}, []):
             self.assertIsNone(mini.window_position(bad))
         self.assertEqual(mini.window_positions({"normal": [], "mini": {"x": 2, "y": -6}}),
-                         {"normal": None, "mini": {"x": 2, "y": -6}})
+                         {"normal": None, "mini": {"x": 2, "y": -6}, "dashboard": None, "compact": None})
 
     def test_carousel_uses_ranked_first_result_and_limits(self):
         ranked = [{"id": "best"}, {"id": "next"}, {"id": "last"}]
@@ -62,7 +62,8 @@ class MiniLayoutTests(unittest.TestCase):
 
     def test_old_settings_keep_normal_display_mode(self):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"]}),
-                         {"visible_tabs": ["notes"], "display_mode": "normal"})
+                         {"visible_tabs": ["notes"], "display_mode": "normal", "extra_mini_enabled": False,
+                          "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"]})
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"],
                                                     "display_mode": "mini"})["display_mode"],
                          "mini")

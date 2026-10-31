@@ -29,6 +29,40 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
+## Experimental Dashboard and optional Extra Mini (development branch)
+
+> **In development:** These options are only on the `feature/dashboard-ui-refresh` branch. The published v1.28 release and `main` remain unchanged. The reference images are concepts, not screenshots.
+
+Pocket offers **three working layouts**, with a separately optional tiny launcher:
+
+| Working layout | Size | Purpose |
+|:---|:---|:---|
+| **Normal** | 480 × 850 | Original tray-first popup (default). |
+| **Mini** | 346 × 530 | Compact working tools and icon tabs. |
+| **Dashboard** | 1160 × 800 | Wide desktop workspace and sidebar. |
+| **Extra Mini (optional)** | 322 × 256 | Four-tile launcher available from **any** of the above. |
+
+**Enable Extra Mini:** The modern Settings page uses themed cards for the selected working layout, color theme, Extra Mini, visible menus, keyboard shortcut and privacy information. Check **Enable Extra Mini**. Four default tiles appear: Commands, Notes, Clipboard and Subnet. In Settings, **Customize four tiles ↗** opens Extra Mini directly in Edit mode. You can also click **Edit** in Extra Mini itself. Each existing tile shows a **×** control when editing; clicking it clears only that slot and shows a **+**. Clicking + opens a picker containing available enabled tools. Select a tool, then click **Done**. Changes save automatically, retain the four fixed positions, and immediately affect the launcher. Hidden menus show an empty placeholder until enabled again; they are not silently replaced or deleted. Duplicate tools cannot occupy multiple tiles. All enabled tools remain accessible through **All tools ▾**, regardless of the four featured slots.
+
+When enabled, the Normal, Mini and Dashboard headers each show a **▾ Extra Mini** minimize control. Click it to shrink Pocket to the 322×256 launcher. Click any tile, search result or All tools entry to expand back to **the same working layout**, directly in the selected tool. The launcher's **↗** button expands back to the previous tool without choosing a tile. This also works with the wide Dashboard: Extra Mini does **not** force the Mini layout. The permanent working layout remains saved independently of the launcher state.
+
+Extra Mini supports local search across enabled tools, saved notes, saved shortcuts and CLI references. It never executes a command, triggers a network lookup or opens a shortcut URL automatically. Clipboard data remains session-only and note reminders still run only while Pocket is active.
+
+**Try it from source (Windows):**
+
+```powershell
+git clone --branch feature/dashboard-ui-refresh https://github.com/Dovshmi/Pocket.git
+cd Pocket
+install.bat
+run.bat
+```
+
+Choose the base working mode in Settings (**Normal**, **Mini**, **Dashboard**), enable Extra Mini, and customize its four quick-launch tiles inside the launcher using **Edit → × → + → Done**. The previous experimental version that saved `display_mode: compact` is migrated safely to the Mini working layout with Extra Mini enabled. The command library and its **manual backup** behavior are unchanged.
+
+The wider Dashboard adds a themed sidebar, real local-data counters and functional shortcuts to existing tools. Both interfaces and the refreshed Settings page are built in native Python/Tkinter (`dashboard_ui.py`, `compact_dashboard.py`, `settings_ui.py`). Headless regression tests are run on Windows/Linux CI, but native Windows scaling, keyboard focus, window placement, and tray operation still require a hands-on review before release.
+
+---
+
 ## Interface preview
 
 > **Illustrated UI previews (v1.28):** These SVGs depict the current Normal/Mini layouts and key controls. They are **not actual Windows screenshots**, and the sample notes/commands shown are illustrative. See the [legacy screenshot archive](#legacy-screenshot-archive) for real captures of earlier builds.

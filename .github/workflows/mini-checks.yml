@@ -23,6 +23,73 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile Pocket
-        run: python -m py_compile app.pyw mini_layout.py native_bidi.py note_sync.py single_instance.py
+        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py native_bidi.py note_sync.py single_instance.py
       - name: Run unit tests
         run: python -m unittest discover -v
+
+  gui-smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Install virtual desktop (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Exercise Pocket UI (Windows)
+        if: runner.os == 'Windows'
+        run: python smoke_dashboard_integration.py
+      - name: Exercise Pocket UI (Linux virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python smoke_dashboard_integration.py
+
+  portable-build-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build production-style Windows portable ZIP
+        shell: cmd
+        run: call build-portable.bat
+      - name: Verify portable contents and privacy exclusions
+        shell: python
+        run: |
+          import zipfile
+          from pathlib import Path
+          artifact = Path("dist/Pocket-Portable-v1.28.zip")
+          assert artifact.is_file(), "No portable ZIP produced"
+          with zipfile.ZipFile(artifact) as archive:
+              names = archive.namelist()
+              assert "Pocket-Portable/PocketDesk.exe" in names
+              assert any(name.endswith("/commands/example_commands.json") for name in names)
+              forbidden = ("data.json", "vendors.json", "notepad/", "backups/", "commands/commands.json")
+              for path in names:
+                  assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
+              assert archive.testzip() is None, "ZIP integrity failure"
+          print("PASS: runnable portable EXE is packaged with only the public command seed")
+      - name: Launch packaged Pocket EXE in isolated preview mode
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Get-Location) 'build/portable-binaries/PocketDesk/PocketDesk.exe'
+          if (-not (Test-Path $exe)) { throw 'Packaged EXE missing' }
+          $profile = Join-Path $env:RUNNER_TEMP 'pocket-exe-smoke-profile'
+          New-Item -ItemType Directory -Force -Path $profile | Out-Null
+          $env:APPDATA = $profile
+          $proc = Start-Process -FilePath $exe -ArgumentList '--preview' -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            $proc.Refresh()
+            if ($proc.HasExited) { throw "Pocket EXE exited early ($($proc.ExitCode))" }
+            Write-Output 'PASS: packaged Pocket EXE starts and remains running in preview mode'
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }

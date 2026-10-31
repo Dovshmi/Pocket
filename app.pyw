@@ -740,7 +740,7 @@ class PocketDesk:
                  fg=MUTED, bg=BG, font=(FONT, 8)).pack(anchor="w", padx=18)
         letters = tk.Frame(dialog, bg=BG)
         letters.pack(fill="x", padx=18, pady=(2, 4))
-        key_choices = ttk.Combobox(letters, values=hk.KEYS, state="readonly",
+        key_choices = ttk.Combobox(letters, style="Pocket.TCombobox", values=hk.KEYS, state="readonly",
                                    textvariable=key_var, width=8)
         key_choices.pack(side="left")
         status = tk.Label(dialog, text="", fg=DANGER, bg=BG, font=(FONT, 8))
@@ -1420,7 +1420,7 @@ class PocketDesk:
         picker.pack(fill="x", pady=(0, 6))
         action_label(picker, "◀", lambda: self._move_mini_note(-1),
                      bg=PANEL, fg=ACCENT, padx=8, pady=4, font_size=10).pack(side="left", padx=(0, 4))
-        self.mini_note_picker = ttk.Combobox(picker, state="readonly", font=(FONT, 9),
+        self.mini_note_picker = ttk.Combobox(picker, style="Pocket.TCombobox", state="readonly", font=(FONT, 9),
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
@@ -2558,7 +2558,8 @@ class PocketDesk:
             tree.heading(col, text=col, anchor=align)
             tree.column(col, width=width, minwidth=40 if self.display_mode == "mini" else 50,
                         anchor=align, stretch=True)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=tree.yview,
+                                  style="Pocket.Vertical.TScrollbar")
         tree.configure(yscrollcommand=scrollbar.set)
         tree.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
@@ -2578,7 +2579,7 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         chosen = prefs.get("machine")
         self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
                                             state="readonly", font=(FONT, 9))
         self.machine_picker.pack(fill="x", pady=(0, 7))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
@@ -2596,8 +2597,7 @@ class PocketDesk:
         row = tk.Frame(self.body, bg=BG)
         row.pack(fill="x", pady=(0, 4))
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(
-            row, textvariable=self.command_category_var, state="readonly",
+        self.command_category_picker = ttk.Combobox(row, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly",
             values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
             font=(FONT, 8))
         self.command_category_picker.pack(side="left", fill="x", expand=True)
@@ -2712,7 +2712,7 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         machine = prefs.get("machine")
         self.machine_var = tk.StringVar(value=machine if machine in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, values=names, textvariable=self.machine_var,
+        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
                                            state="readonly", font=(FONT, 10), height=18)
         self.machine_picker.pack(fill="x", ipady=4, pady=(0, 8))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
@@ -2734,8 +2734,7 @@ class PocketDesk:
         filterrow = tk.Frame(self.body, bg=BG)
         filterrow.pack(fill="x", pady=(0, 2))
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(
-            filterrow, textvariable=self.command_category_var, state="readonly", width=19,
+        self.command_category_picker = ttk.Combobox(filterrow, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly", width=19,
             values=[ch.ALL_CATEGORIES]+ch.categories_for(self.command_library, self.machine_var.get()),
             font=(FONT, 9))
         self.command_category_picker.pack(side="left", fill="x", expand=True, ipady=3, padx=(0, 7))
@@ -3126,7 +3125,7 @@ class PocketDesk:
             tk.Label(pane, text=text, bg=BG, fg=SECONDARY, font=(FONT, 8, 'bold')).pack(anchor='w', pady=(6, 3))
         labelled('MACHINE')
         device = tk.StringVar(value=entry['machine'] if entry else (current_machine if current_machine != ch.ALL_MACHINES else ''))
-        picker = ttk.Combobox(pane, textvariable=device, state='normal', font=(FONT, 10),
+        picker = ttk.Combobox(pane, style="Pocket.TCombobox", textvariable=device, state='normal', font=(FONT, 10),
                               values=ch.machines_for(self.command_library, self.machine_catalog))
         picker.pack(fill='x', ipady=3)
         labelled('PURPOSE / DESCRIPTION  (also searchable)')
@@ -3135,7 +3134,7 @@ class PocketDesk:
         purpose_input.pack(fill='x', ipady=6)
         labelled('CATEGORY')
         category = tk.StringVar(value=entry['category'] if entry else 'Custom')
-        category_picker = ttk.Combobox(pane, textvariable=category, state='normal', font=(FONT, 10),
+        category_picker = ttk.Combobox(pane, style="Pocket.TCombobox", textvariable=category, state='normal', font=(FONT, 10),
                                        values=ch.categories_for(self.command_library, device.get()) or ['Custom'])
         category_picker.pack(fill='x', ipady=3)
         labelled('COMMAND  (multiline allowed)')
@@ -3409,7 +3408,7 @@ class PocketDesk:
         tk.Label(subnet_actions, text="New prefix", fg=MUTED, bg=BG,
                  font=(FONT, 9)).pack(side="left", padx=(0, 8))
         self.subnet_split_var = tk.StringVar(value=prefs["split"])
-        self.subnet_split_choice = ttk.Combobox(subnet_actions, textvariable=self.subnet_split_var,
+        self.subnet_split_choice = ttk.Combobox(subnet_actions, style="Pocket.TCombobox", textvariable=self.subnet_split_var,
                                                  state="readonly", width=6,
                                                  values=[f"/{n}" for n in range(24, 33)])
         self.subnet_split_choice.pack(side="left")

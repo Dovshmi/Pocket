@@ -90,7 +90,7 @@ jobs:
       - name: Make downloadable branch-preview ZIP
         shell: pwsh
         run: Copy-Item 'dist/Pocket-Portable-v1.29.1.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'
-      - name: Upload private development preview (not a public release)
+      - name: Upload development preview (not a GitHub release)
         uses: actions/upload-artifact@v4
         with:
           name: Pocket-SmartTemplates-ExtraMini-Preview-Windows

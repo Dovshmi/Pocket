@@ -42,27 +42,52 @@ class ExtraMiniTests(unittest.TestCase):
         subset = [key for key, _icon, _title in compact.visible_navigation(["notes","subnet"])]
         self.assertEqual(subset, ["home", "notes", "subnet", "settings"])
 
-    def test_four_default_tiles_and_custom_swapping(self):
+    def test_four_fixed_slots_remove_and_add(self):
         full = [key for key, _name in app["VISIBLE_TABS"]]
-        self.assertEqual(compact.featured_tools(full),
-                         ("commands", "notes", "clipboard", "subnet"))
-        current = compact.choose_tile(["commands", "notes", "clipboard", "subnet"],
-                                       0, "links", full)
-        self.assertEqual(compact.featured_tools(full, current)[0], "links")
-        self.assertEqual(len(set(current)), 4)
-        swapped = compact.choose_tile(current, 1, "links", full)
-        self.assertEqual(compact.featured_tools(full, swapped)[1], "links")
-        self.assertEqual(len(set(swapped)), 4)
-        self.assertEqual(compact.featured_tools(["notes", "ports"], current),
-                         ("notes", "ports"))
+        original = ["commands", "notes", "clipboard", "subnet"]
+        self.assertEqual(compact.display_slots(full, original), tuple(original))
+        removed = compact.remove_tile(original, 1)
+        self.assertEqual(removed, ["commands", None, "clipboard", "subnet"])
+        self.assertEqual(compact.display_slots(full, removed), tuple(removed))
+        self.assertEqual(compact.featured_tools(full, removed),
+                         ("commands", "clipboard", "subnet"))
+        self.assertNotIn("notes", [key for key, _icon, _title in
+                                 compact.available_tools(full, original)])
+        choices = [key for key, _icon, _title in compact.available_tools(full, removed)]
+        self.assertIn("notes", choices)
+        self.assertIn("links", choices)
+        added = compact.choose_tile(removed, 1, "links", full)
+        self.assertEqual(added, ["commands", "links", "clipboard", "subnet"])
+        self.assertEqual(compact.choose_tile(added, 1, "mac", ["notes"]), added)
+
+    def test_duplicate_selection_swaps_and_empty_slots_remain_empty(self):
+        full = [key for key, _name in app["VISIBLE_TABS"]]
+        chosen = compact.choose_tile(
+            ["commands", "notes", "clipboard", "subnet"], 1, "commands", full)
+        self.assertEqual(chosen, ["notes", "commands", "clipboard", "subnet"])
+        self.assertEqual(len(set(chosen)), 4)
+        empty = compact.remove_tile(["commands", None, "clipboard", "subnet"], 2)
+        self.assertEqual(empty, ["commands", None, None, "subnet"])
+        self.assertEqual(compact.configured_tiles(empty), empty)
+        self.assertEqual(compact.display_slots(["commands"], empty),
+                         ("commands", None, None, None))
+
+    def test_hidden_tools_are_placeholders_without_losing_preferences(self):
+        chosen = ["commands", "notes", "clipboard", "subnet"]
+        self.assertEqual(compact.display_slots(["notes", "ports"], chosen),
+                         (None, "notes", None, None))
+        self.assertEqual(compact.featured_tools(["notes", "ports"], chosen),
+                         ("notes",))
         self.assertEqual(compact.featured_tools([]), ())
+        self.assertEqual(compact.display_slots(
+            ["commands", "notes", "clipboard", "subnet"], chosen), tuple(chosen))
 
     def test_malformed_tile_preferences_are_sanitized(self):
-        values = compact.configured_tiles(["bad", "notes", "notes", "links", 3, "ports"])
-        self.assertEqual(len(values), 4)
-        self.assertEqual(len(set(values)), 4)
-        self.assertEqual(values[:3], ["notes", "links", "ports"])
-        self.assertEqual(len(compact.configured_tiles(None)), 4)
+        values = compact.configured_tiles(["bad", "notes", "notes", "links", 3])
+        self.assertEqual(values, [None, "notes", None, "links"])
+        self.assertEqual(compact.configured_tiles(None),
+                         ["commands", "notes", "clipboard", "subnet"])
+        self.assertEqual(compact.configured_tiles([]), [None] * 4)
 
     def test_local_search_returns_real_results(self):
         data = {"notes":[{"id":"n1","title":"Router checklist","body":"OSPF peer"}],
@@ -137,8 +162,8 @@ class ExtraMiniTests(unittest.TestCase):
 
     def test_real_feature_dispatch_kept(self):
         source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
-        self.assertIn("self._extra_mini_settings_controls(self.body)", source)
-        self.assertIn("self._extra_mini_settings_controls(self.body, mini_mode=True)", source)
+        self.assertIn("settings_ui.build_settings(self, self.body)", source)
+        self.assertIn("self._edit_extra_mini_from_settings", source)
         self.assertIn("self._return_to_compact", source)
         self.assertIn("compact.build_shell(self,", source)
         self.assertIn("self.settings[\"display_mode\"]", source)

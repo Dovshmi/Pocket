@@ -5,10 +5,11 @@ differ. Keep a distinct saved position for each window size.
 """
 from __future__ import annotations
 
-MODES = ("normal", "mini", "dashboard")
+MODES = ("normal", "mini", "dashboard", "compact")
 NORMAL_WIDTH, NORMAL_HEIGHT = 480, 850
 MINI_WIDTH, MINI_HEIGHT = 346, 530
 DASHBOARD_WIDTH, DASHBOARD_HEIGHT = 1160, 800
+COMPACT_WIDTH, COMPACT_HEIGHT = 820, 680
 
 
 def display_mode(value) -> str:
@@ -21,6 +22,8 @@ def view_dimensions(mode: str) -> tuple[int, int]:
         return MINI_WIDTH, MINI_HEIGHT
     if mode == "dashboard":
         return DASHBOARD_WIDTH, DASHBOARD_HEIGHT
+    if mode == "compact":
+        return COMPACT_WIDTH, COMPACT_HEIGHT
     return NORMAL_WIDTH, NORMAL_HEIGHT
 
 
@@ -42,7 +45,8 @@ def window_positions(raw, legacy=None):
     normal = window_position(raw.get("normal")) or window_position(legacy)
     mini = window_position(raw.get("mini"))
     dashboard = window_position(raw.get("dashboard"))
-    return {"normal": normal, "mini": mini, "dashboard": dashboard}
+    compact = window_position(raw.get("compact"))
+    return {"normal": normal, "mini": mini, "dashboard": dashboard, "compact": compact}
 
 
 def selected_index(matches, selected_id=None):

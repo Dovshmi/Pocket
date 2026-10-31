@@ -45,10 +45,21 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Exercise Pocket UI (Windows)
         if: runner.os == 'Windows'
+        env:
+          POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
         run: python smoke_dashboard_integration.py
       - name: Exercise Pocket UI (Linux virtual display)
         if: runner.os == 'Linux'
+        env:
+          POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python smoke_dashboard_integration.py
+      - name: Upload real Tk UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pocket-ui-${{ runner.os }}
+          path: ${{ runner.temp }}/pocket-ui-audit/*.png
+          if-no-files-found: warn
 
   portable-build-smoke:
     runs-on: windows-latest

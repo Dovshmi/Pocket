@@ -180,7 +180,8 @@ def default_data() -> dict:
         "window_position": None,
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
-                     "display_mode": "normal"},
+                     "display_mode": "normal", "extra_mini_enabled": False,
+                     "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"]},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -202,8 +203,12 @@ def normalize_settings(raw):
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
+    legacy_compact = raw.get("display_mode") == "compact"
+    selected_mode = mini.display_mode(raw.get("display_mode"))
     return {"visible_tabs": visible,
-            "display_mode": mini.display_mode(raw.get("display_mode"))}
+            "display_mode": "mini" if legacy_compact else selected_mode,
+            "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
+            "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles"))}
 
 
 def parse_reminder_time(date_text, time_text, now=None):
@@ -392,7 +397,8 @@ class PocketDesk:
         self._bidi_editor_active = False
         self._modal = False
         self.pinned = False
-        self._compact_return = False  # Transient Mini tool view; persisted layout stays Compact.
+        self._compact_return = False  # True after opening a tool from the launcher.
+        self._extra_mini_previous_tab = "notes"
         self.current_tab = "notes"
         self._last_tray_xy = None
         self._dragging_window = False
@@ -677,6 +683,10 @@ class PocketDesk:
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
+        if self.settings["extra_mini_enabled"]:
+            action_label(header, "▾", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=9, pady=7, font_size=11).pack(
+                         side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
 
@@ -900,9 +910,9 @@ class PocketDesk:
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
-        if self._compact_return:
-            action_label(header, "‹ Back", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 5))
+        if self.settings["extra_mini_enabled"]:
+            action_label(header, "▾ Extra Mini", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
         # Eight compact icon tabs fit across the 346px mini window. Every
@@ -954,9 +964,7 @@ class PocketDesk:
         action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
                      fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 6))
-        action_label(self.body, "Open Extra Mini launcher", lambda: self._set_display_mode("compact"),
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
-                     font_size=9).pack(fill="x", pady=(0, 6))
+        self._extra_mini_settings_controls(self.body, mini_mode=True)
         action_label(self.body, "Open Dashboard layout", lambda: self._set_display_mode("dashboard"),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 13))
@@ -976,8 +984,6 @@ class PocketDesk:
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
             return self._open_compact_tool(which)
-        if self._compact_return and which == "home":
-            return self._return_to_compact()
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -1054,13 +1060,13 @@ class PocketDesk:
         self.schedule_save()
 
     def _open_compact_tool(self, destination, hit=None):
-        """Open a real Mini tool without altering saved Compact preference."""
+        """Leave the launcher and open the destination in the user's base layout."""
         if destination != "settings" and destination not in self.settings["visible_tabs"]:
             destination = "settings"
         if self.display_mode != "compact":
             return self.show_tab(destination)
+        self.display_mode = self.settings["display_mode"]
         self._compact_return = True
-        self.display_mode = "mini"  # Visual workspace only; settings keep "compact".
         self.current_tab = destination
         if hit and hit.get("kind") == "note":
             if any(note["id"] == hit.get("id") for note in self.data["notes"]):
@@ -1076,35 +1082,125 @@ class PocketDesk:
                 self.command_tree.selection_set(chosen)
                 self._render_command_details()
 
+    def _expand_from_extra_mini(self):
+        """Expand to the saved base layout without choosing a tool."""
+        if self.display_mode != "compact":
+            return
+        self.display_mode = self.settings["display_mode"]
+        self._compact_return = False
+        chosen = self._extra_mini_previous_tab
+        self.current_tab = (chosen if chosen in self.settings["visible_tabs"] or chosen == "settings"
+                            else ("home" if self.display_mode == "dashboard" else "notes"))
+        self._build_shell_refresh()
+
     def _return_to_compact(self):
-        """Return from temporary Mini tool view to the tiny launcher."""
-        if not self._compact_return:
+        """Minimize any base layout to Extra Mini when its option is enabled."""
+        if not self.settings["extra_mini_enabled"] or self.display_mode == "compact":
             return
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self._extra_mini_previous_tab = self.current_tab
         self._compact_return = False
         self.display_mode = "compact"
         self.current_tab = "home"
         self._build_shell_refresh()
 
+    def _set_extra_mini_enabled(self, enabled):
+        """Toggle a launcher shortcut, not a fourth persistent display mode."""
+        self.settings["extra_mini_enabled"] = bool(enabled)
+        if not enabled and self.display_mode == "compact":
+            self._expand_from_extra_mini()
+        else:
+            self._build_shell_refresh()
+        self.schedule_save()
+
+    def _extra_mini_tile_dialog(self):
+        """Choose four distinct tool tiles with each selection saved immediately."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Pocket · Extra Mini tiles")
+        dialog.configure(bg=BG)
+        dialog.geometry(f"380x345+{max(0, self.root.winfo_x()+30)}+{max(0, self.root.winfo_y()+35)}")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        self._modal = True
+        tk.Label(dialog, text="Extra Mini quick-access tiles", bg=BG, fg=WHITE,
+                 font=(FONT, 14, "bold")).pack(anchor="w", padx=18, pady=(16, 4))
+        tk.Label(dialog, text="Pick four different tools. Changes save automatically.",
+                 bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", padx=18, pady=(0, 13))
+        choices = [(key, label.title()) for key, label in VISIBLE_TABS
+                   if key in self.settings["visible_tabs"]]
+        names = {name: key for key, name in choices}
+        keys_to_names = {key: name for key, name in choices}
+        selected = tk.StringVar()
+        slots = []
+        def refresh_slots():
+            shown = compact.featured_tools(self.settings["visible_tabs"],
+                                          self.settings["extra_mini_tiles"])
+            for index, variable in enumerate(slots):
+                variable.set(keys_to_names.get(shown[index], "") if index < len(shown) else "")
+        def change(index, variable):
+            key = names.get(variable.get())
+            if not key:
+                return
+            self.settings["extra_mini_tiles"] = compact.choose_tile(
+                self.settings["extra_mini_tiles"], index, key, self.settings["visible_tabs"])
+            refresh_slots()
+            self.schedule_save()
+        for index in range(4):
+            row = tk.Frame(dialog, bg=BG)
+            row.pack(fill="x", padx=18, pady=(0, 9))
+            tk.Label(row, text=f"Tile {index+1}", bg=BG, fg=SECONDARY,
+                     font=(FONT, 9), width=7, anchor="w").pack(side="left")
+            value = tk.StringVar()
+            slots.append(value)
+            picker = ttk.Combobox(row, textvariable=value,
+                                  values=[name for _key, name in choices],
+                                  state="readonly" if choices else "disabled")
+            picker.pack(side="left", fill="x", expand=True)
+            picker.bind("<<ComboboxSelected>>", lambda _event, i=index, v=value: change(i, v))
+        refresh_slots()
+        tk.Label(dialog, text="Hidden tools keep their preference and are replaced\n"
+                 "temporarily by another visible tool.",
+                 bg=BG, fg=MUTED, font=(FONT, 8), justify="left").pack(
+                 anchor="w", padx=18, pady=(3, 8))
+        def close():
+            self._modal = False
+            dialog.destroy()
+        tk.Button(dialog, text="Done", command=close, bg=ACCENT_DARK,
+                  fg=WHITE, relief="flat", padx=15, pady=6).pack(side="right", padx=18)
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.grab_set()
+
+    def _extra_mini_settings_controls(self, parent, mini_mode=False):
+        tk.Label(parent, text="EXTRA MINI LAUNCHER", bg=BG, fg=SECONDARY,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(6, 5))
+        enabled = tk.BooleanVar(value=self.settings["extra_mini_enabled"])
+        tk.Checkbutton(parent, text="Enable Extra Mini", variable=enabled,
+                       command=lambda: self._set_extra_mini_enabled(enabled.get()),
+                       bg=BG, fg=WHITE, activebackground=BG, activeforeground=WHITE,
+                       selectcolor=PANEL, font=(FONT, 9)).pack(anchor="w")
+        action_label(parent, "Choose the 4 launcher tiles…", self._extra_mini_tile_dialog,
+                     fg=ACCENT, bg=PANEL, hover=CARD, padx=9, pady=7,
+                     font_size=8 if mini_mode else 9).pack(
+                     fill="x" if mini_mode else "none", anchor="w", pady=(5, 10))
+
     def _set_display_mode(self, mode):
-        """Switch layouts from Settings without losing notes or draft input."""
+        """Set the permanent working layout; Extra Mini remains an optional toggle."""
         mode = mini.display_mode(mode)
-        if mode == self.display_mode and not self._compact_return:
+        if mode == "compact":
+            return self._set_extra_mini_enabled(True)
+        if self.settings["display_mode"] == mode and self.display_mode == mode:
             return
-        if self._compact_return and mode == "compact":
-            return self._return_to_compact()
-        self._compact_return = False
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        previous_mode = self.display_mode
+        self._compact_return = False
         self.display_mode = mode
         self.settings["display_mode"] = mode
-        if mode in ("dashboard", "compact") and previous_mode != mode:
+        if mode == "dashboard":
             self.current_tab = "home"
-        elif mode not in ("dashboard", "compact") and self.current_tab == "home":
+        elif self.current_tab == "home":
             self.current_tab = "notes"
         self._build_shell_refresh()
         self.schedule_save()
@@ -1131,7 +1227,7 @@ class PocketDesk:
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
         layout_actions = tk.Frame(self.body, bg=BG)
         layout_actions.pack(fill="x", pady=(0, 15))
-        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("compact", "Extra Mini"), ("dashboard", "Dashboard")):
+        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("dashboard", "Dashboard")):
             selected = mode == self.display_mode
             action_label(layout_actions, ("● " if selected else "") + caption,
                          lambda target=mode: self._set_display_mode(target),
@@ -1139,6 +1235,7 @@ class PocketDesk:
                          bg=ACCENT_DARK if selected else PANEL,
                          hover=CARD, font_size=10, padx=13, pady=8
                          ).pack(side="left", padx=(0, 9))
+        self._extra_mini_settings_controls(self.body)
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
         for key, label in VISIBLE_TABS:

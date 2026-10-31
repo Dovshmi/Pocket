@@ -9,7 +9,7 @@
 A compact, local-first Windows tray toolbox for notes, network diagnostics, shortcuts and CLI references.
 
 <p>
-  <img src="https://img.shields.io/badge/Release-v1.28-8B80F9?style=for-the-badge" alt="Pocket v1.28" />
+  <img src="https://img.shields.io/badge/Release-v1.29-8B80F9?style=for-the-badge" alt="Pocket v1.29" />
   <img src="https://img.shields.io/badge/Windows-10_%2F_11-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Windows 10 and 11" />
   <img src="https://img.shields.io/badge/Python-Tkinter-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python and Tkinter" />
   <img src="https://img.shields.io/badge/Portable-ZIP-0F766E?style=for-the-badge" alt="Portable ZIP" />
@@ -17,7 +17,7 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
   <img src="https://img.shields.io/badge/License-GPL--3.0-64748B?style=for-the-badge" alt="GPL-3.0" />
 </p>
 
-**[Download Pocket v1.28](https://github.com/Dovshmi/Pocket/releases/tag/v1.28)** · **[Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.28/Pocket-Portable-v1.28.zip)** · **[Source](https://github.com/Dovshmi/Pocket)**
+**[Download Pocket v1.29](https://github.com/Dovshmi/Pocket/releases/tag/v1.29)** · **[Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-Portable-v1.29.zip)** · **[Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.29/Pocket-v1.29.exe)** · **[Source](https://github.com/Dovshmi/Pocket)**
 
 </div>
 
@@ -29,51 +29,17 @@ A compact, local-first Windows tray toolbox for notes, network diagnostics, shor
 
 Pocket offers **Normal** and **Mini** layouts, six saved visual themes, local data storage and optional one-shot note reminders. The portable release runs without installing Python on the destination PC.
 
-## Modern Pocket design + privacy + Quick Search (new development branch)
+## What's new in v1.29
 
-> **Experimental:** This work is on `feature/pocket-design-system-and-polish`, based on the tested Dashboard/Extra Mini branch. It has not been merged or published. The source/CI build is not a new v1.28 release.
+Pocket now includes **Normal**, **Mini**, and **Dashboard** layouts, plus the optional tiny **Extra Mini** launcher. Choose Extra Mini from Settings, customize its four quick-access cards using **Edit → × → +**, and return directly to your chosen working layout.
 
-**What's new in this branch:** A shared theme-aware toolkit (`pocket_design.py`) now provides consistent clickable keyboard-accessible actions, modern section headers, input focus borders and table styles. Every existing feature still uses its original callbacks and storage. Settings retains its redesigned card layout. Extra Mini retains four customizable tile slots, and its existing tool-navigation behavior.
+The refreshed, theme-aware Windows UI has accessible action buttons, modern Settings, consistent tool headers, inputs and command tables. **Ctrl+K** opens offline Quick Search for tools, notes, saved shortcuts and CLI references. Clipboard history stays in memory, with new **Pause Capture** and optional sensitive-text filtering (heuristic, not guaranteed to find every secret).
 
-**Global Quick Search:** Press **Ctrl+K** from Normal, Mini or Dashboard to search enabled tools, notes, saved shortcuts and CLI references locally. Open a result with Enter or double-click; Escape or Close dismisses the dialog. Ctrl+F continues to focus the command search in Commands and opens Quick Search elsewhere. Extra Mini keeps its own inline searchable launcher. Search never launches a shortcut or executes a command automatically.
+All seven original tools remain functional. Commands are **never executed** by Pocket and command-library backups are still created manually.
 
-**Clipboard privacy:** The Clipboard page has **Pause capture / Resume capture**. Settings includes **Pause clipboard capture** and **Skip recognized sensitive text**, enabled by default for new and migrated profiles. The optional filter excludes common token/password/private-key patterns, but is **heuristic, not a guarantee**; passwords or other sensitive text may still be captured. Clipboard history remains entirely in memory and never saves with settings. Capturing occurs only when the Clipboard menu is enabled *and* capture is not paused.
+For the newest public Windows version, use the **v1.29 portable ZIP** or **standalone EXE** above. Source-only preview artwork for v1.28 further below is historical and should not be confused with current application screenshots.
 
-**Testing:** The pull request runs unit tests on Windows and Linux, a GUI integration smoke test across all layouts, and a Windows portable executable build/startup check. Still perform hands-on Windows DPI, multi-monitor, focus/RTL, tray and shortcut testing before merging.
-
----
-
-## Experimental Dashboard and optional Extra Mini (development branch)
-
-> **In development:** These options are only on the `feature/dashboard-ui-refresh` branch. The published v1.28 release and `main` remain unchanged. The reference images are concepts, not screenshots.
-
-Pocket offers **three working layouts**, with a separately optional tiny launcher:
-
-| Working layout | Size | Purpose |
-|:---|:---|:---|
-| **Normal** | 480 × 850 | Original tray-first popup (default). |
-| **Mini** | 346 × 530 | Compact working tools and icon tabs. |
-| **Dashboard** | 1160 × 800 | Wide desktop workspace and sidebar. |
-| **Extra Mini (optional)** | 322 × 256 | Four-tile launcher available from **any** of the above. |
-
-**Enable Extra Mini:** The modern Settings page uses themed cards for the selected working layout, color theme, Extra Mini, visible menus, keyboard shortcut and privacy information. Check **Enable Extra Mini**. Four default tiles appear: Commands, Notes, Clipboard and Subnet. In Settings, **Customize four tiles ↗** opens Extra Mini directly in Edit mode. You can also click **Edit** in Extra Mini itself. Each existing tile shows a **×** control when editing; clicking it clears only that slot and shows a **+**. Clicking + opens a picker containing available enabled tools. Select a tool, then click **Done**. Changes save automatically, retain the four fixed positions, and immediately affect the launcher. Hidden menus show an empty placeholder until enabled again; they are not silently replaced or deleted. Duplicate tools cannot occupy multiple tiles. All enabled tools remain accessible through **All tools ▾**, regardless of the four featured slots.
-
-When enabled, the Normal, Mini and Dashboard headers each show a **▾ Extra Mini** minimize control. Click it to shrink Pocket to the 322×256 launcher. Click any tile, search result or All tools entry to expand back to **the same working layout**, directly in the selected tool. The launcher's **↗** button expands back to the previous tool without choosing a tile. This also works with the wide Dashboard: Extra Mini does **not** force the Mini layout. The permanent working layout remains saved independently of the launcher state.
-
-Extra Mini supports local search across enabled tools, saved notes, saved shortcuts and CLI references. It never executes a command, triggers a network lookup or opens a shortcut URL automatically. Clipboard data remains session-only and note reminders still run only while Pocket is active.
-
-**Try it from source (Windows):**
-
-```powershell
-git clone --branch feature/dashboard-ui-refresh https://github.com/Dovshmi/Pocket.git
-cd Pocket
-install.bat
-run.bat
-```
-
-Choose the base working mode in Settings (**Normal**, **Mini**, **Dashboard**), enable Extra Mini, and customize its four quick-launch tiles inside the launcher using **Edit → × → + → Done**. The previous experimental version that saved `display_mode: compact` is migrated safely to the Mini working layout with Extra Mini enabled. The command library and its **manual backup** behavior are unchanged.
-
-The wider Dashboard adds a themed sidebar, real local-data counters and functional shortcuts to existing tools. Both interfaces and the refreshed Settings page are built in native Python/Tkinter (`dashboard_ui.py`, `compact_dashboard.py`, `settings_ui.py`). Headless regression tests are run on Windows/Linux CI, but native Windows scaling, keyboard focus, window placement, and tray operation still require a hands-on review before release.
+**Next development milestone:** Smart Command Templates (not part of v1.29).
 
 ---
 

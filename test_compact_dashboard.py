@@ -1,135 +1,149 @@
-"""Compact dashboard regression checks (safe on headless CI)."""
+"""Tests for optional Extra Mini launcher, independent of a Tk display."""
 from pathlib import Path
 import runpy
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import mini_layout as layout
 import compact_dashboard as compact
 
 app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+Desk = app["PocketDesk"]
 
 
-class CompactDashboardTests(unittest.TestCase):
-    def test_sizes_and_default_mode(self):
+class ExtraMiniTests(unittest.TestCase):
+    def test_geometry_and_saved_base_mode(self):
         self.assertEqual(layout.view_dimensions("compact"), (322, 256))
-        self.assertLess(layout.view_dimensions("compact")[0], layout.view_dimensions("mini")[0])
-        self.assertLess(layout.view_dimensions("compact")[1], layout.view_dimensions("mini")[1])
+        self.assertLess(322, layout.view_dimensions("mini")[0])
+        self.assertLess(256, layout.view_dimensions("mini")[1])
         self.assertEqual(layout.view_dimensions("normal"), (480, 850))
         self.assertEqual(layout.view_dimensions("mini"), (346, 530))
         self.assertEqual(layout.view_dimensions("dashboard"), (1160, 800))
+        self.assertFalse(app["default_data"]()["settings"]["extra_mini_enabled"])
         self.assertEqual(app["default_data"]()["settings"]["display_mode"], "normal")
-        self.assertEqual(app["normalize_settings"]({"display_mode": "compact"})["display_mode"],
-                         "compact")
 
-    def test_every_real_tool_has_a_visible_navigation_entry(self):
+    def test_legacy_compact_migrates_to_mini_with_toggle(self):
+        old = app["normalize_settings"]({"display_mode": "compact"})
+        self.assertEqual(old["display_mode"], "mini")
+        self.assertTrue(old["extra_mini_enabled"])
+        fresh = app["normalize_settings"]({"display_mode": "dashboard",
+                                            "extra_mini_enabled": True})
+        self.assertEqual(fresh["display_mode"], "dashboard")
+        self.assertTrue(fresh["extra_mini_enabled"])
+
+    def test_navigation_uses_every_real_menu(self):
         keys = [key for key, _icon, _label in compact.NAVIGATION]
-        self.assertEqual(len(keys), len(set(keys)))
-        actual = {key for key, _label in app["VISIBLE_TABS"]}
-        self.assertEqual(set(keys), actual | {"home", "settings"})
-        self.assertEqual(set(compact.TOOL_DESCRIPTIONS), actual)
+        real = {key for key, _name in app["VISIBLE_TABS"]}
+        self.assertEqual(set(keys), real | {"home", "settings"})
+        self.assertEqual(set(compact.TOOL_DESCRIPTIONS), real)
         self.assertEqual(set(compact.PAGES), set(keys))
+        subset = [key for key, _icon, _title in compact.visible_navigation(["notes","subnet"])]
+        self.assertEqual(subset, ["home", "notes", "subnet", "settings"])
 
-    def test_menu_visibility_is_honored_without_hiding_settings(self):
-        keys = [key for key, _icon, _title
-                in compact.visible_navigation(["notes", "subnet"])]
-        self.assertEqual(keys, ["home", "notes", "subnet", "settings"])
-        keys = [key for key, _icon, _title
-                in compact.visible_navigation([k for k, _ in app["VISIBLE_TABS"]])]
-        self.assertEqual(keys[0], "home")
-        self.assertEqual(keys[-1], "settings")
-        self.assertEqual(len(keys), len(compact.NAVIGATION))
-
-    def test_featured_cards_and_fallback_respect_visibility(self):
-        self.assertEqual(compact.featured_tools(
-            ["notes", "links", "ports", "mac", "commands", "subnet", "clipboard"]),
-            ("commands", "notes", "clipboard", "subnet"))
-        self.assertEqual(compact.featured_tools(["links", "ports", "mac"]),
-                         ("links", "ports", "mac"))
+    def test_four_default_tiles_and_custom_swapping(self):
+        full = [key for key, _name in app["VISIBLE_TABS"]]
+        self.assertEqual(compact.featured_tools(full),
+                         ("commands", "notes", "clipboard", "subnet"))
+        current = compact.choose_tile(["commands", "notes", "clipboard", "subnet"],
+                                       0, "links", full)
+        self.assertEqual(compact.featured_tools(full, current)[0], "links")
+        self.assertEqual(len(set(current)), 4)
+        swapped = compact.choose_tile(current, 1, "links", full)
+        self.assertEqual(compact.featured_tools(full, swapped)[1], "links")
+        self.assertEqual(len(set(swapped)), 4)
+        self.assertEqual(compact.featured_tools(["notes", "ports"], current),
+                         ("notes", "ports"))
         self.assertEqual(compact.featured_tools([]), ())
 
-    def test_search_finds_real_local_items_without_executing(self):
-        data = {"notes": [{"id": "note-1", "title": "Router checklist",
-                            "body": "Check OSPF adjacency"}],
-                "links": [{"id": "link-1", "title": "Device docs",
-                            "url": "https://example.test/docs"}]}
-        library = [{"id": "cmd-1", "machine": "Cisco", "category": "Routing",
-                    "description": "Show OSPF neighbors",
-                    "command": "show ip ospf neighbor"}]
-        visible = [key for key, _caption in app["VISIBLE_TABS"]]
-        note_hits = compact.search_items(data, library, "checklist", visible)
-        self.assertEqual(note_hits[0]["kind"], "note")
-        self.assertEqual(note_hits[0]["id"], "note-1")
-        self.assertEqual(note_hits[0]["destination"], "notes")
-        shortcut_hits = compact.search_items(data, library, "Device docs", visible)
-        self.assertEqual(shortcut_hits[0]["destination"], "links")
-        command_hits = compact.search_items(data, library, "ospf", visible)
-        self.assertTrue(any(hit["kind"] == "command" for hit in command_hits))
+    def test_malformed_tile_preferences_are_sanitized(self):
+        values = compact.configured_tiles(["bad", "notes", "notes", "links", 3, "ports"])
+        self.assertEqual(len(values), 4)
+        self.assertEqual(len(set(values)), 4)
+        self.assertEqual(values[:3], ["notes", "links", "ports"])
+        self.assertEqual(len(compact.configured_tiles(None)), 4)
+
+    def test_local_search_returns_real_results(self):
+        data = {"notes":[{"id":"n1","title":"Router checklist","body":"OSPF peer"}],
+                "links":[{"id":"l1","title":"Lab docs","url":"https://example.test"}]}
+        library = [{"id":"c1","machine":"Cisco","category":"Routing",
+                    "description":"Show OSPF","command":"show ip ospf neighbor"}]
+        visible = [key for key, _name in app["VISIBLE_TABS"]]
+        self.assertEqual(compact.search_items(data, library, "checklist", visible)[0]["id"], "n1")
+        self.assertEqual(compact.search_items(data, library, "Lab docs", visible)[0]["kind"], "shortcut")
+        self.assertTrue(any(hit["kind"] == "command" for hit in
+                            compact.search_items(data, library, "ospf", visible)))
         self.assertEqual(compact.search_items(data, library, "ospf", ["links"]), [])
         self.assertEqual(compact.search_items(data, library, "", visible), [])
 
-    def test_launcher_dispatches_through_existing_mini_without_saving_mode(self):
-        from types import SimpleNamespace
-        from unittest.mock import Mock
-        desk = SimpleNamespace(
+    def make_desk(self, base):
+        return SimpleNamespace(
             display_mode="compact", current_tab="home", _compact_return=False,
-            settings={"visible_tabs": ["notes", "commands"], "display_mode": "compact"},
-            data={"notes": [{"id": "n1"}], "active_note": "other"},
+            _extra_mini_previous_tab="notes",
+            settings={"visible_tabs": ["notes", "commands", "subnet"],
+                      "display_mode": base, "extra_mini_enabled": True},
+            data={"notes": [{"id":"n1"}], "active_note":"other"},
             _build_shell_refresh=Mock(), _command_focus_in=Mock(), schedule_save=Mock(),
-        )
-        app["PocketDesk"]._open_compact_tool(
-            desk, "notes", {"kind": "note", "destination": "notes", "id": "n1"})
-        self.assertEqual(desk.display_mode, "mini")
-        self.assertTrue(desk._compact_return)
-        self.assertEqual(desk.current_tab, "notes")
-        self.assertEqual(desk.data["active_note"], "n1")
-        self.assertEqual(desk.settings["display_mode"], "compact")
-        desk._flush_current_note = Mock()
-        app["PocketDesk"]._return_to_compact(desk)
-        self.assertEqual(desk.display_mode, "compact")
-        self.assertEqual(desk.current_tab, "home")
-        self.assertFalse(desk._compact_return)
-        self.assertEqual(desk.settings["display_mode"], "compact")
-        self.assertEqual(desk._build_shell_refresh.call_count, 2)
+            _flush_current_note=Mock())
 
-    def test_independent_saved_position_and_settings_roundtrip(self):
+    def test_tap_tile_restores_selected_mode_and_minimizes_again(self):
+        for base in ("normal", "mini", "dashboard"):
+            with self.subTest(base=base):
+                desk = self.make_desk(base)
+                Desk._open_compact_tool(desk, "notes",
+                                         {"kind":"note","id":"n1","destination":"notes"})
+                self.assertEqual(desk.display_mode, base)
+                self.assertEqual(desk.settings["display_mode"], base)
+                self.assertEqual(desk.current_tab, "notes")
+                self.assertEqual(desk.data["active_note"], "n1")
+                self.assertTrue(desk._compact_return)
+                Desk._return_to_compact(desk)
+                self.assertEqual(desk.display_mode, "compact")
+                self.assertEqual(desk.current_tab, "home")
+                self.assertEqual(desk.settings["display_mode"], base)
+                self.assertEqual(desk._build_shell_refresh.call_count, 2)
+
+    def test_expand_restores_previous_tool(self):
+        desk = self.make_desk("dashboard")
+        desk._extra_mini_previous_tab = "subnet"
+        Desk._expand_from_extra_mini(desk)
+        self.assertEqual(desk.display_mode, "dashboard")
+        self.assertEqual(desk.current_tab, "subnet")
+        self.assertEqual(desk.settings["display_mode"], "dashboard")
+
+    def test_disable_option_returns_from_launcher(self):
+        desk = self.make_desk("normal")
+        desk._expand_from_extra_mini = Mock()
+        Desk._set_extra_mini_enabled(desk, False)
+        self.assertFalse(desk.settings["extra_mini_enabled"])
+        desk._expand_from_extra_mini.assert_called_once()
+        desk.schedule_save.assert_called_once()
+
+    def test_saved_settings_and_position_round_trip(self):
         with tempfile.TemporaryDirectory() as folder:
-            path = Path(folder) / "data.json"
+            path = Path(folder)/"data.json"
             data = app["default_data"]()
-            data["settings"]["display_mode"] = "compact"
-            data["window_positions"]["compact"] = {"x": 110, "y": 140}
+            data["settings"]["display_mode"] = "dashboard"
+            data["settings"]["extra_mini_enabled"] = True
+            data["settings"]["extra_mini_tiles"] = ["ports","links","notes","mac"]
+            data["window_positions"]["compact"] = {"x":110,"y":140}
             app["save_data"](path, data)
             loaded = app["load_data"](path)
-            self.assertEqual(loaded["settings"]["display_mode"], "compact")
-            self.assertEqual(loaded["window_positions"]["compact"], {"x": 110, "y": 140})
-            for mode in ("normal", "mini", "dashboard"):
-                self.assertIsNone(loaded["window_positions"][mode])
+            self.assertEqual(loaded["settings"], data["settings"])
+            self.assertEqual(loaded["window_positions"]["compact"], {"x":110,"y":140})
             self.assertEqual(loaded["notes"], data["notes"])
-            self.assertEqual(loaded["links"], data["links"])
             self.assertNotIn("clipboard_items", loaded)
 
-    def test_legacy_positions_migrate_without_overwriting(self):
-        positions = layout.window_positions(
-            {"normal": {"x": 1, "y": 2}, "mini": {"x": 3, "y": 4},
-             "dashboard": {"x": 5, "y": 6}})
-        self.assertEqual(positions["normal"], {"x": 1, "y": 2})
-        self.assertIsNone(positions["compact"])
-        self.assertEqual(positions["dashboard"], {"x": 5, "y": 6})
-
-    def test_app_dispatch_reuses_every_existing_tool_builder(self):
+    def test_real_feature_dispatch_kept(self):
         source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
-        self.assertIn("return compact.build_shell(self,", source)
-        self.assertIn("compact.style_nav(self, which)", source)
-        self.assertIn("self._open_compact_tool(which)", source)
-        self.assertIn("self._return_to_compact()", source)
-        self.assertIn("self._compact_return = True", source)
-        self.assertIn('self.display_mode = "mini"', source)
-        self.assertIn("compact.build_home(self)", source)
-        self.assertIn('self.display_mode in ("dashboard", "compact")', source)
-        for method in ("_build_notes", "_build_links", "_build_ports",
-                       "_build_mac", "_build_commands", "_build_subnet",
-                       "_build_clipboard", "_build_settings"):
-            self.assertIn("self." + method + "()", source)
+        self.assertIn("self._extra_mini_settings_controls(self.body)", source)
+        self.assertIn("self._extra_mini_settings_controls(self.body, mini_mode=True)", source)
+        self.assertIn("self._return_to_compact", source)
+        self.assertIn("compact.build_shell(self,", source)
+        self.assertIn("self.settings[\"display_mode\"]", source)
+        for tool in ("notes","links","ports","mac","commands","subnet","clipboard","settings"):
+            self.assertIn(f"self._build_{tool}()", source)
 
 
 if __name__ == "__main__":

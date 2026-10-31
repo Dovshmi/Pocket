@@ -17,7 +17,7 @@ class CommandsLayoutRegression(unittest.TestCase):
         self.assertIn('orient=tk.VERTICAL', block)
         self.assertIn('command_panes.add(results_panel, minsize=150', block)
         self.assertIn("self.command_tree = self._tree(results_panel,", block)
-        self.assertIn("(230, 185), rows=4", block)
+        self.assertIn('(540, 335) if self.display_mode == "dashboard" else (230, 185)', block)
         self.assertNotIn('action_label(heading, "Backup ▾"', block)
         self.assertNotIn('action_label(heading, "+ New"', block)
         header_begin = self.source.index("    def _build_normal_commands_header(self):")

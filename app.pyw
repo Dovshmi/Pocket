@@ -38,6 +38,9 @@ import mini_layout as mini
 import dashboard_ui as dashboard
 import compact_dashboard as compact
 import settings_ui
+import pocket_design as design
+import quick_search
+import clipboard_policy
 import single_instance
 import portable_storage
 
@@ -182,7 +185,8 @@ def default_data() -> dict:
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal", "extra_mini_enabled": False,
-                     "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"]},
+                     "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
+                     "clipboard_paused": False, "clipboard_sensitive_filter": True},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -209,7 +213,9 @@ def normalize_settings(raw):
     return {"visible_tabs": visible,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
-            "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles"))}
+            "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
+            "clipboard_paused": raw.get("clipboard_paused") is True,
+            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False}
 
 
 def parse_reminder_time(date_text, time_text, now=None):
@@ -386,6 +392,7 @@ class PocketDesk:
             self.data.get("window_positions"), self.data.get("window_position"))
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
+        self._quick_search_dialog = None
         self._clipboard_job = None
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
@@ -478,11 +485,13 @@ class PocketDesk:
             self.root.iconbitmap(str(self.theme_icons[self.theme]["ico"]))
         except (tk.TclError, OSError):
             pass
+        design.configure_ttk(self.root, self.theme)
         self._build_shell()
         self.show_tab("home" if self.display_mode in ("dashboard", "compact") else "notes")
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
-        self.root.bind("<Control-k>", lambda _e: compact.focus_search(self))
+        self.root.bind("<Control-k>", self._open_global_search)
+        self.root.bind("<Control-f>", self._open_global_search)
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
         # Unlike bind_all, this does not interfere with unrelated tabs.
@@ -533,6 +542,7 @@ class PocketDesk:
         self.theme = name
         self.data["theme"] = name
         self._apply_palette(name)
+        design.configure_ttk(self.root, name)
         self.root.configure(bg=BG)
         try:
             self.root.iconbitmap(str(self.theme_icons[name]["ico"]))
@@ -1147,22 +1157,45 @@ class PocketDesk:
         return settings_ui.build_settings(self, self.body)
 
     def _clipboard_poll(self):
-        if "clipboard" in self.settings["visible_tabs"]:
+        if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
             try:
                 value = self.root.clipboard_get()
                 if isinstance(value, str) and value != self._clipboard_last:
                     self._clipboard_last = value
                     before = len(self.clipboard_items)
-                    clipboard_add(self.clipboard_items, value)
+                    if clipboard_policy.should_capture(value, paused=self.settings["clipboard_paused"],
+                                                       sensitive_filter=self.settings["clipboard_sensitive_filter"]):
+                        clipboard_add(self.clipboard_items, value)
                     if self.current_tab == "clipboard" and (len(self.clipboard_items) != before or self.clipboard_items):
                         self._refresh_clipboard()
             except (tk.TclError, RuntimeError):
                 pass
         self._clipboard_job = self.root.after(600, self._clipboard_poll)
 
+    def _toggle_clipboard_pause(self):
+        self.settings["clipboard_paused"] = not self.settings["clipboard_paused"]
+        self._clipboard_last = None
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
+    def _set_clipboard_sensitive_filter(self, enabled):
+        self.settings["clipboard_sensitive_filter"] = bool(enabled)
+        self._clipboard_last = None
+        self.schedule_save()
+
     def _build_clipboard(self):
         self._section_title(self.body, "Clipboard history", "Session-only text · Never saved to disk",
                             "Clear all", self._clear_clipboard)
+        privacy_row = tk.Frame(self.body, bg=BG)
+        privacy_row.pack(fill="x", pady=(0, 9))
+        self.clipboard_pause_button = design.button(
+            privacy_row, "Resume capture" if self.settings["clipboard_paused"] else "Pause capture",
+            self._toggle_clipboard_pause, self.theme, compact=True)
+        self.clipboard_pause_button.pack(side="left")
+        tk.Label(privacy_row, text="Sensitive-text filter: " +
+                 ("On" if self.settings["clipboard_sensitive_filter"] else "Off"),
+                 bg=BG, fg=MUTED, font=(FONT, 8)).pack(side="right")
         self.clipboard_query = tk.StringVar()
         entry = self._entry(self.body, self.clipboard_query)
         entry.pack(fill="x", ipady=9, pady=(0, 9))
@@ -1194,7 +1227,8 @@ class PocketDesk:
             preview = " ".join(item["text"].split())[:65]
             self.clipboard_list.insert(tk.END, ("★ " if item["pinned"] else "   ") + preview)
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
-                                     ("ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
+                                     ("PAUSED" if self.settings["clipboard_paused"] else
+                                      "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):
@@ -1226,6 +1260,9 @@ class PocketDesk:
         self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
+        design.section_header(parent, title, desc, button_text, button_action,
+                              self.theme, compact=self.display_mode == "mini")
+        return
         if self.display_mode == "mini":
             heading = tk.Frame(parent, bg=BG)
             heading.pack(fill="x", pady=(1, 7))
@@ -2377,21 +2414,12 @@ class PocketDesk:
 
     @staticmethod
     def _entry(parent, value, *, width=None):
-        e = tk.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
-                     insertbackground=WHITE, highlightthickness=1,
-                     highlightbackground=BORDER, highlightcolor=ACCENT,
-                     relief="flat", font=(FONT, 10), width=width or 1)
+        e = design.entry(parent, value, themes.valid_theme(getattr(parent, "_pocket_theme", "blue")),
+                         width=width or 1)
         return e
 
     def _tree(self, parent, columns, widths, *, rows=4, aligns=None):
-        style = ttk.Style(self.root)
-        style.configure("Pocket.Treeview", background=PANEL, foreground=WHITE,
-                        fieldbackground=PANEL, rowheight=27, borderwidth=0,
-                        font=(FONT, 9))
-        style.configure("Pocket.Treeview.Heading", background=CARD,
-                        foreground=SECONDARY, relief="flat", font=(FONT, 9, "bold"))
-        style.map("Pocket.Treeview", background=[("selected", ACCENT_DARK)],
-                  foreground=[("selected", WHITE)])
+        design.configure_ttk(self.root, self.theme)
         container = tk.Frame(parent, bg=BG)
         container.pack(fill="both", expand=True, pady=(8, 0))
         tree = ttk.Treeview(container, columns=columns, show="headings", height=rows,

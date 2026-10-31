@@ -157,6 +157,28 @@ def save_command(path: Path, entry: dict, *, original: dict | None = None) -> Pa
     return _atomic_write(path, doc)
 
 
+def save_template(path: Path, entry: dict, template: dict | None) -> Path:
+    """Explicit user action: configure/remove one template, no automatic backup.
+
+    Optimistic comparison prevents overwriting a different command's edits.
+    Metadata remains next to the original row and is included in manual backups.
+    """
+    from smart_templates import validate_template
+    doc = read_document(path)
+    index = _find(doc, entry["id"])
+    current = doc["commands"][index]
+    _check_expected(current, entry)
+    if current.get("template") != entry.get("template"):
+        raise ValueError("This template was edited elsewhere. Reload before saving.")
+    updated = dict(current)
+    if template is None:
+        updated.pop("template", None)
+    else:
+        updated["template"] = validate_template(template, current["command"])
+    doc["commands"][index] = updated
+    return _atomic_write(path, doc)
+
+
 def delete_command(path: Path, entry: dict) -> Path:
     doc = read_document(path)
     index = _find(doc, entry["id"])

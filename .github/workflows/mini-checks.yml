@@ -76,3 +76,20 @@ jobs:
                   assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
               assert archive.testzip() is None, "ZIP integrity failure"
           print("PASS: runnable portable EXE is packaged with only the public command seed")
+      - name: Launch packaged Pocket EXE in isolated preview mode
+        shell: pwsh
+        run: |
+          $exe = Join-Path (Get-Location) 'build/portable-binaries/PocketDesk/PocketDesk.exe'
+          if (-not (Test-Path $exe)) { throw 'Packaged EXE missing' }
+          $profile = Join-Path $env:RUNNER_TEMP 'pocket-exe-smoke-profile'
+          New-Item -ItemType Directory -Force -Path $profile | Out-Null
+          $env:APPDATA = $profile
+          $proc = Start-Process -FilePath $exe -ArgumentList '--preview' -PassThru
+          try {
+            Start-Sleep -Seconds 8
+            $proc.Refresh()
+            if ($proc.HasExited) { throw "Pocket EXE exited early ($($proc.ExitCode))" }
+            Write-Output 'PASS: packaged Pocket EXE starts and remains running in preview mode'
+          } finally {
+            if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          }

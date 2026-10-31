@@ -2,7 +2,7 @@ name: Pocket regression checks
 
 on:
   push:
-    branches: [main, before-release]
+    branches: [main, before-release, feature/pocket-design-system-and-polish]
   pull_request:
     branches: [main, feature/dashboard-ui-refresh]
   workflow_dispatch:

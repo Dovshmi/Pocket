@@ -64,6 +64,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Normal geometry is wrong")
         print("PASS: initial window and isolated data")
 
+        from tkinter import ttk
+        from icon_themes import palette
+        style = ttk.Style(app.root)
+        check(style.theme_use() == "clam", "Dark ttk theme was not selected")
+        self_color = palette(app.theme)
+        check(style.lookup("Pocket.TCombobox", "foreground", ("readonly",)) ==
+              self_color["WHITE"], "Readonly dropdown text is not readable")
+        check(style.lookup("Pocket.TCombobox", "fieldbackground", ("readonly",)) ==
+              self_color["INPUT"], "Readonly dropdown has the wrong background")
+        check(style.lookup("Pocket.TCombobox", "foreground", ("disabled",)) ==
+              self_color["MUTED"], "Disabled dropdown lacks contrast")
+        print("PASS: real ttk Combobox readonly and disabled dark-theme colors")
+
         for mode in MODES:
             app._set_display_mode(mode)
             app.root.update()
@@ -91,6 +104,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                       "Dashboard overview does not show every enabled tool")
                 check(app._tool_scroll_canvas is not None,
                       "Expanded Dashboard overview must scroll on small screens")
+                canvas = app._tool_scroll_canvas
+                app.root.update_idletasks()
+                check(canvas.yview()[1] < 1,
+                      "Dashboard Home content should extend below viewport")
+                initial_scroll = canvas.yview()[0]
+                canvas.yview_scroll(3, "units")
+                app.root.update_idletasks()
+                check(canvas.yview()[0] > initial_scroll,
+                      "Dashboard Home cannot scroll to lower tools")
             if mode == "mini":
                 check(len(app.mini_icon_tabs) == len(app.settings["visible_tabs"])+1,
                       "Mini navigation should show every enabled menu plus Settings")

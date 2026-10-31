@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile Pocket
-        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py pocket_design.py quick_search.py clipboard_policy.py smart_templates.py template_ui.py native_bidi.py note_sync.py single_instance.py
+        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py pocket_design.py quick_search.py clipboard_policy.py smart_templates.py template_ui.py launcher_pages.py launcher_picker.py launcher_extra_ui.py native_bidi.py note_sync.py single_instance.py
       - name: Run unit tests
         run: python -m unittest discover -v
 
@@ -76,7 +76,7 @@ jobs:
         run: |
           import zipfile
           from pathlib import Path
-          artifact = Path("dist/Pocket-Portable-v1.29.1.zip")
+          artifact = Path("dist/Pocket-Portable-v1.30.0-beta.1.zip")
           assert artifact.is_file(), "No portable ZIP produced"
           with zipfile.ZipFile(artifact) as archive:
               names = archive.namelist()
@@ -89,7 +89,7 @@ jobs:
           print("PASS: runnable portable EXE is packaged with only the public command seed")
       - name: Make downloadable branch-preview ZIP
         shell: pwsh
-        run: Copy-Item 'dist/Pocket-Portable-v1.29.1.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'
+        run: Copy-Item 'dist/Pocket-Portable-v1.30.0-beta.1.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'
       - name: Upload development preview (not a GitHub release)
         uses: actions/upload-artifact@v4
         with:

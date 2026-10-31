@@ -12,7 +12,9 @@ app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_im
 
 class CompactDashboardTests(unittest.TestCase):
     def test_sizes_and_default_mode(self):
-        self.assertEqual(layout.view_dimensions("compact"), (820, 680))
+        self.assertEqual(layout.view_dimensions("compact"), (322, 256))
+        self.assertLess(layout.view_dimensions("compact")[0], layout.view_dimensions("mini")[0])
+        self.assertLess(layout.view_dimensions("compact")[1], layout.view_dimensions("mini")[1])
         self.assertEqual(layout.view_dimensions("normal"), (480, 850))
         self.assertEqual(layout.view_dimensions("mini"), (346, 530))
         self.assertEqual(layout.view_dimensions("dashboard"), (1160, 800))
@@ -66,6 +68,10 @@ class CompactDashboardTests(unittest.TestCase):
         source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
         self.assertIn("return compact.build_shell(self,", source)
         self.assertIn("compact.style_nav(self, which)", source)
+        self.assertIn("self._open_compact_tool(which)", source)
+        self.assertIn("self._return_to_compact()", source)
+        self.assertIn("self._compact_return = True", source)
+        self.assertIn('self.display_mode = "mini"', source)
         self.assertIn("compact.build_home(self)", source)
         self.assertIn('self.display_mode in ("dashboard", "compact")', source)
         for method in ("_build_notes", "_build_links", "_build_ports",

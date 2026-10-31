@@ -288,6 +288,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         # Direct saved command references, copy-only, Smart Template and
         # shortcut tiles must dispatch to the exact saved item.
         from types import SimpleNamespace
+        import smart_templates as smart
         app._set_display_mode("normal")
         app._return_to_compact()
         app._set_compact_page(0)

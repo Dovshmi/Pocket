@@ -61,8 +61,8 @@ class DashboardLayoutTests(unittest.TestCase):
         self.assertIn("self._build_commands()", source)
         self.assertIn("self._build_notes()", source)
         self.assertIn("self._build_subnet()", source)
-        self.assertIn('("normal", "Normal"), ("mini", "Mini"), ("dashboard", "Dashboard")',
-                      source)
+        self.assertIn("settings_ui.build_settings(self, self.body)", source)
+        self.assertIn("dashboard.build_home(self)", source)
 
 
 if __name__ == "__main__":

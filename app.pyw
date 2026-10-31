@@ -392,6 +392,7 @@ class PocketDesk:
         self._bidi_editor_active = False
         self._modal = False
         self.pinned = False
+        self._compact_return = False  # Transient Mini tool view; persisted layout stays Compact.
         self.current_tab = "notes"
         self._last_tray_xy = None
         self._dragging_window = False
@@ -471,6 +472,7 @@ class PocketDesk:
         self.show_tab("home" if self.display_mode in ("dashboard", "compact") else "notes")
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
+        self.root.bind("<Control-k>", lambda _e: compact.focus_search(self))
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
         # Unlike bind_all, this does not interfere with unrelated tabs.
@@ -898,6 +900,9 @@ class PocketDesk:
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
+        if self._compact_return:
+            action_label(header, "‹ Back", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 5))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
         # Eight compact icon tabs fit across the 346px mini window. Every
@@ -969,6 +974,10 @@ class PocketDesk:
                  justify="left").pack(anchor="w", pady=(8, 0))
 
     def show_tab(self, which):
+        if self.display_mode == "compact" and which != "home":
+            return self._open_compact_tool(which)
+        if self._compact_return and which == "home":
+            return self._return_to_compact()
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -997,7 +1006,7 @@ class PocketDesk:
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
         if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
-                or (self.display_mode in ("normal", "dashboard", "compact") and which in ("ports", "mac", "commands", "subnet", "settings", "home"))):
+                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet"))):
             self._scrolling_tool_body()
         if which == "home":
             (compact.build_home(self) if self.display_mode == "compact"
@@ -1044,11 +1053,48 @@ class PocketDesk:
         self._build_shell_refresh()
         self.schedule_save()
 
+    def _open_compact_tool(self, destination, hit=None):
+        """Open a real Mini tool without altering saved Compact preference."""
+        if destination != "settings" and destination not in self.settings["visible_tabs"]:
+            destination = "settings"
+        if self.display_mode != "compact":
+            return self.show_tab(destination)
+        self._compact_return = True
+        self.display_mode = "mini"  # Visual workspace only; settings keep "compact".
+        self.current_tab = destination
+        if hit and hit.get("kind") == "note":
+            if any(note["id"] == hit.get("id") for note in self.data["notes"]):
+                self.data["active_note"] = hit["id"]
+        self._build_shell_refresh()
+        if hit and hit.get("kind") == "command" and self.current_tab == "commands":
+            self._command_focus_in()
+            self.command_query.set(hit.get("query", ""))
+            chosen = hit.get("id")
+            if self.command_tree.exists(chosen):
+                self.selected_command_id = chosen
+                self.command_tree.selection_set(chosen)
+                self._render_command_details()
+
+    def _return_to_compact(self):
+        """Return from temporary Mini tool view to the tiny launcher."""
+        if not self._compact_return:
+            return
+        self._flush_current_note()
+        if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
+            self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self._compact_return = False
+        self.display_mode = "compact"
+        self.current_tab = "home"
+        self._build_shell_refresh()
+
     def _set_display_mode(self, mode):
         """Switch layouts from Settings without losing notes or draft input."""
         mode = mini.display_mode(mode)
-        if mode == self.display_mode:
+        if mode == self.display_mode and not self._compact_return:
             return
+        if self._compact_return and mode == "compact":
+            return self._return_to_compact()
+        self._compact_return = False
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -1084,7 +1130,7 @@ class PocketDesk:
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
         layout_actions = tk.Frame(self.body, bg=BG)
         layout_actions.pack(fill="x", pady=(0, 15))
-        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("compact", "Compact"), ("dashboard", "Dashboard")):
+        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("compact", "Extra Mini"), ("dashboard", "Dashboard")):
             selected = mode == self.display_mode
             action_label(layout_actions, ("● " if selected else "") + caption,
                          lambda target=mode: self._set_display_mode(target),

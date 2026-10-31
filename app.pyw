@@ -36,6 +36,7 @@ import note_sync
 import native_bidi
 import mini_layout as mini
 import dashboard_ui as dashboard
+import compact_dashboard as compact
 import single_instance
 import portable_storage
 
@@ -177,7 +178,7 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
-        "window_positions": {"normal": None, "mini": None, "dashboard": None},
+        "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal"},
         "theme": "blue",
@@ -638,6 +639,8 @@ class PocketDesk:
     def _build_shell(self):
         if self.display_mode == "mini":
             return self._build_mini_shell()
+        if self.display_mode == "compact":
+            return compact.build_shell(self, themes.palette(self.theme))
         if self.display_mode == "dashboard":
             colors = themes.palette(self.theme)
             return dashboard.build_shell(self, colors | {"SIDEBAR": colors["INPUT"], "SUCCESS": "#42D7A4"})
@@ -946,6 +949,9 @@ class PocketDesk:
         action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
                      fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 6))
+        action_label(self.body, "Open Compact dashboard", lambda: self._set_display_mode("compact"),
+                     fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
+                     font_size=9).pack(fill="x", pady=(0, 6))
         action_label(self.body, "Open Dashboard layout", lambda: self._set_display_mode("dashboard"),
                      fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 13))
@@ -966,7 +972,7 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if which not in self.settings["visible_tabs"] and which != "settings" and not (which == "home" and self.display_mode == "dashboard"):
+        if which not in self.settings["visible_tabs"] and which != "settings" and not (which == "home" and self.display_mode in ("dashboard", "compact")):
             which = "settings"
         self.current_tab = which
         # Always restore the shell body before replacing scrollable tool pages.
@@ -981,18 +987,21 @@ class PocketDesk:
             self._style_mini_icon_tabs(which)
         if self.display_mode == "dashboard":
             dashboard.style_nav(self, which)
+        if self.display_mode == "compact":
+            compact.style_nav(self, which)
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
-        if which == "commands" and self.display_mode in ("normal", "dashboard"):
+        if which == "commands" and self.display_mode in ("normal", "dashboard", "compact"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
         if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
-                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet"))):
+                or (self.display_mode in ("normal", "dashboard", "compact") and which in ("ports", "mac", "commands", "subnet", "settings", "home"))):
             self._scrolling_tool_body()
         if which == "home":
-            dashboard.build_home(self)
+            (compact.build_home(self) if self.display_mode == "compact"
+             else dashboard.build_home(self))
         elif which == "notes":
             self._build_notes()
         elif which == "links":
@@ -1046,9 +1055,9 @@ class PocketDesk:
         previous_mode = self.display_mode
         self.display_mode = mode
         self.settings["display_mode"] = mode
-        if mode == "dashboard" and previous_mode != "dashboard":
+        if mode in ("dashboard", "compact") and previous_mode != mode:
             self.current_tab = "home"
-        elif mode != "dashboard" and self.current_tab == "home":
+        elif mode not in ("dashboard", "compact") and self.current_tab == "home":
             self.current_tab = "notes"
         self._build_shell_refresh()
         self.schedule_save()
@@ -1075,7 +1084,7 @@ class PocketDesk:
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
         layout_actions = tk.Frame(self.body, bg=BG)
         layout_actions.pack(fill="x", pady=(0, 15))
-        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("dashboard", "Dashboard")):
+        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("compact", "Compact"), ("dashboard", "Dashboard")):
             selected = mode == self.display_mode
             action_label(layout_actions, ("● " if selected else "") + caption,
                          lambda target=mode: self._set_display_mode(target),
@@ -1336,7 +1345,7 @@ class PocketDesk:
         details.pack(side="left", fill="x", expand=True)
 
         sidebar = tk.Frame(top_row, bg=PANEL,
-                           width=290 if self.display_mode == "dashboard" else 144,
+                           width=290 if self.display_mode == "dashboard" else (190 if self.display_mode == "compact" else 144),
                            height=188 if self.display_mode == "dashboard" else 154,
                            highlightbackground=BORDER, highlightthickness=1)
         sidebar.pack(side="right", fill="y", padx=(10, 0))
@@ -3322,7 +3331,7 @@ class PocketDesk:
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
         self.mac_input.pack(fill="x", pady=(0, 10))
-        if self.display_mode == "mini":
+        if self.display_mode in ("mini", "compact"):
             self.mac_input.config(height=3)
         self.mac_input.insert("1.0", self.mac_draft)
         actions = tk.Frame(self.body, bg=BG)
@@ -3653,7 +3662,7 @@ class PocketDesk:
         if not saved and xy and sys.platform == "win32":
             py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
-        if self.display_mode in ("normal", "dashboard") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+        if self.display_mode in ("normal", "dashboard", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
             self.command_tree.configure(height=4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")

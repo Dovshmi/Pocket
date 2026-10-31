@@ -211,6 +211,26 @@ def install_cards(app, cards, c):
         if new != page():
             app._set_compact_page(new)
 
+    # Global release listener lets users drag between pages by holding a tile,
+    # scrolling the wheel to switch page, then releasing over a destination.
+    # Bound only once; each event resolves the current live tile widgets.
+    if not getattr(app, "_compact_release_bound", False):
+        def finish_drag(event):
+            origin = getattr(app, "_compact_drag", None)
+            if app.display_mode != "compact" or not app._compact_editing or origin is None:
+                return
+            app._compact_drag = None
+            widget = app.root.winfo_containing(event.x_root, event.y_root)
+            while widget is not None and not hasattr(widget, "_pocket_slot"):
+                widget = getattr(widget, "master", None)
+            if widget is not None:
+                destination = (widget._pocket_page, widget._pocket_slot)
+                if destination != origin:
+                    app._save_compact_pages(lp.move(app._compact_pages(), *origin,
+                                                    *destination))
+        app.root.bind("<ButtonRelease-1>", finish_drag, add="+")
+        app._compact_release_bound = True
+
     app.compact_render_cards = render
     app.compact_choose_item = add
     app.compact_rename_page = rename_page

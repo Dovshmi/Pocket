@@ -35,6 +35,7 @@ import hotkey_settings as hk
 import note_sync
 import native_bidi
 import mini_layout as mini
+import dashboard_ui as dashboard
 import single_instance
 import portable_storage
 
@@ -637,6 +638,9 @@ class PocketDesk:
     def _build_shell(self):
         if self.display_mode == "mini":
             return self._build_mini_shell()
+        if self.display_mode == "dashboard":
+            colors = themes.palette(self.theme)
+            return dashboard.build_shell(self, colors | {"SIDEBAR": colors["INPUT"], "SUCCESS": "#42D7A4"})
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
         header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
@@ -941,6 +945,9 @@ class PocketDesk:
                  font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
         action_label(self.body, "Return to Normal size", lambda: self._set_display_mode("normal"),
                      fg="#121622", bg=ACCENT, hover="#BBC0FF", padx=12, pady=8,
+                     font_size=9).pack(fill="x", pady=(0, 6))
+        action_label(self.body, "Open Dashboard layout", lambda: self._set_display_mode("dashboard"),
+                     fg=ACCENT, bg=PANEL, hover=CARD, padx=12, pady=8,
                      font_size=9).pack(fill="x", pady=(0, 13))
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
                  font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
@@ -959,7 +966,7 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if which not in self.settings["visible_tabs"] and which != "settings":
+        if which not in self.settings["visible_tabs"] and which != "settings" and not (which == "home" and self.display_mode == "dashboard"):
             which = "settings"
         self.current_tab = which
         # Always restore the shell body before replacing scrollable tool pages.
@@ -972,17 +979,21 @@ class PocketDesk:
             child.destroy()
         if self.display_mode == "mini":
             self._style_mini_icon_tabs(which)
+        if self.display_mode == "dashboard":
+            dashboard.style_nav(self, which)
         for key, button in self.tab_buttons.items():
             button.config(fg=ACCENT if key == which else SECONDARY,
                           bg=ACCENT_DARK if key == which else BG)
-        if which == "commands" and self.display_mode == "normal":
+        if which == "commands" and self.display_mode in ("normal", "dashboard"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
         if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet"))
-                or (self.display_mode == "normal" and which in ("ports", "mac", "commands", "subnet"))):
+                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet"))):
             self._scrolling_tool_body()
-        if which == "notes":
+        if which == "home":
+            dashboard.build_home(self)
+        elif which == "notes":
             self._build_notes()
         elif which == "links":
             self._build_links()
@@ -1057,8 +1068,16 @@ class PocketDesk:
                  bg=BG, fg=MUTED, font=(FONT, 9)).pack(anchor="w", pady=(3, 18))
         tk.Label(self.body, text="WINDOW SIZE", bg=BG, fg=SECONDARY,
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(0, 9))
-        action_label(self.body, "Switch to Mini mode", lambda: self._set_display_mode("mini"),
-                     fg=ACCENT, bg=PANEL, hover=CARD, font_size=10).pack(anchor="w", pady=(0, 15))
+        layout_actions = tk.Frame(self.body, bg=BG)
+        layout_actions.pack(fill="x", pady=(0, 15))
+        for mode, caption in (("normal", "Normal"), ("mini", "Mini"), ("dashboard", "Dashboard")):
+            selected = mode == self.display_mode
+            action_label(layout_actions, ("● " if selected else "") + caption,
+                         lambda target=mode: self._set_display_mode(target),
+                         fg=ACCENT if selected else WHITE,
+                         bg=ACCENT_DARK if selected else PANEL,
+                         hover=CARD, font_size=10, padx=13, pady=8
+                         ).pack(side="left", padx=(0, 9))
         tk.Label(self.body, text="VISIBLE MENUS", bg=BG, fg=SECONDARY,
                  font=(FONT, 9, "bold")).pack(anchor="w", pady=(6, 10))
         for key, label in VISIBLE_TABS:
@@ -3626,7 +3645,7 @@ class PocketDesk:
         if not saved and xy and sys.platform == "win32":
             py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
-        if self.display_mode == "normal" and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+        if self.display_mode in ("normal", "dashboard") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
             self.command_tree.configure(height=4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")

@@ -84,6 +84,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.show_tab("home")
                 app.root.update()
                 check(app.current_tab == "home", "Dashboard overview not reachable")
+                tool_cards = [w for w in widgets(app.body)
+                              if isinstance(w, tk.Button) and
+                              str(w.cget("text")).strip() == "Open  →"]
+                check(len(tool_cards) == len(app.settings["visible_tabs"]),
+                      "Dashboard overview does not show every enabled tool")
+                check(app._tool_scroll_canvas is not None,
+                      "Expanded Dashboard overview must scroll on small screens")
+            if mode == "mini":
+                check(len(app.mini_icon_tabs) == len(app.settings["visible_tabs"])+1,
+                      "Mini navigation should show every enabled menu plus Settings")
+                for key, (tile, glyph, caption) in app.mini_icon_tabs.items():
+                    check(bool(tile.bind("<Return>")) and bool(tile.bind("<space>")),
+                          f"Mini tool {key}: missing keyboard access")
             app.show_tab("settings")
             app.root.update()
             names = [str(w.cget("text")) for w in widgets(app.body)

@@ -137,9 +137,9 @@ def build_settings(app, parent):
     _separator(extra, c)
     actions = tk.Frame(extra, bg=c["PANEL"])
     actions.pack(fill="x", padx=13, pady=12)
-    _button(actions, "Customize four tiles  ↗", app._edit_extra_mini_from_settings,
+    _button(actions, "Customize 3 pages · 12 tiles  ↗", app._edit_extra_mini_from_settings,
             c, primary=True).pack(side="left")
-    _text(extra, "Edit tiles directly: × removes a tile; + adds an available tool.",
+    _text(extra, "Scroll between three pages of four tiles. Add a saved note, command, Smart Template or shortcut. Right-click tiles to rename or move.",
           c, fg=c["MUTED"], size=8, wraplength=wrap, justify="left"
           ).pack(anchor="w", padx=14, pady=(0, 12))
 

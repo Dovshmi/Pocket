@@ -111,3 +111,75 @@ def empty_state(parent, heading, detail, theme):
              wraplength=365, justify="left").pack(anchor="w",
                                                 padx=14, pady=(0, 14))
     return box
+
+
+class Tooltip:
+    """Delayed keyboard/mouse description without changing control behavior.
+
+    The tooltip is an undecorated display-only transient and is destroyed on
+    focus/hover exit or when its widget is removed during a layout change.
+    """
+    def __init__(self, widget, message, theme, delay_ms=550):
+        self.widget = widget
+        self.message = str(message)
+        self.theme = theme
+        self.delay_ms = delay_ms
+        self.job = None
+        self.popup = None
+        widget.bind("<Enter>", self._schedule, add="+")
+        widget.bind("<Leave>", self._hide, add="+")
+        widget.bind("<FocusIn>", self._schedule, add="+")
+        widget.bind("<FocusOut>", self._hide, add="+")
+        widget.bind("<Destroy>", self._hide, add="+")
+
+    def _schedule(self, _event=None):
+        self._hide()
+        try:
+            self.job = self.widget.after(self.delay_ms, self._show)
+        except tk.TclError:
+            self.job = None
+
+    def _show(self):
+        self.job = None
+        try:
+            if not self.widget.winfo_exists() or self.popup is not None:
+                return
+            c = colors(self.theme)
+            popup = tk.Toplevel(self.widget)
+            popup.withdraw()
+            popup.wm_overrideredirect(True)
+            popup.configure(bg=c["BORDER"])
+            label = tk.Label(popup, text=self.message, bg=c["PANEL"],
+                             fg=c["WHITE"], font=(FONT, 9),
+                             padx=10, pady=6, justify="left",
+                             wraplength=285)
+            label.pack(padx=1, pady=1)
+            x = self.widget.winfo_rootx() + 6
+            y = self.widget.winfo_rooty() + self.widget.winfo_height() + 5
+            popup.geometry(f"+{x}+{y}")
+            popup.deiconify()
+            self.popup = popup
+        except (tk.TclError, RuntimeError):
+            self.popup = None
+
+    def _hide(self, _event=None):
+        job, self.job = self.job, None
+        if job is not None:
+            try:
+                self.widget.after_cancel(job)
+            except (tk.TclError, RuntimeError):
+                pass
+        popup, self.popup = self.popup, None
+        if popup is not None:
+            try:
+                popup.destroy()
+            except (tk.TclError, RuntimeError):
+                pass
+
+
+def tool_button(parent, title, callback, theme, *, tip=None, compact=False):
+    """Consistent focusable navigation icon, with a hover/focus description."""
+    widget = button(parent, title, callback, theme, compact=compact)
+    if tip:
+        Tooltip(widget, tip, theme)
+    return widget

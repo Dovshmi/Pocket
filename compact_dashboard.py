@@ -8,6 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 
 import command_helper as ch
+import pocket_design as design
 
 NAVIGATION = (
     ("home", "⌂", "Home"),
@@ -213,7 +214,8 @@ def _launch_hit(app, result):
 def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
     """Always render one of four stable slots, including an actionable +."""
     tile = tk.Frame(parent, width=68, height=102, bg=c["PANEL"],
-                    highlightbackground=c["BORDER"], highlightthickness=1)
+                    highlightbackground=c["BORDER"], highlightthickness=1,
+                    takefocus=1)
     tile.grid(row=0, column=index, padx=(0, 5) if index < 3 else 0,
               sticky="nsew")
     tile.grid_propagate(False)
@@ -223,6 +225,7 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
                         activeforeground=c["WHITE"], relief="flat", bd=0,
                         cursor="hand2", font=("Segoe UI", 21), padx=0, pady=0)
         add.pack(fill="x", padx=7, pady=(13, 7))
+        design.Tooltip(add, "Choose an enabled tool for this empty slot", app.theme)
         _label(tile, "Add tool", bg=c["PANEL"], fg=c["SECONDARY"],
                size=8).pack()
         return tile
@@ -242,6 +245,7 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
                     justify="center", cursor="hand2" if not editing else "arrow")
     detail.pack(fill="x", padx=1, pady=(3, 0))
 
+    design.Tooltip(tile, f"{title} · {PAGES[key][1]}", app.theme)
     if editing:
         remove = tk.Button(tile, text="×", command=lambda: remove_action(index),
                            bg=c["ACCENT_DARK"], fg=c["DANGER"],
@@ -250,6 +254,7 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
                            relief="flat", bd=0, highlightthickness=0, cursor="hand2",
                            padx=0, pady=0)
         remove.place(relx=1.0, x=-2, y=2, anchor="ne", width=20, height=20)
+        design.Tooltip(remove, f"Remove {title} from this slot · does not delete data", app.theme)
     else:
         widgets = (tile, glyph, label, detail)
         def hover(active):
@@ -257,6 +262,8 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
             tile.configure(bg=bg)
             label.configure(bg=bg)
             detail.configure(bg=bg)
+        tile.bind("<Return>", lambda _event, dest=key: app._open_compact_tool(dest))
+        tile.bind("<space>", lambda _event, dest=key: app._open_compact_tool(dest))
         for target in widgets:
             target.configure(cursor="hand2")
             target.bind("<Button-1>", lambda _event, dest=key: app._open_compact_tool(dest))
@@ -515,6 +522,8 @@ def build_shell(app, colors):
         activeforeground=c["WHITE"], padx=7, pady=5,
         cursor="hand2", highlightthickness=0, font=("Segoe UI", 8, "bold"))
     edit_btn.pack(side="right", padx=(0, 6))
+    design.Tooltip(edit_btn, "Edit the four launcher tiles: × remove, + add", app.theme)
+    design.Tooltip(all_button, "Access every enabled Pocket tool", app.theme)
     app.compact_edit_button = edit_btn
     if getattr(app, "_compact_editing", False):
         render_cards()

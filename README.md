@@ -10,19 +10,20 @@
 
 A lightweight, customizable, **local-first Windows tray utility** that keeps practical tools close without requiring a browser tab, account or cloud service.
 
-[![Latest public release](https://img.shields.io/badge/Release-v1.29.1-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)
+[![Current beta](https://img.shields.io/badge/Beta-v1.30.0--beta.1-FF9500?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.30.0-beta.1)
+[![Latest stable](https://img.shields.io/badge/Stable-v1.29.1-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)
 ![Windows 10 & 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Local first](https://img.shields.io/badge/Local--first-No%20account-177E6B?style=for-the-badge)
 ![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-526274?style=for-the-badge)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-v1.29.1.exe)** · **[Release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
+**[Beta portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-Portable-v1.30.0-beta.1.zip)** · **[Beta EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-v1.30.0-beta.1.exe)** · **[Latest stable v1.29.1](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!IMPORTANT]
-> **Latest download:** **v1.29.1** includes the latest UI fixes previously available only in source: readable dropdowns, Dashboard Home scrolling, improved navigation, and keyboard/tooltips refinements. The source and Windows download now match this maintenance release.
+> **Beta release:** **v1.30.0-beta.1** adds Smart Command Templates and three-page Extra Mini quick actions. It is a **public pre-release for testing**, not the latest stable release. **v1.29.1** remains the recommended stable Windows download. Back up your portable `data/` directory and personal `commands.json` before testing the beta.
 
 ## Why Pocket?
 
@@ -92,9 +93,9 @@ This maintenance release updates the Windows binaries to include the improvement
 
 See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
 
-## Extra Mini quick-action pages (development branch preview)
+## Extra Mini quick-action pages (v1.30.0 beta)
 
-> These changes are **unreleased**, committed only to `feature/smart-command-templates`. The stable `main` version remains v1.29.1 with its original four-tile launcher.
+> **Beta functionality:** Available in Pocket v1.30.0-beta.1 and the current `main` source. Stable v1.29.1 retains its original four-tile launcher.
 
 **Extra Mini stays 322 × 256** but now has **three switchable pages with four tiles each**, for a total of twelve optional quick actions. Your previous four tools are retained on the first page during migration; the other two pages initially have empty + slots. Page names, selected page and tile assignments are saved locally.
 
@@ -110,9 +111,9 @@ The existing `extra_mini_tiles` preference is mirrored for backwards compatibili
 
 ---
 
-## Smart Command Templates (development branch preview)
+## Smart Command Templates (v1.30.0 beta)
 
-> **Unreleased and optional.** Smart Templates are being developed on `feature/smart-command-templates` only. The public v1.29.1 Windows downloads and `main` do **not** contain this feature.
+> **Beta, optional feature.** Smart Templates are included in the v1.30.0-beta.1 download and current `main` source. They are not available in stable v1.29.1.
 
 Pocket's Commands screen now has a small **Template…** option for a selected command. Your ordinary **Copy edited**, editing, search, categories, favorites, recent history, command backups, and plain-command behavior continue unchanged.
 
@@ -197,6 +198,14 @@ Pause Capture stops collecting new entries. The optional sensitive-text filter t
 
 ## Download, install and update
 
+### Beta testing — Pocket v1.30.0-beta.1
+
+**[Download beta portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-Portable-v1.30.0-beta.1.zip)** · **[Download beta standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.30.0-beta.1/Pocket-v1.30.0-beta.1.exe)**
+
+The beta is separate from the stable release. Test it in a **separate writable portable directory** if possible. Back up your personal `data/` and command library before changing versions. Never launch both against the same data directory simultaneously.
+
+
+
 ### Option 1 — Portable ZIP (recommended)
 
 **[Pocket-Portable-v1.29.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.29.1/Pocket-Portable-v1.29.1.zip)**
@@ -224,7 +233,7 @@ The public portable ZIP contains a **public example command library**, not your 
 
 ### Run the latest source code
 
-The v1.29.1 source matches the published Windows binaries at its release tag. Development changes to main after this release may require building from source.
+To run the current beta source, use `main` or checkout tag `v1.30.0-beta.1`. Stable binaries are available under the separate v1.29.1 release.
 
 **Requirements:** Windows 10/11 and Python 3.10+ with Tkinter.
 
@@ -306,7 +315,8 @@ Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/i
 
 | Milestone | Highlights |
 |:---|:---|
-| **v1.29.1 — published** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
+| **v1.30.0-beta.1 — public beta** | Optional Smart Command Templates; three Extra Mini pages with 12 slots, exact note/command/template/shortcut actions, searchable picker and saved layouts |
+| **v1.29.1 — stable** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
 | **v1.29** | Wide Dashboard, optional editable Extra Mini launcher, modern Settings/design system, global Quick Search, clipboard Pause/Resume and heuristic sensitive-text filtering; standalone EXE and portable ZIP |
 | **v1.28** | Public portable packaging, single-instance Windows startup, Normal/Mini improvements |
 | **v1.27** | Mini tools, icon tabs, keyboard paging and tool scrolling |
@@ -314,7 +324,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/i
 | **v1.24–v1.25** | Clipboard, menu visibility, reminders and manual command backup/restore |
 | **Earlier** | Notes, commands, shortcuts, subnet calculation, network tools, custom themes and saved window position |
 
-See [all GitHub releases](https://github.com/Dovshmi/Pocket/releases) and the [commit history](https://github.com/Dovshmi/Pocket/commits/main). **Smart Command Templates are a planned future upgrade**, not an implemented feature in this version.
+See [all GitHub releases](https://github.com/Dovshmi/Pocket/releases) and the [commit history](https://github.com/Dovshmi/Pocket/commits/main). **Smart Command Templates are included in the beta**, but not in stable v1.29.1.
 
 ### Historical screenshots
 

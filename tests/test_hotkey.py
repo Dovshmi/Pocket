@@ -3,7 +3,7 @@ from pathlib import Path
 import runpy
 import unittest
 
-mod = runpy.run_path(str(Path(__file__).with_name('app.pyw')), run_name='test_import')
+mod = runpy.run_path(str((Path(__file__).resolve().parents[1] / 'app.pyw')), run_name='test_import')
 
 
 class HotkeyRegistrationTests(unittest.TestCase):

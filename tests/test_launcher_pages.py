@@ -7,7 +7,7 @@ import unittest
 import launcher_pages as lp
 import smart_templates as smart
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 app = runpy.run_path(str(ROOT / "app.pyw"), run_name="test_extra_mini_pages")
 
 

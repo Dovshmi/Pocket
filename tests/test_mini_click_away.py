@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import Mock
 
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 PocketDesk = app["PocketDesk"]
 
 

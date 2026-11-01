@@ -4,7 +4,7 @@ from pathlib import Path
 import command_helper as ch
 import machine_catalog as mc
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 class MachineCatalogueTests(unittest.TestCase):
     def test_all_catalogued_categories_visible(self):

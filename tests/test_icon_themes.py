@@ -20,7 +20,7 @@ class ThemeTests(unittest.TestCase):
             self.assertEqual(t.valid_theme(name), "blue")
 
     def test_existing_data_persists_selected_theme(self):
-        app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="theme_test")
+        app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="theme_test")
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "data.json"
             data = app["default_data"]()

@@ -6,6 +6,7 @@ validated settings and persistence methods; no new data stores or I/O.
 from __future__ import annotations
 import tkinter as tk
 import icon_themes as themes
+import tool_icons
 
 LAYOUTS = (
     ("normal", "▣", "Normal", "Classic tray window"),
@@ -108,7 +109,7 @@ def build_settings(app, parent):
             block.pack(side="left", fill="both", expand=True,
                        padx=(0, 6) if index < 2 else 0)
         action = tk.Button(
-            block, text=f"{icon}  {name}\n{subtitle}", justify="left", anchor="w",
+            block, text=f"{name}\n{subtitle}", justify="left", anchor="w",
             command=lambda target=mode: app._set_display_mode(target),
             bg=c["ACCENT_DARK"] if selected else c["CARD"],
             fg=c["WHITE"], activebackground=c["CARD_HOVER"],
@@ -137,9 +138,9 @@ def build_settings(app, parent):
     _separator(extra, c)
     actions = tk.Frame(extra, bg=c["PANEL"])
     actions.pack(fill="x", padx=13, pady=12)
-    _button(actions, "Customize 3 pages · 12 tiles  ↗", app._edit_extra_mini_from_settings,
+    _button(actions, "Customize quick actions", app._edit_extra_mini_from_settings,
             c, primary=True).pack(side="left")
-    _text(extra, "Scroll between three pages of four tiles. Add a saved note, command, Smart Template or shortcut. Right-click tiles to rename or move.",
+    _text(extra, "Pages appear automatically for each four saved actions. Add notes, commands, Smart Templates, or shortcuts. Click to choose, drag to rearrange.",
           c, fg=c["MUTED"], size=8, wraplength=wrap, justify="left"
           ).pack(anchor="w", padx=14, pady=(0, 12))
 
@@ -148,7 +149,7 @@ def build_settings(app, parent):
     for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
         if index:
             _separator(tools, c)
-        _toggle(tools, c, f"{TOOL_ICONS[key]}   {caption.title()}",
+        _toggle(tools, c, caption.title(),
                 TOOL_HELP[key], key in app.settings["visible_tabs"],
                 lambda active, tool=key: app._set_visible_tab(tool, active),
                 compact=mini)

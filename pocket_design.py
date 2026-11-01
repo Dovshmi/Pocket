@@ -115,26 +115,31 @@ def entry(parent, variable, theme, *, compact=False, **kwargs):
                     font=(FONT, 9 if compact else 10), **kwargs)
 
 
-def section_header(parent, title, subtitle, command_label, command, theme, *, compact=False):
-    """A subtle, consistent header for tools with the original action callback."""
+def section_header(parent, title, subtitle, command_label, command, theme, *, compact=False,
+                   balanced=False):
+    """Readable tool heading with a distinct, space-efficient Normal variant.
+
+    balanced changes Normal only. Mini keeps the compact design, while the
+    Dashboard retains its generous title/hero sizing.
+    """
     c = colors(theme)
     shell = panel(parent, theme)
-    shell.pack(fill="x", pady=(0, 12 if compact else 15))
+    shell.pack(fill="x", pady=(0, 9 if balanced else (12 if compact else 15)))
     accent = tk.Frame(shell, bg=c["ACCENT"], width=3)
     accent.pack(side="left", fill="y")
     accent.pack_propagate(False)
     content = tk.Frame(shell, bg=c["PANEL"])
-    content.pack(side="left", fill="both", expand=True, padx=(11, 3),
-                 pady=(8 if compact else 12))
+    content.pack(side="left", fill="both", expand=True, padx=(10 if balanced else 11, 3),
+                 pady=(8 if balanced or compact else 12))
     tk.Label(content, text=title, bg=c["PANEL"], fg=c["WHITE"],
-             font=(FONT, 12 if compact else 15, "bold"),
+             font=(FONT, 13 if balanced else (12 if compact else 15), "bold"),
              anchor="w").pack(anchor="w")
     tk.Label(content, text=subtitle, bg=c["PANEL"], fg=c["MUTED"],
-             font=(FONT, 8 if compact else 9),
-             wraplength=210 if compact else 650,
-             anchor="w", justify="left").pack(anchor="w", pady=(3, 0))
+             font=(FONT, 8 if balanced or compact else 9),
+             wraplength=270 if balanced else (210 if compact else 650),
+             anchor="w", justify="left").pack(anchor="w", pady=(2 if balanced else 3, 0))
     button(shell, command_label, command, theme, primary=True,
-           compact=compact).pack(side="right", padx=(4, 10))
+           compact=compact or balanced).pack(side="right", padx=(4, 9 if balanced else 10))
     return shell
 
 

@@ -46,6 +46,8 @@ import quick_search
 import clipboard_policy
 import single_instance
 import portable_storage
+import tool_icons
+import normal_navigation
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -511,12 +513,10 @@ class PocketDesk:
         self.root.bind("<MouseWheel>", self._scroll_tool_on_wheel, add="+")
         self.root.bind("<Button-4>", self._scroll_tool_on_wheel, add="+")
         self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
-        # Tk labels/frames are not focusable, so clicking outside a Text editor
-        # would otherwise leave the caret active and block Mini arrow paging.
+        # Tk labels/frames do not automatically take keyboard focus. Keep
+        # Mini's command paging separate from the shared Notes focus bridge.
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
-        # Normal Notes uses the same native RichEdit HWND as Mini. Clicking a
-        # title, phone, or surrounding area must also release its Win32 focus.
-        self.root.bind("<Button-1>", self._normal_note_click_outside_editor, add="+")
+        self.root.bind("<Button-1>", self._note_click_focus, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
@@ -798,22 +798,22 @@ class PocketDesk:
             return dashboard.build_shell(self, colors | {"SIDEBAR": colors["INPUT"], "SUCCESS": "#42D7A4"})
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
-        header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
-        header.pack(fill="x", padx=20, pady=(15, 10))
+        header = tk.Frame(outer, bg=BG, height=62, cursor="fleur")
+        header.pack(fill="x", padx=16, pady=(9, 5))
         header.pack_propagate(False)
-        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(10, 10)
+        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(13, 13)
         icon = tk.Label(header, image=self._header_photo, bg=BG, cursor="hand2")
         self.header_icon = icon
         icon.bind("<Button-1>", self._show_theme_menu)
         icon.bind("<Button-3>", self._show_theme_menu)
-        icon.pack(side="left", padx=(0, 12))
+        icon.pack(side="left", padx=(0, 9))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
         labels.pack(side="left", fill="y", expand=True)
-        app_title = tk.Label(labels, text="Pocket", font=(FONT, 19, "bold"), fg=WHITE,
+        app_title = tk.Label(labels, text="Pocket", font=(FONT, 16, "bold"), fg=WHITE,
                              bg=BG, anchor="w", cursor="fleur")
         app_title.pack(anchor="w", pady=(2, 0))
         self.shortcut_hint = tk.Label(labels, text=self._hotkey_hint(),
-                                      font=(FONT, 9), fg=MUTED, bg=BG, cursor="fleur")
+                                      font=(FONT, 8), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
@@ -824,12 +824,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
-        search_button = design.tool_button(header, "⌕", self._open_global_search, self.theme,
-                                           tip="Quick Search · Ctrl+K", compact=True)
-        search_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
-        self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
+        self.pin_button.pack(side="right", padx=(9, 0), anchor="n", pady=(5, 0))
         if self.settings["extra_mini_enabled"]:
             action_label(header, "▾", self._return_to_compact, fg=ACCENT,
                          bg=PANEL, hover=CARD, padx=9, pady=7, font_size=11).pack(
@@ -837,35 +834,15 @@ class PocketDesk:
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
 
-        tabs = tk.Frame(outer, bg=BG, height=42)
-        tabs.pack(fill="x", padx=20)
-        tabs.pack_propagate(False)
-        self.tab_buttons = {}
-        # Settings remains accessible even if all regular tabs are hidden.
-        for key, label in VISIBLE_TABS:
-            if key not in self.settings["visible_tabs"]:
-                continue
-            if len(self.tab_buttons) >= 5:
-                break
-
-            button = action_label(tabs, label, lambda k=key: self.show_tab(k),
-                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=5, pady=8, font_size=8)
-            button.pack(side="left", padx=(0, 2))
-            design.Tooltip(button, f"Open {label.title()} · {key}", self.theme)
-            self.tab_buttons[key] = button
-        extras = [pair for pair in VISIBLE_TABS
-                  if pair[0] in self.settings["visible_tabs"] and pair[0] not in self.tab_buttons]
-        if extras:
-            more_button = action_label(tabs, f"MORE ({len(extras)}) ▾", self._show_more_menu, bg=BG,
-                                       hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8)
-            more_button.pack(side="left")
-            design.Tooltip(more_button, "Open additional enabled tools", self.theme)
-        action_label(tabs, "⚙", lambda: self.show_tab("settings"), bg=BG,
-                     hover=PANEL, fg=ACCENT, padx=5, pady=8, font_size=11).pack(side="right")
+        tabs = tk.Frame(outer, bg=BG, height=59)
+        tabs.pack(fill="x", padx=16, pady=(0, 2))
+        normal_navigation.install(self, tabs, bg=BG, panel=PANEL,
+                                  accent=ACCENT, accent_dark=ACCENT_DARK,
+                                  muted=MUTED, secondary=SECONDARY, white=WHITE)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 
         self.body = tk.Frame(outer, bg=BG)
-        self.body.pack(fill="both", expand=True, padx=17, pady=(17, 8))
+        self.body.pack(fill="both", expand=True, padx=13, pady=(10, 7))
         self._mini_root_body = self.body
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
@@ -967,60 +944,64 @@ class PocketDesk:
         return widget
 
     def _mini_click_outside_editor(self, event):
-        """Leave Mini edit focus when clicking an ordinary area of the window.
+        """Retain Mini Commands' click-away behavior and arrow navigation.
 
-        Tk Label/Frame clicks do not move keyboard focus by default. In
-        particular, command_code kept focus after clicking the card's heading
-        or paging controls, so arrow keys continued moving its caret. Restore
-        focus to the window only on a non-input click; keep text editing,
-        search, selections and the Windows RichEdit editor untouched.
+        Notes uses _note_click_focus below for consistent focus transfer
+        across Mini, Normal and Dashboard, including the native Win32 editor.
         """
-        if self.display_mode != "mini" or self._modal:
+        if self.display_mode != "mini" or self._modal or self.current_tab != "commands":
             return
-        if self.current_tab not in ("commands", "notes"):
+        if isinstance(event.widget, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+                                     ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox)):
             return
-
-        target = event.widget
-        if isinstance(target, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
-                               ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox,
-                               native_bidi.NativeBidiEditor)):
-            return
-        # A Win32 RichEdit control is a separate child HWND: Tk's logical
-        # focus alone can leave the native editor still receiving arrow keys.
-        # Transfer native focus explicitly after saving any pending note edits.
-        if self.current_tab == "notes" and self._bidi_active():
-            self._flush_current_note()
-            if self.bidi_editor.has_focus():
-                self.bidi_editor.release_focus_to(self.root)
         self.root.focus_set()
 
-    def _normal_note_click_outside_editor(self, event):
-        """Move keyboard focus out of Win32 RichEdit on Normal Notes clicks.
+    def _note_focus_field(self, event):
+        """Give a clicked title/phone/selector focus BEFORE Tk class bindings.
 
-        The RichEdit child HWND is not in Tk's focus hierarchy. Tk may visually
-        activate Title/Phone while RichEdit still owns Windows keyboard focus,
-        so typing continues in the note. Handle only Normal Notes: the working
-        Mini click-away behavior must stay unchanged.
+        On Windows the RichEdit child HWND can otherwise retain native keyboard
+        focus even as the Tk Entry visibly highlights. Binding this to each
+        note input before its class binding makes the first click reliable.
         """
-        if self.display_mode not in ("normal", "dashboard", "compact") or self.current_tab != "notes" or self._modal:
+        if self.current_tab != "notes" or self._modal:
             return
-        if not self._bidi_active() or not self.bidi_editor.has_focus():
+        target = event.widget
+        if self._bidi_active() and self.bidi_editor.has_focus():
+            self._flush_current_note()
+            self.bidi_editor.release_focus_to(target)
+        target.focus_set()
+
+    def _note_click_focus(self, event):
+        """Single-click focus behavior for Notes in every working layout.
+
+        Native RichEdit is an independent Win32 HWND, not a Tk child widget.
+        Move its focus to the clicked Tk input or, on background/header
+        clicks, to the root. Text fields and the Mini note selector retain
+        native typing/selection; Mini arrow navigation then works normally
+        whenever focus is outside those editable widgets.
+        """
+        if self.current_tab != "notes" or self._modal or self.display_mode == "compact":
             return
         clicked = event.widget
-        if clicked is self.bidi_editor or clicked is self.note_body:
+        if clicked is getattr(self, "bidi_editor", None):
+            return
+        if clicked is getattr(self, "note_body", None):
+            return
+        if isinstance(clicked, native_bidi.NativeBidiEditor):
             return
 
-        # Commit any pending RichEdit edits before leaving the note editor.
-        self._flush_current_note()
+        editable = isinstance(clicked, (
+            tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+            ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox))
+        destination = clicked if editable else self.root
 
-        # Clicking a real input should give THAT control the caret. Clicking
-        # a frame, heading or action label should leave no note editor active.
-        if isinstance(clicked, (tk.Entry, ttk.Entry, tk.Listbox, tk.Spinbox,
-                                ttk.Combobox, ttk.Spinbox, ttk.Treeview)):
-            destination = clicked
-        else:
-            destination = self.root
-        self.bidi_editor.release_focus_to(destination)
+        if self._bidi_active() and self.bidi_editor.has_focus():
+            self._flush_current_note()
+            self.bidi_editor.release_focus_to(destination)
+        # Focus Tk inputs as well as the underlying Win32 HWND. The first
+        # click must be sufficient even when a normal class binding is skipped
+        # by an active native editor. This also keeps Mini's caret/navigation
+        # ownership predictable.
         destination.focus_set()
 
     def _mini_keyboard_step(self, event, step):
@@ -1065,12 +1046,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
-        mini_search = design.tool_button(header, "⌕", self._open_global_search, self.theme,
-                                         tip="Search all tools · Ctrl+K", compact=True)
-        mini_search.pack(side="right", padx=(3, 0), pady=(2, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
                                        bg=PANEL, padx=7, pady=5, font_size=7)
-        self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
+        self.pin_button.pack(side="right", padx=(9, 0), pady=(2, 0))
         if self.settings["extra_mini_enabled"]:
             action_label(header, "▾ Extra Mini", self._return_to_compact, fg=ACCENT,
                          bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 4))
@@ -1094,8 +1072,8 @@ class PocketDesk:
                             takefocus=1, highlightthickness=0)
             tile.pack(side="left", padx=(0, 1))
             tile.pack_propagate(False)
-            glyph = tk.Label(tile, text=icon, font=("Segoe UI Symbol", 14, "bold"),
-                             bg=BG, fg=SECONDARY, cursor="hand2", anchor="center")
+            glyph = tool_icons.label(tile, key, SECONDARY, BG, size=20,
+                                     cursor="hand2", anchor="center")
             glyph.pack(fill="x", pady=(1, 0))
             caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
                                       bg=BG, fg=MUTED, cursor="hand2", anchor="center")
@@ -1118,7 +1096,9 @@ class PocketDesk:
             active = key == selected
             bg = ACCENT_DARK if active else BG
             tile.config(bg=bg)
-            glyph.config(bg=bg, fg=ACCENT if active else SECONDARY)
+            glyph.config(bg=bg)
+            glyph.image = tool_icons.icon_image(glyph, key, ACCENT if active else SECONDARY, 20)
+            glyph.config(image=glyph.image)
             caption.config(bg=bg, fg=WHITE if active else MUTED)
 
     def _build_mini_settings(self):
@@ -1148,9 +1128,12 @@ class PocketDesk:
             dashboard.style_nav(self, which)
         if self.display_mode == "compact":
             compact.style_nav(self, which)
-        for key, button in self.tab_buttons.items():
-            button.config(fg=ACCENT if key == which else SECONDARY,
-                          bg=ACCENT_DARK if key == which else BG)
+        if self.display_mode == "normal":
+            self._normal_nav_refresh(which)
+        else:
+            for key, button in self.tab_buttons.items():
+                button.config(fg=ACCENT if key == which else SECONDARY,
+                              bg=ACCENT_DARK if key == which else BG)
         if which == "commands" and self.display_mode in ("normal", "dashboard", "compact"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
@@ -1214,7 +1197,7 @@ class PocketDesk:
         return pages
 
     def _set_compact_page(self, index):
-        index = lp.page_index(index)
+        index = lp.page_index(index, self._compact_pages())
         self.data["extra_mini_page"] = index
         self.schedule_save()
         refresh = getattr(self, "compact_render_cards", None)
@@ -1224,6 +1207,7 @@ class PocketDesk:
     def _save_compact_pages(self, pages):
         self.data["extra_mini_pages"] = lp.normalize_pages(pages)
         self.settings["extra_mini_tiles"] = lp.legacy_first_page(self.data["extra_mini_pages"])
+        self.data["extra_mini_page"] = lp.page_index(self.data.get("extra_mini_page"), self.data["extra_mini_pages"])
         self.schedule_save()
         refresh = getattr(self, "compact_render_cards", None)
         if self.display_mode == "compact" and callable(refresh):
@@ -1502,7 +1486,8 @@ class PocketDesk:
         """Shared presentation across Pocket tools; preserve original callbacks."""
         return design.section_header(parent, title, desc, button_text,
                                      button_action, self.theme,
-                                     compact=self.display_mode == "mini")
+                                     compact=self.display_mode == "mini",
+                                     balanced=self.display_mode == "normal")
 
     def _build_mini_notes(self):
         """Compact notes: a short picker, note metadata and full-height editor."""
@@ -1523,6 +1508,7 @@ class PocketDesk:
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
         self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
         action_label(picker, "▶", lambda: self._move_mini_note(1),
@@ -1539,6 +1525,7 @@ class PocketDesk:
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
+        self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.title_var.trace_add("write", self._change_note_title)
         phone_row = tk.Frame(details, bg=PANEL)
         phone_row.pack(fill="x", padx=8, pady=(0, 4))
@@ -1548,6 +1535,7 @@ class PocketDesk:
         self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
                      font_size=8, padx=6, pady=4).pack(side="right", padx=(5, 0))
         self.phone_var.trace_add("write", self._change_note_phone)
@@ -1639,7 +1627,7 @@ class PocketDesk:
 
         sidebar = tk.Frame(top_row, bg=PANEL,
                            width=290 if self.display_mode == "dashboard" else (190 if self.display_mode == "compact" else 144),
-                           height=188 if self.display_mode == "dashboard" else 154,
+                           height=188 if self.display_mode == "dashboard" else (137 if self.display_mode == "normal" else 154),
                            highlightbackground=BORDER, highlightthickness=1)
         sidebar.pack(side="right", fill="y", padx=(10, 0))
         sidebar.pack_propagate(False)
@@ -1651,11 +1639,12 @@ class PocketDesk:
                                     exportselection=False, relief="flat", justify="left")
         self.note_list.pack(fill="both", expand=True, padx=5, pady=(0, 10))
         self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
+        self.note_list.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.note_list.bind("<Button-3>", self._show_note_list_menu)
         self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
 
         title_row = tk.Frame(details, bg=PANEL)
-        title_row.pack(fill="x", padx=12, pady=(12, 5))
+        title_row.pack(fill="x", padx=12, pady=(8 if self.display_mode == "normal" else 12, 4))
         tk.Label(title_row, text="TITLE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left")
         self.created_label = tk.Label(title_row, text="", font=(FONT, 7), fg=MUTED,
@@ -1666,11 +1655,12 @@ class PocketDesk:
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
-        self.title_entry.pack(fill="x", padx=12, ipady=9)
+        self.title_entry.pack(fill="x", padx=12, ipady=6 if self.display_mode == "normal" else 9)
+        self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.title_var.trace_add("write", self._change_note_title)
 
         phone_row = tk.Frame(details, bg=PANEL)
-        phone_row.pack(fill="x", padx=12, pady=(8, 12))
+        phone_row.pack(fill="x", padx=12, pady=(5 if self.display_mode == "normal" else 8, 7 if self.display_mode == "normal" else 12))
         tk.Label(phone_row, text="PHONE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left", padx=(0, 7))
         self.phone_var = tk.StringVar()
@@ -1679,6 +1669,7 @@ class PocketDesk:
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 9), width=8)
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
                      padx=9, pady=4, font_size=8).pack(side="left", padx=(6, 0))
         self.phone_var.trace_add("write", self._change_note_phone)
@@ -1693,7 +1684,7 @@ class PocketDesk:
 
         # Bottom block: full-width note editor.
         editor = tk.Frame(main, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        editor.pack(fill="both", expand=True, pady=(10, 0))
+        editor.pack(fill="both", expand=True, pady=(7 if self.display_mode == "normal" else 10, 0))
         tk.Label(editor, text="NOTE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(anchor="w", padx=12, pady=(10, 5))
         self.note_body = tk.Text(editor, wrap="word", undo=True, bg=INPUT, fg="#D7DAE6",
@@ -2351,13 +2342,13 @@ class PocketDesk:
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
-                                   highlightthickness=1, height=74)
+                                   highlightthickness=1, height=54 if self.display_mode == "normal" else 74)
         if self.display_mode != "mini":
             self.drop_panel.pack(fill="x", pady=(0, 12))
         self.drop_panel.pack_propagate(False)
         self.drop_title = tk.Label(self.drop_panel, text="↓  DROP WEBSITE, FILE OR FOLDER HERE",
                                    font=(FONT, 9, 'bold'), fg=ACCENT, bg=PANEL)
-        self.drop_title.pack(pady=(12, 3))
+        self.drop_title.pack(pady=(5 if self.display_mode == "normal" else 12, 2 if self.display_mode == "normal" else 3))
         self.drop_hint = tk.Label(self.drop_panel, text=(
             "PIN the popup before dragging from Explorer or your browser" if self.dnd_available
             else "Drag & drop unavailable · Install tkinterdnd2 (see README)"),
@@ -2371,7 +2362,13 @@ class PocketDesk:
         frame = tk.Frame(self.body, bg=BG)
         frame.pack(fill="both", expand=True)
         canvas = tk.Canvas(frame, bg=BG, highlightthickness=0, bd=0)
-        scroll = tk.Scrollbar(frame, orient="vertical", command=canvas.yview, bg=CARD)
+        # Preserve Mini's existing hidden/unstyled scrollbar behavior.
+        # Normal and Dashboard use Pocket's themed, narrow ttk scrollbar.
+        if self.display_mode == "mini":
+            scroll = tk.Scrollbar(frame, orient="vertical", command=canvas.yview, bg=CARD)
+        else:
+            scroll = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview,
+                                   style="Pocket.Vertical.TScrollbar")
         canvas.configure(yscrollcommand=scroll.set)
         canvas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")
@@ -2449,19 +2446,19 @@ class PocketDesk:
 
     def _link_tile(self, link):
         tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 5 if self.display_mode == "mini" else 10),
-                  padx=(1, 2 if self.display_mode == "mini" else 6),
-                  ipady=2 if self.display_mode == "mini" else 6)
+        tile.pack(fill="x", pady=(0, 5 if self.display_mode in ("mini", "normal") else 10),
+                  padx=(1, 2 if self.display_mode in ("mini", "normal") else 6),
+                  ipady=2 if self.display_mode in ("mini", "normal") else 6)
         kind = link.get("kind", "url")
         badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
         tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 12 if self.display_mode == "mini" else 17, "bold"),
-                 width=2 if self.display_mode == "mini" else 3,
-                 height=2).pack(side="left", padx=(6, 4) if self.display_mode == "mini" else (12, 10))
+                 font=(FONT, 12 if self.display_mode in ("mini", "normal") else 17, "bold"),
+                 width=2 if self.display_mode in ("mini", "normal") else 3,
+                 height=2).pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal") else (12, 10))
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
         title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 9 if self.display_mode == "mini" else 11, "bold"), cursor="hand2")
+                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11, "bold"), cursor="hand2")
         title.pack(fill="x", pady=(3, 2))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
@@ -3584,13 +3581,20 @@ class PocketDesk:
             ("Usable hosts", "usable"), ("Total addresses", "total"),
         )
         for i, (name, key) in enumerate(rows):
-            tk.Label(facts, text=name, bg=PANEL, fg=MUTED, font=(FONT, 9), anchor="w").grid(
-                row=i, column=0, sticky="w", pady=3)
+            col = (i // 4) * 2 if self.display_mode == "normal" else 0
+            line_no = i % 4 if self.display_mode == "normal" else i
+            tk.Label(facts, text=name, bg=PANEL, fg=MUTED,
+                     font=(FONT, 8 if self.display_mode == "normal" else 9), anchor="w").grid(
+                row=line_no, column=col, sticky="w", pady=4 if self.display_mode == "normal" else 3,
+                padx=(0, 5) if col == 0 else (9, 3))
             output = tk.Label(facts, text="—", bg=PANEL, fg=WHITE,
-                              font=(FONT, 9, "bold"), anchor="e")
-            output.grid(row=i, column=1, sticky="e", pady=3)
+                              font=(FONT, 8 if self.display_mode == "normal" else 9, "bold"), anchor="e")
+            output.grid(row=line_no, column=col + 1, sticky="e",
+                        pady=4 if self.display_mode == "normal" else 3)
             self.subnet_fact_labels[key] = output
         facts.columnconfigure(1, weight=1)
+        if self.display_mode == "normal":
+            facts.columnconfigure(3, weight=1)
 
         tk.Label(self.body, text="SUBDIVIDE THE NETWORK", bg=BG, fg=SECONDARY,
                  font=(FONT, 8, "bold")).pack(anchor="w", pady=(16, 8))
@@ -3706,7 +3710,9 @@ class PocketDesk:
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
-        self.mac_input.pack(fill="x", pady=(0, 10))
+        self.mac_input.pack(fill="x", pady=(0, 7 if self.display_mode == "normal" else 10))
+        if self.display_mode == "normal":
+            self.mac_input.config(height=4)
         if self.display_mode in ("mini", "compact"):
             self.mac_input.config(height=3)
         self.mac_input.insert("1.0", self.mac_draft)

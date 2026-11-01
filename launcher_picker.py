@@ -68,92 +68,86 @@ def rename_dialog(app, initial, title, callback):
 
 
 def choose_item(app, on_choose, *, selected=None):
-    """Four operations max: choose kind, search, pick row, Add to tile.
+    """Pick an action using one search field and click-to-select category chips.
 
-    No saved user data is touched until Add is pressed. Choosing a template
-    shows only approved/current templates, and every other command is a normal
-    reference. Copy-direct is available only for plain command entries.
+    Search is instant; double-click on a result adds it immediately. The copy
+    toggle is offered only for plain CLI commands, never for Smart Templates.
     """
-    win, c, close = _base_dialog(app, "Add quick action", 505, 555)
+    win, c, close = _base_dialog(app, "Quick actions", 530, 510)
     root = tk.Frame(win, bg=c["BG"])
-    root.pack(fill="both", expand=True, padx=15, pady=13)
-    tk.Label(root, text="Add a quick action", bg=c["BG"], fg=c["WHITE"],
-             font=("Segoe UI", 14, "bold")).pack(anchor="w")
-    tk.Label(root, text="Choose something already saved in Pocket.",
-             bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 9)).pack(
-             anchor="w", pady=(3, 12))
-    initial_kind = selected.get("kind") if isinstance(selected, dict) else "tool"
-    kind_labels = {key: name for key, name in TYPES}
-    selected_kind = tk.StringVar(value=kind_labels.get(initial_kind, "Tools"))
-    tk.Label(root, text="TYPE", bg=c["BG"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8, "bold")).pack(anchor="w")
-    kindbox = ttk.Combobox(root, state="readonly", style="Pocket.TCombobox",
-                           textvariable=selected_kind, values=list(kind_labels.values()))
-    kindbox.pack(fill="x", pady=(4, 10))
-    tk.Label(root, text="FIND ITEM", bg=c["BG"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8, "bold")).pack(anchor="w")
+    root.pack(fill="both", expand=True, padx=16, pady=14)
+    tk.Label(root, text="What would you like to add?", bg=c["BG"], fg=c["WHITE"],
+             font=("Segoe UI", 15, "bold")).pack(anchor="w")
+    tk.Label(root, text="Pick a category, then click an item. Nothing runs automatically.",
+             bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 9)).pack(anchor="w", pady=(4, 10))
+
+    selected_kind = tk.StringVar(value=selected.get("kind", "tool") if isinstance(selected, dict) else "tool")
+    chips = tk.Frame(root, bg=c["BG"])
+    chips.pack(fill="x", pady=(0, 12))
+    chip_buttons = {}
     query = tk.StringVar()
     search = design.entry(root, query, app.theme)
-    search.pack(fill="x", pady=(4, 10), ipady=6)
-    listing = tk.Frame(root, bg=c["PANEL"], highlightthickness=1,
-                       highlightbackground=c["BORDER"])
-    listing.pack(fill="both", expand=True)
-    scroller = ttk.Scrollbar(listing, orient="vertical",
-                             style="Pocket.Vertical.TScrollbar")
-    choices = tk.Listbox(listing, activestyle="none", exportselection=False,
-                         bg=c["PANEL"], fg=c["WHITE"],
-                         selectbackground=c["ACCENT_DARK"], selectforeground=c["WHITE"],
-                         font=("Segoe UI", 10), relief="flat", bd=0, height=8)
+    search.pack(fill="x", ipady=7, pady=(0, 9))
+    search.insert(0, "")
+    list_frame = tk.Frame(root, bg=c["PANEL"], highlightthickness=1,
+                          highlightbackground=c["BORDER"])
+    list_frame.pack(fill="both", expand=True)
+    scroller = ttk.Scrollbar(list_frame, orient="vertical", style="Pocket.Vertical.TScrollbar")
+    choices = tk.Listbox(list_frame, activestyle="none", exportselection=False,
+                         bg=c["PANEL"], fg=c["WHITE"], selectbackground=c["ACCENT_DARK"],
+                         selectforeground=c["WHITE"], font=("Segoe UI", 10), relief="flat",
+                         bd=0, height=10, selectmode="browse")
     scroller.configure(command=choices.yview)
     choices.configure(yscrollcommand=scroller.set)
-    choices.pack(side="left", fill="both", expand=True)
+    choices.pack(side="left", fill="both", expand=True, padx=5, pady=5)
     scroller.pack(side="right", fill="y")
-    description = tk.Label(root, text="", bg=c["BG"], fg=c["MUTED"],
-                           wraplength=450, justify="left", anchor="w",
-                           font=("Segoe UI", 9))
-    description.pack(fill="x", pady=(7, 3))
+    description = tk.Label(root, text="Select an action", bg=c["BG"], fg=c["SECONDARY"],
+                           wraplength=480, anchor="w", justify="left", font=("Segoe UI", 9))
+    description.pack(fill="x", pady=(8, 4))
     copy_direct = tk.BooleanVar(value=bool(selected and selected.get("action") == "copy"))
-    copy_toggle = tk.Checkbutton(root, text="Copy directly (no command execution)",
+    copy_toggle = tk.Checkbutton(root, text="Copy command directly (never execute)",
                                  variable=copy_direct, bg=c["BG"], fg=c["WHITE"],
                                  selectcolor=c["INPUT"], activebackground=c["BG"],
                                  activeforeground=c["WHITE"], font=("Segoe UI", 9))
     footer = tk.Frame(root, bg=c["BG"])
-    footer.pack(fill="x", pady=(9, 0))
-    selected_entry = None
+    footer.pack(fill="x", pady=(7, 0))
     items = []
+    selected_entry = None
 
-    def selected_type():
-        return next((key for key, label in TYPES if label == selected_kind.get()), "tool")
-
-    def update_selection(*_):
+    def update_selection(_event=None):
         nonlocal selected_entry
         indexes = choices.curselection()
-        selected_entry = items[indexes[0]] if indexes else None
-        if selected_entry:
-            description.configure(text=selected_entry["detail"])
-        else:
-            description.configure(text="Choose an item from the list.")
-        kind = selected_type()
-        if kind == "command":
+        selected_entry = items[indexes[0]] if indexes and indexes[0] < len(items) else None
+        description.configure(text=selected_entry["detail"] if selected_entry else "No matching items.")
+        if selected_kind.get() == "command":
             copy_toggle.pack(fill="x", before=footer)
         else:
             copy_toggle.pack_forget()
         add.configure(state="normal" if selected_entry else "disabled")
 
     def refresh(*_):
-        nonlocal items, selected_entry
+        nonlocal items
         items = lp.candidates(app.data, app.command_library,
-                              app.settings["visible_tabs"], selected_type(),
+                              app.settings["visible_tabs"], selected_kind.get(),
                               query.get(), limit=200)
         choices.delete(0, tk.END)
         for item in items:
             choices.insert(tk.END, item["title"])
-        selected_entry = None
         if items:
             choices.selection_set(0)
+            choices.activate(0)
         update_selection()
 
-    def save():
+    def change_kind(kind):
+        selected_kind.set(kind)
+        for k, button in chip_buttons.items():
+            active = k == kind
+            button.configure(bg=c["ACCENT_DARK"] if active else c["CARD"],
+                             fg=c["ACCENT"] if active else c["SECONDARY"])
+        refresh()
+        search.focus_set()
+
+    def save(_event=None):
         if selected_entry is None:
             return
         tile = dict(selected_entry["tile"])
@@ -162,13 +156,19 @@ def choose_item(app, on_choose, *, selected=None):
         on_choose(tile)
         close()
 
+    for kind, label in TYPES:
+        button = tk.Button(chips, text=label, command=lambda k=kind: change_kind(k),
+                           relief="flat", bd=0, font=("Segoe UI", 8, "bold"),
+                           cursor="hand2", padx=8, pady=7)
+        button.pack(side="left", padx=(0, 4))
+        chip_buttons[kind] = button
     design.button(footer, "Cancel", close, app.theme, compact=True).pack(side="right")
-    add = design.button(footer, "Add to tile", save, app.theme, primary=True)
+    add = design.button(footer, "Add action", save, app.theme, primary=True, compact=True)
     add.pack(side="right", padx=(0, 8))
     choices.bind("<<ListboxSelect>>", update_selection)
-    choices.bind("<Double-Button-1>", lambda _e: save())
-    choices.bind("<Return>", lambda _e: save())
-    selected_kind.trace_add("write", refresh)
+    choices.bind("<Double-Button-1>", save)
+    choices.bind("<Return>", save)
+    search.bind("<Return>", save)
     query.trace_add("write", refresh)
-    refresh()
+    change_kind(selected_kind.get())
     search.focus_set()

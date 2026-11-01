@@ -10,9 +10,10 @@ import tkinter as tk
 import command_helper as ch
 import pocket_design as design
 import launcher_extra_ui as extra
+import tool_icons
 
 NAVIGATION = (
-    ("home", "⌂", "Home"),
+    ("home", "Home", "Home"),
     ("notes", "✎", "Notes"),
     ("links", "↗", "Shortcuts"),
     ("ports", "⇄", "TCP Ports"),
@@ -198,7 +199,7 @@ def _show_tools(app, widget):
             continue
         if key == "settings":
             menu.add_separator()
-        menu.add_command(label=f" {icon}  {name}", command=lambda dest=key:
+        menu.add_command(label=name, command=lambda dest=key:
                          app._open_compact_tool(dest))
     try:
         menu.tk_popup(widget.winfo_rootx() + widget.winfo_width() - 115,
@@ -231,11 +232,11 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
                size=8).pack()
         return tile
 
-    icon = next(row[1] for row in NAVIGATION if row[0] == key)
+    icon = key
     title = next(row[2] for row in NAVIGATION if row[0] == key)
     accent = ICON_COLORS.get(key, c["ACCENT"])
-    glyph = _label(tile, icon, bg=c["CARD"], fg=accent, size=16, bold=True,
-                   padx=8, pady=2, cursor="hand2" if not editing else "arrow")
+    glyph = tool_icons.label(tile, icon, accent, c["CARD"], size=24,
+                             padx=8, pady=2, cursor="hand2" if not editing else "arrow")
     glyph.pack(pady=(13 if editing else 7, 5))
     label = _label(tile, "Subnet" if key == "subnet" else title,
                    bg=c["PANEL"], fg=c["WHITE"], size=8, bold=True,
@@ -330,8 +331,8 @@ def build_shell(app, colors):
                       highlightthickness=1, height=32)
     search.pack(fill="x", padx=10, pady=(3, 8))
     search.pack_propagate(False)
-    _label(search, "⌕", bg=c["INPUT"], fg=c["SECONDARY"], size=13).pack(
-        side="left", padx=(7, 1))
+    tool_icons.label(search, "commands", c["SECONDARY"], c["INPUT"], size=18).pack(
+        side="left", padx=(7, 4))
     app.compact_query = tk.StringVar()
     entry = tk.Entry(search, textvariable=app.compact_query, font=("Segoe UI", 8),
                      bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["WHITE"],
@@ -377,6 +378,9 @@ def build_shell(app, colors):
             render_cards()
             if getattr(app, "compact_edit_button", None) is not None:
                 app.compact_edit_button.configure(text="Edit")
+            refresh_add = getattr(app, "compact_refresh_add_button", None)
+            if callable(refresh_add):
+                refresh_add()
         if not query:
             results.pack_forget()
             cards.pack(fill="both", expand=True)
@@ -461,6 +465,7 @@ def build_shell(app, colors):
             results.pack_forget()
             cards.pack(fill="both", expand=True)
         edit_btn.configure(text="Done" if app._compact_editing else "Edit")
+        refresh_add_button()
         render_cards()
     edit_btn = tk.Button(
         footer, text="Done" if getattr(app, "_compact_editing", False) else "Edit",
@@ -469,7 +474,22 @@ def build_shell(app, colors):
         activeforeground=c["WHITE"], padx=7, pady=5,
         cursor="hand2", highlightthickness=0, font=("Segoe UI", 8, "bold"))
     edit_btn.pack(side="right", padx=(0, 6))
-    design.Tooltip(edit_btn, "Edit four tiles on the current page", app.theme)
+    add_action = tk.Button(footer, text="+", command=app.compact_add_next,
+                           bg=c["CARD"], fg=c["ACCENT"], relief="flat", bd=0,
+                           font=("Segoe UI", 10, "bold"), cursor="hand2", padx=5)
+    def refresh_add_button():
+        """The footer Add control belongs to Edit mode only."""
+        if getattr(app, "_compact_editing", False):
+            if not add_action.winfo_manager():
+                add_action.pack(side="right", padx=(0, 5))
+        else:
+            add_action.pack_forget()
+
+    app.compact_add_button = add_action
+    app.compact_refresh_add_button = refresh_add_button
+    refresh_add_button()
+    design.Tooltip(add_action, "Add an action; a new page appears when needed", app.theme)
+    design.Tooltip(edit_btn, "Arrange or edit quick actions", app.theme)
     design.Tooltip(all_button, "Access every enabled Pocket tool", app.theme)
     app.compact_edit_button = edit_btn
     render_cards()

@@ -18,7 +18,7 @@ if not exist "commands\example_commands.json" (
   pause
   exit /b 1
 )
-py -3 icon_themes.py --build-icon "assets\app.ico"
+py -3 pocket\icon_themes.py --build-icon "assets\app.ico"
 if errorlevel 1 (
   echo Could not generate default app icon.
   pause

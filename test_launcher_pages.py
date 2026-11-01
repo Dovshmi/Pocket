@@ -28,16 +28,14 @@ class MultiPageModelTests(unittest.TestCase):
             smart.suggest_template(self.commands[1]["command"]),
             self.commands[1]["command"])
 
-    def test_three_pages_and_legacy_slots_migrate(self):
+    def test_dynamic_pages_and_legacy_slots_migrate(self):
         pages = lp.normalize_pages(None, ["notes", None, "commands", "subnet"])
-        self.assertEqual(len(pages), 3)
+        self.assertEqual(len(pages), 1)
         self.assertTrue(all(len(page["tiles"]) == 4 for page in pages))
         self.assertEqual(pages[0]["tiles"][0], {"kind": "tool", "id": "notes"})
         self.assertIsNone(pages[0]["tiles"][1])
         self.assertEqual(lp.legacy_first_page(pages),
                          ["notes", None, "commands", "subnet"])
-        self.assertEqual(pages[1]["tiles"], [None]*4)
-        self.assertEqual(pages[2]["tiles"], [None]*4)
 
     def test_add_specific_references_and_copy_flag(self):
         pages = lp.default_pages()
@@ -80,6 +78,25 @@ class MultiPageModelTests(unittest.TestCase):
         self.assertEqual(lp.legacy_first_page(pages)[0], None)
         self.assertEqual(self.data["notes"][0]["id"], "n1")
 
+    def test_page_count_tracks_fifth_and_ninth_actions(self):
+        pages = lp.default_pages()
+        self.assertEqual(len(pages), 1)
+        self.assertEqual(lp.next_free_slot(pages), (1, 0))
+        pages, selected = lp.append_action(pages, {"kind": "note", "id": "n1"})
+        self.assertEqual(selected, 1)
+        self.assertEqual(len(pages), 2)
+        for ident in ("c1", "c2", "c3"):
+            pages, _ = lp.append_action(pages, {"kind": "command", "id": ident})
+        self.assertEqual(len(pages), 2)
+        pages, selected = lp.append_action(pages, {"kind": "shortcut", "id": "l1"})
+        self.assertEqual(selected, 2)
+        self.assertEqual(len(pages), 3)
+        pages = lp.remove(pages, 2, 0)
+        self.assertEqual(len(pages), 2)
+        for slot in range(4):
+            pages = lp.remove(pages, 1, slot)
+        self.assertEqual(len(pages), 1)
+
     def test_search_filter_and_template_picker(self):
         self.assertTrue(any(r["tile"]["id"] == "n1" for r in
                             lp.candidates(self.data, self.commands, self.enabled,
@@ -94,7 +111,7 @@ class MultiPageModelTests(unittest.TestCase):
 
     def test_corrupt_preferences_sanitized_and_page_index_bounded(self):
         self.assertEqual(lp.page_index(-1), 0)
-        self.assertEqual(lp.page_index(3), 0)
+        self.assertEqual(lp.page_index(3, 1), 0)
         self.assertEqual(lp.page_index(True), 0)
         self.assertEqual(lp.clean_tile({"kind":"command","id":""}), None)
         self.assertEqual(lp.clean_tile({"kind":"tool","id":"missing"}), None)
@@ -115,20 +132,19 @@ class MultiPageModelTests(unittest.TestCase):
             self.assertEqual(lp.legacy_first_page(migrated["extra_mini_pages"]),
                              ["ports", None, "commands", "mac"])
             self.assertEqual(migrated["extra_mini_page"], 0)
-            self.assertEqual(migrated["extra_mini_pages"][1]["tiles"], [None]*4)
-            self.assertEqual(migrated["extra_mini_pages"][2]["tiles"], [None]*4)
+            self.assertEqual(len(migrated["extra_mini_pages"]), 1)
 
     def test_persist_references_and_page_without_clipboard_history(self):
         with tempfile.TemporaryDirectory() as temp:
             file = Path(temp) / "data.json"
             data = app["default_data"]()
-            data["extra_mini_pages"] = lp.put(data["extra_mini_pages"], 2, 0,
+            data["extra_mini_pages"] = lp.put(data["extra_mini_pages"], 1, 0,
                     {"kind":"note", "id":data["notes"][0]["id"]})
-            data["extra_mini_page"] = 2
+            data["extra_mini_page"] = 1
             app["save_data"](file, data)
             loaded = app["load_data"](file)
             self.assertEqual(loaded["extra_mini_pages"], data["extra_mini_pages"])
-            self.assertEqual(loaded["extra_mini_page"], 2)
+            self.assertEqual(loaded["extra_mini_page"], 1)
             self.assertEqual(loaded["settings"], data["settings"])
             self.assertNotIn("clipboard_items", loaded)
 

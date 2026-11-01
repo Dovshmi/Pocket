@@ -69,6 +69,16 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertIn('scroll = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview,', source)
         self.assertIn('style="Pocket.Vertical.TScrollbar"', source)
 
+    def test_note_focus_bridge_preserves_mini_arrow_paging(self):
+        source=(root/"app.pyw").read_text(encoding="utf-8")
+        self.assertIn('self.root.bind("<Button-1>", self._note_click_focus, add="+")', source)
+        self.assertIn('self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))', source)
+        self.assertIn('self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")', source)
+        self.assertEqual(source.count('self.title_entry.bind("<ButtonPress-1>", self._note_focus_field'), 2)
+        self.assertEqual(source.count('self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field'), 2)
+        self.assertIn('self.bidi_editor.release_focus_to(destination)', source)
+        self.assertIn('self._move_mini_note(step)', source)
+
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"compact_dashboard.py").read_text(encoding="utf-8")
         self.assertIn("design.Tooltip(remove,",source)

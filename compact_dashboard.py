@@ -232,11 +232,11 @@ def _tile(parent, app, c, index, key, editing, remove_action, picker_action):
                size=8).pack()
         return tile
 
-    icon = next(row[1] for row in NAVIGATION if row[0] == key)
+    icon = key
     title = next(row[2] for row in NAVIGATION if row[0] == key)
     accent = ICON_COLORS.get(key, c["ACCENT"])
-    glyph = _label(tile, icon, bg=c["CARD"], fg=accent, size=16, bold=True,
-                   padx=8, pady=2, cursor="hand2" if not editing else "arrow")
+    glyph = tool_icons.label(tile, icon, accent, c["CARD"], size=24,
+                             padx=8, pady=2, cursor="hand2" if not editing else "arrow")
     glyph.pack(pady=(13 if editing else 7, 5))
     label = _label(tile, "Subnet" if key == "subnet" else title,
                    bg=c["PANEL"], fg=c["WHITE"], size=8, bold=True,

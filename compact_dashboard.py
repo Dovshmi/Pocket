@@ -378,6 +378,9 @@ def build_shell(app, colors):
             render_cards()
             if getattr(app, "compact_edit_button", None) is not None:
                 app.compact_edit_button.configure(text="Edit")
+            refresh_add = getattr(app, "compact_refresh_add_button", None)
+            if callable(refresh_add):
+                refresh_add()
         if not query:
             results.pack_forget()
             cards.pack(fill="both", expand=True)
@@ -462,6 +465,7 @@ def build_shell(app, colors):
             results.pack_forget()
             cards.pack(fill="both", expand=True)
         edit_btn.configure(text="Done" if app._compact_editing else "Edit")
+        refresh_add_button()
         render_cards()
     edit_btn = tk.Button(
         footer, text="Done" if getattr(app, "_compact_editing", False) else "Edit",
@@ -473,7 +477,17 @@ def build_shell(app, colors):
     add_action = tk.Button(footer, text="+", command=app.compact_add_next,
                            bg=c["CARD"], fg=c["ACCENT"], relief="flat", bd=0,
                            font=("Segoe UI", 10, "bold"), cursor="hand2", padx=5)
-    add_action.pack(side="right", padx=(0, 5))
+    def refresh_add_button():
+        """The footer Add control belongs to Edit mode only."""
+        if getattr(app, "_compact_editing", False):
+            if not add_action.winfo_manager():
+                add_action.pack(side="right", padx=(0, 5))
+        else:
+            add_action.pack_forget()
+
+    app.compact_add_button = add_action
+    app.compact_refresh_add_button = refresh_add_button
+    refresh_add_button()
     design.Tooltip(add_action, "Add an action; a new page appears when needed", app.theme)
     design.Tooltip(edit_btn, "Arrange or edit quick actions", app.theme)
     design.Tooltip(all_button, "Access every enabled Pocket tool", app.theme)

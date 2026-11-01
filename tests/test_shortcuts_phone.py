@@ -7,7 +7,7 @@ import unittest
 from unittest import mock
 import shortcut_utils as tools
 
-app = runpy.run_path(str(Path(__file__).parent / "app.pyw"), run_name="test_import")
+app = runpy.run_path(str(Path(__file__).resolve().parents[1] / "app.pyw"), run_name="test_import")
 
 
 class PhoneAndShortcutsTests(unittest.TestCase):

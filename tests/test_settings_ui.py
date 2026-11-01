@@ -7,7 +7,7 @@ import icon_themes as themes
 import settings_ui
 import compact_dashboard as compact
 
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 
 
 class ModernSettingsTests(unittest.TestCase):
@@ -29,7 +29,7 @@ class ModernSettingsTests(unittest.TestCase):
                 self.assertTrue(c[field].startswith("#"))
 
     def test_settings_builder_shared_between_modes(self):
-        source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
         self.assertIn("return settings_ui.build_settings(self, self.body)", source)
         self.assertIn("self._edit_extra_mini_from_settings", source)
         self.assertIn("self._return_to_compact()", source)

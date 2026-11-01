@@ -3,7 +3,7 @@ from pathlib import Path
 import runpy
 import unittest
 
-m = runpy.run_path(str(Path(__file__).parent / "app.pyw"), run_name="test_import")
+m = runpy.run_path(str(Path(__file__).resolve().parents[1] / "app.pyw"), run_name="test_import")
 
 class NoteContextHelpersTests(unittest.TestCase):
     def test_ip_requires_exact_ip_literal(self):

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-m = runpy.run_path(str(Path(__file__).parent / 'app.pyw'), run_name='test_import')
+m = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.pyw'), run_name='test_import')
 
 
 class NewNotesTests(unittest.TestCase):

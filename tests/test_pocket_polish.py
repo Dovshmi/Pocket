@@ -8,7 +8,7 @@ import quick_search
 import pocket_design
 import settings_ui
 
-APP = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="audit_test")
+APP = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="audit_test")
 TOOLS = [key for key, _ in APP["VISIBLE_TABS"]]
 
 
@@ -61,7 +61,7 @@ class SearchAndPrivacyTests(unittest.TestCase):
         for theme in ("blue","purple","red","green","black"):
             c=pocket_design.colors(theme)
             self.assertTrue(c["ACCENT"].startswith("#"))
-        src=Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+        src=(Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
         self.assertIn("design.section_header", src)
         self.assertIn("design.configure_ttk", src)
         self.assertIn("self._open_global_search", src)

@@ -5,7 +5,7 @@ import runpy
 import tempfile
 import unittest
 
-api = runpy.run_path(str(Path(__file__).parent / 'app.pyw'), run_name='test_api')
+api = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.pyw'), run_name='test_api')
 
 
 class NotePinAndDuplicateTests(unittest.TestCase):

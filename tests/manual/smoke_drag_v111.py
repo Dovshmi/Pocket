@@ -1,4 +1,8 @@
 """GUI smoke test for swapped notes and unsaved shortcut drop draft."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from pathlib import Path
 import os
 import tempfile
@@ -6,7 +10,7 @@ from types import SimpleNamespace
 import importlib.machinery
 import importlib.util
 
-APP_PATH = Path(__file__).with_name('app.pyw')
+APP_PATH = (Path(__file__).resolve().parents[2] / 'app.pyw')
 loader = importlib.machinery.SourceFileLoader('pocket_ui', str(APP_PATH))
 spec = importlib.util.spec_from_loader('pocket_ui', loader)
 mod = importlib.util.module_from_spec(spec)

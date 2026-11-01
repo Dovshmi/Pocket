@@ -1,4 +1,8 @@
 """Graphical smoke test (Linux Xvfb or Windows with a desktop)."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import runpy
@@ -6,7 +10,7 @@ import tempfile
 import time
 from PIL import ImageGrab
 
-p=Path(__file__).resolve().parent
+p=Path(__file__).resolve().parents[2]
 PocketDesk=runpy.run_path(str(p/'app.pyw'),run_name='smoke_import')['PocketDesk']
 with tempfile.TemporaryDirectory() as d:
     os.environ['APPDATA']=d

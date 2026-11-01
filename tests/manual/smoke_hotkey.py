@@ -1,11 +1,15 @@
 """Headless-compatible UI dispatch test; native Windows registration requires Windows."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import runpy
 import tempfile
 from types import SimpleNamespace
 
-PocketDesk = runpy.run_path(str(Path(__file__).with_name('app.pyw')), run_name='test_import')['PocketDesk']
+PocketDesk = runpy.run_path(str((Path(__file__).resolve().parents[2] / 'app.pyw')), run_name='test_import')['PocketDesk']
 with tempfile.TemporaryDirectory() as home:
     os.environ['APPDATA'] = home
     app = PocketDesk(preview=True)

@@ -1,4 +1,8 @@
 """Interactive-command smoke test; run with xvfb-run or on desktop."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import runpy
@@ -7,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from unittest import mock
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[2]
 PocketDesk=runpy.run_path(str(ROOT/'app.pyw'),run_name='smoke_custom')['PocketDesk']
 
 

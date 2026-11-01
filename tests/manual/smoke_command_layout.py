@@ -1,10 +1,14 @@
 """Check taller Commands popup with safe synthetic (non-work) demonstration data."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from pathlib import Path
 import os, runpy, tempfile
 from PIL import ImageGrab
 import tkinter as tk
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[2]
 PocketDesk=runpy.run_path(str(ROOT/'app.pyw'),run_name='smoke_command_layout')['PocketDesk']
 
 with tempfile.TemporaryDirectory() as d:

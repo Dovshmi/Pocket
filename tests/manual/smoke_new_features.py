@@ -1,4 +1,8 @@
 """UI preview tests for v1.2 (requires Tk desktop and Pillow to create images)."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import runpy
@@ -6,8 +10,8 @@ import sys
 import tempfile
 from PIL import ImageGrab
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-PocketDesk = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="import_test")["PocketDesk"]
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+PocketDesk = runpy.run_path(str((Path(__file__).resolve().parents[2] / "app.pyw")), run_name="import_test")["PocketDesk"]
 
 with tempfile.TemporaryDirectory() as directory:
     os.environ["APPDATA"] = directory

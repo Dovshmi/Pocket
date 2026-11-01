@@ -55,6 +55,17 @@ class CommandStoreTests(unittest.TestCase):
             store.save_command(self.file, old)
         self.assertEqual(self.file.read_text(), "{invalid")
 
+    def test_clean_source_install_seeds_only_public_example(self):
+        self.file.unlink()
+        bundled = self.folder / "bundle" / "commands" / "example_commands.json"
+        bundled.parent.mkdir(parents=True)
+        bundled.write_text(json.dumps(FIXTURE), encoding="utf-8")
+        actual = store.resolve_library(self.folder, self.folder / "appdata", self.folder / "bundle")
+        self.assertEqual(actual, self.file)
+        self.assertEqual(store.read_document(actual), FIXTURE)
+        self.assertEqual(bundled.read_text(encoding="utf-8"), json.dumps(FIXTURE))
+        self.assertFalse((self.folder / "Pocket_Commands_One_Library").exists())
+
     def test_recover_legacy_nested_file(self):
         self.file.unlink()
         old = self.folder/"Pocket_Commands_One_Library"/"commands"/"commands.json"

@@ -342,6 +342,8 @@ Pocket/
 └── .github/workflows/     Active regression CI and v1.31.0 release pipeline
 ```
 
+For the complete source layout, build commands and privacy notes, see [Repository layout and maintenance](docs/REPOSITORY_LAYOUT.md).
+
 Run the unit tests:
 
 ```powershell

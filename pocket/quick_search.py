@@ -1,7 +1,7 @@
 """Local, bounded Quick Search for Pocket; no network or automatic execution."""
 from __future__ import annotations
-import command_helper as ch
-import compact_dashboard as compact
+from . import command_helper as ch
+from . import compact_dashboard as compact
 
 def results(data, commands, query, enabled, *, limit=18):
     if not isinstance(query, str) or not query.strip():

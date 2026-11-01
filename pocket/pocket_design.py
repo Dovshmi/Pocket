@@ -8,7 +8,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-import icon_themes as themes
+from . import icon_themes as themes
 
 FONT = "Segoe UI"
 SPACING = (4, 8, 12, 16, 24)

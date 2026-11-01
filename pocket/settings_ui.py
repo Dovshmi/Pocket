@@ -5,8 +5,8 @@ validated settings and persistence methods; no new data stores or I/O.
 """
 from __future__ import annotations
 import tkinter as tk
-import icon_themes as themes
-import tool_icons
+from . import icon_themes as themes
+from . import tool_icons
 
 LAYOUTS = (
     ("normal", "▣", "Normal", "Classic tray window"),

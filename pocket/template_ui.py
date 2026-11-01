@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import pocket_design as design
-import smart_templates as smart
+from . import pocket_design as design
+from . import smart_templates as smart
 
 FONT = "Segoe UI"
 PREVIEW_FONT = ("Consolas", 9)

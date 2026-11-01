@@ -24,7 +24,8 @@ def application_directory(*, frozen: bool | None = None,
         frozen = bool(getattr(sys, "frozen", False))
     if frozen:
         return Path(executable if executable is not None else sys.executable).resolve().parent
-    return Path(source if source is not None else __file__).resolve().parent
+    # Source app.pyw lives one directory above the pocket/ package.
+    return Path(source).resolve().parent if source is not None else Path(__file__).resolve().parents[1]
 
 
 def is_portable(root: Path | None = None) -> bool:
@@ -68,7 +69,7 @@ def require_writable_portable_data(root: Path | None = None) -> None:
 def resolve_portable_library(data_dir: Path, bundle_dir: Path) -> Path:
     """Copy only the public example library into writable portable storage."""
     import shutil
-    from command_store import read_document
+    from .command_store import read_document
     data_dir = Path(data_dir)
     target = data_dir / "commands.json"
     if target.is_file():

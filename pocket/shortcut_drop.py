@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
 
-from shortcut_utils import normalize_url
+from .shortcut_utils import normalize_url
 
 
 def _local_path(text: str) -> str:

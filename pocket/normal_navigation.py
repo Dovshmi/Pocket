@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import pocket_design as design
-import tool_icons
+from . import pocket_design as design
+from . import tool_icons
 
 LABELS = {
     "notes": "Notes",

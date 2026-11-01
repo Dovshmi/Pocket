@@ -1,13 +1,18 @@
 """Package the public onedir build without importing any personal data."""
 from pathlib import Path
 import shutil
+import os
+import re
 import zipfile
 import sys
 
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "build" / "portable-binaries" / "PocketDesk"
 PACKAGE_DIR = ROOT / "build" / "portable-package" / "Pocket-Portable"
-OUTPUT = ROOT / "dist" / "Pocket-Portable-v1.30.0.zip"
+RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.30.0")
+if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?", RELEASE_VERSION):
+    raise ValueError("Invalid release version")
+OUTPUT = ROOT / "dist" / f"Pocket-Portable-{RELEASE_VERSION}.zip"
 
 def package():
     if not (APP_DIR / "PocketDesk.exe").is_file():
@@ -30,7 +35,7 @@ def package():
         "Pocket Portable: store all application data inside the data folder.\n",
         encoding="utf-8")
     (PACKAGE_DIR / "README.txt").write_text(
-        "Pocket Portable v1.30.0\n"
+        f"Pocket Portable {RELEASE_VERSION}\n"
         "1. Extract the entire ZIP to a writable folder on Windows.\n"
         "2. Launch PocketDesk.exe; Python is not needed on this PC.\n"
         "3. Personal data stays inside the data folder beside the EXE.\n"

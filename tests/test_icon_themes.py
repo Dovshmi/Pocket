@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 import runpy
 
-import icon_themes as t
+from pocket import icon_themes as t
 
 
 class ThemeTests(unittest.TestCase):

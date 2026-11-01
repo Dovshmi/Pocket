@@ -1,8 +1,8 @@
 """Machine selection and merging regression tests for full Pocket source."""
 import unittest
 from pathlib import Path
-import command_helper as ch
-import machine_catalog as mc
+from pocket import command_helper as ch
+from pocket import machine_catalog as mc
 
 ROOT = Path(__file__).resolve().parents[1]
 

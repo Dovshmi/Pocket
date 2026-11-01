@@ -5,7 +5,7 @@ import tempfile
 import socket
 import unittest
 
-import network_tools as net
+from pocket import network_tools as net
 
 
 class NetworkTests(unittest.TestCase):

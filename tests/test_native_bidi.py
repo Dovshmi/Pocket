@@ -4,7 +4,7 @@ import queue
 import unittest
 from unittest.mock import Mock
 
-import native_bidi
+from pocket import native_bidi
 
 
 class NativeBidiStructureTests(unittest.TestCase):

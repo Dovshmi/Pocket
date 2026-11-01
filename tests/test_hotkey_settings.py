@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import runpy
-import hotkey_settings as hk
+from pocket import hotkey_settings as hk
 
 app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="hotkey_test")
 

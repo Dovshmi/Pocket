@@ -11,6 +11,7 @@ import dashboard_ui as dashboard
 import compact_dashboard as compact
 import pocket_design as design
 import mini_layout as layout
+import normal_navigation as normal_nav
 
 root=Path(__file__).resolve().parent
 app=runpy.run_path(str(root/"app.pyw"),run_name="ui_design_tests")
@@ -32,13 +33,24 @@ class NavigationPolishTests(unittest.TestCase):
         source=(root/"app.pyw").read_text(encoding="utf-8")
         self.assertNotIn('design.tool_button(header, "⌕", self._open_global_search',source)
         self.assertIn('self.root.bind("<Control-k>", self._open_global_search)',source)
-        self.assertIn('design.Tooltip(more_button, "Open additional enabled tools"',source)
+        self.assertIn("normal_navigation.install(self, tabs", source)
+        self.assertIn("self._normal_nav_refresh(which)", source)
         self.assertIn('tile.bind("<Return>", lambda _event, tool=key: self.show_tab(tool))',source)
         self.assertIn('tile.bind("<space>", lambda _event, tool=key: self.show_tab(tool))',source)
         self.assertEqual(layout.view_dimensions("normal"),(480,850))
         self.assertEqual(layout.view_dimensions("mini"),(346,530))
         self.assertEqual(layout.view_dimensions("dashboard"),(1160,800))
         self.assertEqual(layout.view_dimensions("compact"),(322,256))
+
+    def test_normal_nav_all_tools_fit_and_selected_tool_survives_overflow(self):
+        enabled = [key for key, _ in app["VISIBLE_TABS"]]
+        visible, hidden = normal_nav.plan_tabs(enabled, "notes", 440)
+        self.assertEqual(visible, tuple(enabled))
+        self.assertEqual(hidden, ())
+        visible, hidden = normal_nav.plan_tabs(enabled, "clipboard", 280)
+        self.assertIn("clipboard", visible)
+        self.assertEqual(set(visible) | set(hidden), set(enabled))
+        self.assertFalse(set(visible) & set(hidden))
 
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"compact_dashboard.py").read_text(encoding="utf-8")

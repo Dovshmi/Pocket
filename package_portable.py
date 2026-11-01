@@ -20,7 +20,7 @@ def package():
     bundled = APP_DIR / "_internal" / "commands" / "example_commands.json"
     if not bundled.is_file():
         raise FileNotFoundError("Safe example command library not bundled.")
-    from command_store import read_document
+    from pocket.command_store import read_document
     read_document(bundled)
     # Generated staging only. Exclude any local data, private commands,
     # backups, cached vendors and application notes from the distributable.

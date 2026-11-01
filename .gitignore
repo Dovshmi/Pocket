@@ -33,3 +33,6 @@ Pocket-Portable*/
 
 # Private workbook-derived legacy command package: never track it.
 Pocket_Commands_One_Library/
+
+# Legacy screenshots from manual smoke runs are generated, not source assets.
+preview-*.png

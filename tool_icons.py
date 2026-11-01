@@ -8,7 +8,7 @@ from __future__ import annotations
 from PIL import Image, ImageDraw, ImageTk
 
 TOOLS = ("home", "notes", "links", "ports", "mac", "commands",
-         "subnet", "clipboard", "settings", "template", "shortcut")
+         "subnet", "clipboard", "settings", "template", "shortcut", "more")
 
 
 def _drawing(name, color, size):
@@ -25,7 +25,10 @@ def _drawing(name, color, size):
                             outline=color, width=max(2, round(width * size * scale / 24)))
     def oval(a, b, fill=None):
         d.ellipse([p(*a), p(*b)], fill=fill or color)
-    if name == "home":
+    if name == "more":
+        for x in (5, 12, 19):
+            oval((x - 2, 10), (x + 2, 14))
+    elif name == "home":
         line([(3, 11), (12, 4), (21, 11)])
         line([(6, 10), (6, 20), (18, 20), (18, 10)])
         line([(10, 20), (10, 14), (14, 14), (14, 20)])

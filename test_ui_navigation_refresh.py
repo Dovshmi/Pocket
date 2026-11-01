@@ -52,6 +52,17 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertEqual(set(visible) | set(hidden), set(enabled))
         self.assertFalse(set(visible) & set(hidden))
 
+    def test_normal_workspace_density_is_mode_specific(self):
+        source=(root/"app.pyw").read_text(encoding="utf-8")
+        headings=(root/"pocket_design.py").read_text(encoding="utf-8")
+        self.assertIn('balanced=self.display_mode == "normal"',source)
+        self.assertIn('self.display_mode == "normal" else 10',source)
+        self.assertIn('if self.display_mode == "normal":\n            facts.columnconfigure(3, weight=1)',source)
+        self.assertIn('if self.display_mode == "normal":\n            self.mac_input.config(height=4)',source)
+        self.assertIn('balanced=False',headings)
+        self.assertIn('if self.display_mode == "mini":\n            return self._build_mini_notes()',source)
+        self.assertIn('if self.display_mode == "mini":\n            return self._build_mini_commands()',source)
+
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"compact_dashboard.py").read_text(encoding="utf-8")
         self.assertIn("design.Tooltip(remove,",source)

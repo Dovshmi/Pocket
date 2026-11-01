@@ -4,8 +4,8 @@ from pathlib import Path
 import json
 import unittest
 
-import command_store as store
-import smart_templates as smart
+from pocket import command_store as store
+from pocket import smart_templates as smart
 
 
 def make_record(command="execute ping x.x.x.x"):

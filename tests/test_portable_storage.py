@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-import portable_storage as p
+from pocket import portable_storage as p
 
 class PortableStorageTests(unittest.TestCase):
     def test_standard_data_location_is_unchanged(self):

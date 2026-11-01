@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-import command_helper as ch
+from pocket import command_helper as ch
 
 class SingleLibraryTests(unittest.TestCase):
     def test_machine_names_and_commands_share_one_json(self):

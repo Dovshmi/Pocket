@@ -3,10 +3,10 @@ import unittest
 from pathlib import Path
 import runpy
 import tempfile
-import clipboard_policy
-import quick_search
-import pocket_design
-import settings_ui
+from pocket import clipboard_policy
+from pocket import quick_search
+from pocket import pocket_design
+from pocket import settings_ui
 
 APP = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="audit_test")
 TOOLS = [key for key, _ in APP["VISIBLE_TABS"]]

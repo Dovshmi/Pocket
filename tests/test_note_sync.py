@@ -4,7 +4,7 @@ import runpy
 import tempfile
 import unittest
 
-import note_sync
+from pocket import note_sync
 
 m = runpy.run_path(str(Path(__file__).resolve().parents[1] / "app.pyw"), run_name="test_import")
 

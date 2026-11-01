@@ -5,7 +5,7 @@ import runpy
 import tempfile
 import unittest
 from unittest import mock
-import shortcut_utils as tools
+from pocket import shortcut_utils as tools
 
 app = runpy.run_path(str(Path(__file__).resolve().parents[1] / "app.pyw"), run_name="test_import")
 

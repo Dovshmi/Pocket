@@ -3,9 +3,9 @@ from pathlib import Path
 import runpy
 import unittest
 
-import icon_themes as themes
-import settings_ui
-import compact_dashboard as compact
+from pocket import icon_themes as themes
+from pocket import settings_ui
+from pocket import compact_dashboard as compact
 
 app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 

@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from shortcut_drop import guess_shortcut
+from pocket.shortcut_drop import guess_shortcut
 
 
 class ShortcutDropTests(unittest.TestCase):

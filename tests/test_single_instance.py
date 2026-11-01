@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from single_instance import WindowsSingleInstance, MUTEX_NAME, ACTIVATE_EVENT_NAME
 
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 
 
 class FakeKernel:

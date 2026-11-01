@@ -13,7 +13,7 @@ import pocket_design as design
 import mini_layout as layout
 import normal_navigation as normal_nav
 
-root=Path(__file__).resolve().parent
+root=Path(__file__).resolve().parents[1]
 app=runpy.run_path(str(root/"app.pyw"),run_name="ui_design_tests")
 
 

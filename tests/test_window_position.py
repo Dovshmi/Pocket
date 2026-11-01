@@ -4,7 +4,7 @@ import runpy
 import tempfile
 import unittest
 
-m = runpy.run_path(str(Path(__file__).parent / 'app.pyw'), run_name='test_import')
+m = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'app.pyw'), run_name='test_import')
 
 
 class WindowPositionTests(unittest.TestCase):

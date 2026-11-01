@@ -1,6 +1,6 @@
 """Subnet arithmetic and input-validation tests, including RFC 3021 boundaries."""
 import unittest
-import subnet_calculator as calc
+from pocket import subnet_calculator as calc
 
 
 class SubnetCalculatorTests(unittest.TestCase):

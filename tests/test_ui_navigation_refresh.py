@@ -7,11 +7,11 @@ from pathlib import Path
 import runpy
 import unittest
 
-import dashboard_ui as dashboard
-import compact_dashboard as compact
-import pocket_design as design
-import mini_layout as layout
-import normal_navigation as normal_nav
+from pocket import dashboard_ui as dashboard
+from pocket import compact_dashboard as compact
+from pocket import pocket_design as design
+from pocket import mini_layout as layout
+from pocket import normal_navigation as normal_nav
 
 root=Path(__file__).resolve().parents[1]
 app=runpy.run_path(str(root/"app.pyw"),run_name="ui_design_tests")

@@ -10,6 +10,7 @@ import tkinter as tk
 import launcher_pages as lp
 import launcher_picker as picker
 import pocket_design as design
+import tool_icons
 
 
 def install_cards(app, cards, c):
@@ -161,9 +162,9 @@ def install_cards(app, cards, c):
             design.Tooltip(button, "Add a saved tool, note, command, template or shortcut", app.theme)
             return
         title = item["title"][:13]
-        icon = tk.Label(frame, text=item["icon"], bg=c["CARD"],
-                        fg=c["ACCENT"] if state == "ready" else c["MUTED"],
-                        font=("Segoe UI", 14, "bold"), padx=6, pady=2)
+        icon = tool_icons.label(frame, item["icon"],
+                                c["ACCENT"] if state == "ready" else c["MUTED"],
+                                c["CARD"], size=23, padx=6, pady=2)
         icon.pack(pady=(13 if editing else 7, 3))
         label = tk.Label(frame, text=title, bg=c["PANEL"],
                          fg=c["WHITE"] if state == "ready" else c["MUTED"],

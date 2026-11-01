@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import launcher_pages as lp
-import launcher_picker as picker
-import pocket_design as design
-import tool_icons
+from . import launcher_pages as lp
+from . import launcher_picker as picker
+from . import pocket_design as design
+from . import tool_icons
 
 
 def install_cards(app, cards, c):

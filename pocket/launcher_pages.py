@@ -7,8 +7,8 @@ explicit copy/open preference for plain commands.
 from __future__ import annotations
 
 from copy import deepcopy
-import command_helper as ch
-import smart_templates as smart
+from . import command_helper as ch
+from . import smart_templates as smart
 
 PAGE_COUNT = 3  # Original fixed-page format, kept for older integrations.
 SLOT_COUNT = 4

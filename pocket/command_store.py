@@ -164,7 +164,7 @@ def save_template(path: Path, entry: dict, template: dict | None) -> Path:
     Optimistic comparison prevents overwriting a different command's edits.
     Metadata remains next to the original row and is included in manual backups.
     """
-    from smart_templates import validate_template
+    from .smart_templates import validate_template
     doc = read_document(path)
     index = _find(doc, entry["id"])
     current = doc["commands"][index]

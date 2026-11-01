@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import tkinter as tk
 
-import command_helper as ch
-import pocket_design as design
-import launcher_extra_ui as extra
-import tool_icons
+from . import command_helper as ch
+from . import pocket_design as design
+from . import launcher_extra_ui as extra
+from . import tool_icons
 
 NAVIGATION = (
     ("home", "Home", "Home"),

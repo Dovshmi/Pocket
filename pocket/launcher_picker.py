@@ -4,8 +4,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-import launcher_pages as lp
-import pocket_design as design
+from . import launcher_pages as lp
+from . import pocket_design as design
 
 TYPES = (
     ("tool", "Tools"),

@@ -49,12 +49,12 @@ jobs:
         if: runner.os == 'Windows'
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
-        run: python smoke_dashboard_integration.py
+        run: python tests/integration/smoke_dashboard_integration.py
       - name: Exercise Pocket UI (Linux virtual display)
         if: runner.os == 'Linux'
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
-        run: xvfb-run -a -s "-screen 0 1920x1200x24" python smoke_dashboard_integration.py
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
       # A one-time, opt-in documentation refresh. Ordinary test runs do not
       # mutate tracked images or cause screenshot-only commit noise.
       - name: Publish selected real Windows screenshots for README

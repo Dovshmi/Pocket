@@ -64,7 +64,7 @@ jobs:
           print("Verified portable ZIP and standalone EXE")
       - name: Exercise real Tk layout and Extra Mini integration on Windows
         shell: pwsh
-        run: python smoke_dashboard_integration.py
+        run: python tests/integration/smoke_dashboard_integration.py
       - name: Smoke-test standalone executable
         shell: pwsh
         run: |

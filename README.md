@@ -326,37 +326,29 @@ The app uses **Python/Tkinter/ttk**, native Windows APIs through `ctypes`, Pillo
 
 ```text
 Pocket/
-├── app.pyw                Main window, tools, tray and UI dispatch
-├── pocket_design.py       Theme-aware reusable controls
-├── dashboard_ui.py        Wide Dashboard and home cards
-├── compact_dashboard.py   Extra Mini launcher, search and tile editor
-├── settings_ui.py         Modern settings panels
-├── mini_layout.py         Layout sizes and saved window positions
-├── command_helper.py      CLI search / filtering
-├── command_store.py       Command storage and manual backups
-├── quick_search.py        Local multi-tool search
-├── clipboard_policy.py    Optional sensitive-text capture filter
-├── native_bidi.py         Native Windows Unicode/RTL editor
-├── note_sync.py           Notepad synchronization
-├── network_tools.py       TCP tests and vendor lookup
-├── subnet_calculator.py   IPv4 calculations
-├── portable_storage.py    Folder-local portable mode
-├── icon_themes.py         Six saved icon/color palettes
-├── commands/              Public example and local library files
-├── docs/images/           Actual v1.30 Windows UI captures and historical references
-├── test_*.py              Automated regression tests
-└── .github/workflows/     Windows/Linux tests and releases
+├── app.pyw                Windows GUI and application entry point
+├── *_ui.py, *_design.py    Working layout and reusable UI modules
+├── command_*.py, etc.     Runtime modules (kept at root for import stability)
+├── commands/              Approved public command examples; no private library
+├── assets/                Current application icons
+├── docs/                  Guides, reference screenshots and archived releases
+├── tests/
+│   ├── test_*.py          34 automated regression suites
+│   ├── integration/       Current end-to-end GUI smoke test
+│   └── manual/            Archived historical visual scripts
+├── build-*.bat            Development and packaging commands
+└── .github/workflows/     Active regression CI and v1.31.0 release pipeline
 ```
 
 Run the unit tests:
 
 ```powershell
-py -3 -m unittest discover -v
+py -3 -m unittest discover -s tests -p "test_*.py" -v
 ```
 
-The repository also contains real Tk GUI smoke tests and Windows screenshot captures for every tool in Normal/Mini/Dashboard, Extra Mini tile editing, theme and dropdown readability, and Dashboard scrolling. CI runs on Windows and Linux and verifies the Windows portable package. **Passing CI doesn't replace hands-on testing** of real Windows tray behavior, right-to-left text editing, display scaling, multi-monitor movement and native menus.
+The repository also contains a real Tk GUI smoke test at `tests/integration/smoke_dashboard_integration.py`, plus historical scripts under `tests/manual/` and Windows screenshot captures for every tool in Normal/Mini/Dashboard, Extra Mini tile editing, theme and dropdown readability, and Dashboard scrolling. CI runs on Windows and Linux and verifies the Windows portable package. **Passing CI doesn't replace hands-on testing** of real Windows tray behavior, right-to-left text editing, display scaling, multi-monitor movement and native menus.
 
-**Packaging caution:** `build-exe.bat` is intended for personal/local builds and can bundle a local `commands/commands.json`, which may contain private entries. Review it before distributing anything. Public release automation instead packages the **public example command library**.
+**Safe packaging:** Both `build-exe.bat` and the public release workflow now bundle **only `commands/example_commands.json`**. Your personal `commands.json` remains a local writable file and is excluded from the repository and release assets. The older private workbook-derived command files were removed from the current branch, **but remain visible in earlier Git history** until a separate history-remediation operation is authorized.
 
 Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/issues). Include reproduction steps and Windows version, but remove personal notes, passwords, customer data and private network details first.
 
@@ -382,7 +374,7 @@ These are **real screenshots of older versions**, retained as historical referen
 
 | Notes | Shortcuts | Network tools |
 |:---:|:---:|:---:|
-| <img src="preview-notes-pinned-v117.png" width="195" alt="Legacy Notes screenshot"/> | <img src="preview-shortcuts-fixed.png" width="195" alt="Legacy Shortcuts screenshot"/> | <img src="preview-ports.png" width="195" alt="Legacy TCP ports screenshot"/> |
+| <img src="docs/images/legacy/preview-notes-pinned-v117.png" width="195" alt="Legacy Notes screenshot"/> | <img src="docs/images/legacy/preview-shortcuts-fixed.png" width="195" alt="Legacy Shortcuts screenshot"/> | <img src="docs/images/legacy/preview-ports.png" width="195" alt="Legacy TCP ports screenshot"/> |
 
 ## License
 

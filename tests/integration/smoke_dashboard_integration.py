@@ -12,7 +12,9 @@ import tempfile
 import traceback
 import tkinter as tk
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
+import sys
+sys.path.insert(0, str(ROOT))
 PANES = ("notes", "links", "ports", "mac", "commands", "subnet", "clipboard", "settings")
 MODES = ("normal", "mini", "dashboard")
 

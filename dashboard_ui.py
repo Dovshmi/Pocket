@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 import pocket_design as design
+import tool_icons
 
 NAVIGATION = (
     ("home", "⌂", "Overview"),
@@ -101,7 +102,7 @@ def build_shell(app, colors):
             tk.Frame(side, bg=c["BORDER"], height=1).pack(fill="x", padx=18, pady=(14, 12))
         selected = key == app.current_tab
         entry = tk.Button(
-            side, text=f"  {glyph}    {caption}", command=lambda tab=key: app.show_tab(tab),
+            side, text=f"     {caption}", command=lambda tab=key: app.show_tab(tab),
             bg=c["ACCENT_DARK"] if selected else c["SIDEBAR"],
             fg=c["WHITE"] if selected else c["SECONDARY"],
             activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
@@ -111,6 +112,8 @@ def build_shell(app, colors):
             font=("Segoe UI", 10, "bold" if selected else "normal"),
             cursor="hand2", padx=12, pady=10, anchor="w")
         entry.pack(fill="x", padx=12, pady=2)
+        entry.tool_icon = tool_icons.icon_image(entry, key, c["ACCENT"] if selected else c["SECONDARY"], 19)
+        entry.configure(image=entry.tool_icon, compound="left")
         design.Tooltip(entry, TITLES.get(key, (caption, caption))[1], app.theme)
         app.dashboard_nav[key] = entry
 
@@ -184,7 +187,8 @@ def style_nav(app, selected):
     c = app._dashboard_colors
     for key, button in getattr(app, "dashboard_nav", {}).items():
         active = key == selected
-        button.configure(bg=c["ACCENT_DARK"] if active else c["SIDEBAR"],
+        button.tool_icon = tool_icons.icon_image(button, key, c["ACCENT"] if active else c["SECONDARY"], 19)
+        button.configure(image=button.tool_icon, bg=c["ACCENT_DARK"] if active else c["SIDEBAR"],
                          fg=c["WHITE"] if active else c["SECONDARY"],
                          highlightbackground=c["ACCENT_DARK"] if active else c["SIDEBAR"],
                          font=("Segoe UI", 10, "bold" if active else "normal"))
@@ -199,8 +203,7 @@ def _dashboard_tile(parent, app, c, icon, title, detail, destination, row, col):
                pady=(0, 12))
     top = tk.Frame(frame, bg=c["PANEL"])
     top.pack(fill="x", padx=17, pady=(16, 6))
-    _label(top, icon, c, size=19, strong=True, fg=c["ACCENT"], anchor="w"
-           ).pack(side="left", padx=(0, 11))
+    tool_icons.label(top, destination, c["ACCENT"], c["PANEL"], size=25).pack(side="left", padx=(0, 11))
     _label(top, title, c, size=12, strong=True, anchor="w").pack(side="left")
     _label(frame, detail, c, size=9, fg=c["MUTED"], anchor="w",
            justify="left", wraplength=320).pack(fill="x", padx=17)

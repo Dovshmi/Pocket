@@ -30,7 +30,8 @@ class NavigationPolishTests(unittest.TestCase):
 
     def test_mini_and_normal_keep_existing_tabs_and_search(self):
         source=(root/"app.pyw").read_text(encoding="utf-8")
-        self.assertIn('design.tool_button(header, "⌕", self._open_global_search',source)
+        self.assertNotIn('design.tool_button(header, "⌕", self._open_global_search',source)
+        self.assertIn('self.root.bind("<Control-k>", self._open_global_search)',source)
         self.assertIn('design.Tooltip(more_button, "Open additional enabled tools"',source)
         self.assertIn('tile.bind("<Return>", lambda _event, tool=key: self.show_tab(tool))',source)
         self.assertIn('tile.bind("<space>", lambda _event, tool=key: self.show_tab(tool))',source)

@@ -513,12 +513,10 @@ class PocketDesk:
         self.root.bind("<MouseWheel>", self._scroll_tool_on_wheel, add="+")
         self.root.bind("<Button-4>", self._scroll_tool_on_wheel, add="+")
         self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
-        # Tk labels/frames are not focusable, so clicking outside a Text editor
-        # would otherwise leave the caret active and block Mini arrow paging.
+        # Tk labels/frames do not automatically take keyboard focus. Keep
+        # Mini's command paging separate from the shared Notes focus bridge.
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
-        # Normal Notes uses the same native RichEdit HWND as Mini. Clicking a
-        # title, phone, or surrounding area must also release its Win32 focus.
-        self.root.bind("<Button-1>", self._normal_note_click_outside_editor, add="+")
+        self.root.bind("<Button-1>", self._note_click_focus, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
@@ -946,61 +944,64 @@ class PocketDesk:
         return widget
 
     def _mini_click_outside_editor(self, event):
-        """Leave Mini edit focus when clicking an ordinary area of the window.
+        """Retain Mini Commands' click-away behavior and arrow navigation.
 
-        Tk Label/Frame clicks do not move keyboard focus by default. In
-        particular, command_code kept focus after clicking the card's heading
-        or paging controls, so arrow keys continued moving its caret. Restore
-        focus to the window only on a non-input click; keep text editing,
-        search, selections and the Windows RichEdit editor untouched.
+        Notes uses _note_click_focus below for consistent focus transfer
+        across Mini, Normal and Dashboard, including the native Win32 editor.
         """
-        if self.display_mode != "mini" or self._modal:
+        if self.display_mode != "mini" or self._modal or self.current_tab != "commands":
             return
-        if self.current_tab not in ("commands", "notes"):
+        if isinstance(event.widget, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+                                     ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox)):
             return
-
-        target = event.widget
-        if isinstance(target, (tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
-                               ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox,
-                               native_bidi.NativeBidiEditor)):
-            return
-        # A Win32 RichEdit control is a separate child HWND: Tk's logical
-        # focus alone can leave the native editor still receiving arrow keys.
-        # Transfer native focus explicitly after saving any pending note edits.
-        if self.current_tab == "notes" and self._bidi_active():
-            self._flush_current_note()
-            if self.bidi_editor.has_focus():
-                self.bidi_editor.release_focus_to(self.root)
         self.root.focus_set()
 
-    def _normal_note_click_outside_editor(self, event):
-        """Move keyboard focus out of Win32 RichEdit on Normal Notes clicks.
+    def _note_focus_field(self, event):
+        """Give a clicked title/phone/selector focus BEFORE Tk class bindings.
 
-        The RichEdit child HWND is not in Tk's focus hierarchy. Tk may visually
-        activate Title/Phone while RichEdit still owns Windows keyboard focus,
-        so typing continues in the note. Handle only Normal Notes: the working
-        Mini click-away behavior must stay unchanged.
+        On Windows the RichEdit child HWND can otherwise retain native keyboard
+        focus even as the Tk Entry visibly highlights. Binding this to each
+        note input before its class binding makes the first click reliable.
         """
-        if self.display_mode not in ("normal", "dashboard", "compact") or self.current_tab != "notes" or self._modal:
+        if self.current_tab != "notes" or self._modal:
             return
-        if not self._bidi_active() or not self.bidi_editor.has_focus():
+        target = event.widget
+        if self._bidi_active() and self.bidi_editor.has_focus():
+            self._flush_current_note()
+            self.bidi_editor.release_focus_to(target)
+        target.focus_set()
+
+    def _note_click_focus(self, event):
+        """Single-click focus behavior for Notes in every working layout.
+
+        Native RichEdit is an independent Win32 HWND, not a Tk child widget.
+        Move its focus to the clicked Tk input or, on background/header
+        clicks, to the root. Text fields and the Mini note selector retain
+        native typing/selection; Mini arrow navigation then works normally
+        whenever focus is outside those editable widgets.
+        """
+        if self.current_tab != "notes" or self._modal or self.display_mode == "compact":
             return
         clicked = event.widget
-        if clicked is self.bidi_editor or clicked is self.note_body:
+        if clicked is getattr(self, "bidi_editor", None):
+            return
+        if clicked is getattr(self, "note_body", None):
+            return
+        if isinstance(clicked, native_bidi.NativeBidiEditor):
             return
 
-        # Commit any pending RichEdit edits before leaving the note editor.
-        self._flush_current_note()
+        editable = isinstance(clicked, (
+            tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
+            ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox))
+        destination = clicked if editable else self.root
 
-        # Clicking a real input should give THAT control the caret. Clicking
-        # a frame, heading or action label should leave no note editor active.
-        if isinstance(clicked, (tk.Entry, ttk.Entry, tk.Listbox, tk.Spinbox,
-                                ttk.Combobox, ttk.Spinbox, ttk.Treeview)):
-            destination = clicked
-        else:
-            destination = self.root
-        self.bidi_editor.release_focus_to(destination)
-        destination.focus_set()
+        if self._bidi_active() and self.bidi_editor.has_focus():
+            self._flush_current_note()
+            self.bidi_editor.release_focus_to(destination)
+        # A Label/Frame has no default Tk click-to-focus; explicitly release
+        # the keyboard to the window so Mini's note arrows remain usable.
+        if not editable:
+            self.root.focus_set()
 
     def _mini_keyboard_step(self, event, step):
         """Only page Mini cards when focus is outside editable/selectable controls."""
@@ -1506,6 +1507,7 @@ class PocketDesk:
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
         self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
         action_label(picker, "▶", lambda: self._move_mini_note(1),
@@ -1522,6 +1524,7 @@ class PocketDesk:
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
+        self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.title_var.trace_add("write", self._change_note_title)
         phone_row = tk.Frame(details, bg=PANEL)
         phone_row.pack(fill="x", padx=8, pady=(0, 4))
@@ -1531,6 +1534,7 @@ class PocketDesk:
         self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
                      font_size=8, padx=6, pady=4).pack(side="right", padx=(5, 0))
         self.phone_var.trace_add("write", self._change_note_phone)
@@ -1634,6 +1638,7 @@ class PocketDesk:
                                     exportselection=False, relief="flat", justify="left")
         self.note_list.pack(fill="both", expand=True, padx=5, pady=(0, 10))
         self.note_list.bind("<<ListboxSelect>>", self._select_from_list)
+        self.note_list.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.note_list.bind("<Button-3>", self._show_note_list_menu)
         self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
 
@@ -1650,6 +1655,7 @@ class PocketDesk:
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
         self.title_entry.pack(fill="x", padx=12, ipady=6 if self.display_mode == "normal" else 9)
+        self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.title_var.trace_add("write", self._change_note_title)
 
         phone_row = tk.Frame(details, bg=PANEL)
@@ -1662,6 +1668,7 @@ class PocketDesk:
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 9), width=8)
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
+        self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         action_label(phone_row, "Copy", self._copy_phone, fg=ACCENT, bg=CARD,
                      padx=9, pady=4, font_size=8).pack(side="left", padx=(6, 0))
         self.phone_var.trace_add("write", self._change_note_phone)

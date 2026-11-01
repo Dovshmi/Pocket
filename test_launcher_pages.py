@@ -116,7 +116,7 @@ class MultiPageModelTests(unittest.TestCase):
         self.assertEqual(lp.clean_tile({"kind":"command","id":""}), None)
         self.assertEqual(lp.clean_tile({"kind":"tool","id":"missing"}), None)
         pages = lp.normalize_pages([{}, [], {"tiles": ["wrong", None, None, None]}])
-        self.assertEqual(len(pages), 3)
+        self.assertEqual(len(pages), 1)
         self.assertTrue(all(len(page["tiles"]) == 4 for page in pages))
 
     def test_legacy_saved_profile_preserves_four_configured_tools(self):

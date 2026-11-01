@@ -32,6 +32,7 @@ def resolve_library(install_dir: Path, appdata_dir: Path, bundle_dir: Path) -> P
         install_dir / "commands.json",
         install_dir / "Pocket_Commands_One_Library" / "commands" / "commands.json",
         bundle_dir / "commands" / "commands.json",
+        bundle_dir / "commands" / "example_commands.json",
     )
     source = next((p for p in candidates if p.is_file()), None)
     if source is None:

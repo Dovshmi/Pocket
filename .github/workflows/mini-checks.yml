@@ -2,7 +2,7 @@ name: Pocket regression checks
 
 on:
   push:
-    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish]
+    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish, chore/repository-cleanup-v131]
   pull_request:
     branches: [main, feature/dashboard-ui-refresh]
   workflow_dispatch:

@@ -13,8 +13,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-if not exist "commands\commands.json" (
-  echo Missing commands\commands.json. Put your private command file there.
+if not exist "commands\example_commands.json" (
+  echo Missing public commands\example_commands.json. Cannot build safely.
   pause
   exit /b 1
 )
@@ -24,7 +24,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\commands.json;commands" app.pyw
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\example_commands.json;commands" app.pyw
 if errorlevel 1 (
   echo Build failed; check the output above.
   pause

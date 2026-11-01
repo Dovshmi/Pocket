@@ -998,10 +998,11 @@ class PocketDesk:
         if self._bidi_active() and self.bidi_editor.has_focus():
             self._flush_current_note()
             self.bidi_editor.release_focus_to(destination)
-        # A Label/Frame has no default Tk click-to-focus; explicitly release
-        # the keyboard to the window so Mini's note arrows remain usable.
-        if not editable:
-            self.root.focus_set()
+        # Focus Tk inputs as well as the underlying Win32 HWND. The first
+        # click must be sufficient even when a normal class binding is skipped
+        # by an active native editor. This also keeps Mini's caret/navigation
+        # ownership predictable.
+        destination.focus_set()
 
     def _mini_keyboard_step(self, event, step):
         """Only page Mini cards when focus is outside editable/selectable controls."""

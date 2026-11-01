@@ -2354,7 +2354,13 @@ class PocketDesk:
         frame = tk.Frame(self.body, bg=BG)
         frame.pack(fill="both", expand=True)
         canvas = tk.Canvas(frame, bg=BG, highlightthickness=0, bd=0)
-        scroll = tk.Scrollbar(frame, orient="vertical", command=canvas.yview, bg=CARD)
+        # Preserve Mini's existing hidden/unstyled scrollbar behavior.
+        # Normal and Dashboard use Pocket's themed, narrow ttk scrollbar.
+        if self.display_mode == "mini":
+            scroll = tk.Scrollbar(frame, orient="vertical", command=canvas.yview, bg=CARD)
+        else:
+            scroll = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview,
+                                   style="Pocket.Vertical.TScrollbar")
         canvas.configure(yscrollcommand=scroll.set)
         canvas.pack(side="left", fill="both", expand=True)
         scroll.pack(side="right", fill="y")

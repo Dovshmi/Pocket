@@ -9,7 +9,7 @@ if errorlevel 1 (
 )
 python -m pip install -r requirements-build.txt
 if errorlevel 1 exit /b 1
-python icon_themes.py --build-icon "assets\app.ico"
+python pocket\icon_themes.py --build-icon "assets\app.ico"
 if errorlevel 1 exit /b 1
 if not exist "commands\example_commands.json" (
   echo Missing safe example commands. Build cancelled.

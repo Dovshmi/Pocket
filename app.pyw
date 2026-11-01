@@ -800,22 +800,22 @@ class PocketDesk:
             return dashboard.build_shell(self, colors | {"SIDEBAR": colors["INPUT"], "SUCCESS": "#42D7A4"})
         outer = tk.Frame(self.root, bg=BG, highlightthickness=1, highlightbackground=BORDER)
         outer.pack(fill="both", expand=True)
-        header = tk.Frame(outer, bg=BG, height=77, cursor="fleur")
-        header.pack(fill="x", padx=20, pady=(15, 10))
+        header = tk.Frame(outer, bg=BG, height=62, cursor="fleur")
+        header.pack(fill="x", padx=16, pady=(9, 5))
         header.pack_propagate(False)
-        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(10, 10)
+        self._header_photo = tk.PhotoImage(file=str(self.theme_icons[self.theme]["png"])).subsample(13, 13)
         icon = tk.Label(header, image=self._header_photo, bg=BG, cursor="hand2")
         self.header_icon = icon
         icon.bind("<Button-1>", self._show_theme_menu)
         icon.bind("<Button-3>", self._show_theme_menu)
-        icon.pack(side="left", padx=(0, 12))
+        icon.pack(side="left", padx=(0, 9))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
         labels.pack(side="left", fill="y", expand=True)
-        app_title = tk.Label(labels, text="Pocket", font=(FONT, 19, "bold"), fg=WHITE,
+        app_title = tk.Label(labels, text="Pocket", font=(FONT, 16, "bold"), fg=WHITE,
                              bg=BG, anchor="w", cursor="fleur")
         app_title.pack(anchor="w", pady=(2, 0))
         self.shortcut_hint = tk.Label(labels, text=self._hotkey_hint(),
-                                      font=(FONT, 9), fg=MUTED, bg=BG, cursor="fleur")
+                                      font=(FONT, 8), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
@@ -837,14 +837,14 @@ class PocketDesk:
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
 
         tabs = tk.Frame(outer, bg=BG, height=59)
-        tabs.pack(fill="x", padx=20, pady=(0, 3))
+        tabs.pack(fill="x", padx=16, pady=(0, 2))
         normal_navigation.install(self, tabs, bg=BG, panel=PANEL,
                                   accent=ACCENT, accent_dark=ACCENT_DARK,
                                   muted=MUTED, secondary=SECONDARY, white=WHITE)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 
         self.body = tk.Frame(outer, bg=BG)
-        self.body.pack(fill="both", expand=True, padx=17, pady=(17, 8))
+        self.body.pack(fill="both", expand=True, padx=13, pady=(10, 7))
         self._mini_root_body = self.body
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
@@ -1484,7 +1484,8 @@ class PocketDesk:
         """Shared presentation across Pocket tools; preserve original callbacks."""
         return design.section_header(parent, title, desc, button_text,
                                      button_action, self.theme,
-                                     compact=self.display_mode == "mini")
+                                     compact=self.display_mode == "mini",
+                                     balanced=self.display_mode == "normal")
 
     def _build_mini_notes(self):
         """Compact notes: a short picker, note metadata and full-height editor."""
@@ -1621,7 +1622,7 @@ class PocketDesk:
 
         sidebar = tk.Frame(top_row, bg=PANEL,
                            width=290 if self.display_mode == "dashboard" else (190 if self.display_mode == "compact" else 144),
-                           height=188 if self.display_mode == "dashboard" else 154,
+                           height=188 if self.display_mode == "dashboard" else (137 if self.display_mode == "normal" else 154),
                            highlightbackground=BORDER, highlightthickness=1)
         sidebar.pack(side="right", fill="y", padx=(10, 0))
         sidebar.pack_propagate(False)
@@ -1637,7 +1638,7 @@ class PocketDesk:
         self.note_list.bind("<Control-Button-1>", self._show_note_list_menu)
 
         title_row = tk.Frame(details, bg=PANEL)
-        title_row.pack(fill="x", padx=12, pady=(12, 5))
+        title_row.pack(fill="x", padx=12, pady=(8 if self.display_mode == "normal" else 12, 4))
         tk.Label(title_row, text="TITLE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left")
         self.created_label = tk.Label(title_row, text="", font=(FONT, 7), fg=MUTED,
@@ -1648,11 +1649,11 @@ class PocketDesk:
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
-        self.title_entry.pack(fill="x", padx=12, ipady=9)
+        self.title_entry.pack(fill="x", padx=12, ipady=6 if self.display_mode == "normal" else 9)
         self.title_var.trace_add("write", self._change_note_title)
 
         phone_row = tk.Frame(details, bg=PANEL)
-        phone_row.pack(fill="x", padx=12, pady=(8, 12))
+        phone_row.pack(fill="x", padx=12, pady=(5 if self.display_mode == "normal" else 8, 7 if self.display_mode == "normal" else 12))
         tk.Label(phone_row, text="PHONE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left", padx=(0, 7))
         self.phone_var = tk.StringVar()
@@ -1675,7 +1676,7 @@ class PocketDesk:
 
         # Bottom block: full-width note editor.
         editor = tk.Frame(main, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        editor.pack(fill="both", expand=True, pady=(10, 0))
+        editor.pack(fill="both", expand=True, pady=(7 if self.display_mode == "normal" else 10, 0))
         tk.Label(editor, text="NOTE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(anchor="w", padx=12, pady=(10, 5))
         self.note_body = tk.Text(editor, wrap="word", undo=True, bg=INPUT, fg="#D7DAE6",
@@ -2333,13 +2334,13 @@ class PocketDesk:
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
-                                   highlightthickness=1, height=74)
+                                   highlightthickness=1, height=54 if self.display_mode == "normal" else 74)
         if self.display_mode != "mini":
             self.drop_panel.pack(fill="x", pady=(0, 12))
         self.drop_panel.pack_propagate(False)
         self.drop_title = tk.Label(self.drop_panel, text="↓  DROP WEBSITE, FILE OR FOLDER HERE",
                                    font=(FONT, 9, 'bold'), fg=ACCENT, bg=PANEL)
-        self.drop_title.pack(pady=(12, 3))
+        self.drop_title.pack(pady=(5 if self.display_mode == "normal" else 12, 2 if self.display_mode == "normal" else 3))
         self.drop_hint = tk.Label(self.drop_panel, text=(
             "PIN the popup before dragging from Explorer or your browser" if self.dnd_available
             else "Drag & drop unavailable · Install tkinterdnd2 (see README)"),
@@ -2431,19 +2432,19 @@ class PocketDesk:
 
     def _link_tile(self, link):
         tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 5 if self.display_mode == "mini" else 10),
-                  padx=(1, 2 if self.display_mode == "mini" else 6),
-                  ipady=2 if self.display_mode == "mini" else 6)
+        tile.pack(fill="x", pady=(0, 5 if self.display_mode in ("mini", "normal") else 10),
+                  padx=(1, 2 if self.display_mode in ("mini", "normal") else 6),
+                  ipady=2 if self.display_mode in ("mini", "normal") else 6)
         kind = link.get("kind", "url")
         badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
         tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 12 if self.display_mode == "mini" else 17, "bold"),
-                 width=2 if self.display_mode == "mini" else 3,
-                 height=2).pack(side="left", padx=(6, 4) if self.display_mode == "mini" else (12, 10))
+                 font=(FONT, 12 if self.display_mode in ("mini", "normal") else 17, "bold"),
+                 width=2 if self.display_mode in ("mini", "normal") else 3,
+                 height=2).pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal") else (12, 10))
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
         title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 9 if self.display_mode == "mini" else 11, "bold"), cursor="hand2")
+                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11, "bold"), cursor="hand2")
         title.pack(fill="x", pady=(3, 2))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
@@ -3566,13 +3567,20 @@ class PocketDesk:
             ("Usable hosts", "usable"), ("Total addresses", "total"),
         )
         for i, (name, key) in enumerate(rows):
-            tk.Label(facts, text=name, bg=PANEL, fg=MUTED, font=(FONT, 9), anchor="w").grid(
-                row=i, column=0, sticky="w", pady=3)
+            col = (i // 4) * 2 if self.display_mode == "normal" else 0
+            line_no = i % 4 if self.display_mode == "normal" else i
+            tk.Label(facts, text=name, bg=PANEL, fg=MUTED,
+                     font=(FONT, 8 if self.display_mode == "normal" else 9), anchor="w").grid(
+                row=line_no, column=col, sticky="w", pady=4 if self.display_mode == "normal" else 3,
+                padx=(0, 5) if col == 0 else (9, 3))
             output = tk.Label(facts, text="—", bg=PANEL, fg=WHITE,
-                              font=(FONT, 9, "bold"), anchor="e")
-            output.grid(row=i, column=1, sticky="e", pady=3)
+                              font=(FONT, 8 if self.display_mode == "normal" else 9, "bold"), anchor="e")
+            output.grid(row=line_no, column=col + 1, sticky="e",
+                        pady=4 if self.display_mode == "normal" else 3)
             self.subnet_fact_labels[key] = output
         facts.columnconfigure(1, weight=1)
+        if self.display_mode == "normal":
+            facts.columnconfigure(3, weight=1)
 
         tk.Label(self.body, text="SUBDIVIDE THE NETWORK", bg=BG, fg=SECONDARY,
                  font=(FONT, 8, "bold")).pack(anchor="w", pady=(16, 8))
@@ -3688,7 +3696,9 @@ class PocketDesk:
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
-        self.mac_input.pack(fill="x", pady=(0, 10))
+        self.mac_input.pack(fill="x", pady=(0, 7 if self.display_mode == "normal" else 10))
+        if self.display_mode == "normal":
+            self.mac_input.config(height=4)
         if self.display_mode in ("mini", "compact"):
             self.mac_input.config(height=3)
         self.mac_input.insert("1.0", self.mac_draft)

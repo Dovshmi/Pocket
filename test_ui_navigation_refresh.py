@@ -63,6 +63,12 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertIn('if self.display_mode == "mini":\n            return self._build_mini_notes()',source)
         self.assertIn('if self.display_mode == "mini":\n            return self._build_mini_commands()',source)
 
+    def test_shortcut_scrollbar_keeps_mini_unchanged(self):
+        source=(root/"app.pyw").read_text(encoding="utf-8")
+        self.assertIn('if self.display_mode == "mini":\n            scroll = tk.Scrollbar(', source)
+        self.assertIn('scroll = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview,', source)
+        self.assertIn('style="Pocket.Vertical.TScrollbar"', source)
+
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"compact_dashboard.py").read_text(encoding="utf-8")
         self.assertIn("design.Tooltip(remove,",source)

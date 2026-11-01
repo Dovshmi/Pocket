@@ -18,15 +18,14 @@ class MiniFocusTests(TestCase):
         desk.root.focus_set.assert_called_once()
 
     def test_native_notes_editor_releases_windows_focus(self):
-        """Click-away must transfer the native HWND, not only Tk focus."""
         native = SimpleNamespace(has_focus=Mock(return_value=True),
                                  release_focus_to=Mock())
         root = SimpleNamespace(focus_set=Mock())
         desk = SimpleNamespace(display_mode="mini", _modal=False,
                                current_tab="notes", root=root, bidi_editor=native,
-                               _bidi_active=Mock(return_value=True),
+                               note_body=object(), _bidi_active=Mock(return_value=True),
                                _flush_current_note=Mock())
-        PocketDesk._mini_click_outside_editor(desk, SimpleNamespace(widget=object()))
+        PocketDesk._note_click_focus(desk, SimpleNamespace(widget=object()))
         desk._flush_current_note.assert_called_once()
         native.release_focus_to.assert_called_once_with(root)
         root.focus_set.assert_called_once()
@@ -37,9 +36,9 @@ class MiniFocusTests(TestCase):
         root = SimpleNamespace(focus_set=Mock())
         desk = SimpleNamespace(display_mode="mini", _modal=False,
                                current_tab="notes", root=root, bidi_editor=native,
-                               _bidi_active=Mock(return_value=True),
+                               note_body=object(), _bidi_active=Mock(return_value=True),
                                _flush_current_note=Mock())
-        PocketDesk._mini_click_outside_editor(desk, SimpleNamespace(widget=object()))
+        PocketDesk._note_click_focus(desk, SimpleNamespace(widget=object()))
         native.release_focus_to.assert_not_called()
         root.focus_set.assert_called_once()
 
@@ -58,7 +57,7 @@ class MiniFocusTests(TestCase):
                                    _modal=False, bidi_editor=native, root=root,
                                    note_body=object(), _bidi_active=Mock(return_value=True),
                                    _flush_current_note=Mock())
-            PocketDesk._normal_note_click_outside_editor(
+            PocketDesk._note_click_focus(
                 desk, SimpleNamespace(widget=entry))
             desk._flush_current_note.assert_called_once()
             native.release_focus_to.assert_called_once_with(entry)
@@ -73,7 +72,7 @@ class MiniFocusTests(TestCase):
                                _modal=False, bidi_editor=native, root=root,
                                note_body=object(), _bidi_active=Mock(return_value=True),
                                _flush_current_note=Mock())
-        PocketDesk._normal_note_click_outside_editor(
+        PocketDesk._note_click_focus(
             desk, SimpleNamespace(widget=object()))
         native.release_focus_to.assert_called_once_with(root)
         root.focus_set.assert_called_once()
@@ -87,10 +86,10 @@ class MiniFocusTests(TestCase):
                                _modal=False, bidi_editor=native, root=root,
                                note_body=editor, _bidi_active=Mock(return_value=True),
                                _flush_current_note=Mock())
-        PocketDesk._normal_note_click_outside_editor(
+        PocketDesk._note_click_focus(
             desk, SimpleNamespace(widget=editor))
         desk._modal = True
-        PocketDesk._normal_note_click_outside_editor(
+        PocketDesk._note_click_focus(
             desk, SimpleNamespace(widget=object()))
         native.release_focus_to.assert_not_called()
 

@@ -47,6 +47,7 @@ import clipboard_policy
 import single_instance
 import portable_storage
 import tool_icons
+import normal_navigation
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -835,31 +836,11 @@ class PocketDesk:
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
 
-        tabs = tk.Frame(outer, bg=BG, height=42)
-        tabs.pack(fill="x", padx=20)
-        tabs.pack_propagate(False)
-        self.tab_buttons = {}
-        # Settings remains accessible even if all regular tabs are hidden.
-        for key, label in VISIBLE_TABS:
-            if key not in self.settings["visible_tabs"]:
-                continue
-            if len(self.tab_buttons) >= 5:
-                break
-
-            button = action_label(tabs, label, lambda k=key: self.show_tab(k),
-                                  bg=BG, hover=PANEL, fg=SECONDARY, padx=5, pady=8, font_size=8)
-            button.pack(side="left", padx=(0, 2))
-            design.Tooltip(button, f"Open {label.title()} · {key}", self.theme)
-            self.tab_buttons[key] = button
-        extras = [pair for pair in VISIBLE_TABS
-                  if pair[0] in self.settings["visible_tabs"] and pair[0] not in self.tab_buttons]
-        if extras:
-            more_button = action_label(tabs, f"MORE ({len(extras)}) ▾", self._show_more_menu, bg=BG,
-                                       hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8)
-            more_button.pack(side="left")
-            design.Tooltip(more_button, "Open additional enabled tools", self.theme)
-        action_label(tabs, "SET", lambda: self.show_tab("settings"), bg=BG,
-                     hover=PANEL, fg=ACCENT, padx=5, pady=8, font_size=11).pack(side="right")
+        tabs = tk.Frame(outer, bg=BG, height=59)
+        tabs.pack(fill="x", padx=20, pady=(0, 3))
+        normal_navigation.install(self, tabs, bg=BG, panel=PANEL,
+                                  accent=ACCENT, accent_dark=ACCENT_DARK,
+                                  muted=MUTED, secondary=SECONDARY, white=WHITE)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 
         self.body = tk.Frame(outer, bg=BG)
@@ -1145,9 +1126,12 @@ class PocketDesk:
             dashboard.style_nav(self, which)
         if self.display_mode == "compact":
             compact.style_nav(self, which)
-        for key, button in self.tab_buttons.items():
-            button.config(fg=ACCENT if key == which else SECONDARY,
-                          bg=ACCENT_DARK if key == which else BG)
+        if self.display_mode == "normal":
+            self._normal_nav_refresh(which)
+        else:
+            for key, button in self.tab_buttons.items():
+                button.config(fg=ACCENT if key == which else SECONDARY,
+                              bg=ACCENT_DARK if key == which else BG)
         if which == "commands" and self.display_mode in ("normal", "dashboard", "compact"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.

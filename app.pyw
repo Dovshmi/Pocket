@@ -824,12 +824,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
-        search_button = design.tool_button(header, "⌕", self._open_global_search, self.theme,
-                                           tip="Quick Search · Ctrl+K", compact=True)
-        search_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY, bg=PANEL,
                                        padx=10, pady=7, font_size=8)
-        self.pin_button.pack(side="right", padx=(5, 0), anchor="n", pady=(5, 0))
+        self.pin_button.pack(side="right", padx=(9, 0), anchor="n", pady=(5, 0))
         if self.settings["extra_mini_enabled"]:
             action_label(header, "▾", self._return_to_compact, fg=ACCENT,
                          bg=PANEL, hover=CARD, padx=9, pady=7, font_size=11).pack(
@@ -1065,12 +1062,9 @@ class PocketDesk:
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
             handle.bind("<Button-3>", self._show_header_menu)
-        mini_search = design.tool_button(header, "⌕", self._open_global_search, self.theme,
-                                         tip="Search all tools · Ctrl+K", compact=True)
-        mini_search.pack(side="right", padx=(3, 0), pady=(2, 0))
         self.pin_button = action_label(header, "PIN", self.toggle_pin, fg=SECONDARY,
                                        bg=PANEL, padx=7, pady=5, font_size=7)
-        self.pin_button.pack(side="right", padx=(4, 0), pady=(2, 0))
+        self.pin_button.pack(side="right", padx=(9, 0), pady=(2, 0))
         if self.settings["extra_mini_enabled"]:
             action_label(header, "▾ Extra Mini", self._return_to_compact, fg=ACCENT,
                          bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 4))
@@ -1214,7 +1208,7 @@ class PocketDesk:
         return pages
 
     def _set_compact_page(self, index):
-        index = lp.page_index(index)
+        index = lp.page_index(index, self._compact_pages())
         self.data["extra_mini_page"] = index
         self.schedule_save()
         refresh = getattr(self, "compact_render_cards", None)
@@ -1224,6 +1218,7 @@ class PocketDesk:
     def _save_compact_pages(self, pages):
         self.data["extra_mini_pages"] = lp.normalize_pages(pages)
         self.settings["extra_mini_tiles"] = lp.legacy_first_page(self.data["extra_mini_pages"])
+        self.data["extra_mini_page"] = lp.page_index(self.data.get("extra_mini_page"), self.data["extra_mini_pages"])
         self.schedule_save()
         refresh = getattr(self, "compact_render_cards", None)
         if self.display_mode == "compact" and callable(refresh):

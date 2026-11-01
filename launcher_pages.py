@@ -1,4 +1,4 @@
-"""Pure, offline data model for Pocket's three-page Extra Mini launcher.
+"""Pure, offline model for automatically growing Extra Mini quick-action pages.
 
 This module never executes CLI, opens URLs, or reads personal files. It stores
 only references (kind and record ID), short optional display labels, and an
@@ -10,8 +10,9 @@ from copy import deepcopy
 import command_helper as ch
 import smart_templates as smart
 
-PAGE_COUNT = 3
+PAGE_COUNT = 3  # Original fixed-page format, kept for older integrations.
 SLOT_COUNT = 4
+MAX_PAGES = 24  # A guard against malformed saved profiles, not a fixed UI size.
 PAGE_TITLES = ("Tools", "Commands", "Notes")
 KINDS = ("tool", "command", "template", "note", "shortcut")
 TOOLS = ("notes", "links", "ports", "mac", "commands", "subnet", "clipboard")
@@ -20,10 +21,10 @@ TOOL_NAMES = {
     "mac": "MAC Lookup", "commands": "Commands",
     "subnet": "Subnet", "clipboard": "Clipboard",
 }
-KIND_ICONS = {"tool": "⌘", "command": ">_", "template": "{}", "note": "✎", "shortcut": "↗"}
+KIND_ICONS = {"tool": "tool", "command": "commands", "template": "commands", "note": "notes", "shortcut": "links"}
 TOOL_ICONS = {
-    "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
-    "commands": ">_", "subnet": "⌗", "clipboard": "▣",
+    "notes": "notes", "links": "links", "ports": "ports", "mac": "mac",
+    "commands": "commands", "subnet": "subnet", "clipboard": "clipboard",
 }
 
 
@@ -35,8 +36,11 @@ def safe_name(raw, fallback):
     return title if title and all(ord(c) >= 32 for c in title) else fallback
 
 
-def page_index(raw):
-    return raw if type(raw) is int and 0 <= raw < PAGE_COUNT else 0
+def page_index(raw, pages=None):
+    """Reject invalid page selections and fall back to the first live page."""
+    count = (len(pages) if isinstance(pages, (list, tuple)) and pages
+             else pages if type(pages) is int and pages > 0 else MAX_PAGES)
+    return raw if type(raw) is int and 0 <= raw < count else 0
 
 
 def clean_tile(raw):
@@ -64,37 +68,39 @@ def clean_tile(raw):
     return tile
 
 
+def page_name(index):
+    return PAGE_TITLES[index] if index < len(PAGE_TITLES) else f"Page {index + 1}"
+
+
 def default_pages(legacy_tiles=None):
     base = legacy_tiles if isinstance(legacy_tiles, (tuple, list)) else (
         "commands", "notes", "clipboard", "subnet")
     first = [clean_tile(base[i]) if i < len(base) else None for i in range(SLOT_COUNT)]
-    return [
-        {"name": "Tools", "tiles": first},
-        {"name": "Commands", "tiles": [None] * SLOT_COUNT},
-        {"name": "Notes", "tiles": [None] * SLOT_COUNT},
-    ]
+    return [{"name": "Tools", "tiles": first}]
 
 
 def normalize_pages(raw, legacy_tiles=None):
-    """Lossless migration from the former four saved tool slots.
+    """Retain every populated old page, but hide all trailing unused pages.
 
-    Once pages exist, the new multi-page model is authoritative. The old
-    extra_mini_tiles setting is maintained only for older code/tests.
+    A second dot only appears when a fifth action is saved. Page 3 appears
+    after the ninth, and so on. Blank slots within a page and holes between
+    populated pages remain intact; references are never shifted or deleted.
     """
-    if not isinstance(raw, list) or len(raw) != PAGE_COUNT:
+    if not isinstance(raw, list) or not raw:
         return default_pages(legacy_tiles)
     result = []
-    for i in range(PAGE_COUNT):
-        source = raw[i] if isinstance(raw[i], dict) else {}
+    for i, source in enumerate(raw[:MAX_PAGES]):
+        source = source if isinstance(source, dict) else {}
         items = source.get("tiles")
-        if not isinstance(items, list):
-            items = [None] * SLOT_COUNT
+        items = items if isinstance(items, list) else []
         result.append({
-            "name": safe_name(source.get("name"), PAGE_TITLES[i]),
+            "name": safe_name(source.get("name"), page_name(i)),
             "tiles": [clean_tile(items[j]) if j < len(items) else None
                       for j in range(SLOT_COUNT)],
         })
-    return result
+    last_used = max((i for i, item in enumerate(result)
+                     if any(tile is not None for tile in item["tiles"])), default=0)
+    return result[:last_used + 1]
 
 
 def legacy_first_page(pages):
@@ -105,19 +111,42 @@ def legacy_first_page(pages):
 
 def put(pages, page, slot, tile):
     state = normalize_pages(pages)
-    if not valid_slot(page, slot):
+    if not valid_slot(page, slot) or page > len(state):
         return state
     new_item = clean_tile(tile)
+    if page == len(state):
+        if new_item is None:
+            return state
+        state.append({"name": page_name(page), "tiles": [None] * SLOT_COUNT})
     slots = state[page]["tiles"]
     if new_item is not None and new_item["kind"] == "tool":
-        for i, previous in enumerate(slots):
-            if i != slot and previous is not None and previous.get("kind") == "tool" and previous.get("id") == new_item["id"]:
-                # Preserve the legacy first-page behavior: moving an already
-                # assigned tool swaps the two positions, never duplicates it.
-                slots[i] = slots[slot]
-                break
+        for i, old_page in enumerate(state):
+            for j, previous in enumerate(old_page["tiles"]):
+                if (i, j) != (page, slot) and previous is not None and (
+                        previous.get("kind"), previous.get("id")) == ("tool", new_item["id"]):
+                    old_page["tiles"][j] = slots[slot]
+                    break
     slots[slot] = new_item
-    return state
+    return normalize_pages(state)
+
+
+def next_free_slot(pages):
+    """Return the first available place, creating the next page only as needed."""
+    state = normalize_pages(pages)
+    for page, record in enumerate(state):
+        for slot, tile in enumerate(record["tiles"]):
+            if tile is None:
+                return (page, slot)
+    return (len(state), 0) if len(state) < MAX_PAGES else None
+
+
+def append_action(pages, tile):
+    """Place a new action, automatically expanding from 4 to 8, 12, etc."""
+    state = normalize_pages(pages)
+    target = next_free_slot(state)
+    if target is None or clean_tile(tile) is None:
+        return state, None
+    return put(state, target[0], target[1], tile), target[0]
 
 
 def remove(pages, page, slot):
@@ -126,7 +155,7 @@ def remove(pages, page, slot):
 
 def rename(pages, page, slot, label):
     state = normalize_pages(pages)
-    if not valid_slot(page, slot):
+    if not valid_slot(page, slot, state):
         return state
     item = state[page]["tiles"][slot]
     if item is None:
@@ -140,25 +169,30 @@ def rename(pages, page, slot, label):
 
 def rename_page(pages, page, name):
     state = normalize_pages(pages)
-    if type(page) is int and 0 <= page < PAGE_COUNT:
-        state[page]["name"] = safe_name(name, PAGE_TITLES[page])
+    if type(page) is int and 0 <= page < len(state):
+        state[page]["name"] = safe_name(name, page_name(page))
     return state
 
 
 def move(pages, origin_page, origin_slot, dest_page, dest_slot):
-    """Swap references, never duplicate or delete a note/command/shortcut."""
+    """Swap saved references across existing pages or into one newly added page."""
     state = normalize_pages(pages)
-    if not valid_slot(origin_page, origin_slot) or not valid_slot(dest_page, dest_slot):
+    if (not valid_slot(origin_page, origin_slot, state)
+            or not valid_slot(dest_page, dest_slot)
+            or dest_page > len(state)):
         return state
+    if dest_page == len(state):
+        state.append({"name": page_name(dest_page), "tiles": [None] * SLOT_COUNT})
     a = state[origin_page]["tiles"]
     b = state[dest_page]["tiles"]
     a[origin_slot], b[dest_slot] = b[dest_slot], a[origin_slot]
-    return state
+    return normalize_pages(state)
 
 
-def valid_slot(page, slot):
-    return (type(page) is int and 0 <= page < PAGE_COUNT and
-            type(slot) is int and 0 <= slot < SLOT_COUNT)
+def valid_slot(page, slot, pages=None):
+    count = len(pages) if isinstance(pages, list) else MAX_PAGES
+    return (type(page) is int and 0 <= page < count
+            and type(slot) is int and 0 <= slot < SLOT_COUNT)
 
 
 def lookup(tile, data, commands, visible_tabs):

@@ -46,8 +46,8 @@ def capture(app, output, label):
 with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
     os.environ["APPDATA"] = profile
     appmod = runpy.run_path(str(ROOT / "app.pyw"), run_name="pocket_ui_audit")
-    from compact_dashboard import display_slots
-    from mini_layout import view_dimensions
+    from pocket.compact_dashboard import display_slots
+    from pocket.mini_layout import view_dimensions
 
     app = appmod["PocketDesk"](preview=True)
     errors = []
@@ -67,7 +67,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         print("PASS: initial window and isolated data")
 
         from tkinter import ttk
-        from icon_themes import palette
+        from pocket.icon_themes import palette
         style = ttk.Style(app.root)
         check(style.theme_use() == "clam", "Dark ttk theme was not selected")
         self_color = palette(app.theme)
@@ -251,7 +251,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
 
         # Three-page launcher, scroll/arrow paging, reference tiles, and
         # deletion/hidden-menu handling with original working layout retained.
-        from launcher_pages import put, lookup, rename_page, move, PAGE_COUNT
+        from pocket.launcher_pages import put, lookup, rename_page, move, PAGE_COUNT
         note_id = app.data["notes"][0]["id"]
         pages = app._compact_pages()
         pages = put(pages, 1, 0, {"kind": "note", "id": note_id})
@@ -316,7 +316,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         # Direct saved command references, copy-only, Smart Template and
         # shortcut tiles must dispatch to the exact saved item.
         from types import SimpleNamespace
-        import smart_templates as smart
+        from pocket import smart_templates as smart
         app._set_display_mode("normal")
         app._return_to_compact()
         app._set_compact_page(0)
@@ -434,8 +434,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         print("PASS: Ctrl+K Quick Search popup and local results in every working layout")
         # Fully exercise fill-and-copy with synthetic reference data. The
         # entered address must not be persisted to user data or commands.json.
-        import smart_templates as smart
-        import template_ui
+        from pocket import smart_templates as smart
+        from pocket import template_ui
         example = {"id": "synthetic", "machine": "FortiGate", "category": "Diagnostics",
                    "description": "Synthetic test", "command": "execute ping x.x.x.x"}
         example["template"] = smart.validate_template(

@@ -46,6 +46,7 @@ import quick_search
 import clipboard_policy
 import single_instance
 import portable_storage
+import tool_icons
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -1088,8 +1089,8 @@ class PocketDesk:
                             takefocus=1, highlightthickness=0)
             tile.pack(side="left", padx=(0, 1))
             tile.pack_propagate(False)
-            glyph = tk.Label(tile, text=icon, font=("Segoe UI Symbol", 14, "bold"),
-                             bg=BG, fg=SECONDARY, cursor="hand2", anchor="center")
+            glyph = tool_icons.label(tile, key, SECONDARY, BG, size=20,
+                                     cursor="hand2", anchor="center")
             glyph.pack(fill="x", pady=(1, 0))
             caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
                                       bg=BG, fg=MUTED, cursor="hand2", anchor="center")
@@ -1112,7 +1113,9 @@ class PocketDesk:
             active = key == selected
             bg = ACCENT_DARK if active else BG
             tile.config(bg=bg)
-            glyph.config(bg=bg, fg=ACCENT if active else SECONDARY)
+            glyph.config(bg=bg)
+            glyph.image = tool_icons.icon_image(glyph, key, ACCENT if active else SECONDARY, 20)
+            glyph.config(image=glyph.image)
             caption.config(bg=bg, fg=WHITE if active else MUTED)
 
     def _build_mini_settings(self):

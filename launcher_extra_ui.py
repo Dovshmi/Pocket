@@ -13,7 +13,7 @@ import pocket_design as design
 
 
 def install_cards(app, cards, c):
-    app.data["extra_mini_page"] = lp.page_index(app.data.get("extra_mini_page"))
+    app.data["extra_mini_page"] = lp.page_index(app.data.get("extra_mini_page"), app._compact_pages())
     app._compact_drag = None
 
     def page():
@@ -24,8 +24,9 @@ def install_cards(app, cards, c):
 
     def add(index):
         current = app._compact_pages()[page()]["tiles"][index]
+        origin = page()
         picker.choose_item(app,
-              lambda item: update_pages(lp.put(app._compact_pages(), page(), index, item)),
+              lambda item: update_pages(lp.put(app._compact_pages(), origin, index, item)),
               selected=current)
 
     def remove(index):
@@ -65,7 +66,7 @@ def install_cards(app, cards, c):
         window.protocol("WM_DELETE_WINDOW", close)
         tk.Label(window, text="Move or swap with a slot", bg=c["BG"], fg=c["WHITE"],
                  font=("Segoe UI", 11, "bold")).pack(anchor="w", padx=12, pady=(13, 7))
-        for target_page, record in enumerate(app._compact_pages()):
+        for target_page, record in enumerate(app._compact_pages() + ([{"name": "New page", "tiles": [None] * lp.SLOT_COUNT}] if len(app._compact_pages()) < lp.MAX_PAGES else [])):
             row = tk.Frame(window, bg=c["BG"])
             row.pack(fill="x", padx=10, pady=2)
             tk.Label(row, text=record["name"][:13], bg=c["BG"], fg=c["SECONDARY"],
@@ -82,6 +83,16 @@ def install_cards(app, cards, c):
         design.button(window, "Cancel", close, app.theme, compact=True).pack(
               side="right", padx=14, pady=12)
         window.grab_set()
+
+    def add_next():
+        slot = lp.next_free_slot(app._compact_pages())
+        if slot is None:
+            return
+        def apply(item):
+            pages, selected_page = lp.append_action(app._compact_pages(), item)
+            app.data["extra_mini_page"] = selected_page
+            update_pages(pages)
+        picker.choose_item(app, apply)
 
     def menu_for(index, event):
         tile = app._compact_pages()[page()]["tiles"][index]
@@ -192,22 +203,20 @@ def install_cards(app, cards, c):
             child.destroy()
         for col in range(lp.SLOT_COUNT):
             cards.columnconfigure(col, weight=1, uniform="quick-tile")
-        selected_page = page()
         state = app._compact_pages()
+        selected_page = lp.page_index(page(), state)
         for index, item in enumerate(state[selected_page]["tiles"]):
             draw_tile(index, item)
         status = getattr(app, "compact_status", None)
         if status is not None and status.winfo_exists():
             status.configure(text=state[selected_page]["name"][:12] +
-                             f" · {selected_page+1}/3")
-        for index, button in enumerate(getattr(app, "compact_page_buttons", [])):
-            if not button.winfo_exists():
-                continue  # Old layout controls were destroyed during mode switch.
-            button.configure(fg=c["ACCENT"] if index == selected_page else c["MUTED"],
-                             bg=c["ACCENT_DARK"] if index == selected_page else c["BG"])
+                             f" · {selected_page+1}/{len(state)}")
+        update_pager = getattr(app, "compact_update_pager", None)
+        if update_pager is not None:
+            update_pager()
 
     def page_step(step):
-        new = max(0, min(lp.PAGE_COUNT - 1, page() + step))
+        new = max(0, min(len(app._compact_pages()) - 1, page() + step))
         if new != page():
             app._set_compact_page(new)
 
@@ -236,30 +245,49 @@ def install_cards(app, cards, c):
     app.compact_rename_page = rename_page
     app.compact_switch_page = page_step
     app.compact_move_slot = move_picker
+    app.compact_add_next = add_next
     render()
 
 
 def install_pager(app, footer, c):
+    """Only display dots for pages containing saved actions."""
     nav = tk.Frame(footer, bg=c["BG"])
     nav.pack(side="left", fill="y", padx=(0, 3))
-    def arrow(symbol, increment):
-        control = tk.Button(nav, text=symbol,
-                            command=lambda: app.compact_switch_page(increment),
-                            bg=c["BG"], fg=c["ACCENT"], relief="flat",
-                            bd=0, font=("Segoe UI", 14), padx=1,
-                            cursor="hand2")
-        control.pack(side="left")
-    arrow("‹", -1)
-    buttons = []
-    for i in range(lp.PAGE_COUNT):
-        control = tk.Button(nav, text="●", command=lambda page=i: app._set_compact_page(page),
-                            bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 7),
-                            relief="flat", bd=0, padx=1, cursor="hand2")
-        control.pack(side="left")
-        buttons.append(control)
-        design.Tooltip(control, f"Extra Mini page {i+1} of 3", app.theme)
-    arrow("›", 1)
-    app.compact_page_buttons = buttons
+    prev = tk.Button(nav, text="<", command=lambda: app.compact_switch_page(-1),
+                     bg=c["BG"], fg=c["ACCENT"], relief="flat", bd=0,
+                     font=("Segoe UI", 10, "bold"), cursor="hand2")
+    prev.pack(side="left", padx=1)
+    dots = tk.Frame(nav, bg=c["BG"])
+    dots.pack(side="left")
+    following = tk.Button(nav, text=">", command=lambda: app.compact_switch_page(1),
+                          bg=c["BG"], fg=c["ACCENT"], relief="flat", bd=0,
+                          font=("Segoe UI", 10, "bold"), cursor="hand2")
+    following.pack(side="left", padx=1)
+    app.compact_page_buttons = []
+
+    def update():
+        pages = app._compact_pages()
+        selected = lp.page_index(app.data.get("extra_mini_page"), pages)
+        controls = app.compact_page_buttons
+        if len(controls) != len(pages):
+            for child in dots.winfo_children():
+                child.destroy()
+            controls.clear()
+            for index in range(len(pages)):
+                control = tk.Button(
+                    dots, text="●", command=lambda p=index: app._set_compact_page(p),
+                    bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 7),
+                    relief="flat", bd=0, padx=2, cursor="hand2")
+                control.pack(side="left")
+                controls.append(control)
+                design.Tooltip(control, f"Page {index + 1}", app.theme)
+        for index, control in enumerate(controls):
+            control.configure(fg=c["ACCENT"] if index == selected else c["MUTED"])
+        prev.configure(state="normal" if selected > 0 else "disabled")
+        following.configure(state="normal" if selected + 1 < len(pages) else "disabled")
+
+    app.compact_update_pager = update
+    update()
 
 
 def handle_wheel(app, event):

@@ -6,7 +6,7 @@ import unittest
 class CommandsLayoutRegression(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+        cls.source = (Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
 
     def test_normal_view_has_scrollable_results_above_editor(self):
         begin = self.source.index("    def _build_commands(self):")

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 import command_helper as ch
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 run_app = runpy.run_path(str(ROOT / 'app.pyw'), run_name='test_import_command')
 
 class CommandHelperTests(unittest.TestCase):

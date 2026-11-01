@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import mini_layout as layout
 import compact_dashboard as compact
 
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 Desk = app["PocketDesk"]
 
 
@@ -161,7 +161,7 @@ class ExtraMiniTests(unittest.TestCase):
             self.assertNotIn("clipboard_items", loaded)
 
     def test_real_feature_dispatch_kept(self):
-        source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
         self.assertIn("settings_ui.build_settings(self, self.body)", source)
         self.assertIn("self._edit_extra_mini_from_settings", source)
         self.assertIn("self._return_to_compact", source)

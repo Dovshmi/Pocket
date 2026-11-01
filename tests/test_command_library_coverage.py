@@ -5,7 +5,7 @@ from pathlib import Path
 import command_helper as ch
 import network_tools as net
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 class PublicLibraryCoverageTests(unittest.TestCase):
     @classmethod

@@ -5,7 +5,7 @@ import tempfile
 import runpy
 
 # runpy handles .pyw consistently on Linux and Windows.
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 
 
 class ClipboardSettingsTests(unittest.TestCase):

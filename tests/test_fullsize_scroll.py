@@ -2,7 +2,7 @@
 from pathlib import Path
 import unittest
 
-SOURCE = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+SOURCE = (Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
 
 
 class FullSizeScrollTests(unittest.TestCase):

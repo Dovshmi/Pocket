@@ -10,7 +10,7 @@ import unittest
 import mini_layout as layout
 import dashboard_ui as dashboard
 
-app = runpy.run_path(str(Path(__file__).with_name("app.pyw")), run_name="test_import")
+app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 
 
 class DashboardLayoutTests(unittest.TestCase):
@@ -54,7 +54,7 @@ class DashboardLayoutTests(unittest.TestCase):
         self.assertIn("commands", dashboard.TITLES)
 
     def test_dashboard_dispatch_preserves_original_page_builders(self):
-        source = Path(__file__).with_name("app.pyw").read_text(encoding="utf-8")
+        source = (Path(__file__).resolve().parents[1] / "app.pyw").read_text(encoding="utf-8")
         self.assertIn("dashboard.build_shell(self,", source)
         self.assertIn("dashboard.style_nav(self, which)", source)
         self.assertIn("dashboard.build_home(self)", source)

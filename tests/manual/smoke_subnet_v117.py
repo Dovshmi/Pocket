@@ -1,4 +1,8 @@
 """Desktop smoke test: Subnet tab, clipboard, note row popup/pinning, and screenshots."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import runpy
@@ -6,7 +10,7 @@ import tempfile
 from unittest.mock import patch
 from PIL import ImageGrab
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 PocketDesk = runpy.run_path(str(ROOT / 'app.pyw'), run_name='preview_gui')['PocketDesk']
 with tempfile.TemporaryDirectory() as home:
     os.environ['APPDATA'] = home

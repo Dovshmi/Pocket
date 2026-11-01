@@ -1,7 +1,11 @@
 """Actual Tk right-click event posting and popup lifetime regression."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os, tempfile, runpy
 from pathlib import Path
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parents[2]
 PocketDesk=runpy.run_path(str(ROOT/'app.pyw'),run_name='smoke_ui')['PocketDesk']
 with tempfile.TemporaryDirectory() as home:
     os.environ['APPDATA']=home

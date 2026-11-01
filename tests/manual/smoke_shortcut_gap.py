@@ -5,12 +5,16 @@ Uses a disposable APPDATA directory; never reads or overwrites user notes.
 """
 from __future__ import annotations
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import tempfile
 import runpy
 
-PocketDesk = runpy.run_path(str(Path(__file__).with_name('app.pyw')), run_name='import_test')['PocketDesk']
+PocketDesk = runpy.run_path(str((Path(__file__).resolve().parents[2] / 'app.pyw')), run_name='import_test')['PocketDesk']
 
 with tempfile.TemporaryDirectory() as home:
     os.environ['APPDATA'] = home

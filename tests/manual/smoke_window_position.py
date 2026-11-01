@@ -1,4 +1,8 @@
 """Visual drag, persistence, cross-tab, show/hide and reset tests (Xvfb or desktop)."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from pathlib import Path
 import os
 import runpy
@@ -7,7 +11,7 @@ import tempfile
 
 from PIL import ImageGrab
 
-ROOT = Path(__file__).parent
+ROOT = Path(__file__).resolve().parents[2]
 m = runpy.run_path(str(ROOT / 'app.pyw'), run_name='test_ui')
 PocketDesk = m['PocketDesk']
 

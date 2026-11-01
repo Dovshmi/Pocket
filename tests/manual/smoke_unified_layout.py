@@ -2,6 +2,10 @@
 
 Run on Windows with Python + Pillow or with xvfb-run on Linux.
 """
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from pathlib import Path
 import os
 import runpy
@@ -9,7 +13,7 @@ import tempfile
 import time
 from PIL import ImageGrab
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 PocketDesk = runpy.run_path(str(ROOT / 'app.pyw'), run_name='layout_smoke')['PocketDesk']
 
 

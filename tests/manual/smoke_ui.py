@@ -1,4 +1,8 @@
 """Interactive Tk smoke test and screenshot capture (run under xvfb on Linux)."""
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import os
 from pathlib import Path
 import socket
@@ -7,9 +11,9 @@ import tempfile
 import time
 from PIL import ImageGrab
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import runpy
-PocketDesk = runpy.run_path(str(Path(__file__).parent / "app.pyw"), run_name="import_test")["PocketDesk"]
+PocketDesk = runpy.run_path(str(Path(__file__).resolve().parents[2] / "app.pyw"), run_name="import_test")["PocketDesk"]
 
 with tempfile.TemporaryDirectory() as directory:
     os.environ["APPDATA"] = directory
@@ -23,7 +27,7 @@ with tempfile.TemporaryDirectory() as directory:
         x, y = app.root.winfo_rootx(), app.root.winfo_rooty()
         w, h = app.root.winfo_width(), app.root.winfo_height()
         print(name, w, h)
-        ImageGrab.grab(bbox=(x, y, x+w, y+h)).save(str(Path(__file__).parent / name))
+        ImageGrab.grab(bbox=(x, y, x+w, y+h)).save(str(Path(__file__).resolve().parents[2] / name))
     render()
     screenshot("preview-notes.png")
     app.show_tab("links")

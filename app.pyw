@@ -858,7 +858,7 @@ class PocketDesk:
                                        hover=PANEL, fg=SECONDARY, padx=4, pady=8, font_size=8)
             more_button.pack(side="left")
             design.Tooltip(more_button, "Open additional enabled tools", self.theme)
-        action_label(tabs, "⚙", lambda: self.show_tab("settings"), bg=BG,
+        action_label(tabs, "SET", lambda: self.show_tab("settings"), bg=BG,
                      hover=PANEL, fg=ACCENT, padx=5, pady=8, font_size=11).pack(side="right")
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
 

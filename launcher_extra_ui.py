@@ -16,6 +16,9 @@ import tool_icons
 def install_cards(app, cards, c):
     app.data["extra_mini_page"] = lp.page_index(app.data.get("extra_mini_page"), app._compact_pages())
     app._compact_drag = None
+    # Never retain pager widgets from a destroyed Extra Mini shell.
+    app.compact_update_pager = None
+    app.compact_page_buttons = []
 
     def page():
         return lp.page_index(app.data.get("extra_mini_page"))

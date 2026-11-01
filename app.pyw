@@ -21,33 +21,33 @@ import time
 import uuid
 import webbrowser
 from urllib.parse import urlsplit
-import shortcut_utils as shortcuts
-import shortcut_drop
+from pocket import shortcut_utils as shortcuts
+from pocket import shortcut_drop
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
-import network_tools as net
-import command_helper as ch
-import smart_templates as smart
-import template_ui
-import command_store as cs
-import subnet_calculator as subnet
-import icon_themes as themes
-import hotkey_settings as hk
-import note_sync
-import native_bidi
-import mini_layout as mini
-import dashboard_ui as dashboard
-import compact_dashboard as compact
-import launcher_pages as lp
-import settings_ui
-import pocket_design as design
-import quick_search
-import clipboard_policy
-import single_instance
-import portable_storage
-import tool_icons
-import normal_navigation
+from pocket import network_tools as net
+from pocket import command_helper as ch
+from pocket import smart_templates as smart
+from pocket import template_ui
+from pocket import command_store as cs
+from pocket import subnet_calculator as subnet
+from pocket import icon_themes as themes
+from pocket import hotkey_settings as hk
+from pocket import note_sync
+from pocket import native_bidi
+from pocket import mini_layout as mini
+from pocket import dashboard_ui as dashboard
+from pocket import compact_dashboard as compact
+from pocket import launcher_pages as lp
+from pocket import settings_ui
+from pocket import pocket_design as design
+from pocket import quick_search
+from pocket import clipboard_policy
+from pocket import single_instance
+from pocket import portable_storage
+from pocket import tool_icons
+from pocket import normal_navigation
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD

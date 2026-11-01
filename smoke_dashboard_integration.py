@@ -228,16 +228,16 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(choices and choices[0].size() > 0,
               "Quick-action picker has no available Pocket tools")
         add_buttons = [w for w in widgets(picker_dialog)
-                       if isinstance(w, tk.Button) and w.cget("text") == "Add to tile"]
+                       if isinstance(w, tk.Button) and w.cget("text") == "Add action"]
         check(add_buttons, "Picker has no Add to tile button")
         add_buttons[0].invoke()
         app.root.update()
         check(not app._modal, "Quick-action picker did not close")
         check(app.settings["extra_mini_tiles"][0] is not None,
               "Picker selection did not save replacement")
-        check(len(app._compact_pages()) == 3 and
+        check(len(app._compact_pages()) == 1 and
               all(len(page["tiles"]) == 4 for page in app._compact_pages()),
-              "Extra Mini did not migrate into three pages of four tiles")
+              "Extra Mini did not collapse empty pages")
         check(app.compact_edit_button.cget("text") == "Done", "Missing Done control")
         app.compact_edit_button.invoke()
         app.root.update()
@@ -251,6 +251,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         note_id = app.data["notes"][0]["id"]
         pages = app._compact_pages()
         pages = put(pages, 1, 0, {"kind": "note", "id": note_id})
+        pages = put(pages, 2, 0, {"kind": "tool", "id": "mac"})
         pages = rename_page(pages, 1, "Work")
         app._save_compact_pages(pages)
         app._set_compact_page(1)

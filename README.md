@@ -327,8 +327,10 @@ The app uses **Python/Tkinter/ttk**, native Windows APIs through `ctypes`, Pillo
 ```text
 Pocket/
 ├── app.pyw                Windows GUI and application entry point
-├── *_ui.py, *_design.py    Working layout and reusable UI modules
-├── command_*.py, etc.     Runtime modules (kept at root for import stability)
+├── pocket/                 27 runtime modules: UI, notes, commands, networking
+│   ├── *_ui.py             Mode-specific UI and navigation
+│   ├── command_*.py        Commands, search, storage and manual backups
+│   └── portable_storage.py Local-first storage location and safeguards
 ├── commands/              Approved public command examples; no private library
 ├── assets/                Current application icons
 ├── docs/                  Guides, reference screenshots and archived releases

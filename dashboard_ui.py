@@ -153,7 +153,7 @@ def build_shell(app, colors):
     app.shortcut_hint = _link(header, app._hotkey_hint(), lambda: app._open_hotkey_picker(), c,
                               padx=12, pady=6)
     app.shortcut_hint.pack(side="right", padx=3)
-    design.button(header, "⌕  Search", app._open_global_search,
+    design.button(header, "Search", app._open_global_search,
                   app.theme, primary=True, compact=True).pack(side="right", padx=5)
 
     tk.Frame(workspace, bg=c["BORDER"], height=1).pack(fill="x")

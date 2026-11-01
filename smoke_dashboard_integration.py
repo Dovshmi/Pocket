@@ -238,10 +238,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(len(app._compact_pages()) == 1 and
               all(len(page["tiles"]) == 4 for page in app._compact_pages()),
               "Extra Mini did not collapse empty pages")
+        check(bool(app.compact_add_button.winfo_manager()), "Footer Add missing in Edit mode")
         check(app.compact_edit_button.cget("text") == "Done", "Missing Done control")
         app.compact_edit_button.invoke()
         app.root.update()
         check(not app._compact_editing, "Done did not leave Edit mode")
+        check(not app.compact_add_button.winfo_manager(), "Footer Add remains visible after Done")
         capture(app, output, "extra_mini")
         print("PASS: Extra Mini real Edit, ×, +, selection and Done controls")
 

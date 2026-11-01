@@ -7,8 +7,8 @@ import runpy
 import tempfile
 import unittest
 
-import mini_layout as layout
-import dashboard_ui as dashboard
+from pocket import mini_layout as layout
+from pocket import dashboard_ui as dashboard
 
 app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 

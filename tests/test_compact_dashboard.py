@@ -6,8 +6,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import mini_layout as layout
-import compact_dashboard as compact
+from pocket import mini_layout as layout
+from pocket import compact_dashboard as compact
 
 app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run_name="test_import")
 Desk = app["PocketDesk"]

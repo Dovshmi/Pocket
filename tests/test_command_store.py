@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
-import command_store as store
+from pocket import command_store as store
 
 FIXTURE = {"schema": 1, "machines": ["Cisco", "Nokia 7210"],
            "commands": [{"id": "legacy123", "machine": "Cisco", "category": "Routing",

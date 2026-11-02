@@ -114,9 +114,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Dashboard Notes editor must sit to the right of the note list")
                     check(app.title_entry.winfo_rooty() == app.phone_entry.winfo_rooty(),
                           "Dashboard Notes title and phone should share one compact row")
-                    check(app.note_body.winfo_width() >= 350,
+                    visible_editor = (app.bidi_editor if app._bidi_active()
+                                      else app.note_body)
+                    check(visible_editor.winfo_width() >= 350,
                           "Dashboard Notes editor must be substantially wider than Normal")
-                    check(app.note_body.winfo_height() >= 250,
+                    check(visible_editor.winfo_height() >= 250,
                           "Dashboard Notes editor does not have enough writing height")
                     check(app.title_entry.winfo_exists() and app.phone_entry.winfo_exists(),
                           "Dashboard Notes title or phone input is missing")

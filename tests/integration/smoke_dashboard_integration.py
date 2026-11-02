@@ -107,6 +107,21 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "notes" and mode == "dashboard":
+                    # The wide Notes workspace should devote most of its
+                    # height to editing, not to stacked Title/Phone cards.
+                    check(app.note_body.winfo_rootx() > app.note_list.winfo_rootx(),
+                          "Dashboard Notes editor must sit to the right of the note list")
+                    check(app.title_entry.winfo_rooty() == app.phone_entry.winfo_rooty(),
+                          "Dashboard Notes title and phone should share one compact row")
+                    check(app.note_body.winfo_width() >= 350,
+                          "Dashboard Notes editor must be substantially wider than Normal")
+                    check(app.note_body.winfo_height() >= 250,
+                          "Dashboard Notes editor does not have enough writing height")
+                    check(app.title_entry.winfo_exists() and app.phone_entry.winfo_exists(),
+                          "Dashboard Notes title or phone input is missing")
+                    check(app.reminder_action.winfo_exists() and app.save_status.winfo_exists(),
+                          "Dashboard Notes lost reminders or autosave indicator")
                 if page == "commands" and mode == "dashboard":
                     check(str(app.command_panes.cget("orient")) == "horizontal",
                           "Dashboard Commands should use side-by-side panes")

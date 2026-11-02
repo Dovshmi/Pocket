@@ -36,3 +36,9 @@ Pocket_Commands_One_Library/
 
 # Legacy screenshots from manual smoke runs are generated, not source assets.
 preview-*.png
+
+# Pocket personal data recovery (never commit old note contents)
+**/data-recovery.json
+**/data-corrupt-*.json
+**/notepad/
+**/backups/

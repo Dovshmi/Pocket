@@ -110,7 +110,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 if page == "commands" and mode == "dashboard":
                     check(str(app.command_panes.cget("orient")) == "horizontal",
                           "Dashboard Commands should use side-by-side panes")
-                    print("DASHBOARD_COMMAND_TREE_HEIGHT", repr(app.command_tree.cget("height")),\n                          "GEOMETRY", app.command_tree.winfo_width(), app.command_tree.winfo_height(),\n                          "MODE", app.display_mode, flush=True)\n                    check(int(app.command_tree.cget("height")) >= 14,
+                    print("DASHBOARD_COMMAND_TREE_HEIGHT", repr(app.command_tree.cget("height")),
+                          "GEOMETRY", app.command_tree.winfo_width(), app.command_tree.winfo_height(),
+                          "MODE", app.display_mode, flush=True)\n                    check(int(app.command_tree.cget("height")) >= 14,
                           "Dashboard Commands must show more than four results")
                     check(app.command_code.winfo_rootx() > app.command_tree.winfo_rootx(),
                           "Dashboard command editor should be to the right of results")

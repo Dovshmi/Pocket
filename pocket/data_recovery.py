@@ -62,6 +62,8 @@ def save_profile(path: Path, data: dict) -> None:
     content = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     if path.is_file():
         previous = path.read_bytes()
+        if previous == content:
+            return  # Don't churn disk or recovery snapshot if nothing changed.
         try:
             validate_payload(json.loads(previous))
         except (ValueError, TypeError, UnicodeError):

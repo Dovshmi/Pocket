@@ -37,6 +37,16 @@ class DataRecoveryTests(unittest.TestCase):
             app["save_data"](path, restored)
             self.assertEqual(app["load_data"](path)["notes"][0]["body"], "Important עברית content")
 
+    def test_unchanged_save_does_not_generate_redundant_snapshot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "data.json"
+            record = app["default_data"]()
+            app["save_data"](path, record)
+            before = path.read_bytes()
+            app["save_data"](path, record)
+            self.assertEqual(path.read_bytes(), before)
+            self.assertFalse(data_recovery.snapshot_path(path).exists())
+
     def test_without_snapshot_preserves_corruption_and_reports_fallback(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "data.json"

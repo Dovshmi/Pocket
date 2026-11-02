@@ -116,6 +116,15 @@ def build(app):
     panes.add(details, minsize=295, stretch="never")
     app.command_panes = panes
 
+    def balance_columns():
+        # Tk's initial sash position can collapse the library to its minimum
+        # while giving nearly all free width to the editor. Start at 59/41
+        # instead; users may still drag the sash to their preferred split.
+        if panes.winfo_exists() and panes.winfo_width() >= 730:
+            panes.sash_place(0, round(panes.winfo_width() * 0.59), 1)
+
+    panes.after_idle(balance_columns)
+
     result_header = tk.Frame(results, bg=panel)
     result_header.pack(fill="x", padx=12, pady=(11, 2))
     tk.Label(result_header, text="REFERENCE LIBRARY", bg=panel, fg=white,

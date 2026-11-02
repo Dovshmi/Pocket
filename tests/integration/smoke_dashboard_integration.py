@@ -112,7 +112,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Dashboard Commands should use side-by-side panes")
                     print("DASHBOARD_COMMAND_TREE_HEIGHT", repr(app.command_tree.cget("height")),
                           "GEOMETRY", app.command_tree.winfo_width(), app.command_tree.winfo_height(),
-                          "MODE", app.display_mode, flush=True)\n                    check(int(app.command_tree.cget("height")) >= 14,
+                          "MODE", app.display_mode, flush=True)
+                    check(int(app.command_tree.cget("height")) >= 14,
                           "Dashboard Commands must show more than four results")
                     check(app.command_code.winfo_rootx() > app.command_tree.winfo_rootx(),
                           "Dashboard command editor should be to the right of results")

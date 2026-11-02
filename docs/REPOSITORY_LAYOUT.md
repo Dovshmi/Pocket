@@ -59,3 +59,11 @@ Never commit `data.json`, personal command libraries, `vendors.json`, exported n
 The root has only active entry points, current dependencies and build scripts. Unit tests and old GUI scripts are no longer mixed with runtime sources. Historical release YAML is stored under `docs/archive/`; GitHub Actions ignores those files. If a future version is released, add or replace a **new** gated workflow rather than reactivating an older workflow with stale asset names.
 
 The original test coverage and existing runtime behavior were kept, including Mini note-arrow controls, native RTL Notes editing, Smart Templates, and portable AppData isolation. Full Windows and Linux regression suites and packaged-EXE checks are required before the cleanup branch is merged.
+
+## Recovery and background reliability
+
+The app now keeps a single rolling, **last valid previous** copy of the personal `data.json` under `data-recovery.json`, in the same local data directory. If the primary file cannot be decoded or validated, Pocket moves it to a uniquely named `data-corrupt-*.json` and tries the saved recovery copy. Pocket warns the user when recovery occurs, even if only defaults can be loaded. Existing corrupted content is not silently overwritten when quarantine fails. Writes use validated, fsynced temporary files and atomic replacement.
+
+These files can contain **personal notes and shortcuts**. They are ignored by Git and excluded from public release packaging. Do not upload them to issue reports. This mechanism applies only to `data.json`; command library `commands.json` backups remain **manual-only**.
+
+The `pocket/note_model.py` module owns pure note creation, normalization, timestamps and reminder rules, while the existing UI methods keep Mini note-arrow behavior and Win32 RichEdit focus management. The `pocket/task_manager.py` module owns the five recurring local Tk callbacks (clipboard, reminders, Notepad synchronization, RichEdit polling and queued events), schedules them once, reports exceptions and cancels them at shutdown. None of these tasks starts network access; the port checker and IEEE MAC-registry download remain explicit user operations.

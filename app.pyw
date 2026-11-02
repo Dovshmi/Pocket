@@ -38,6 +38,7 @@ from pocket import note_sync
 from pocket import native_bidi
 from pocket import mini_layout as mini
 from pocket import dashboard_ui as dashboard
+from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
@@ -1045,7 +1046,7 @@ class PocketDesk:
             for key, button in self.tab_buttons.items():
                 button.config(fg=ACCENT if key == which else SECONDARY,
                               bg=ACCENT_DARK if key == which else BG)
-        if which == "commands" and self.display_mode in ("normal", "dashboard", "compact"):
+        if which == "commands" and self.display_mode in ("normal", "compact"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
@@ -2712,6 +2713,8 @@ class PocketDesk:
                      ).pack(side="right", padx=(0, 5))
 
     def _build_commands(self):
+        if self.display_mode == "dashboard":
+            return dashboard_commands.build(self)
         if self.display_mode == "mini":
             return self._build_mini_commands()
         # Normal title and manual actions are drawn above the scrolling region

@@ -41,6 +41,7 @@ from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import dashboard_notes_ui as dashboard_notes
 from pocket import dashboard_shortcuts_ui as dashboard_shortcuts
+from pocket import dashboard_settings_ui as dashboard_settings
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
@@ -1287,7 +1288,9 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
-        """Modern themed Settings, shared by Normal, Mini and Dashboard."""
+        """Mode-aware preferences; preserve the original Normal and Mini UI."""
+        if self.display_mode == "dashboard":
+            return dashboard_settings.build(self, self.body)
         return settings_ui.build_settings(self, self.body)
 
     def _task_error(self, name, error):

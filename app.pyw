@@ -48,6 +48,7 @@ from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
 from pocket import normal_navigation
+from pocket.task_manager import TaskManager
 from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
 
 try:
@@ -294,7 +295,7 @@ class PocketDesk:
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
         self._quick_search_dialog = None
-        self._clipboard_job = None
+        self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
@@ -406,11 +407,13 @@ class PocketDesk:
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
-        self.root.after(120, self._poll_events)
-        self.root.after(650, self._clipboard_poll)
-        self.root.after(2500, self._reminder_poll)
-        self.root.after(1200, self._notepad_poll)
-        self.root.after(350, self._bidi_poll)
+        # One owner for all local periodic callbacks; no duplicate timer chains.
+        self.tasks = TaskManager(self.root, on_error=self._task_error)
+        self.tasks.every("events", 100, self._poll_events, initial_ms=120)
+        self.tasks.every("clipboard", 600, self._clipboard_poll, initial_ms=650)
+        self.tasks.every("reminders", 1500, self._reminder_poll, initial_ms=2500)
+        self.tasks.every("notepad", 1200, self._notepad_poll)
+        self.tasks.every("notes-editor", 350, self._bidi_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -1262,6 +1265,10 @@ class PocketDesk:
         """Modern themed Settings, shared by Normal, Mini and Dashboard."""
         return settings_ui.build_settings(self, self.body)
 
+    def _task_error(self, name, error):
+        # Periodic UI callbacks must not disappear silently after an exception.
+        print(f"Pocket task {name} failed: {error}", file=sys.stderr)
+
     def _clipboard_poll(self):
         if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
             try:
@@ -1276,7 +1283,7 @@ class PocketDesk:
                         self._refresh_clipboard()
             except (tk.TclError, RuntimeError):
                 pass
-        self._clipboard_job = self.root.after(600, self._clipboard_poll)
+
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
@@ -1956,17 +1963,13 @@ class PocketDesk:
         return self.bidi_editor is not None and self._bidi_editor_active and self.current_tab == "notes"
 
     def _bidi_poll(self):
-        try:
-            if self._bidi_active() and not self._loading_note:
-                note = self.active_note()
-                if note is not None:
-                    content = self.bidi_editor.get_text()
-                    if note["body"] != content:
-                        note["body"] = content
-                        self._edit_dirty()
-        finally:
-            if self.root.winfo_exists():
-                self.root.after(350, self._bidi_poll)
+        if self._bidi_active() and not self._loading_note:
+            note = self.active_note()
+            if note is not None:
+                content = self.bidi_editor.get_text()
+                if note["body"] != content:
+                    note["body"] = content
+                    self._edit_dirty()
 
     def _selected_note_text(self) -> str:
         if self._bidi_active():
@@ -3752,62 +3755,58 @@ class PocketDesk:
 
     def _notepad_poll(self):
         """Import Notepad changes after Ctrl+S; protect simultaneous Pocket edits."""
-        try:
-            notes_by_id = {note["id"]: note for note in self.data["notes"]}
-            for note_id, session in list(self._notepad_sessions.items()):
-                note = notes_by_id.get(note_id)
-                if note is None:
-                    self._notepad_sessions.pop(note_id, None)
-                    continue
-                path = session["path"]
+        notes_by_id = {note["id"]: note for note in self.data["notes"]}
+        for note_id, session in list(self._notepad_sessions.items()):
+            note = notes_by_id.get(note_id)
+            if note is None:
+                self._notepad_sessions.pop(note_id, None)
+                continue
+            path = session["path"]
+            try:
+                external = note_sync.read_text(path)
+            except FileNotFoundError:
+                # A deleted working file may be recreated on the next Open.
+                self._notepad_sessions.pop(note_id, None)
+                continue
+            except (OSError, UnicodeError) as exc:
+                print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
+                continue
+            if external == session["baseline"] or external == session.get("dismissed"):
+                continue
+            # Flush the current widget before comparing versions. A modified
+            # event might still be waiting in Tk's event queue.
+            if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                self._flush_current_note()
+            if note["body"] != session["baseline"]:
+                self._modal = True
                 try:
-                    external = note_sync.read_text(path)
-                except FileNotFoundError:
-                    # A deleted working file may be recreated on the next Open.
-                    self._notepad_sessions.pop(note_id, None)
+                    answer = messagebox.askyesnocancel(
+                        "Note changed in two places",
+                        "This note changed in both Pocket and Notepad.\\n\\n"
+                        "Yes: use Notepad's saved text.\\n"
+                        "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
+                        "Cancel: leave both versions unchanged.",
+                        parent=self.root)
+                finally:
+                    self._modal = False
+                if answer is None:
+                    session["dismissed"] = external
                     continue
-                except (OSError, UnicodeError) as exc:
-                    print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
-                    continue
-                if external == session["baseline"] or external == session.get("dismissed"):
-                    continue
-                # Flush the current widget before comparing versions. A modified
-                # event might still be waiting in Tk's event queue.
-                if self.current_tab == "notes" and self.data["active_note"] == note_id:
-                    self._flush_current_note()
-                if note["body"] != session["baseline"]:
-                    self._modal = True
+                if answer is False:
                     try:
-                        answer = messagebox.askyesnocancel(
-                            "Note changed in two places",
-                            "This note changed in both Pocket and Notepad.\\n\\n"
-                            "Yes: use Notepad's saved text.\\n"
-                            "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
-                            "Cancel: leave both versions unchanged.",
-                            parent=self.root)
-                    finally:
-                        self._modal = False
-                    if answer is None:
+                        recovery = note_sync.preserve_conflict(path, external)
+                        note_sync.write_text(path, note["body"])
+                    except OSError as exc:
+                        messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
                         session["dismissed"] = external
                         continue
-                    if answer is False:
-                        try:
-                            recovery = note_sync.preserve_conflict(path, external)
-                            note_sync.write_text(path, note["body"])
-                        except OSError as exc:
-                            messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
-                            session["dismissed"] = external
-                            continue
-                        session["baseline"] = note["body"]
-                        session["dismissed"] = None
-                        print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
-                        continue
-                self._import_notepad_body(note, external)
-                session["baseline"] = external
-                session["dismissed"] = None
-        finally:
-            if self.root.winfo_exists():
-                self.root.after(1200, self._notepad_poll)
+                    session["baseline"] = note["body"]
+                    session["dismissed"] = None
+                    print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
+                    continue
+            self._import_notepad_body(note, external)
+            session["baseline"] = external
+            session["dismissed"] = None
 
     def open_notepad(self):
         """Edit a note using its stable local file; saved changes sync into Pocket."""
@@ -4035,7 +4034,7 @@ class PocketDesk:
                 else:
                     self.events.put(("note_reminder", (note["id"], title, message)))
                 self._refresh_note_reminder_ui()
-        self.root.after(1500, self._reminder_poll)
+
 
     def _notify(self, title, message):
         if self.tray and not self.tray.error:
@@ -4113,10 +4112,12 @@ class PocketDesk:
                     self.quit()
         except queue.Empty:
             pass
-        self.root.after(100, self._poll_events)
+
 
     def quit(self):
         self.scan_cancel.set()
+        if self.tasks is not None:
+            self.tasks.stop()
         self._write_now()
         if self.tray:
             self.tray.stop()

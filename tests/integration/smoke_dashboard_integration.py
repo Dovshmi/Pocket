@@ -107,6 +107,20 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "commands" and mode == "dashboard":
+                    check(str(app.command_panes.cget("orient")) == "horizontal",
+                          "Dashboard Commands should use side-by-side panes")
+                    check(int(app.command_tree.cget("height")) >= 14,
+                          "Dashboard Commands must show more than four results")
+                    check(app.command_code.winfo_rootx() > app.command_tree.winfo_rootx(),
+                          "Dashboard command editor should be to the right of results")
+                    check(app.command_tree.winfo_height() >= 200,
+                          "Dashboard results table has too little vertical room")
+                if page == "commands" and mode == "normal":
+                    check(str(app.command_panes.cget("orient")) == "vertical",
+                          "Normal Commands split should remain vertical")
+                    check(int(app.command_tree.cget("height")) == 4,
+                          "Normal Commands list should retain four-row layout")
                 if page == "commands":
                     check(hasattr(app, "smart_template_edit") and
                           app.smart_template_edit.winfo_exists(),

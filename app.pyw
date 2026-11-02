@@ -39,6 +39,7 @@ from pocket import native_bidi
 from pocket import mini_layout as mini
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
+from pocket import dashboard_notes_ui as dashboard_notes
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
@@ -1528,6 +1529,8 @@ class PocketDesk:
         self.schedule_save()
 
     def _build_notes(self):
+        if self.display_mode == "dashboard":
+            return dashboard_notes.build(self)
         if self.display_mode == "mini":
             return self._build_mini_notes()
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
@@ -1686,7 +1689,8 @@ class PocketDesk:
         self.note_list.delete(0, tk.END)
         for i, n in enumerate(self._note_rows):
             marker = "★ " if n.get("pinned") else "  "
-            self.note_list.insert(tk.END, marker + (n["title"].strip() or "Untitled")[:18])
+            title_chars = 27 if self.display_mode == "dashboard" else 18
+            self.note_list.insert(tk.END, marker + (n["title"].strip() or "Untitled")[:title_chars])
             if n["id"] == self.data["active_note"]:
                 self.note_list.selection_set(i)
                 self.note_list.activate(i)

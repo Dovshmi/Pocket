@@ -40,6 +40,7 @@ from pocket import mini_layout as mini
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import dashboard_notes_ui as dashboard_notes
+from pocket import dashboard_shortcuts_ui as dashboard_shortcuts
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
@@ -2244,6 +2245,8 @@ class PocketDesk:
         self._delete_note_by_id(self.data["active_note"])
 
     def _build_links(self):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.build(self)
         self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
         search_row = tk.Frame(self.body, bg=BG)
         search_row.pack(fill="x", pady=(0, 8))
@@ -2351,6 +2354,8 @@ class PocketDesk:
     def refresh_links(self):
         if self.current_tab != "links":
             return
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.refresh(self)
         for child in self.links_stack.winfo_children():
             child.destroy()
         matches = hk.filter_shortcuts(self.data["links"], self.link_query.get())
@@ -2421,6 +2426,8 @@ class PocketDesk:
         self.schedule_save()
 
     def _toggle_link_form(self, item, *, draft=None):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.toggle_form(self, item, draft=draft)
         for child in self.form_holder.winfo_children():
             child.destroy()
         self.edit_link_id = item["id"] if item else None
@@ -2491,6 +2498,8 @@ class PocketDesk:
                 title_var.set(Path(target).name or target)
 
     def _close_form(self):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.close_form(self)
         for child in self.form_holder.winfo_children():
             child.destroy()
         # Crucial: remove the holder itself from the pack layout. Simply

@@ -20,7 +20,7 @@ def package():
     bundled = APP_DIR / "_internal" / "commands" / "example_commands.json"
     if not bundled.is_file():
         raise FileNotFoundError("Safe example command library not bundled.")
-    from command_store import read_document
+    from pocket.command_store import read_document
     read_document(bundled)
     # Generated staging only. Exclude any local data, private commands,
     # backups, cached vendors and application notes from the distributable.
@@ -29,7 +29,8 @@ def package():
     PACKAGE_DIR.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(APP_DIR, PACKAGE_DIR,
                     ignore=shutil.ignore_patterns(
-                        "data", "data.json", "vendors.json", "commands.json",
+                        "data", "data.json", "data-recovery.json",
+                        "data-corrupt-*.json", "vendors.json", "commands.json",
                         "notepad", "notepad_exports", "backups", "*.log"))
     (PACKAGE_DIR / "portable.flag").write_text(
         "Pocket Portable: store all application data inside the data folder.\n",

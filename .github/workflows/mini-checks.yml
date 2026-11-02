@@ -2,7 +2,7 @@ name: Pocket regression checks
 
 on:
   push:
-    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish]
+    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish, chore/repository-cleanup-v131]
   pull_request:
     branches: [main, feature/dashboard-ui-refresh]
   workflow_dispatch:
@@ -23,7 +23,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
       - name: Compile Pocket
-        run: python -m py_compile app.pyw mini_layout.py dashboard_ui.py compact_dashboard.py settings_ui.py pocket_design.py quick_search.py clipboard_policy.py smart_templates.py template_ui.py launcher_pages.py launcher_picker.py launcher_extra_ui.py native_bidi.py note_sync.py single_instance.py tool_icons.py normal_navigation.py
+        run: python -m py_compile app.pyw
+      - name: Compile pocket package
+        run: python -m compileall -q pocket
       - name: Run unit tests
         run: python -m unittest discover -v
 
@@ -49,12 +51,12 @@ jobs:
         if: runner.os == 'Windows'
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
-        run: python smoke_dashboard_integration.py
+        run: python tests/integration/smoke_dashboard_integration.py
       - name: Exercise Pocket UI (Linux virtual display)
         if: runner.os == 'Linux'
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
-        run: xvfb-run -a -s "-screen 0 1920x1200x24" python smoke_dashboard_integration.py
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
       # A one-time, opt-in documentation refresh. Ordinary test runs do not
       # mutate tracked images or cause screenshot-only commit noise.
       - name: Publish selected real Windows screenshots for README
@@ -120,9 +122,12 @@ jobs:
               names = archive.namelist()
               assert "Pocket-Portable/PocketDesk.exe" in names
               assert any(name.endswith("/commands/example_commands.json") for name in names)
-              forbidden = ("data.json", "vendors.json", "notepad/", "backups/", "commands/commands.json")
+              forbidden = ("data.json", "data-recovery.json", "vendors.json",
+                           "notepad/", "backups/", "commands/commands.json")
               for path in names:
                   assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
+                  assert not any(part.startswith("data-corrupt-") and part.endswith(".json")
+                                 for part in path.split("/")), path
               assert archive.testzip() is None, "ZIP integrity failure"
           print("PASS: runnable portable EXE is packaged with only the public command seed")
       - name: Make downloadable branch-preview ZIP

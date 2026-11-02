@@ -21,33 +21,40 @@ import time
 import uuid
 import webbrowser
 from urllib.parse import urlsplit
-import shortcut_utils as shortcuts
-import shortcut_drop
+from pocket import shortcut_utils as shortcuts
+from pocket import shortcut_drop
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
-import network_tools as net
-import command_helper as ch
-import smart_templates as smart
-import template_ui
-import command_store as cs
-import subnet_calculator as subnet
-import icon_themes as themes
-import hotkey_settings as hk
-import note_sync
-import native_bidi
-import mini_layout as mini
-import dashboard_ui as dashboard
-import compact_dashboard as compact
-import launcher_pages as lp
-import settings_ui
-import pocket_design as design
-import quick_search
-import clipboard_policy
-import single_instance
-import portable_storage
-import tool_icons
-import normal_navigation
+from pocket import network_tools as net
+from pocket import command_helper as ch
+from pocket import smart_templates as smart
+from pocket import template_ui
+from pocket import command_store as cs
+from pocket import subnet_calculator as subnet
+from pocket import icon_themes as themes
+from pocket import hotkey_settings as hk
+from pocket import note_sync
+from pocket import native_bidi
+from pocket import mini_layout as mini
+from pocket import dashboard_ui as dashboard
+from pocket import dashboard_commands_ui as dashboard_commands
+from pocket import dashboard_notes_ui as dashboard_notes
+from pocket import dashboard_shortcuts_ui as dashboard_shortcuts
+from pocket import dashboard_settings_ui as dashboard_settings
+from pocket import compact_dashboard as compact
+from pocket import launcher_pages as lp
+from pocket import settings_ui
+from pocket import pocket_design as design
+from pocket import quick_search
+from pocket import clipboard_policy
+from pocket import single_instance
+from pocket import portable_storage
+from pocket import tool_icons
+from pocket import normal_navigation
+from pocket import data_recovery
+from pocket.task_manager import TaskManager
+from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -99,74 +106,6 @@ def clamp_window_position(x: int, y: int, width: int, height: int,
     left, top, right, bottom = work_area
     return (max(left, min(x, max(left, right - width))),
             max(top, min(y, max(top, bottom - height))))
-
-
-def new_note(title="Untitled note", body="", phone="") -> dict:
-    return {"id": new_id(), "title": title, "body": body, "phone": phone,
-            "created_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "pinned": False, "direction": "ltr",
-            "reminder_enabled": False, "reminder_at": "", "reminder_sent_at": ""}
-
-
-def ordered_notes(notes: list[dict]) -> list[dict]:
-    """Pinned notes first; preserve the original order within both groups."""
-    return sorted(notes, key=lambda note: not (note.get("pinned") is True))
-
-
-def duplicate_note(original: dict) -> dict:
-    """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
-    copy = new_note(f"{original.get('title', 'Untitled note')} (copy)",
-                    original.get('body', ''), original.get('phone', ''))
-    copy["direction"] = normalize_note_direction(original.get("direction"))
-    return copy
-
-
-def normalize_note_direction(value) -> str:
-    """Existing notes remain left-aligned; only explicit RTL is accepted."""
-    return "rtl" if value == "rtl" else "ltr"
-
-
-def display_created_at(value: str) -> str:
-    """Show genuine creation timestamps in local time; never invent legacy dates."""
-    if not value:
-        return "Created: unknown (older note)"
-    try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            return "Created: unknown"
-        return "Created: " + parsed.astimezone().strftime("%d %b %Y, %H:%M")
-    except (ValueError, TypeError, OverflowError):
-        return "Created: unknown"
-
-
-def export_note_for_notepad(note: dict, output_dir: Path) -> Path:
-    """Save a one-off UTF-8 copy of the selected note for Windows Notepad.
-
-    A fresh snapshot avoids overwriting previous edits made in Notepad.
-    Notepad snapshots do not synchronize edits back to the application's data.
-    """
-    title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", note.get("title", "Note"))
-    title = title.strip(" .")[:40] or "Note"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"PocketDesk_{title}_{stamp}_{uuid.uuid4().hex[:8]}.txt"
-    target = output_dir / filename
-    with target.open("x", encoding="utf-8-sig", newline="") as stream:
-        stream.write(note.get("body", ""))
-    return target
-
-
-def note_selection_ip(selected: str) -> str | None:
-    """Return a literal selected IP, with no hostname resolution or network call."""
-    selected = selected.strip()
-    try:
-        return str(ipaddress.ip_address(selected))
-    except ValueError:
-        return None
-
-
-def note_command_query(selected: str) -> str:
-    """Compact a selection for Commands search, avoiding accidental huge queries."""
-    return " ".join(selected.split())[:250]
 
 
 def new_link(title, url, kind="url") -> dict:
@@ -225,53 +164,6 @@ def normalize_settings(raw):
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False}
 
 
-def parse_reminder_time(date_text, time_text, now=None):
-    """Validate a future local time, stored with the local UTC offset."""
-    try:
-        scheduled = datetime.strptime(f"{date_text.strip()} {time_text.strip()}",
-                                      "%Y-%m-%d %H:%M").astimezone()
-    except (ValueError, AttributeError) as exc:
-        raise ValueError("Use a valid date YYYY-MM-DD and time HH:MM.") from exc
-    if scheduled <= (now or datetime.now().astimezone()):
-        raise ValueError("Choose a future date and time.")
-    return scheduled.isoformat(timespec="minutes")
-
-
-def normalize_note_reminder(note):
-    """Migrate previous note records without inventing reminder times."""
-    raw = note.get("reminder_at")
-    try:
-        when = datetime.fromisoformat(raw) if isinstance(raw, str) and raw else None
-    except ValueError:
-        when = None
-    valid = when is not None and when.tzinfo is not None
-    note["reminder_at"] = raw if valid else ""
-    note["reminder_enabled"] = valid and note.get("reminder_enabled") is True
-    note["reminder_sent_at"] = (note.get("reminder_sent_at", "")
-                                if isinstance(note.get("reminder_sent_at", ""), str) else "")
-    return note
-
-
-def reminder_is_due(note, now=None):
-    if not note.get("reminder_enabled") or note.get("reminder_sent_at"):
-        return False
-    try:
-        scheduled = datetime.fromisoformat(note["reminder_at"])
-        return scheduled.tzinfo is not None and scheduled <= (now or datetime.now().astimezone())
-    except (ValueError, TypeError, KeyError):
-        return False
-
-
-def format_reminder(note):
-    if not note.get("reminder_enabled"):
-        return "No reminder"
-    try:
-        when = datetime.fromisoformat(note["reminder_at"]).astimezone()
-        return when.strftime("%d %b %Y · %H:%M") + (" · sent" if note.get("reminder_sent_at") else "")
-    except (ValueError, TypeError, KeyError):
-        return "No reminder"
-
-
 def sanitize_clipboard(value):
     """Keep only reasonable text snippets, never empty or gigantic payloads."""
     if not isinstance(value, str) or not value.strip() or len(value) > 20000:
@@ -294,18 +186,16 @@ def clipboard_add(items, value, maximum=100):
     return items
 
 
-def load_data(path: Path) -> dict:
+def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
     if not path.exists():
         return default_data()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError("Root must be a JSON object")
-        notes = data.get("notes")
-        links = data.get("links")
-        if not isinstance(notes, list) or not isinstance(links, list):
-            raise ValueError("Notes and links must be lists")
-        notes = [n for n in notes if isinstance(n, dict) and all(isinstance(n.get(k), str) for k in ("id", "title", "body"))]
+        data_recovery.validate_payload(data)
+        notes = data["notes"]
+        links = data["links"]
         # Older notes have no recorded creation time. Keep it unknown instead of
         # pretending that the migration/first load was when they were created.
         for note in notes:
@@ -317,7 +207,6 @@ def load_data(path: Path) -> dict:
             note["pinned"] = note.get("pinned") is True
             note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
-        links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
                 link["kind"] = "url"
@@ -352,24 +241,25 @@ def load_data(path: Path) -> dict:
                 "theme": themes.valid_theme(data.get("theme")),
                 "settings": normalize_settings(data.get("settings")),
                 "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
-    except (OSError, ValueError, TypeError):
-        # Keep the damaged data available for manual recovery; don't silently overwrite it.
-        backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
-        try:
-            path.rename(backup)
-        except OSError:
-            pass
-        return default_data()
+    except (OSError, ValueError, TypeError, UnicodeError) as error:
+        if _retry:
+            raise  # A recovery snapshot must never itself be renamed.
+        # Don't reset and overwrite damaged data unless it was preserved.
+        archived = data_recovery.quarantine(path)
+        snapshot = data_recovery.snapshot_path(path)
+        restored = None
+        if snapshot.is_file():
+            try:
+                restored = load_data(snapshot, _retry=True)
+            except (OSError, ValueError, TypeError, UnicodeError):
+                pass
+        if on_recovery is not None:
+            on_recovery(archived, snapshot if restored is not None else None, error)
+        return restored if restored is not None else default_data()
 
 
 def save_data(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(".tmp")
-    with temp.open("w", encoding="utf-8") as stream:
-        json.dump(data, stream, ensure_ascii=False, indent=2)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temp, path)
+    return data_recovery.save_profile(path, data)
 
 
 def normalize_url(raw: str) -> str:
@@ -399,7 +289,9 @@ class PocketDesk:
         self.preview = preview
         self.portable = portable_storage.is_portable()
         self.path = data_file()
-        self.data = load_data(self.path)
+        self.recovery_notice = None
+        self.data = load_data(self.path, on_recovery=self._record_recovery)
+        self._save_failure_reported = False
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
         self.display_mode = self.settings["display_mode"]
@@ -408,7 +300,7 @@ class PocketDesk:
         self.clipboard_items = []  # Session-only: never write copied text to disk.
         self._clipboard_last = None
         self._quick_search_dialog = None
-        self._clipboard_job = None
+        self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
@@ -520,11 +412,13 @@ class PocketDesk:
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
             self.root.bind(f"<{key}>", lambda event, delta=step: self._mini_keyboard_step(event, delta))
         self.root.bind("<FocusOut>", self._focus_lost)
-        self.root.after(120, self._poll_events)
-        self.root.after(650, self._clipboard_poll)
-        self.root.after(2500, self._reminder_poll)
-        self.root.after(1200, self._notepad_poll)
-        self.root.after(350, self._bidi_poll)
+        # One owner for all local periodic callbacks; no duplicate timer chains.
+        self.tasks = TaskManager(self.root, on_error=self._task_error)
+        self.tasks.every("events", 100, self._poll_events, initial_ms=120)
+        self.tasks.every("clipboard", 600, self._clipboard_poll, initial_ms=650)
+        self.tasks.every("reminders", 1500, self._reminder_poll, initial_ms=2500)
+        self.tasks.every("notepad", 1200, self._notepad_poll)
+        self.tasks.every("notes-editor", 350, self._bidi_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -532,6 +426,27 @@ class PocketDesk:
             self.root.after(250, self._check_tray)
         else:
             self.root.after(50, lambda: self._place_popup(None))
+        if self.recovery_notice is not None and not self.preview:
+            self.root.after(900, self._show_recovery_notice)
+
+    def _record_recovery(self, archived, snapshot, error):
+        self.recovery_notice = (archived, snapshot)
+
+    def _show_recovery_notice(self):
+        archived, snapshot = self.recovery_notice
+        if snapshot is not None:
+            detail = "Pocket restored the previous valid data-recovery.json snapshot."
+        else:
+            detail = "Pocket started with default data. Inspect the preserved damaged file to recover your notes."
+        self._modal = True
+        try:
+            messagebox.showwarning(
+                "Pocket recovered damaged data",
+                f"{detail}\n\nThe damaged original was preserved at:\n{archived}\n\n"
+                "Close Pocket before restoring a backup. Keep your data folder safe.",
+                parent=self.root)
+        finally:
+            self._modal = False
 
     @staticmethod
     def bundle_path(*parts):
@@ -1134,7 +1049,7 @@ class PocketDesk:
             for key, button in self.tab_buttons.items():
                 button.config(fg=ACCENT if key == which else SECONDARY,
                               bg=ACCENT_DARK if key == which else BG)
-        if which == "commands" and self.display_mode in ("normal", "dashboard", "compact"):
+        if which == "commands" and self.display_mode in ("normal", "compact"):
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
@@ -1373,8 +1288,14 @@ class PocketDesk:
         self.show_tab("settings")
 
     def _build_settings(self):
-        """Modern themed Settings, shared by Normal, Mini and Dashboard."""
+        """Mode-aware preferences; preserve the original Normal and Mini UI."""
+        if self.display_mode == "dashboard":
+            return dashboard_settings.build(self, self.body)
         return settings_ui.build_settings(self, self.body)
+
+    def _task_error(self, name, error):
+        # Periodic UI callbacks must not disappear silently after an exception.
+        print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
     def _clipboard_poll(self):
         if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
@@ -1390,7 +1311,7 @@ class PocketDesk:
                         self._refresh_clipboard()
             except (tk.TclError, RuntimeError):
                 pass
-        self._clipboard_job = self.root.after(600, self._clipboard_poll)
+
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
@@ -1612,6 +1533,8 @@ class PocketDesk:
         self.schedule_save()
 
     def _build_notes(self):
+        if self.display_mode == "dashboard":
+            return dashboard_notes.build(self)
         if self.display_mode == "mini":
             return self._build_mini_notes()
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
@@ -1770,7 +1693,8 @@ class PocketDesk:
         self.note_list.delete(0, tk.END)
         for i, n in enumerate(self._note_rows):
             marker = "★ " if n.get("pinned") else "  "
-            self.note_list.insert(tk.END, marker + (n["title"].strip() or "Untitled")[:18])
+            title_chars = 27 if self.display_mode == "dashboard" else 18
+            self.note_list.insert(tk.END, marker + (n["title"].strip() or "Untitled")[:title_chars])
             if n["id"] == self.data["active_note"]:
                 self.note_list.selection_set(i)
                 self.note_list.activate(i)
@@ -2070,17 +1994,13 @@ class PocketDesk:
         return self.bidi_editor is not None and self._bidi_editor_active and self.current_tab == "notes"
 
     def _bidi_poll(self):
-        try:
-            if self._bidi_active() and not self._loading_note:
-                note = self.active_note()
-                if note is not None:
-                    content = self.bidi_editor.get_text()
-                    if note["body"] != content:
-                        note["body"] = content
-                        self._edit_dirty()
-        finally:
-            if self.root.winfo_exists():
-                self.root.after(350, self._bidi_poll)
+        if self._bidi_active() and not self._loading_note:
+            note = self.active_note()
+            if note is not None:
+                content = self.bidi_editor.get_text()
+                if note["body"] != content:
+                    note["body"] = content
+                    self._edit_dirty()
 
     def _selected_note_text(self) -> str:
         if self._bidi_active():
@@ -2328,6 +2248,8 @@ class PocketDesk:
         self._delete_note_by_id(self.data["active_note"])
 
     def _build_links(self):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.build(self)
         self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
         search_row = tk.Frame(self.body, bg=BG)
         search_row.pack(fill="x", pady=(0, 8))
@@ -2435,6 +2357,8 @@ class PocketDesk:
     def refresh_links(self):
         if self.current_tab != "links":
             return
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.refresh(self)
         for child in self.links_stack.winfo_children():
             child.destroy()
         matches = hk.filter_shortcuts(self.data["links"], self.link_query.get())
@@ -2505,6 +2429,8 @@ class PocketDesk:
         self.schedule_save()
 
     def _toggle_link_form(self, item, *, draft=None):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.toggle_form(self, item, draft=draft)
         for child in self.form_holder.winfo_children():
             child.destroy()
         self.edit_link_id = item["id"] if item else None
@@ -2575,6 +2501,8 @@ class PocketDesk:
                 title_var.set(Path(target).name or target)
 
     def _close_form(self):
+        if self.display_mode == "dashboard":
+            return dashboard_shortcuts.close_form(self)
         for child in self.form_holder.winfo_children():
             child.destroy()
         # Crucial: remove the holder itself from the pack layout. Simply
@@ -2801,6 +2729,8 @@ class PocketDesk:
                      ).pack(side="right", padx=(0, 5))
 
     def _build_commands(self):
+        if self.display_mode == "dashboard":
+            return dashboard_commands.build(self)
         if self.display_mode == "mini":
             return self._build_mini_commands()
         # Normal title and manual actions are drawn above the scrolling region
@@ -3866,62 +3796,58 @@ class PocketDesk:
 
     def _notepad_poll(self):
         """Import Notepad changes after Ctrl+S; protect simultaneous Pocket edits."""
-        try:
-            notes_by_id = {note["id"]: note for note in self.data["notes"]}
-            for note_id, session in list(self._notepad_sessions.items()):
-                note = notes_by_id.get(note_id)
-                if note is None:
-                    self._notepad_sessions.pop(note_id, None)
-                    continue
-                path = session["path"]
+        notes_by_id = {note["id"]: note for note in self.data["notes"]}
+        for note_id, session in list(self._notepad_sessions.items()):
+            note = notes_by_id.get(note_id)
+            if note is None:
+                self._notepad_sessions.pop(note_id, None)
+                continue
+            path = session["path"]
+            try:
+                external = note_sync.read_text(path)
+            except FileNotFoundError:
+                # A deleted working file may be recreated on the next Open.
+                self._notepad_sessions.pop(note_id, None)
+                continue
+            except (OSError, UnicodeError) as exc:
+                print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
+                continue
+            if external == session["baseline"] or external == session.get("dismissed"):
+                continue
+            # Flush the current widget before comparing versions. A modified
+            # event might still be waiting in Tk's event queue.
+            if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                self._flush_current_note()
+            if note["body"] != session["baseline"]:
+                self._modal = True
                 try:
-                    external = note_sync.read_text(path)
-                except FileNotFoundError:
-                    # A deleted working file may be recreated on the next Open.
-                    self._notepad_sessions.pop(note_id, None)
+                    answer = messagebox.askyesnocancel(
+                        "Note changed in two places",
+                        "This note changed in both Pocket and Notepad.\\n\\n"
+                        "Yes: use Notepad's saved text.\\n"
+                        "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
+                        "Cancel: leave both versions unchanged.",
+                        parent=self.root)
+                finally:
+                    self._modal = False
+                if answer is None:
+                    session["dismissed"] = external
                     continue
-                except (OSError, UnicodeError) as exc:
-                    print(f"Pocket Notepad read failed: {exc}", file=sys.stderr)
-                    continue
-                if external == session["baseline"] or external == session.get("dismissed"):
-                    continue
-                # Flush the current widget before comparing versions. A modified
-                # event might still be waiting in Tk's event queue.
-                if self.current_tab == "notes" and self.data["active_note"] == note_id:
-                    self._flush_current_note()
-                if note["body"] != session["baseline"]:
-                    self._modal = True
+                if answer is False:
                     try:
-                        answer = messagebox.askyesnocancel(
-                            "Note changed in two places",
-                            "This note changed in both Pocket and Notepad.\\n\\n"
-                            "Yes: use Notepad's saved text.\\n"
-                            "No: use Pocket's text (a recovery copy of Notepad is kept).\\n"
-                            "Cancel: leave both versions unchanged.",
-                            parent=self.root)
-                    finally:
-                        self._modal = False
-                    if answer is None:
+                        recovery = note_sync.preserve_conflict(path, external)
+                        note_sync.write_text(path, note["body"])
+                    except OSError as exc:
+                        messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
                         session["dismissed"] = external
                         continue
-                    if answer is False:
-                        try:
-                            recovery = note_sync.preserve_conflict(path, external)
-                            note_sync.write_text(path, note["body"])
-                        except OSError as exc:
-                            messagebox.showerror("Notepad sync failed", str(exc), parent=self.root)
-                            session["dismissed"] = external
-                            continue
-                        session["baseline"] = note["body"]
-                        session["dismissed"] = None
-                        print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
-                        continue
-                self._import_notepad_body(note, external)
-                session["baseline"] = external
-                session["dismissed"] = None
-        finally:
-            if self.root.winfo_exists():
-                self.root.after(1200, self._notepad_poll)
+                    session["baseline"] = note["body"]
+                    session["dismissed"] = None
+                    print(f"Pocket preserved external edit at {recovery}", file=sys.stderr)
+                    continue
+            self._import_notepad_body(note, external)
+            session["baseline"] = external
+            session["dismissed"] = None
 
     def open_notepad(self):
         """Edit a note using its stable local file; saved changes sync into Pocket."""
@@ -3984,13 +3910,26 @@ class PocketDesk:
             self._save_job = None
         try:
             save_data(self.path, self.data)
-        except OSError as exc:
-            if self.current_tab == "notes":
+        except (OSError, ValueError, TypeError) as exc:
+            if self.current_tab == "notes" and hasattr(self, "save_status"):
                 self.save_status.config(text="Save failed!", fg=DANGER)
             print(f"PocketDesk save failed: {exc}", file=sys.stderr)
-            return
+            if not self._save_failure_reported:
+                self._save_failure_reported = True
+                self._modal = True
+                try:
+                    messagebox.showerror("Pocket could not save",
+                                         "Your latest changes were not saved.\n\n"
+                                         f"Reason: {exc}\n\n"
+                                         "Check disk permissions and free space before closing Pocket.",
+                                         parent=self.root)
+                finally:
+                    self._modal = False
+            return False
+        self._save_failure_reported = False
         if self.current_tab == "notes":
             self.save_status.config(text="Autosaved", fg=MUTED)
+        return True
 
     def _check_tray(self):
         if self.tray and self.tray.error:
@@ -4044,7 +3983,7 @@ class PocketDesk:
         if not saved and xy and sys.platform == "win32":
             py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
-        if self.display_mode in ("normal", "dashboard", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+        if self.display_mode in ("normal", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
             self.command_tree.configure(height=4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
@@ -4122,7 +4061,8 @@ class PocketDesk:
         self.root.focus_force()
 
     def hide(self):
-        self._write_now()
+        if self._write_now() is False:
+            return  # Retain the open window and unsaved data on disk error.
         if self.preview or not self.tray or self.tray.error:
             self.root.iconify()
         else:
@@ -4149,7 +4089,7 @@ class PocketDesk:
                 else:
                     self.events.put(("note_reminder", (note["id"], title, message)))
                 self._refresh_note_reminder_ui()
-        self.root.after(1500, self._reminder_poll)
+
 
     def _notify(self, title, message):
         if self.tray and not self.tray.error:
@@ -4227,11 +4167,14 @@ class PocketDesk:
                     self.quit()
         except queue.Empty:
             pass
-        self.root.after(100, self._poll_events)
+
 
     def quit(self):
+        if self._write_now() is False:
+            return  # Do not discard unsaved data when writing fails.
         self.scan_cancel.set()
-        self._write_now()
+        if self.tasks is not None:
+            self.tasks.stop()
         if self.tray:
             self.tray.stop()
         self.root.destroy()
@@ -4592,7 +4535,17 @@ def main(argv=None):
             else:
                 print(str(exc), file=sys.stderr)
             return 1
-        app = PocketDesk(preview=preview)
+        try:
+            app = PocketDesk(preview=preview)
+        except (OSError, ValueError, TypeError) as exc:
+            # Refuse to launch rather than overwrite a source file we could
+            # not quarantine or read safely. This also works in pythonw.exe.
+            message = f"Pocket could not open its data safely.\\n\\n{exc}\\n\\nNo data was overwritten."
+            if sys.platform == "win32":
+                ctypes.windll.user32.MessageBoxW(None, message, "Pocket startup error", 0x10)
+            else:
+                print(message, file=sys.stderr)
+            return 1
         if guard is not None:
             # Tk is not thread-safe: only enqueue. _poll_events does the show().
             guard.start(lambda: app.events.put(("activate_existing", None)))

@@ -122,9 +122,12 @@ jobs:
               names = archive.namelist()
               assert "Pocket-Portable/PocketDesk.exe" in names
               assert any(name.endswith("/commands/example_commands.json") for name in names)
-              forbidden = ("data.json", "vendors.json", "notepad/", "backups/", "commands/commands.json")
+              forbidden = ("data.json", "data-recovery.json", "vendors.json",
+                           "notepad/", "backups/", "commands/commands.json")
               for path in names:
                   assert not any(path.endswith(f) for f in forbidden), f"Sensitive data packaged: {path}"
+                  assert not any(part.startswith("data-corrupt-") and part.endswith(".json")
+                                 for part in path.split("/")), path
               assert archive.testzip() is None, "ZIP integrity failure"
           print("PASS: runnable portable EXE is packaged with only the public command seed")
       - name: Make downloadable branch-preview ZIP

@@ -110,12 +110,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 if page == "commands" and mode == "dashboard":
                     check(str(app.command_panes.cget("orient")) == "horizontal",
                           "Dashboard Commands should use side-by-side panes")
-                    print("DASHBOARD_COMMAND_TREE_HEIGHT", repr(app.command_tree.cget("height")),
-                          "GEOMETRY", app.command_tree.winfo_width(), app.command_tree.winfo_height(),
-                          "MODE", app.display_mode,
-                          "WINDOW", app.root.winfo_width(), "PANE", app.command_panes.winfo_width(),
-                          "DETAIL", app.command_code.winfo_width(),
-                          "SASH", app.command_panes.sash_coord(0), flush=True)
+                    if app.root.winfo_width() >= 1050:
+                        check(app.command_tree.winfo_width() >= 400,
+                              "Dashboard Commands list should get a real wide column")
+                        check(app.command_code.winfo_width() >= 260,
+                              "Dashboard command editor should remain usable")
                     check(int(app.command_tree.cget("height")) >= 14,
                           "Dashboard Commands must show more than four results")
                     check(app.command_code.winfo_rootx() > app.command_tree.winfo_rootx(),

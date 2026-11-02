@@ -48,6 +48,7 @@ from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
 from pocket import normal_navigation
+from pocket import data_recovery
 from pocket.task_manager import TaskManager
 from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
 
@@ -181,18 +182,16 @@ def clipboard_add(items, value, maximum=100):
     return items
 
 
-def load_data(path: Path) -> dict:
+def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
     if not path.exists():
         return default_data()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError("Root must be a JSON object")
-        notes = data.get("notes")
-        links = data.get("links")
-        if not isinstance(notes, list) or not isinstance(links, list):
-            raise ValueError("Notes and links must be lists")
-        notes = [n for n in notes if isinstance(n, dict) and all(isinstance(n.get(k), str) for k in ("id", "title", "body"))]
+        data_recovery.validate_payload(data)
+        notes = data["notes"]
+        links = data["links"]
         # Older notes have no recorded creation time. Keep it unknown instead of
         # pretending that the migration/first load was when they were created.
         for note in notes:
@@ -204,7 +203,6 @@ def load_data(path: Path) -> dict:
             note["pinned"] = note.get("pinned") is True
             note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
-        links = [l for l in links if isinstance(l, dict) and all(isinstance(l.get(k), str) for k in ("id", "title", "url"))]
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
                 link["kind"] = "url"
@@ -239,24 +237,25 @@ def load_data(path: Path) -> dict:
                 "theme": themes.valid_theme(data.get("theme")),
                 "settings": normalize_settings(data.get("settings")),
                 "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
-    except (OSError, ValueError, TypeError):
-        # Keep the damaged data available for manual recovery; don't silently overwrite it.
-        backup = path.with_name(f"data-corrupt-{int(time.time())}.json")
-        try:
-            path.rename(backup)
-        except OSError:
-            pass
-        return default_data()
+    except (OSError, ValueError, TypeError, UnicodeError) as error:
+        if _retry:
+            raise  # A recovery snapshot must never itself be renamed.
+        # Don't reset and overwrite damaged data unless it was preserved.
+        archived = data_recovery.quarantine(path)
+        snapshot = data_recovery.snapshot_path(path)
+        restored = None
+        if snapshot.is_file():
+            try:
+                restored = load_data(snapshot, _retry=True)
+            except (OSError, ValueError, TypeError, UnicodeError):
+                pass
+        if on_recovery is not None:
+            on_recovery(archived, snapshot if restored is not None else None, error)
+        return restored if restored is not None else default_data()
 
 
 def save_data(path: Path, data: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(".tmp")
-    with temp.open("w", encoding="utf-8") as stream:
-        json.dump(data, stream, ensure_ascii=False, indent=2)
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temp, path)
+    return data_recovery.save_profile(path, data)
 
 
 def normalize_url(raw: str) -> str:
@@ -286,7 +285,9 @@ class PocketDesk:
         self.preview = preview
         self.portable = portable_storage.is_portable()
         self.path = data_file()
-        self.data = load_data(self.path)
+        self.recovery_notice = None
+        self.data = load_data(self.path, on_recovery=self._record_recovery)
+        self._save_failure_reported = False
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
         self.display_mode = self.settings["display_mode"]
@@ -421,6 +422,27 @@ class PocketDesk:
             self.root.after(250, self._check_tray)
         else:
             self.root.after(50, lambda: self._place_popup(None))
+        if self.recovery_notice is not None and not self.preview:
+            self.root.after(900, self._show_recovery_notice)
+
+    def _record_recovery(self, archived, snapshot, error):
+        self.recovery_notice = (archived, snapshot)
+
+    def _show_recovery_notice(self):
+        archived, snapshot = self.recovery_notice
+        if snapshot is not None:
+            detail = "Pocket restored the previous valid data-recovery.json snapshot."
+        else:
+            detail = "Pocket started with default data. Inspect the preserved damaged file to recover your notes."
+        self._modal = True
+        try:
+            messagebox.showwarning(
+                "Pocket recovered damaged data",
+                f"{detail}\\n\\nThe damaged original was preserved at:\\n{archived}\\n\\n"
+                "Close Pocket before restoring a backup. Keep your data folder safe.",
+                parent=self.root)
+        finally:
+            self._modal = False
 
     @staticmethod
     def bundle_path(*parts):
@@ -3869,11 +3891,23 @@ class PocketDesk:
             self._save_job = None
         try:
             save_data(self.path, self.data)
-        except OSError as exc:
-            if self.current_tab == "notes":
+        except (OSError, ValueError, TypeError) as exc:
+            if self.current_tab == "notes" and hasattr(self, "save_status"):
                 self.save_status.config(text="Save failed!", fg=DANGER)
             print(f"PocketDesk save failed: {exc}", file=sys.stderr)
+            if not self._save_failure_reported:
+                self._save_failure_reported = True
+                self._modal = True
+                try:
+                    messagebox.showerror("Pocket could not save",
+                                         "Your latest changes were not saved.\\n\\n"
+                                         f"Reason: {exc}\\n\\n"
+                                         "Check disk permissions and free space before closing Pocket.",
+                                         parent=self.root)
+                finally:
+                    self._modal = False
             return
+        self._save_failure_reported = False
         if self.current_tab == "notes":
             self.save_status.config(text="Autosaved", fg=MUTED)
 

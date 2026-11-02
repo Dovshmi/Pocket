@@ -1,50 +1,44 @@
-# Pocket v1.31.0 — Interface & Notes Reliability Update
+# Pocket v1.32.0 — Dashboard Workspace & Reliability
 
-**STABLE RELEASE · Windows 10/11 · Unsigned Windows EXEs · Local-first**
+**Stable Windows release · Local-first · Unsigned EXE**
 
-This release builds on v1.30.0 Smart Command Templates and Extra Mini, with redesigned navigation, improved workspace density, more flexible launcher pages, consistent icons, and improved note-editor focus.
+Pocket v1.32.0 builds on v1.31.0 with a cleaner source architecture, better recovery from damaged data, and redesigned wide Dashboard menus. **Normal, Mini and Extra Mini retain their established controls and layouts.**
 
-## What's new
+## New in v1.32.0
 
-### Extra Mini launcher
-- **Pages grow with your saved actions:** the first four actions need one dot; a fifth action opens a second page, and further groups of four appear only when needed. No forced three-page display.
-- A friendlier, searchable quick-action picker with clickable categories and double-click selection.
-- The footer **+ Add** control is shown **only in Edit mode** and disappears when you click **Done** or leave editing.
-- Existing note, command, Smart Template, shortcut, and tool references remain available; page names and positions stay stored locally. No CLI is executed.
+### Dashboard: use the wide workspace
+- **Commands:** larger 16-row reference list and editable command preview side by side, with quick search, vendor/category filters, favorites, Smart Templates and a draggable divider. Commands are copy-only; they are never executed.
+- **Notes:** full-height writing editor, compact title and phone fields on the same row, and a dedicated notes sidebar. Native Windows Unicode editing, reminders, autosave and note actions remain available.
+- **Shortcuts:** responsive cards displayed in multiple columns with instant search, Website/File/Folder filters, compact add/edit form, Open/Copy actions and drag-and-drop.
+- **Settings:** balanced two-column arrangement of appearance and theme palettes, visible tool toggles, Extra Mini launcher, keyboard shortcuts and clipboard privacy. Settings still apply immediately and are stored locally.
 
-### Normal working layout
-- Icon-and-name navigation matching Pocket's Mini visual language, with a **More** overflow menu when needed; the selected tool remains visible and Settings is always accessible.
-- Better-balanced title bar, action headers, editors, spacing, and information density.
-- Notes, Shortcuts, MAC Lookup, and Subnet Calculator fit more content in the same 480×850 window. Subnet facts are presented in two columns.
+### Data integrity and recovery
+- Validate personal `data.json` before writing; use atomic file replacement with a rolling **previous valid snapshot** at `data-recovery.json`.
+- On damaged data, preserve the original as `data-corrupt-*.json`, attempt recovery from the last good snapshot and display a warning. If an unsaved change cannot be written, Pocket shows an error and stays open instead of silently closing.
+- Avoid rewriting identical data unnecessarily. Personal recovery files remain **local and unencrypted**; store your Pocket data folder securely.
+- **CLI command-library backups remain manual-only**, via the explicit Backup button. The new data snapshot applies to `data.json`, not to the command library.
 
-### Notes, icons, and scrolling
-- Improved **single-click focus transitions** between the Notes body, title, phone number, picker, and background in Mini and Normal, including the native Windows RichEdit editor.
-- **Mini note arrow controls and keyboard paging are preserved.** Dashboard's note workflow is preserved.
-- Locally drawn tool icons replace glyphs that could appear as a question mark on some Windows font configurations.
-- Shortcuts uses Pocket's themed scrollbar in Normal and Dashboard; Mini's existing scrollbar behavior is unchanged.
-- Removed the redundant Search control from the Normal/Mini title bars; the global **Ctrl+K** search shortcut remains available.
+### Behind the scenes
+- Group runtime code under the `pocket/` package, regression tests under `tests/`, historical scripts/screenshots under documentation.
+- Separate reusable Notes operations from UI and coordinate recurring local clipboard, reminder, Notepad and editor tasks with cancellable timers.
+- Remove two legacy workbook-derived command-library copies from the current repository tree; source and Windows builds use the approved **public example commands**. Earlier copies remain in Git history; this release does not rewrite history.
+- No automatic network operations or new online requirements. Port checks and IEEE registry updates still run only when requested.
 
-## Downloads
+## Download
 
-- **Pocket-Portable-v1.31.0.zip** (recommended): extract the entire ZIP and run `PocketDesk.exe`. Portable data stays in the adjacent `data/` folder.
-- **Pocket-v1.31.0.exe**: one-file Windows executable; application data lives under the standard AppData location.
-- **SHA256SUMS.txt**: SHA-256 checksums for the two Windows downloads.
+- **Pocket-Portable-v1.32.0.zip** — recommended; extract the entire folder, then run `PocketDesk.exe`. The portable data folder stays beside the application.
+- **Pocket-v1.32.0.exe** — single-file Windows executable; user data is stored under Pocket's standard AppData location.
+- **SHA256SUMS.txt** — SHA-256 checksums of both downloads.
 
-Both executable builds are unsigned. Your PC's Windows SmartScreen or workplace application controls may restrict them.
+The files are generated and published only after Windows unit tests, the full GUI smoke test, standalone EXE launch, ZIP integrity and personal-data exclusion checks succeed. Both EXEs are unsigned; Windows SmartScreen and corporate application restrictions may apply.
 
 ## Upgrade safely
 
-1. Exit Pocket completely from the Windows tray.
-2. **Back up** your existing portable `data/` folder and any personal `commands.json` before changing installations.
-3. For portable installations, extract the new build to a **clean folder** and move your existing `data/` folder into it. Do not mix old and new `_internal/` directories.
-4. Don't run two Pocket versions simultaneously against the same data folder.
+1. Exit Pocket completely (including the system tray).
+2. Back up your existing **portable `data/` folder** and your personal `commands.json` before upgrading.
+3. Extract the new portable ZIP into a **fresh directory**, then copy your existing `data/` directory across. Do not merge the old and new `_internal/` folders.
+4. Open only one version of Pocket at a time. If a data-recovery warning appears, retain the preserved `data-corrupt-*.json` file and review your backup before further editing.
 
-Portable archives bundle only the **public example command library**, never private notes, saved commands, clipboard history, or working backups. Smart Templates remain copy-only; template inputs are not saved.
+Clipboard history remains session-only. The published binaries do not include private notes, personal commands, working backups or recovery snapshots. Smart Templates stay copy-only.
 
-## Validation and compatibility
-
-- Release workflow runs Python regression tests, real Windows Tk UI smoke tests, portable and standalone Windows builds, archive-integrity and personal-data-exclusion checks, and an isolated standalone executable launch test **before publishing**.
-- No new online dependency, authentication, or CLI execution behavior is introduced.
-- As with earlier unsigned releases, native RTL text editing and different Windows display/DPI configurations should also be checked on real devices.
-
-Previous versions remain available under [GitHub Releases](https://github.com/Dovshmi/Pocket/releases). Please report issues without including internal network data, customer information, or personal notes.
+[Previous stable releases](https://github.com/Dovshmi/Pocket/releases) remain accessible.

@@ -116,14 +116,20 @@ def build(app):
     panes.add(details, minsize=295, stretch="never")
     app.command_panes = panes
 
-    def balance_columns():
-        # Tk's initial sash position can collapse the library to its minimum
-        # while giving nearly all free width to the editor. Start at 59/41
-        # instead; users may still drag the sash to their preferred split.
-        if panes.winfo_exists() and panes.winfo_width() >= 730:
-            panes.sash_place(0, round(panes.winfo_width() * 0.59), 1)
+    def balance_columns(event=None):
+        # Wait for the real Dashboard canvas width; an early after_idle runs
+        # while Tk still reports the previous narrow layout size.
+        if getattr(panes, "_initial_split_set", False):
+            return
+        width = panes.winfo_width()
+        if width < 730:
+            return
+        panes._initial_split_set = True
+        panes.after_idle(
+            lambda: panes.sash_place(0, round(panes.winfo_width() * 0.59), 1)
+            if panes.winfo_exists() else None)
 
-    panes.after_idle(balance_columns)
+    panes.bind("<Configure>", balance_columns, add="+")
 
     result_header = tk.Frame(results, bg=panel)
     result_header.pack(fill="x", padx=12, pady=(11, 2))

@@ -3967,7 +3967,7 @@ class PocketDesk:
         if not saved and xy and sys.platform == "win32":
             py = bottom - height - 9 if xy[1] > (top + bottom) / 2 else top + 9
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
-        if self.display_mode in ("normal", "dashboard", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
+        if self.display_mode in ("normal", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
             self.command_tree.configure(height=4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")

@@ -26,11 +26,10 @@ def _label(parent, value, colors, *, size=9, weight="normal", muted=False, **kwa
                     font=(FONT, size, weight), **kwargs)
 
 
-def _section(parent, colors, title, description, *, row, col):
+def _section(parent, colors, title, description):
     panel = tk.Frame(parent, bg=colors["PANEL"], highlightthickness=1,
                      highlightbackground=colors["BORDER"])
-    panel.grid(row=row, column=col, sticky="new",
-               padx=(0, 8) if col == 0 else (8, 0), pady=(0, 13))
+    panel.pack(fill="x", pady=(0, 13))
     header = tk.Frame(panel, bg=colors["PANEL"])
     header.pack(fill="x", padx=14, pady=(12, 8))
     _label(header, title, colors, size=11, weight="bold", anchor="w"
@@ -197,23 +196,28 @@ def build(app, parent):
     grid.pack(fill="x")
     grid.grid_columnconfigure(0, weight=1, uniform="settings")
     grid.grid_columnconfigure(1, weight=1, uniform="settings")
+    # Independent vertical stacks prevent a tall Tools card from creating
+    # empty gaps underneath the shorter Appearance card in the other column.
+    left = tk.Frame(grid, bg=c["BG"])
+    right = tk.Frame(grid, bg=c["BG"])
+    left.grid(row=0, column=0, sticky="new", padx=(0, 8))
+    right.grid(row=0, column=1, sticky="new", padx=(8, 0))
 
-    layout = _section(grid, c, "Appearance & layout",
-                      "Choose a working mode and a color palette.", row=0, col=0)
+    layout = _section(left, c, "Appearance & layout",
+                      "Choose a working mode and a color palette.")
     _display(layout, app, c)
-    extra = _section(grid, c, "Extra Mini launcher",
-                     "A small, optional page of your most-used actions.", row=1, col=0)
+    extra = _section(left, c, "Extra Mini launcher",
+                     "A small, optional page of your most-used actions.")
     _launcher(extra, app, c)
-    behavior = _section(grid, c, "Keyboard & search",
-                        "Quick access without leaving your current workflow.",
-                        row=2, col=0)
+    behavior = _section(left, c, "Keyboard & search",
+                        "Quick access without leaving your current workflow.")
     _behavior(behavior, app, c)
 
-    tools = _section(grid, c, "Visible tools",
-                     "Enable or hide tools across all working modes.", row=0, col=1)
+    tools = _section(right, c, "Visible tools",
+                     "Enable or hide tools across all working modes.")
     _visible_tools(tools, app, c)
-    privacy = _section(grid, c, "Clipboard & privacy",
-                       "Control the session-only clipboard monitor.", row=1, col=1)
+    privacy = _section(right, c, "Clipboard & privacy",
+                       "Control the session-only clipboard monitor.")
     _privacy(privacy, app, c)
 
     footer = tk.Label(

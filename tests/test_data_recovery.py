@@ -22,7 +22,7 @@ class DataRecoveryTests(unittest.TestCase):
             second = app["default_data"]()
             second["notes"][0]["body"] = "A later edit"
             app["save_data"](path, second)
-            self.assertEqual(json.loads(data_recovery.snapshot_path(path).read_text())["notes"][0]["body"],
+            self.assertEqual(json.loads(data_recovery.snapshot_path(path).read_text(encoding="utf-8"))["notes"][0]["body"],
                              "Important עברית content")
             path.write_text("{invalid", encoding="utf-8")
             recovered = []

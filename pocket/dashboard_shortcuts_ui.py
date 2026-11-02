@@ -10,8 +10,7 @@ from tkinter import ttk
 from urllib.parse import urlsplit
 
 from . import pocket_design as design
-from . import shortcut_utils as shortcuts
-from . import shortcut_drop
+from . import hotkey_settings as hk
 
 FONT = "Segoe UI"
 KINDS = (("all", "All"), ("url", "Websites"), ("file", "Files"), ("folder", "Folders"))
@@ -156,7 +155,6 @@ def refresh(app):
     for child in app.links_stack.winfo_children():
         child.destroy()
 
-    from . import shortcut_helper as hk
     matches = hk.filter_shortcuts(app.data["links"], app.link_query.get())
     kind = app.dashboard_shortcut_kind.get()
     if kind != "all":
@@ -265,7 +263,6 @@ def toggle_form(app, item, *, draft=None):
     address.pack(side="left", fill="x", expand=True, ipady=6)
     browse = design.button(target_area, "Browse", lambda: app._browse_shortcut(
         kind_var, target_var, title_var), app.theme, compact=True)
-    kind_changed()
     footer = tk.Frame(pane, bg=panel)
     footer.pack(fill="x", padx=12, pady=(5, 8))
     hint = tk.Label(footer, text="", bg=panel, fg=muted,

@@ -107,6 +107,49 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "links" and mode == "dashboard":
+                    check(app.dashboard_shortcut_columns >= 2,
+                          "Dashboard Shortcuts should display multiple columns")
+                    check(app._scroll_canvas.winfo_height() >= 240,
+                          "Dashboard Shortcuts results need proper vertical space")
+                    check(app.dashboard_shortcut_count.winfo_exists(),
+                          "Dashboard shortcut result count missing")
+                    check(len(app.dashboard_shortcut_cards) == len(app.data["links"]),
+                          "Dashboard shortcut cards missing")
+                    app._toggle_link_form(None)
+                    app.root.update()
+                    check(bool(app.form_holder.winfo_manager()),
+                          "Dashboard inline shortcut form did not open")
+                    app._save_link("Dashboard test shortcut", "https://example.org", "url")
+                    app.root.update()
+                    check(any(link["title"] == "Dashboard test shortcut"
+                              for link in app.data["links"]),
+                          "Dashboard shortcut form could not save a URL")
+                    check(not app.form_holder.winfo_manager(),
+                          "Dashboard saved shortcut left a blank form gap")
+                    app.dashboard_shortcut_kind.set("file")
+                    app.refresh_links()
+                    app.root.update()
+                    check(len(app.dashboard_shortcut_cards) ==
+                          sum(link.get("kind", "url") == "file" and
+                              not app.link_query.get().strip()
+                              for link in app.data["links"]),
+                          "Dashboard shortcut type filter did not update cards")
+                    app.dashboard_shortcut_kind.set("all")
+                    app.refresh_links()
+                    app.root.update()
+                    extra = next(link for link in app.data["links"]
+                                 if link["title"] == "Dashboard test shortcut")
+                    app._toggle_link_form(extra)
+                    app.root.update()
+                    check(bool(app.form_holder.winfo_manager()),
+                          "Dashboard edit-shortcut form did not open")
+                    app._close_form()
+                    app.root.update()
+                    check(not app.form_holder.winfo_manager(),
+                          "Dashboard cancelled edit left a blank form gap")
+                    app._delete_link(extra)
+                    app.root.update()
                 if page == "notes" and mode == "dashboard":
                     # The wide Notes workspace should devote most of its
                     # height to editing, not to stacked Title/Phone cards.

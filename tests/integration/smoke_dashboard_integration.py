@@ -107,6 +107,30 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "settings" and mode == "dashboard":
+                    controls = app.dashboard_settings_controls
+                    check(all(key in controls for key in (
+                        "mode_normal", "mode_mini", "mode_dashboard",
+                        "extra_mini", "customize_launcher",
+                        "change_hotkey", "quick_search",
+                        "clipboard_paused", "sensitive_filter")),
+                        "Dashboard Settings is missing important controls")
+                    for tool, _caption in app.VISIBLE_TABS_REFERENCE:
+                        check("tool_" + tool in controls,
+                              f"Dashboard Settings lost the {tool} visibility control")
+                    check(controls["mode_normal"].winfo_rootx() <
+                          controls["tool_notes"].winfo_rootx(),
+                          "Dashboard Settings should use two side-by-side columns")
+                    check(controls["theme_blue"].winfo_exists() and
+                          controls["theme_purple"].winfo_exists(),
+                          "Dashboard Settings has no visible color palette")
+                    original_filter = app.settings["clipboard_sensitive_filter"]
+                    controls["sensitive_filter"].invoke()
+                    check(app.settings["clipboard_sensitive_filter"] != original_filter,
+                          "Dashboard sensitive-text toggle did not apply")
+                    controls["sensitive_filter"].invoke()
+                    check(app.settings["clipboard_sensitive_filter"] == original_filter,
+                          "Dashboard sensitive-text toggle did not restore the preference")
                 if page == "links" and mode == "dashboard":
                     check(app.dashboard_shortcut_columns >= 2,
                           "Dashboard Shortcuts should display multiple columns")

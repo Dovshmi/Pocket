@@ -438,7 +438,7 @@ class PocketDesk:
         try:
             messagebox.showwarning(
                 "Pocket recovered damaged data",
-                f"{detail}\\n\\nThe damaged original was preserved at:\\n{archived}\\n\\n"
+                f"{detail}\n\nThe damaged original was preserved at:\n{archived}\n\n"
                 "Close Pocket before restoring a backup. Keep your data folder safe.",
                 parent=self.root)
         finally:
@@ -3900,16 +3900,17 @@ class PocketDesk:
                 self._modal = True
                 try:
                     messagebox.showerror("Pocket could not save",
-                                         "Your latest changes were not saved.\\n\\n"
-                                         f"Reason: {exc}\\n\\n"
+                                         "Your latest changes were not saved.\n\n"
+                                         f"Reason: {exc}\n\n"
                                          "Check disk permissions and free space before closing Pocket.",
                                          parent=self.root)
                 finally:
                     self._modal = False
-            return
+            return False
         self._save_failure_reported = False
         if self.current_tab == "notes":
             self.save_status.config(text="Autosaved", fg=MUTED)
+        return True
 
     def _check_tray(self):
         if self.tray and self.tray.error:
@@ -4041,7 +4042,8 @@ class PocketDesk:
         self.root.focus_force()
 
     def hide(self):
-        self._write_now()
+        if self._write_now() is False:
+            return  # Retain the open window and unsaved data on disk error.
         if self.preview or not self.tray or self.tray.error:
             self.root.iconify()
         else:
@@ -4149,10 +4151,11 @@ class PocketDesk:
 
 
     def quit(self):
+        if self._write_now() is False:
+            return  # Do not discard unsaved data when writing fails.
         self.scan_cancel.set()
         if self.tasks is not None:
             self.tasks.stop()
-        self._write_now()
         if self.tray:
             self.tray.stop()
         self.root.destroy()
@@ -4513,7 +4516,17 @@ def main(argv=None):
             else:
                 print(str(exc), file=sys.stderr)
             return 1
-        app = PocketDesk(preview=preview)
+        try:
+            app = PocketDesk(preview=preview)
+        except (OSError, ValueError, TypeError) as exc:
+            # Refuse to launch rather than overwrite a source file we could
+            # not quarantine or read safely. This also works in pythonw.exe.
+            message = f"Pocket could not open its data safely.\\n\\n{exc}\\n\\nNo data was overwritten."
+            if sys.platform == "win32":
+                ctypes.windll.user32.MessageBoxW(None, message, "Pocket startup error", 0x10)
+            else:
+                print(message, file=sys.stderr)
+            return 1
         if guard is not None:
             # Tk is not thread-safe: only enqueue. _poll_events does the show().
             guard.start(lambda: app.events.put(("activate_existing", None)))

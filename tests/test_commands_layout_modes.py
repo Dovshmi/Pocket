@@ -34,6 +34,25 @@ class CommandsLayoutRegression(unittest.TestCase):
         self.assertIn("self.command_tree.bind('<<TreeviewSelect>>'", block)
         self.assertIn('command_panes.add(details, minsize=195', block)
 
+    def test_dashboard_is_wide_two_column_workspace_only(self):
+        dashboard = (Path(__file__).resolve().parents[1] / "pocket"
+                     / "dashboard_commands_ui.py").read_text(encoding="utf-8")
+        self.assertIn("orient=tk.HORIZONTAL", dashboard)
+        self.assertIn("rows=16", dashboard)
+        self.assertIn('app.command_tree = app._tree(', dashboard)
+        self.assertIn('app._refresh_command_results()', dashboard)
+        self.assertIn("app._build_template_actions(details, mini=False)", dashboard)
+        self.assertIn("app._copy_command", dashboard)
+        self.assertIn('self.display_mode == "dashboard":\n            return dashboard_commands.build(self)', self.source)
+        header_start = self.source.index("    def show_tab(self, which):")
+        header_end = self.source.index("    def _show_more_menu(self):", header_start)
+        self.assertIn('self.display_mode in ("normal", "compact")',
+                      self.source[header_start:header_end])
+        # Dashboard is separate; preserve existing Normal vertical panes and
+        # Mini's single-card arrow navigation without proportional changes.
+        self.assertIn('command_panes.add(results_panel, minsize=150', self.source)
+        self.assertIn('return self._build_mini_commands()', self.source)
+
     def test_mini_remains_single_card_without_visible_table(self):
         begin = self.source.index("    def _build_mini_commands(self):")
         end = self.source.index("    def _update_mini_command_pager(self):", begin)

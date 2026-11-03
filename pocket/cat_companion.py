@@ -14,7 +14,7 @@ from .cat_navigation import CatMotion, SafeSpace
 from .cat_sprites import PIXELS, POSES, sprite_pixels
 
 SIZE = 40  # Nominal reference; real sprite size adapts to available screen space.
-TICK_MS = 125
+TICK_MS = 90  # ~11 fps; movement and sprite frames advance together.
 KEY_COLOR = "#ff00ff"
 
 # Protect what a user actually interacts with or reads, not entire container
@@ -220,8 +220,8 @@ class PocketCat:
         self._space_age = 0
         return self.space
 
-    def tick(self, *, blocked=False):
-        """Called by Pocket's existing Tk UI thread, never a background thread."""
+    def tick(self, *, blocked=False, editing=False):
+        """UI-thread-only. Editing includes native Windows RichEdit focus."""
         if not self.enabled or self.failed or blocked or sys.platform != "win32":
             self.hide()
             return
@@ -246,7 +246,7 @@ class PocketCat:
             px, py = self.root.winfo_pointerx()-x, self.root.winfo_pointery()-y
             pointer = (px, py) if 0 <= px < width and 0 <= py < height else None
             focus = self.root.focus_get()
-            typing = bool(focus and focus.winfo_class() in (
+            typing = editing or bool(focus and focus.winfo_class() in (
                 "Text", "Entry", "TEntry", "TCombobox", "TSpinbox",
                 "Spinbox", "Listbox", "Treeview"))
             cx, cy, pose, direction, frame = self.motion.step(

@@ -8,14 +8,22 @@ the published v1.32.0 stable release**.
 
 ## What it does
 
-- Wanders independently inside the currently visible Pocket window.
-- Alternates between walking, sitting/blinking, grooming, scratching,
-  stretching and curling up to sleep.
-- Occasionally investigates the cursor **inside Pocket only** and wakes
-  from a nap when it moves. It is not a desktop-wide cursor follower.
+- Uses a detailed **original 32×32 charcoal-black pixel design** with
+  layered shading, golden eyes, soft ear details and a more expressive face.
+- Has **four frames per pose** for smoother walking, tail movement, blinking,
+  breathing, grooming, scratching, stretching, yawning and playing.
+- Wanders independently through the **unoccupied areas of the current Pocket window**.
+  Uses a pathfinding grid to avoid visible buttons, labels, input fields,
+  result tables, scrolling views and the native Windows note editor.
+- Occasionally investigates the pointer **inside Pocket only**, but only
+  along a path that never crosses protected UI. Can wake up when it moves.
+  It is not a desktop-wide cursor follower.
 - Resizes/repositions with **Normal, Mini, Dashboard and Extra Mini**.
-- Keeps mostly to the edges. The tiny overlay is **click-through** and
-  cannot activate buttons, steal keyboard focus or interrupt editing.
+- Prefers quiet edges instead of walking across content. The cat is
+  **click-through**, so it cannot activate buttons or steal editing focus.
+- If a page does not offer enough room for its *entire* body, it **hides
+  rather than covering an input, note, or result**. It reappears on a
+  less crowded page. Switching tabs immediately invalidates stale paths.
 - Hides when Pocket goes to the tray or a modal dialog is open.
 - Has **no internet calls, file access, clipboard access, global pointer
   hooks, command execution, background thread or cloud dependency**.
@@ -67,10 +75,14 @@ Windows binaries are unsigned; follow organizational application policies.
 
 `pocket/cat_companion.py` contains:
 
-- `CatMotion`: a seeded, GUI-independent state machine for movement.
-- `sprite_pixels`: original 24×24 art rendered as two-frame poses.
-- `PocketCat`: a 48×48 transparent, no-focus overlay attached to the
-  current Tk window, drawn using Python/Tk's built-in `PhotoImage`.
+- `pocket/cat_sprites.py`: original 32×32, four-frame sprite art with
+  dynamic expressions and a palette designed for Pocket's dark themes.
+- `pocket/cat_navigation.py`: `SafeSpace` collision model and
+  `CatMotion` behavior engine. Routes use local widget geometry, never
+  widget contents or captured user data. Both are testable without a GUI.
+- `pocket/cat_companion.py`: protected-widget detection and an adaptive
+  **32 / 40 / 48 pixel** transparent, no-focus overlay rendered with Tk's
+  built-in `PhotoImage`.
   Win32 styles `WS_EX_TRANSPARENT`, `WS_EX_NOACTIVATE` and
   `WS_EX_TOOLWINDOW` make it click-through and keep it out of Alt-Tab.
 
@@ -88,10 +100,12 @@ Linux regression tests still exercise the independent motion engine.
 
 ### Performance
 
-- One Tk UI-thread callback approximately every **145 ms**, registered
+- One Tk UI-thread callback approximately every **125 ms**, registered
   with Pocket's existing cancellable `TaskManager`.
 - No animation callback while the companion is disabled.
-- Cached original pixel sprites; no disk loads or network requests.
+- Sprites are created and cached lazily; no disk loads or network requests.
+- Navigation uses already mapped widget *geometry*, updated periodically
+  and immediately after tab/layout changes. No OS-wide hooks or input interception.
 - The overlay is hidden when Pocket is hidden. No additional active polling
   loop is launched in a thread.
 
@@ -103,8 +117,9 @@ py -3 -m unittest discover -s tests -p "test_*.py" -v
 py -3 tests/integration/smoke_dashboard_integration.py
 ```
 
-On Windows, specifically check that the cat is visible and animated in all
-four modes, that buttons and text editing work **through** its pixel square,
+On Windows, check that the cat animates wherever a **clear path is available**
+in each of the four modes, and hides on crowded screens rather than obscuring
+notes, input fields or result data. Verify that controls still work **through** its popup,
 that it doesn't steal focus, and that hiding, moving, theming and exiting
 Pocket never leave an orphan cat window.
 

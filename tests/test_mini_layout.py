@@ -64,7 +64,8 @@ class MiniLayoutTests(unittest.TestCase):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"]}),
                          {"visible_tabs": ["notes"], "display_mode": "normal", "extra_mini_enabled": False,
                           "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
-                          "clipboard_paused": False, "clipboard_sensitive_filter": True})
+                          "clipboard_paused": False, "clipboard_sensitive_filter": True,
+                          "pocket_cat": True})
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"],
                                                     "display_mode": "mini"})["display_mode"],
                          "mini")

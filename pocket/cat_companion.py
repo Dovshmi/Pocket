@@ -198,6 +198,13 @@ class PocketCat:
                 pass
         self.visible = False
 
+    def invalidate(self):
+        """Forget stale obstacles immediately after a tab/layout is rebuilt."""
+        self._space_age = 999
+        self._space_signature = None
+        self.space = None
+        self.hide()
+
     def _new_space(self, width, height, size):
         """Refresh only when geometry changed; no extra background polling."""
         self._space_age += 1

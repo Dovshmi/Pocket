@@ -245,8 +245,12 @@ class PocketCat:
                 return
             px, py = self.root.winfo_pointerx()-x, self.root.winfo_pointery()-y
             pointer = (px, py) if 0 <= px < width and 0 <= py < height else None
+            focus = self.root.focus_get()
+            typing = bool(focus and focus.winfo_class() in (
+                "Text", "Entry", "TEntry", "TCombobox", "TSpinbox",
+                "Spinbox", "Listbox", "Treeview"))
             cx, cy, pose, direction, frame = self.motion.step(
-                width, height, pointer, safe_space=space)
+                width, height, pointer, safe_space=space, busy=typing)
             if not space.clear(cx, cy):
                 self.hide()  # Refuse to draw over newly occupied UI.
                 return

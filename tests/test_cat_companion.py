@@ -10,7 +10,7 @@ import unittest
 
 from pocket.cat_companion import CatMotion, SIZE, POSES, sprite_pixels
 from pocket.cat_navigation import SafeSpace, overlaps
-from pocket.cat_sprites import PIXELS, FRAMES, INK, EYES
+from pocket.cat_sprites import PIXELS, FRAMES, INK, OUTLINE, EYES
 from pocket.mini_layout import view_dimensions
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +26,8 @@ class CatMotionTests(unittest.TestCase):
                     self.assertTrue(all(len(line) == PIXELS for line in pixels))
                     flat = [p for line in pixels for p in line]
                     self.assertIn("", flat, "The sprite requires a clear background")
-                    self.assertIn(INK, flat, "The cat must have black outlines")
+                    self.assertTrue(INK in flat or OUTLINE in flat,
+                                    "The cat must use black silhouette outlines")
                     self.assertGreater(len([p for p in flat if p]), 80)
         self.assertNotEqual(sprite_pixels("walk", 1, 0),
                             sprite_pixels("walk", 1, 1),

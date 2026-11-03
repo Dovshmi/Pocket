@@ -306,6 +306,36 @@ class PocketCat:
         if not self.enabled:
             self.hide()
 
+    @staticmethod
+    def _protect_window(window):
+        """Make the *native wrapper* transparent to hit tests and focus.
+
+        Tk can replace native extended styles during the initial mapping of
+        an overrideredirect Toplevel; call both before and after deiconify.
+        """
+        user32 = ctypes.windll.user32
+        user32.GetParent.argtypes = [ctypes.c_void_p]
+        user32.GetParent.restype = ctypes.c_void_p
+        user32.GetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        user32.GetWindowLongW.restype = ctypes.c_long
+        user32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
+        user32.SetWindowLongW.restype = ctypes.c_long
+        user32.SetWindowPos.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_int, ctypes.c_uint]
+        user32.SetWindowPos.restype = ctypes.c_bool
+        handle = user32.GetParent(window.winfo_id()) or window.winfo_id()
+        necessary = 0x20 | 0x08000000 | 0x80
+        style = user32.GetWindowLongW(handle, -20)
+        user32.SetWindowLongW(handle, -20, style | necessary)
+        # SWP_FRAMECHANGED applies Win32 style updates without activation,
+        # movement or resizing. HWND_TOPMOST matches Pocket's topmost popup.
+        if not user32.SetWindowPos(handle, ctypes.c_void_p(-1),
+                                   0, 0, 0, 0, 0x0033):
+            raise RuntimeError("Cannot apply nonactivating overlay styles")
+        if user32.GetWindowLongW(handle, -20) & necessary != necessary:
+            raise RuntimeError("Cannot make Pocket Cat click-through")
+
     def _make_window(self):
         if sys.platform != "win32":
             self.failed = True
@@ -329,22 +359,9 @@ class PocketCat:
                         images[(pose, direction, frame)] = _photo(
                             window, sprite_pixels(pose, direction, frame))
             sprite = canvas.create_image(0, 0, anchor="nw", image=images[("sit", 1, 0)])
-            # Tk exposes an inner child handle for Toplevels on Windows.
-            user32 = ctypes.windll.user32
-            user32.GetParent.argtypes = [ctypes.c_void_p]
-            user32.GetParent.restype = ctypes.c_void_p
-            handle = user32.GetParent(window.winfo_id()) or window.winfo_id()
-            user32.GetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int]
-            user32.GetWindowLongW.restype = ctypes.c_long
-            user32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
-            user32.SetWindowLongW.restype = ctypes.c_long
-            style = user32.GetWindowLongW(handle, -20)
-            # TOOLWINDOW keeps it out of Alt-Tab; NOACTIVATE preserves editing
-            # focus; TRANSPARENT forwards all mouse hit tests to Pocket.
-            necessary = 0x20 | 0x08000000 | 0x80
-            user32.SetWindowLongW(handle, -20, style | necessary)
-            if user32.GetWindowLongW(handle, -20) & necessary != necessary:
-                raise RuntimeError("Cannot make Pocket Cat click-through")
+            # Initial protection; Tk can rewrite extended styles when a
+            # withdrawn Toplevel is mapped, so reapply after deiconify too.
+            self._protect_window(window)
             self.window, self.canvas, self.sprite, self.images = (
                 window, canvas, sprite, images)
         except (tk.TclError, AttributeError, OSError, RuntimeError):
@@ -386,6 +403,8 @@ class PocketCat:
             self.window.geometry(f"{SIZE}x{SIZE}+{x + cx}+{y + cy}")
             if not self.visible:
                 self.window.deiconify()
+                # Windows Tk rebuilds native Toplevel styles on mapping.
+                self._protect_window(self.window)
                 self.visible = True
         except (tk.TclError, RuntimeError, OSError):
             self.hide()

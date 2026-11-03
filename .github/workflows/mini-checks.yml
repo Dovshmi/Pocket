@@ -2,9 +2,9 @@ name: Pocket regression checks
 
 on:
   push:
-    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish, chore/repository-cleanup-v131]
+    branches: [main, test-branch]
   pull_request:
-    branches: [main, feature/dashboard-ui-refresh]
+    branches: [main, test-branch]
   workflow_dispatch:
 
 jobs:
@@ -132,12 +132,12 @@ jobs:
           print("PASS: runnable portable EXE is packaged with only the public command seed")
       - name: Make downloadable branch-preview ZIP
         shell: pwsh
-        run: Copy-Item 'dist/Pocket-Portable-v1.30.0.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'
+        run: Copy-Item 'dist/Pocket-Portable-v1.30.0.zip' 'dist/Pocket-Cat-Test-Preview.zip'
       - name: Upload development preview (not a GitHub release)
         uses: actions/upload-artifact@v4
         with:
-          name: Pocket-SmartTemplates-ExtraMini-Preview-Windows
-          path: dist/Pocket-SmartTemplates-ExtraMini-Preview.zip
+          name: Pocket-Cat-Test-Preview-Windows
+          path: dist/Pocket-Cat-Test-Preview.zip
           if-no-files-found: error
           retention-days: 14
       - name: Launch packaged Pocket EXE in isolated preview mode

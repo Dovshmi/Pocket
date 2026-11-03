@@ -10,6 +10,8 @@ from collections import deque
 import math
 import random
 
+from .cat_sprites import FRAMES
+
 
 def overlaps(a, b):
     """True for rectangles with positive intersection area."""
@@ -144,6 +146,10 @@ class CatMotion:
         self.last_pointer = None
         self._free_space = None
         self._last_space = None
+        # Local personality state, never inferred from notes or clipboard.
+        self.energy = .82
+        self._hover_ticks = 0
+        self._purr_cooldown = 0
 
     @staticmethod
     def limits(width, height):
@@ -152,19 +158,21 @@ class CatMotion:
 
     def _rest(self):
         roll = self.random.random()
-        if roll < .14:
-            self.pose, self.remaining = "sleep", self.random.randint(50, 110)
-        elif roll < .32:
+        # A tired cat rests longer, recovers energy and explores again later.
+        if self.energy < .28 or roll < .16:
+            self.pose, self.remaining = "sleep", self.random.randint(55, 115)
+            self.energy = min(1.0, self.energy + .24)
+        elif roll < .35:
             self.pose, self.remaining = "groom", self.random.randint(16, 34)
-        elif roll < .43:
+        elif roll < .47:
             self.pose, self.remaining = "stretch", self.random.randint(9, 19)
-        elif roll < .54:
+        elif roll < .57:
             self.pose, self.remaining = "scratch", self.random.randint(10, 24)
-        elif roll < .63:
+        elif roll < .67:
             self.pose, self.remaining = "play", self.random.randint(12, 27)
-        elif roll < .72:
+        elif roll < .80:
             self.pose, self.remaining = "look", self.random.randint(11, 24)
-        elif roll < .79:
+        elif roll < .87:
             self.pose, self.remaining = "yawn", self.random.randint(7, 15)
         else:
             self.pose, self.remaining = "sit", self.random.randint(14, 48)
@@ -177,7 +185,10 @@ class CatMotion:
                 self._free_space = SafeSpace(*dims, size=40, obstacles=())
             safe_space = self._free_space
         self.steps += 1
-        self.frame = (self.steps // 2) % 4
+        # Animate every tick rather than holding each pose for 250ms.
+        self.frame = self.steps % FRAMES
+        if self._purr_cooldown > 0:
+            self._purr_cooldown -= 1
         if not safe_space.available:
             self.route = []
             self.pose = "sit"
@@ -197,6 +208,7 @@ class CatMotion:
         if busy:
             self.route = []
             self.pose = "sit"
+            self._hover_ticks = 0
             self.remaining = max(self.remaining, 16)
             quiet = "blink" if self.steps % 41 == 0 else "sit"
             return round(self.x), round(self.y), quiet, self.facing, self.frame
@@ -204,9 +216,31 @@ class CatMotion:
         if pointer is not None and (not 0 <= pointer[0] < width or
                                     not 0 <= pointer[1] < height):
             pointer = None
-        moved = (pointer is not None and self.last_pointer is not None and
-                 math.dist(pointer, self.last_pointer) > 45)
-        self.last_pointer = pointer
+        # A pointer above protected text, inputs or buttons must not attract
+        # the cat to their edges. Only clear, empty local space invites it.
+        safe_pointer = None
+        if pointer is not None:
+            size = safe_space.size
+            if safe_space.clear(pointer[0] - size / 2, pointer[1] - size / 2):
+                safe_pointer = pointer
+        moved = (safe_pointer is not None and self.last_pointer is not None and
+                 math.dist(safe_pointer, self.last_pointer) > 45)
+        self.last_pointer = safe_pointer
+
+        # Purr if the pointer lingers near the cat in unobstructed space.
+        # No click or keyboard handlers are registered by the companion.
+        if (safe_pointer is not None and self._purr_cooldown == 0 and
+                math.dist((self.x + safe_space.size / 2,
+                           self.y + safe_space.size / 2), safe_pointer)
+                < safe_space.size * .92):
+            self._hover_ticks += 1
+        else:
+            self._hover_ticks = 0
+        if self._hover_ticks >= 9:
+            self.route = []
+            self.pose, self.remaining = "purr", 28
+            self._hover_ticks = 0
+            self._purr_cooldown = 135
         if self.pose != "walk":
             if moved and self.pose in ("sleep", "sit"):
                 self.remaining = min(self.remaining, 4)
@@ -214,7 +248,7 @@ class CatMotion:
                 self.remaining -= 1
                 shown = "blink" if self.pose == "sit" and self.remaining % 31 == 0 else self.pose
                 return round(self.x), round(self.y), shown, self.facing, self.frame
-            self.route = safe_space.route(self.x, self.y, self.random, pointer)
+            self.route = safe_space.route(self.x, self.y, self.random, safe_pointer)
             if self.route:
                 self.pose = "walk"
             else:
@@ -240,6 +274,7 @@ class CatMotion:
             self._rest()
             return round(self.x), round(self.y), self.pose, self.facing, self.frame
         self.x, self.y = new_x, new_y
+        self.energy = max(0.0, self.energy - .0014)
         if abs(dx) > .2:
             self.facing = 1 if dx > 0 else -1
         if not self.route:

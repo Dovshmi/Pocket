@@ -162,6 +162,11 @@ def build_settings(app, parent):
           wraplength=wrap).pack(anchor="w", pady=(3, 7))
     _button(row, "Change shortcut", app._open_hotkey_picker, c).pack(anchor="w")
     _separator(behavior, c)
+    _toggle(behavior, c, "Pocket Cat companion",
+            "Let an independent pixel cat roam, groom and nap inside Pocket. "
+            "Click-through; no network access. Disable at any time.",
+            app.settings["pocket_cat"], app._set_pocket_cat_enabled, compact=mini)
+    _separator(behavior, c)
     _toggle(behavior, c, "Pause clipboard capture",
             "Stop collecting new text; existing session history remains accessible.",
             app.settings["clipboard_paused"],

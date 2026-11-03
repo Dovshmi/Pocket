@@ -100,6 +100,22 @@ class CatMotionTests(unittest.TestCase):
         self.assertGreater(len(coordinates), 12)
         self.assertIn("sleep", set(POSES))
 
+    def test_cat_stays_quiet_during_input_focus(self):
+        board = SafeSpace(480, 850, size=40, obstacles=((110, 110, 420, 810),))
+        cat = CatMotion(seed=8)
+        first = cat.step(480, 850, safe_space=board, busy=True)
+        for _ in range(180):
+            frame = cat.step(480, 850, safe_space=board, busy=True)
+            self.assertEqual((frame[0], frame[1]), (first[0], first[1]))
+            self.assertIn(frame[2], ("sit", "blink"))
+            self.assertTrue(board.clear(frame[0], frame[1]))
+        self.assertEqual(cat.route, [])
+        # When typing stops, normal independent roaming may resume.
+        resumed = set()
+        for _ in range(220):
+            resumed.add(cat.step(480, 850, safe_space=board)[2])
+        self.assertIn("walk", resumed)
+
     def test_overcrowded_screen_reports_no_safe_place(self):
         board = SafeSpace(322, 256, size=32, obstacles=((0, 0, 322, 256),))
         self.assertFalse(board.available)

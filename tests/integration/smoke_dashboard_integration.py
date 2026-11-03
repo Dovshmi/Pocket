@@ -65,6 +65,22 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(app.root.winfo_width() == view_dimensions("normal")[0],
               "Normal geometry is wrong")
         print("PASS: initial window and isolated data")
+        check(app.settings["pocket_cat"], "Pocket Cat should be enabled in the test build")
+        if sys.platform == "win32":
+            app._cat_tick()
+            app.root.update()
+            check(app.cat.window is not None and app.cat.window.winfo_exists(),
+                  "Windows Pocket Cat overlay did not initialize")
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetParent(app.cat.window.winfo_id()) or app.cat.window.winfo_id()
+            style = user32.GetWindowLongW(hwnd, -20)
+            check(style & 0x20, "Pocket Cat overlay is not click-through")
+            check(style & 0x08000000, "Pocket Cat overlay can steal input focus")
+            print("PASS: visible original cat with Win32 click-through protection")
+        else:
+            app._cat_tick()
+            check(app.cat.window is None, "Non-Windows test must not create a blocking overlay")
 
         from tkinter import ttk
         from pocket.icon_themes import palette
@@ -103,6 +119,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             for page in PANES:
                 app.show_tab(page)
                 app.root.update()
+                app._cat_tick()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
@@ -113,7 +130,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "mode_normal", "mode_mini", "mode_dashboard",
                         "extra_mini", "customize_launcher",
                         "change_hotkey", "quick_search",
-                        "clipboard_paused", "sensitive_filter")),
+                        "clipboard_paused", "sensitive_filter", "pocket_cat")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,
@@ -124,6 +141,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(controls["theme_blue"].winfo_exists() and
                           controls["theme_purple"].winfo_exists(),
                           "Dashboard Settings has no visible color palette")
+                    cat_check = controls["pocket_cat"]
+                    cat_check.invoke()
+                    check(not app.settings["pocket_cat"], "Cat toggle did not disable the pet")
+                    check(not app.cat.visible, "Disabled Pocket Cat overlay stayed visible")
+                    cat_check.invoke()
+                    check(app.settings["pocket_cat"], "Cat toggle did not restore the pet")
                     original_filter = app.settings["clipboard_sensitive_filter"]
                     controls["sensitive_filter"].invoke()
                     check(app.settings["clipboard_sensitive_filter"] != original_filter,
@@ -220,7 +243,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.smart_template_edit.invoke()
                     app.root.update()
                     dialogs = [w for w in app.root.winfo_children()
-                               if isinstance(w, tk.Toplevel)]
+                               if isinstance(w, tk.Toplevel) and w is not app.cat.window]
                     check(dialogs, f"{mode}: template review editor did not open")
                     dialog = dialogs[-1]
                     check(any(isinstance(w, tk.Text) for w in widgets(dialog)),
@@ -290,6 +313,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                      if isinstance(w, (tk.Label, tk.Button, tk.Checkbutton))]
             check(any("Appearance & layout" in n for n in names),
                   f"{mode}: modern Settings card missing")
+            check(any("Pocket Cat companion" in n for n in names),
+                  f"{mode}: Pocket Cat switch missing in Settings")
             check(any("Extra Mini" in n for n in names),
                   f"{mode}: Extra Mini setting missing")
             capture(app, output, "settings_" + mode)
@@ -302,6 +327,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app._edit_extra_mini_from_settings()
         app.root.update()
         check(app.display_mode == "compact", "Settings did not open Extra Mini")
+        app._cat_tick()
+        if sys.platform == "win32":
+            check(app.cat.window is not None and app.cat.window.winfo_exists(),
+                  "Extra Mini lost the cat overlay")
         check(app._compact_editing, "Settings did not activate inline editor")
         check(len(app.compact_cards.winfo_children()) == 4, "not four card slots")
 
@@ -326,7 +355,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         tile_button(0, "+").invoke()
         app.root.update()
         dialogs = [w for w in app.root.winfo_children()
-                   if isinstance(w, tk.Toplevel)]
+                   if isinstance(w, tk.Toplevel) and w is not app.cat.window]
         check(dialogs, "Plus did not open searchable quick-action picker")
         picker_dialog = dialogs[-1]
         choices = [w for w in widgets(picker_dialog) if isinstance(w, tk.Listbox)]
@@ -473,7 +502,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                   app.selected_command_id == template_record["id"],
                   "Smart Template tile did not select exact command")
             template_dialogs = [w for w in app.root.winfo_children()
-                                if isinstance(w, tk.Toplevel)]
+                                if isinstance(w, tk.Toplevel) and w is not app.cat.window]
             check(template_dialogs, "Smart Template tile did not open fill form")
             cancel_buttons = [w for w in widgets(template_dialogs[-1])
                               if isinstance(w, tk.Button) and w.cget("text") == "Cancel"]
@@ -552,7 +581,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             app._copy_generated_command(command, ident)
         template_ui.open_filler(app, example, on_copy=capture_generated)
         app.root.update()
-        dialogs = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel)]
+        dialogs = [w for w in app.root.winfo_children() if isinstance(w, tk.Toplevel) and w is not app.cat.window]
         check(dialogs, "Synthetic Smart Template fill dialog did not open")
         dialog = dialogs[-1]
         entries = [w for w in widgets(dialog) if isinstance(w, tk.Entry)]
@@ -606,6 +635,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check("TEST AUDIT PRIVATE CLIPBOARD" not in stored, "clipboard leaked to data.json")
         persisted = appmod["load_data"](app.path)
         check(persisted["settings"]["extra_mini_enabled"], "toggle not persisted")
+        check(persisted["settings"]["pocket_cat"], "Pocket Cat setting was not preserved")
         check(persisted["settings"]["display_mode"] == app.settings["display_mode"],
               "working layout not persisted")
         check(persisted["settings"]["extra_mini_tiles"] ==
@@ -622,6 +652,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             except (tk.TclError, RuntimeError):
                 pass
         try:
+            app.cat.destroy()
             app.root.destroy()
         except tk.TclError as exc:
             # Windows TkDnD cleanup can encounter already-removed commands.

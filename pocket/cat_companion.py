@@ -327,12 +327,12 @@ class PocketCat:
         handle = user32.GetParent(window.winfo_id()) or window.winfo_id()
         necessary = 0x20 | 0x08000000 | 0x80
         style = user32.GetWindowLongW(handle, -20)
-        user32.SetWindowLongW(handle, -20, style | necessary)
-        # SWP_FRAMECHANGED applies Win32 style updates without activation,
-        # movement or resizing. HWND_TOPMOST matches Pocket's topmost popup.
-        if not user32.SetWindowPos(handle, ctypes.c_void_p(-1),
-                                   0, 0, 0, 0, 0x0033):
-            raise RuntimeError("Cannot apply nonactivating overlay styles")
+        if style & necessary != necessary:
+            user32.SetWindowLongW(handle, -20, style | necessary)
+            # SWP_FRAMECHANGED applies the style without activating or moving.
+            if not user32.SetWindowPos(handle, ctypes.c_void_p(-1),
+                                       0, 0, 0, 0, 0x0033):
+                raise RuntimeError("Cannot apply nonactivating overlay styles")
         if user32.GetWindowLongW(handle, -20) & necessary != necessary:
             raise RuntimeError("Cannot make Pocket Cat click-through")
 
@@ -372,6 +372,16 @@ class PocketCat:
                     pass
             self.failed = True
 
+    def _after_map(self):
+        """Restore transparency once Tk has finished mapping the native HWND."""
+        if not self.enabled or not self.visible or self.window is None:
+            return
+        try:
+            self._protect_window(self.window)
+        except (tk.TclError, AttributeError, OSError, RuntimeError):
+            self.failed = True
+            self.hide()
+
     def hide(self):
         if self.window is not None and self.visible:
             try:
@@ -403,9 +413,13 @@ class PocketCat:
             self.window.geometry(f"{SIZE}x{SIZE}+{x + cx}+{y + cy}")
             if not self.visible:
                 self.window.deiconify()
-                # Windows Tk rebuilds native Toplevel styles on mapping.
+                # Native styles may be reset by a later Tk <Map> event. Apply
+                # now and again after mapping completes, before user input.
                 self._protect_window(self.window)
                 self.visible = True
+                self.window.after_idle(self._after_map)
+            else:
+                self._protect_window(self.window)
         except (tk.TclError, RuntimeError, OSError):
             self.hide()
             self.failed = True

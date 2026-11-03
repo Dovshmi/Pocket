@@ -1312,9 +1312,13 @@ class PocketDesk:
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
     def _cat_tick(self):
-        # An optional visual overlay; all user input stays with Pocket widgets.
+        # Native RichEdit owns a Windows HWND rather than normal Tk focus.
+        # Check focus only; never inspect typed text or change user input.
         if self.cat is not None:
-            self.cat.tick(blocked=self._modal)
+            native_typing = (self.current_tab == "notes"
+                             and self._bidi_active() and self.bidi_editor.has_focus())
+            self.cat.tick(blocked=self._modal or self._dragging_window,
+                          editing=native_typing)
 
     def _set_pocket_cat_enabled(self, enabled):
         self.settings["pocket_cat"] = bool(enabled)

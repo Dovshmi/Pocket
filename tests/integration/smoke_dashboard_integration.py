@@ -75,7 +75,18 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             user32 = ctypes.windll.user32
             hwnd = user32.GetParent(app.cat.window.winfo_id()) or app.cat.window.winfo_id()
             style = user32.GetWindowLongW(hwnd, -20)
-            check(style & 0x20, "Pocket Cat overlay is not click-through")
+            inner_style = user32.GetWindowLongW(app.cat.window.winfo_id(), -20)
+            print("PET STYLE DEBUG", hex(style & 0xffffffff),
+                  hex(inner_style & 0xffffffff), "wrapper", hwnd,
+                  "inner", app.cat.window.winfo_id(),
+                  "mapped", app.cat.window.winfo_viewable(), flush=True)
+            app.cat._protect_window(app.cat.window)
+            forced_style = user32.GetWindowLongW(hwnd, -20)
+            print("PET STYLE REAPPLY", hex(forced_style & 0xffffffff), flush=True)
+            app.root.update()
+            after_update_style = user32.GetWindowLongW(hwnd, -20)
+            print("PET STYLE AFTER UPDATE", hex(after_update_style & 0xffffffff), flush=True)
+            check(after_update_style & 0x20, "Pocket Cat overlay is not click-through")
             check(style & 0x08000000, "Pocket Cat overlay can steal input focus")
             print("PASS: visible original cat with Win32 click-through protection")
         else:

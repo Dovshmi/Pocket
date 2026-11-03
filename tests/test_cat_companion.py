@@ -10,7 +10,7 @@ import unittest
 
 from pocket.cat_companion import CatMotion, SIZE, POSES, sprite_pixels
 from pocket.cat_navigation import SafeSpace, overlaps
-from pocket.cat_sprites import PIXELS, INK, EYES
+from pocket.cat_sprites import PIXELS, FRAMES, INK, EYES
 from pocket.mini_layout import view_dimensions
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,7 +20,7 @@ class CatMotionTests(unittest.TestCase):
     def test_original_pixel_art_is_visible_and_transparent(self):
         for pose in POSES:
             for face in (-1, 1):
-                for frame in (0, 1):
+                for frame in range(FRAMES):
                     pixels = sprite_pixels(pose, face, frame)
                     self.assertEqual(len(pixels), PIXELS)
                     self.assertTrue(all(len(line) == PIXELS for line in pixels))
@@ -37,6 +37,12 @@ class CatMotionTests(unittest.TestCase):
         self.assertNotEqual(sprite_pixels("sleep"), sprite_pixels("sit"))
         self.assertIn(EYES, [pixel for row in sprite_pixels("sit") for pixel in row])
         self.assertNotEqual(sprite_pixels("play", frame=0), sprite_pixels("play", frame=1))
+        self.assertEqual(FRAMES, 8)
+        self.assertEqual(PIXELS, 36)
+        self.assertGreaterEqual(len(set(sprite_pixels("walk", 1, f)
+                                        for f in range(FRAMES))), 6,
+                                "Smoother walking requires several distinct silhouettes")
+        self.assertNotEqual(sprite_pixels("purr", frame=2), sprite_pixels("purr", frame=7))
 
     def test_invalid_pose_rejected(self):
         with self.assertRaises(ValueError):
@@ -60,7 +66,7 @@ class CatMotionTests(unittest.TestCase):
                 self.assertLessEqual(y, bottom + 1)
                 self.assertIn(pose, POSES)
                 self.assertIn(face, (-1, 1))
-                self.assertIn(frame, (0, 1, 2, 3))
+                self.assertIn(frame, range(FRAMES))
                 poses.add(pose)
                 destinations.add((x // 8, y // 8))
         self.assertIn("walk", poses)
@@ -121,6 +127,28 @@ class CatMotionTests(unittest.TestCase):
         self.assertFalse(board.available)
         self.assertEqual(board.route(0, 0, __import__("random").Random(1)), [])
 
+    def test_hover_purrs_only_in_clear_space_and_stays_noninteractive(self):
+        board = SafeSpace(320, 230, size=40,
+                          obstacles=((120, 50, 310, 190),))
+        cat = CatMotion(seed=14)
+        initial = cat.step(320, 230, safe_space=board, busy=True)
+        pointer = (initial[0] + 20, initial[1] + 20)
+        self.assertTrue(board.clear(pointer[0] - 20, pointer[1] - 20))
+        reactions = []
+        for _ in range(15):
+            point = cat.step(320, 230, pointer=pointer, safe_space=board)
+            self.assertTrue(board.clear(point[0], point[1]))
+            reactions.append(point[2])
+        self.assertIn("purr", reactions)
+        self.assertGreater(cat._purr_cooldown, 0)
+        # A pointer on top of a protected field is not a navigation target.
+        cat.step(320, 230, pointer=(180, 110), safe_space=board)
+        self.assertIsNone(cat.last_pointer)
+        self.assertEqual(cat._hover_ticks, 0)
+        frozen = cat.step(320, 230, pointer=pointer, safe_space=board, busy=True)
+        self.assertIn(frozen[2], ("sit", "blink"))
+        self.assertEqual(cat.route, [])
+
     def test_motion_is_repeatable_for_a_test_seed(self):
         a, b = CatMotion(seed=93), CatMotion(seed=93)
         for _ in range(600):
@@ -142,7 +170,8 @@ class CatMotionTests(unittest.TestCase):
                           "clipboard_clear", "keyboard", "pynput", "subprocess"):
             self.assertNotIn(forbidden, source)
         app = (ROOT / "app.pyw").read_text(encoding="utf-8")
-        self.assertIn('self.cat.tick(blocked=self._modal)', app)
+        self.assertIn('editing=native_typing)', app)
+        self.assertIn('self.cat.tick(blocked=self._modal or self._dragging_window,', app)
         self.assertIn('self.cat.hide()', app)
         self.assertIn('cat.destroy()', app)
 

@@ -1,299 +1,232 @@
 <div align="center">
 
-<img src="assets/app.png" width="88" alt="Pocket logo" />
+<img src="assets/app.png" width="116" alt="Official Pocket app icon" />
 
 # Pocket
 
 ### Your everyday Windows toolbox. One shortcut away.
 
-**Notes · CLI references · TCP checks · MAC lookup · Subnets · Shortcuts · Clipboard**
+**Notes · CLI commands · TCP checks · MAC lookup · Subnets · Shortcuts · Clipboard**
 
-A lightweight, customizable, **local-first Windows tray utility** that keeps practical tools close without requiring a browser tab, account or cloud service.
+A customizable, **local-first Windows tray application** for the small tools you reach for every day. No browser, account, cloud sync, or permanent internet connection required.
 
-[![Latest stable](https://img.shields.io/badge/Stable-v1.32.0-705CF6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.0)
-![Windows 10 & 11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
-![Local first](https://img.shields.io/badge/Local--first-No%20account-177E6B?style=for-the-badge)
-![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-526274?style=for-the-badge)
+[![Latest release](https://img.shields.io/badge/Stable-v1.32.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.0)
+![Platform](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
+![Offline-first](https://img.shields.io/badge/Local--first-No%20account-14866D?style=for-the-badge)
+[![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)** · **[Release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.0)** · **[Report an issue](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
-> [!IMPORTANT]
-> **Latest stable release:** **v1.32.0** introduces a redesigned wide Dashboard for **Notes, Commands, Shortcuts, and Settings**, stronger local data recovery, and a cleaner codebase. Normal, Mini, and Extra Mini retain their familiar workflows. Back up your portable `data/` folder and personal `commands.json` before upgrading.
+> [!NOTE]
+> **Current stable: v1.32.0.** The latest release redesigns the wide Dashboard experience for Notes, Commands, Shortcuts and Settings, improves local data recovery and preserves the existing Normal, Mini and Extra Mini workflows.
 
 ## Why Pocket?
 
-Pocket stays in the **Windows notification area** and appears only when you need it. It brings together seven everyday workflows, especially useful while troubleshooting networks, copying CLI syntax, keeping short notes, and opening repeat destinations.
+Pocket lives in the **Windows notification area** until you need it. Open it via a configurable global shortcut or its tray icon, use a tool, then hide it again. It is especially useful when switching between network troubleshooting, CLI reference material and everyday notes.
 
-- **Fast access:** Tray icon, configurable global hotkey, and compact launcher.
-- **One application, four ways to navigate:** Normal, Mini and Dashboard working layouts, plus the optional Extra Mini launcher.
-- **Offline-first:** Notes, commands, search, subnet calculations and cached vendor lookups are local. Network tests and vendor-database downloads are user initiated.
-- **Your data stays local:** No Pocket account, hosted synchronization or telemetry service is required. Stored notes and settings are **not encrypted**, so treat the local data folder accordingly.
-- **Predictable behavior:** Looking up a CLI command does **not** execute it. Saving an edited command does **not** make an automatic backup.
+- **Seven tools**, accessible from one application.
+- **Four ways to work:** Normal, Mini, Dashboard, and an optional Extra Mini launcher.
+- **Works offline** for notes, commands, search, subnets and clipboard history.
+- **User-controlled network access:** TCP tests and IEEE registry downloads start only when requested.
+- **Copy, never execute:** saved CLI commands and generated templates remain references, not a remote shell.
+- **Personalizable:** six color themes, movable windows, configurable menus, and saved launcher actions.
 
-## Explore the interface
+## Screenshots
 
-| Layout | Window | What it's designed for |
-|:---|---:|:---|
-| **Normal** | 480 × 850 | Everyday tray popup with familiar top navigation and **More** for additional enabled menus |
-| **Mini** | 346 × 530 | Smaller working window with icon tabs, short tool views and keyboard paging |
-| **Dashboard** | 1160 × 800 | Spacious two-column working layouts for Notes, Commands, Shortcuts and Settings, plus a persistent navigation sidebar |
-| **Extra Mini** | 322 × 256 | **Optional launcher** with four quick actions per page, adding pages automatically as needed, and search |
-
-### How Extra Mini works
-
-Choose a working layout under **Settings → Appearance & layout**. Enable **Extra Mini launcher**, then minimize the working window into the launcher.
-
-```text
-Normal / Mini / Dashboard
-           │
-           ▼  Minimize to Extra Mini
-       Extra Mini launcher
-     Page 1  ●  (up to 4 actions)
-     ◻ ◻ ◻ ◻
-           │  Add action 5 in Edit
-           ▼
-     Page 2  ● ●  (actions 5–8)
-     ◻ ◻ ◻ ◻
-           │  Add more actions as needed
-           ▼
-     More pages appear automatically
-           │
-           ▼  Open selected item
-Same Normal / Mini / Dashboard layout
-  → directly to a note, command or tool
-```
-
-Extra Mini does **not** force you into Mini. The **expand** control restores your previous working layout without choosing a new action.
-
-Since v1.31.0, use **‹ / ›**, the mouse wheel, or the page dots to switch between pages, which appear **as you add actions in groups of four**. Click **Edit**, then **+** to choose a tool or an exact saved item; the footer + control is hidden outside Edit mode. Right-click an existing tile to **Replace**, **Rename**, **Move** or **Remove** it; use **Done** when finished. Right-click the page label (or click it during Edit) to rename the page. Previously configured tiles remain on page one. The other pages initially start empty.
-
-Quick actions can open an exact **note**, **command**, **approved Smart Template**, or **saved shortcut**, in addition to menu tools. A regular command can optionally be copied directly but is **never executed**. **All tools** remains available even when it isn't in one of the launcher slots. Hiding a menu does not erase its tile preference.
-
-### Pocket v1.30.0 reference screenshots (previous stable layout)
-
-These are **actual captures of Pocket v1.30.0 running in Windows GUI tests**, not illustrations or renders. The v1.31.0 navigation and density improvements are newer than these screenshots. Fresh Windows GUI screenshots are available as build artifacts in [Pocket Actions](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml). Test profiles contain sample data, never private notes.
+These are **genuine Pocket screenshots captured during Windows GUI tests**, not generated mockups. The checked-in images are from **v1.30.0**. Dashboard layouts were refined in v1.32.0, so these show real features but not necessarily the exact current pixel arrangement. See [the latest GUI-test artifacts](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) for newer test captures.
 
 <div align="center">
-<img src="docs/images/pocket-v130-real/dashboard_home.png" width="860" alt="Real Pocket v1.30.0 Dashboard home with sidebar, status counters and tool cards on Windows" />
-<br /><strong>Dashboard · Home</strong>
-</div>
+<img src="docs/images/pocket-v130-real/dashboard_home.png" width="850" alt="Real Pocket Dashboard home" />
 
-### Work in Dashboard mode
+**Dashboard**
 
-<div align="center">
 <table>
 <tr>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_notes.png" width="460" alt="Actual Pocket Dashboard Notes editor" /><br /><strong>Notes</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_commands.png" width="460" alt="Actual Pocket Dashboard CLI command library" /><br /><strong>CLI Commands &amp; Templates</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_notes.png" width="420" alt="Pocket Dashboard Notes editor" /><br /><strong>Notes</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/dashboard_commands.png" width="420" alt="Pocket Dashboard CLI Commands" /><br /><strong>Commands</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_subnet.png" width="460" alt="Actual Pocket Dashboard Subnet Calculator" /><br /><strong>Subnet Calculator</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_clipboard.png" width="460" alt="Actual Pocket Dashboard Clipboard History" /><br /><strong>Clipboard History</strong></td>
-</tr>
-</table>
-</div>
-
-### Normal mode — everyday tools
-
-<div align="center">
-<table>
-<tr>
-<td align="center"><img src="docs/images/pocket-v130-real/normal_notes.png" width="300" alt="Real Pocket Normal Notes window on Windows" /><br /><strong>Notes</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/normal_commands.png" width="300" alt="Real Pocket Normal Commands window on Windows" /><br /><strong>Commands</strong></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/images/pocket-v130-real/normal_ports.png" width="300" alt="Real Pocket Normal TCP Port Checker window" /><br /><strong>TCP Ports</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/normal_mac.png" width="300" alt="Real Pocket Normal MAC Vendor Lookup window" /><br /><strong>MAC Lookup</strong></td>
-</tr>
-</table>
-</div>
-
-### Compact layouts
-
-<div align="center">
-<table>
-<tr>
-<td align="center"><img src="docs/images/pocket-v130-real/mini_notes.png" width="235" alt="Real Pocket Mini Notes interface" /><br /><strong>Mini · Notes</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/mini_commands.png" width="235" alt="Real Pocket Mini Commands interface" /><br /><strong>Mini · Commands</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/extra_mini.png" width="240" alt="Historical Pocket v1.30.0 Extra Mini launcher screenshot" /><br /><strong>Extra Mini · Launcher</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/normal_ports.png" width="290" alt="Pocket TCP Port Checker" /><br /><strong>TCP Port Checker</strong></td>
+<td align="center"><img src="docs/images/pocket-v130-real/extra_mini.png" width="290" alt="Pocket Extra Mini launcher" /><br /><strong>Extra Mini</strong></td>
 </tr>
 </table>
 </div>
 
 <details>
-<summary><strong>Settings and more screenshot files</strong></summary>
+<summary><strong>View more real app screenshots</strong></summary>
 
-<img src="docs/images/pocket-v130-real/dashboard_settings.png" width="800" alt="Actual Pocket Dashboard Settings screen" />
+| Normal Notes | MAC Vendor Lookup | Mini Commands |
+|:---:|:---:|:---:|
+| <img src="docs/images/pocket-v130-real/normal_notes.png" width="240" alt="Normal Notes" /> | <img src="docs/images/pocket-v130-real/normal_mac.png" width="240" alt="MAC Lookup" /> | <img src="docs/images/pocket-v130-real/mini_commands.png" width="240" alt="Mini Commands" /> |
 
-The screenshots shown above come from the automated **Windows GUI smoke test**, using an isolated temporary profile. The CI workflow also captures the Shortcuts page, additional network tools, and each page under Normal, Mini and Dashboard. Find the complete latest Windows and Linux screenshot archives in the [Pocket regression checks Actions runs](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) under **pocket-ui-Windows** and **pocket-ui-Linux**.
+| Subnet Calculator | Clipboard | Dashboard Settings |
+|:---:|:---:|:---:|
+| <img src="docs/images/pocket-v130-real/dashboard_subnet.png" width="240" alt="Subnet Calculator" /> | <img src="docs/images/pocket-v130-real/dashboard_clipboard.png" width="240" alt="Clipboard History" /> | <img src="docs/images/pocket-v130-real/dashboard_settings.png" width="240" alt="Settings" /> |
 
 </details>
 
-## UI improvements retained from v1.29.1
+## Features at a glance
 
-This maintenance release updates the Windows binaries to include the improvements tested on `main`:
+| Menu | Capabilities | Connectivity |
+|:---|:---|:---|
+| **Notes** | Notes with titles, phone numbers, timestamps, pinning, duplication, Notepad editing, Hebrew/English direction and reminders | Offline |
+| **Commands** | Local CLI search, categories, machines, favorites, editing, Smart Templates and manual library backup | Offline |
+| **Shortcuts** | Save, find and open URLs, files and directories | Online only when opening a web link |
+| **TCP Ports** | Scan chosen TCP ports and ranges on a specified IPv4/IPv6 address, with export | User-initiated network test |
+| **MAC Lookup** | IEEE vendor-prefix lookup, offline cache, batch lookup, manual registry update/import | Offline with cache; internet for update |
+| **Subnet Calculator** | IPv4 CIDR, network/broadcast, masks, wildcard, hosts, and network splitting | Offline |
+| **Clipboard** | Session-only text history, search, pin, copy, delete, pause and privacy filter | Offline |
 
-- Dark, readable Notes and Commands dropdowns (including their selection menus)
-- Working mouse-wheel navigation and visible vertical scrollbar on Dashboard Home
-- Clearer separation of Dashboard information counters and clickable tool cards
-- More discoverable Normal/Mini navigation and keyboard-accessible Extra Mini controls
-- The same notes, CLI, network, search and clipboard functionality as v1.29
+### Notes & reminders
 
-See the [release notes](https://github.com/Dovshmi/Pocket/releases/tag/v1.29.1) for upgrade instructions and limitations.
+- Create notes with a **title, optional phone number, creation date/time and full text body**.
+- **Pin, duplicate or delete** notes; use the context menu for common editing actions.
+- Set **RTL or LTR** text direction; the Windows editor supports mixed Hebrew and English.
+- Open the selected note in **Windows Notepad**. Saved Notepad edits can synchronize back to Pocket; simultaneous changes are handled as conflicts rather than silently overwritten.
+- Add an **optional one-time reminder**. Pocket checks for reminders while open or hidden in the tray and checks overdue unsent reminders on the next launch. Alerts use native Windows tray notifications, subject to Windows notification settings.
 
-## Extra Mini quick-action pages (introduced in v1.30.0; expanded in v1.31.0)
+### CLI command library & Smart Templates
 
-> v1.30.0 introduced three fixed pages. **v1.31.0 shows only pages needed for saved actions:** one page for up to four, two for five through eight, three for nine through twelve, and additional pages as needed.
+The Commands screen is a **searchable reference and copy workspace**, not a terminal. Search by device, category, description, or command text (including Hebrew). Edit or add entries, favorite useful references, review recent commands, and copy them to the clipboard.
 
-**Extra Mini stays 322 × 256** with four tiles per page. Your existing saved references are retained; empty trailing pages are hidden. Page names, the selected page and tile assignments are saved locally.
+With **Smart Templates**, an existing command can include fields such as `{{IP}}`, `{{INTERFACE}}` or `{{VLAN}}`:
 
-- **Switch pages:** scroll the mouse wheel over the launcher, click the ‹/› arrows, or click a page dot. The last selected page remains active after closing and reopening Extra Mini.
-- **Edit / Done:** click **Edit**, then **+** on a blank slot or the footer **+** (which appears only while editing) to open the interactive searchable picker with category choices. Choose a **Pocket tool**, **specific saved command**, **approved Smart Template**, **specific note**, or **saved shortcut**. Nothing is added until you confirm.
-- **Right-click a tile:** Open, Replace, Rename, Move, or Remove. A rename changes only its launcher label. Drag a tile to another slot to swap it; to move between pages, scroll while dragging or use the accessible **Move to another slot** picker.
-- **Rename a page:** right-click the page name in the launcher footer and enter a short label.
-- **Behavior:** Tool tiles open the selected menu; note tiles select that exact note; command tiles open the exact CLI reference, or optionally copy its text directly; Smart Template tiles open the existing validated Fill & Copy form; shortcut tiles open the saved file, folder or URL **only when clicked**. No CLI is ever executed.
-- **Safe missing/hidden items:** deleted notes, shortcuts, commands or hidden menus appear unavailable instead of opening another record. Configurations are retained so you can restore or replace them. Unapproved/stale Smart Templates cannot generate output.
-- **Search:** remains global and separate from page switching. Extra Mini still returns to the user's chosen Normal, Mini, or Dashboard layout.
+1. Select a command, then choose **Template…**.
+2. Review suggested placeholders or define your own; optional field validation includes IP, CIDR, VLAN, port, interface, VRF, MAC, integer and choice values.
+3. Save the approved template, use **Fill & copy**, and review the generated output before copying.
+4. If the original command changes, the template requires approval again before it can generate output.
 
-The existing `extra_mini_tiles` preference is mirrored for backwards compatibility. New reference/page metadata is stored locally in `data.json`; clipboard contents and generated template input values are not persisted.
+**No command is ever executed.** Filled template values are not saved. Templates work entirely offline, and ordinary commands remain usable without them.
 
----
+**Backups are manual by design:** choose **Commands → Backup → Create new backup** when you want one, or **Use existing backup** to restore. Normal edits never generate a command backup automatically. Your private command library is separate from the public examples shipped with the app.
 
-## Smart Command Templates (v1.30.0)
+### Network utilities
 
-> **Optional feature:** Smart Templates were introduced in **v1.30.0** and remain available in **v1.31.0**. Ordinary commands still work without templates.
+**TCP Port Checker** — enter a **literal IPv4 or IPv6 address** and a port or range (up to **128 TCP ports** per scan). Start a scan to see **OPEN**, **CLOSED**, **TIMEOUT**, or **ERROR** results, then copy or export them. Hostname-based targets are not currently supported. A timeout may indicate filtering or packet loss and is not proof of a closed port.
 
-Pocket's Commands screen now has a small **Template…** option for a selected command. Your ordinary **Copy edited**, editing, search, categories, favorites, recent history, command backups, and plain-command behavior continue unchanged.
+**MAC Vendor Lookup** — identify IEEE prefix registrations using a locally cached database (MA-L, MA-M, MA-S, and IAB). Look up multiple addresses, import registry CSV files, manually download refreshed registries, and export results. Prefix ownership does not prove the specific owner or manufacturer of a device.
 
-1. Select a command in **Normal**, **Mini**, or **Dashboard**, then choose **Template…**. Pocket may suggest fields for recognizable placeholders (`{vrf}`, `<IP>`, `[interface]`, `x.x.x.x`, `x/x/x`, and a few other forms). Suggestions do not modify the library.
-2. Review the suggested format using **`{{FIELD_NAME}}`** markers, then click **Refresh fields**. The editor shows only **how many fields were detected**, not a long form of field editors. For more control, open the optional **Field options** disclosure to adjust a label, validation type (IPv4/IPv6, CIDR, VLAN, port, VRF, interface, MAC, integer, choice, free text), or choice values. Refresh collapses those advanced controls again without discarding their saved settings.
-3. Click **Save template** to add metadata to that command in your writable `commands.json`. This **does not** overwrite the original CLI text, create a backup, or affect other commands.
-4. The command then shows **Fill & copy**. Enter the values, review the generated CLI, then click **Copy command**. Pocket copies the result to the clipboard **without executing it or saving the entered values**. The normal Copy action remains available.
-5. To disable the feature for one command, select **Template… → Remove**. The saved original command and other command functions remain intact.
+**IPv4 Subnet Calculator** — calculate the network address, broadcast, mask, wildcard, usable hosts and address counts, and split a network into smaller subnets. `/31` and `/32` have special handling. **No network access is involved.**
 
-**Important:** Suggestions are heuristic—not a CLI syntax validator. Some library entries are notes, alternative commands, fixed examples, or multiple CLI steps. These require manual review, and incorrect suggestions should be corrected or discarded. If you edit the underlying command after approving a template, Pocket marks its template **Needs review** and disables generated copying until you approve an updated format. Templates follow the existing **manual** command backup/restore workflow and store no filled-in input values on disk.
+> [!CAUTION]
+> Perform network tests only on systems you have authorization to check. Pocket does not perform automatic network discovery or background port scanning.
 
-Extra Mini can now open a **specific approved Smart Template** directly in whichever working mode you selected; there is no extra top-level menu. Smart Templates work entirely offline.
+### Shortcuts & clipboard
 
----
+**Shortcuts** are saved website links, local files, and folders. Search, edit, copy, or open a target. Supported drag-and-drop actions help populate shortcuts. Destinations open **only when explicitly clicked**.
 
-## Seven tools, one window
+**Clipboard History** captures copied text when its **menu is visible/enabled** and monitoring isn't paused, even while Pocket is hidden in the tray. Hide the Clipboard menu to disable monitoring; no separate monitoring setting is required. Search, pin, recopy and delete captured entries, or clear the history.
 
-| Tool | What you can do |
-|:---|:---|
-| **Notes & reminders** | Create and autosave notes; store titles, phone numbers and creation timestamps; pin, duplicate or delete notes; choose RTL/LTR direction; edit a note in Windows Notepad; set one-time reminders |
-| **Commands** | Search a local network-CLI library by machine, category, command or purpose (including Hebrew); edit and copy commands; add custom entries, mark favorites, browse recent items, and manually back up or restore the library |
-| **Shortcuts** | Save links to websites, local folders and files; open or copy targets; search your saved shortcuts; drag a file, folder or web address into a review form when supported |
-| **TCP Ports** | Test individual ports or lists/ranges against an IPv4 or IPv6 destination; inspect OPEN/CLOSED/TIMEOUT/ERROR outcomes and copy/export results |
-| **MAC Lookup** | Identify IEEE OUI vendor assignments from one or several MAC addresses; update or import IEEE CSV data; use cached data offline; export results |
-| **Subnet Calculator** | Calculate IPv4 network/broadcast addresses, subnet masks, wildcards, usable host ranges and counts; divide a network into smaller subnets, including /31 and /32 handling |
-| **Clipboard History** | Capture copied text while enabled, search within the session, pin or copy entries, delete individual items or clear history; pause/resume capture and optionally filter recognized secrets |
+Clipboard records live in **RAM only**, and disappear on application exit. An optional sensitive-text filter tries to ignore obvious passwords, API keys and tokens, but cannot detect every secret. For confidential work, pause monitoring or hide the menu and clear the session history.
 
-### Notes that fit technical work
+## Layouts and navigation
 
-Notes have a title, optional phone number, creation time and a full text editor. They support pinning, duplication, right-click actions, timestamp insertion and a selectable text direction. The native Windows Unicode editor is designed for mixed RTL/LTR text, including Hebrew and English. **Open in Notepad** uses a stable local working file so saved Notepad edits can be synchronized back into Pocket, with conflict handling if both editors changed the note.
+| Layout | Default size | Intended use |
+|:---|---:|:---|
+| **Normal** | 480 × 850 | Everyday menu-driven work |
+| **Mini** | 346 × 530 | Small working window with compact navigation |
+| **Dashboard** | 1160 × 800 | Spacious, side-by-side editing and navigation |
+| **Extra Mini** | 322 × 256 | Optional quick-action launcher |
 
-**One-time reminders** are attached to individual notes. Set a local date/time, leave Pocket running in the tray and receive a Windows notification. If Pocket isn't running at the scheduled time, it checks for overdue unsent reminders on the next launch. Reminder appearance and click behavior depend on Windows notification settings.
+In **v1.32 Dashboard**, Notes has a larger editor beside the note list, Commands a broader results list and editable preview, Shortcuts a card-based workspace, and Settings two columns of preferences. Normal and Mini retain their familiar workflows.
 
-### Dashboard workspace — optimized for wide windows
+### Extra Mini quick-action launcher
 
-In **Dashboard mode**, Notes has a full-height editor beside the note list, with title and phone fields in a compact row. Commands displays a larger **16-row** result list next to its editable, copy-only preview. Shortcuts uses a responsive card grid with website/file/folder filters and a horizontal add/edit form. Settings groups the existing preferences into two columns with direct color-theme choices. **Normal and Mini layouts remain unchanged.**
+Enable **Extra Mini** in **Settings → Appearance & layout** and minimize into the launcher. Expanding it restores your previously chosen **Normal, Mini or Dashboard** layout.
 
-### Local data recovery
+- Each page holds **four editable action tiles**; pages appear as needed.
+- Navigate with **‹ / ›**, the mouse wheel, or page dots.
+- Click **Edit** to add a tool, exact note, saved command, approved Smart Template, or saved shortcut.
+- Right-click a tile to **Replace**, **Rename**, **Move** or **Remove** it. Page labels can be renamed.
+- A command can be opened or optionally copied, but **never executed**.
+- Hidden menus or deleted records make existing tiles unavailable without silently remapping them.
 
-Pocket saves notes and settings atomically. It keeps one last-good previous snapshot as `data-recovery.json`, and preserves an unreadable file as `data-corrupt-*.json` while warning you. If saving fails, Pocket stays open to help prevent unsaved work being discarded. These local recovery files can contain **unencrypted personal notes**; protect your data directory and make independent backups. CLI command backups are still created **only when you press Backup**.
+### Search, shortcuts and appearance
 
-### CLI library — copy, don't execute
-
-The Commands menu is a **reference and editing workspace**, not a terminal or remote executor. Search by device and category, then select, edit, copy, save or favorite a command. Mini presents a compact one-result-at-a-time view; Normal provides a compact result list and editor; Dashboard provides a wider 16-row list beside the editable preview.
-
-**Backups are manual by design.** Use **Commands → Backup → Create new backup** when you want a copy. **Use existing backup** restores a chosen library; restoring replaces the active command collection. Normal edits do not create a backup at every save. Custom library content is kept in the writable local `commands.json`.
-
-### Network utilities — on demand
-
-The Subnet Calculator computes addresses without a network connection. TCP checks contact **only** the destination you specify when you start a check. MAC Lookup uses a locally cached or imported IEEE vendor registry; updating the registry needs internet access and may be blocked by a corporate firewall or the IEEE servers. The UI includes a manual **Get CSV → Import CSV** path.
-
-Only run network checks against systems you are authorized to test. A port timeout is not proof that a service is closed, and an OUI prefix identifies a registered vendor rather than an exact device owner.
-
-## Search, personalization and controls
-
-### Quick Search
-
-Press **Ctrl+K** from Normal, Mini or Dashboard to search your **enabled menus**, saved notes, saved shortcuts and CLI references. Select a result to open it in its existing Pocket tool. Search is local and does not automatically execute commands or open shortcut URLs. Extra Mini has an inline search field.
-
-**Ctrl+F** focuses the command search while you're in Commands; elsewhere it opens Quick Search.
-
-### Settings
-
-- **Appearance & layout:** Normal, Mini or Dashboard, plus one of six icon and color themes — **Blue, Dark Blue, Black, Red, Green, Purple**.
-- **Extra Mini:** Toggle the small launcher on/off and configure its four quick-access tiles in place.
-- **Visible tools:** Show or hide any of the seven menus without deleting its underlying notes, commands or shortcuts.
-- **Keyboard shortcut:** Configure the system-wide popup hotkey; if a requested combination can't be registered, Pocket preserves the previous usable one.
-- **Clipboard privacy:** Pause capture and enable/disable a conservative sensitive-text filter.
-
-Pocket also remembers window positions separately for each layout. Drag the header to move the popup; use the header's reset-position control if it ends up off-screen. **PIN** keeps Pocket visible when you're working in another window. Closing the popup normally **hides it to the tray**, rather than quitting or erasing data.
-
-### Keyboard and navigation
+Press **Ctrl+K** for local Quick Search across enabled menus, notes, commands and saved shortcuts. Search opens the matching Pocket item; it does not automatically launch URLs or commands.
 
 | Action | Shortcut / control |
 |:---|:---|
-| Open Quick Search | `Ctrl+K` |
-| Search Commands when on that page | `Ctrl+F` |
-| Create a new note | `Ctrl+N` |
-| Save current state | `Ctrl+S` |
-| Show / hide Pocket | Configurable **global hotkey** or tray icon |
-| Navigate Mini note/command cards | Arrow keys when the editor/search input does not have focus |
-| Navigate menus | Mouse or keyboard Tab, then Enter/Space where supported |
-| Return from Extra Mini | Click a tool tile or its expand control |
+| Quick Search | `Ctrl+K` |
+| Search Commands when in that menu | `Ctrl+F` |
+| New note | `Ctrl+N` |
+| Save | `Ctrl+S` |
+| Show/hide window | Tray icon or configurable global hotkey |
+| Keep window open | **PIN** |
+| Exit the application | **Exit** from tray menu |
 
-## Clipboard privacy — important
+Settings include **Blue, Dark Blue, Black, Red, Green and Purple** themes, layout choice, menu visibility, clipboard controls and the global hotkey. Hiding a menu **does not delete its data**. Pocket remembers individual window positions and includes an option to reset the position if it goes off-screen.
 
-Clipboard collection follows the **Clipboard menu visibility** setting. When its menu is enabled and capture is not paused, Pocket records newly copied text even if the window is hidden in the tray. History stays **in memory only** and disappears on exit; it is **not written to `data.json`**.
+Closing the popup normally **hides it to the tray**; use **Exit** to stop the application completely.
 
-Pause Capture stops collecting new entries. The optional sensitive-text filter tries to skip common password assignments, bearer tokens, API keys and private-key markers. **It cannot reliably detect every secret.** For confidential tasks, pause capture or hide Clipboard completely, then clear the in-memory history. Pocket does not remove contents from the Windows system clipboard or Windows' own clipboard-history feature.
+## Download and installation
 
-## Download, install and update
-
-### Latest stable — Pocket v1.32.0
-
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)**
-
-Back up your data and command library before upgrading from any previous version. Do not run two versions against the same writable data directory.
-
-### Option 1 — Portable ZIP (recommended)
+### Portable ZIP — recommended
 
 **[Pocket-Portable-v1.32.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)**
 
-1. Download and extract the **entire** ZIP to a writable folder.
-2. Launch `PocketDesk.exe` from the extracted folder (not from inside the ZIP).
-3. Find Pocket in the system tray and choose the layout you want under Settings.
+1. Download and **extract the entire ZIP** to a writable Windows directory.
+2. Launch `PocketDesk.exe` from the extracted `Pocket-Portable` folder (not from within the archive).
+3. Find the app's real Pocket icon in the system tray and open Settings to pick your layout.
 
-Portable mode uses the included `portable.flag` marker to keep application data in the adjacent `data/` directory. It does not require Python on the destination computer. Moving the whole folder moves the application and its data together.
+The included `portable.flag` keeps your local writable data in `data/` **beside the application**. Python is not required on the destination PC. To move the app, close it and copy the entire folder.
 
-### Option 2 — Standalone executable
+### Standalone EXE
 
 **[Pocket-v1.32.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)**
 
-Run the EXE directly. Python installation is unnecessary, but this build stores its data in the regular Windows application-data location, **not beside the EXE**.
+Run the downloaded executable directly. This version uses the standard Windows data directory `%APPDATA%\PocketDesk\`, **not the EXE's folder**. Python is not needed.
 
-> [!CAUTION]
-> Both public executables are **unsigned**. Windows SmartScreen or your organization's application policies may restrict them. Use Pocket only on computers where you are authorized to run it. The portable version does not bypass those policies.
+> [!WARNING]
+> Release executables are **unsigned**. Windows SmartScreen or organization policy may prevent launching them. Only use Pocket where you have permission; a portable build does not bypass workplace security.
 
-### Keep your data when upgrading
+### Upgrading safely
 
-Exit Pocket completely from the tray first. **Back up your data folder** before updating. For a portable installation, extract the new application files and **preserve your existing `data/` directory**. Don't overwrite it with an empty folder or mix an old `_internal/` folder into a new build. Back up any custom command library separately if it matters.
+1. **Exit Pocket** fully using the tray menu.
+2. Back up the existing `data/` directory (portable) or `%APPDATA%\PocketDesk\` (standalone), including any personalized `commands.json`.
+3. For **portable upgrades**, extract a fresh release and bring your existing `data/` directory into it. Do **not** mix an old `_internal/` directory with a new build.
+4. Open the new build and verify your settings and notes before deleting the previous copy.
 
-The public portable ZIP contains a **public example command library**, not your personal notes, copied text or custom command backups.
+Pocket normally enforces **one running instance per Windows session** to reduce accidental conflicts. Do not point multiple app versions at the same writable profile.
 
-### Run the latest source code
+## Privacy, storage and offline behavior
 
-To run the current stable source, use `main` or check out tag `v1.32.0`.
+| Data | Where it is kept |
+|:---|:---|
+| Notes, settings, reminders, shortcuts, launcher pages | `data.json` |
+| Your editable CLI references and template metadata | `commands.json` |
+| Cached/imported MAC vendor database | `vendors.json` |
+| Notepad synchronization working copies | Local `notepad/` folder |
+| Clipboard history | **Memory only; never persisted by Pocket** |
+| Standalone install's writable profile | `%APPDATA%\PocketDesk\` |
+| Portable install's writable profile | `Pocket-Portable\data\` |
 
-**Requirements:** Windows 10/11 and Python 3.10+ with Tkinter.
+To protect notes/settings against malformed files or interrupted writes, Pocket uses **atomic saves**, one previous snapshot named `data-recovery.json`, and preserves corrupted data as `data-corrupt-*.json`. These are **recovery safeguards**, not a replacement for your own backup. Manual command-library backups remain separate.
+
+> [!IMPORTANT]
+> **Pocket does not encrypt the files it saves.** Local notes, phone numbers, CLI references and recovery snapshots may be sensitive. Protect your data directory and never publish credentials, customer information or personal command libraries in GitHub issues or public builds.
+
+**Network access is on demand:**
+
+| Feature | Internet or network use |
+|:---|:---|
+| Notes, search, commands, templates, subnet calculations, clipboard | None |
+| MAC lookup using cached/imported registries | None |
+| TCP port checks | Contact only your specified target when you start a check |
+| IEEE vendor-registry download | External HTTPS only when manually requested |
+| Web shortcuts | Only when you open the destination |
+
+There is no required Pocket account, cloud synchronization, automatic telemetry service or continuous internet connection.
+
+## For developers
+
+**Stack:** Python 3.10+, Tkinter/ttk, native Windows `ctypes` APIs, Pillow, `tkinterdnd2` and PyInstaller packaging.
+
+### Run from source (Windows)
 
 ```powershell
 git clone https://github.com/Dovshmi/Pocket.git
@@ -302,104 +235,64 @@ cd Pocket
 .\run.bat
 ```
 
-Or start directly after installing dependencies:
+Or:
 
 ```powershell
 py -3 -m pip install -r requirements.txt
 py -3 app.pyw
 ```
 
-A Windows development PC can also run `build-portable.bat` to create a portable build from source. Python and build dependencies are required **on the build machine**.
+### Test and package
 
-## Storage, offline use and safety
+```powershell
+# Automated unit tests
+py -3 -m unittest discover -s tests -p "test_*.py" -v
 
-| Item | Behavior |
-|:---|:---|
-| Notes, reminders, links, preferences | Local `data.json` |
-| Custom CLI library | Local writable `commands.json` |
-| MAC vendor assignments | Local `vendors.json` cache/import |
-| Notepad working copies | Local `notepad/` directory |
-| Clipboard history | **RAM only; not saved to disk** |
-| Standard installation | `%APPDATA%\PocketDesk\` |
-| Portable installation | `Pocket-Portable\data\` beside the executable |
+# Build standalone EXE
+.\build-exe.bat
 
-Pocket does **not encrypt** saved notes, phone numbers, command content or other JSON files. Don't put passwords, private keys, customer secrets or restricted workplace documentation in those files. Review and sanitize screenshots, issue attachments and command collections before publishing them.
+# Build portable archive
+.\build-portable.bat
+```
 
-Internet access is **not needed** to read/write notes, search local references, calculate subnets, or navigate Pocket. Explicit TCP checks require destination connectivity; IEEE downloads require external access. The app does not provide cloud sync.
-
-Pocket is designed to maintain **one running instance per signed-in Windows session**. Starting it again normally activates the existing popup rather than running a second process that might overwrite local data. Preview mode for development tests is treated differently.
-
-## Build, test and contribute
-
-The app uses **Python/Tkinter/ttk**, native Windows APIs through `ctypes`, Pillow, `tkinterdnd2`, and PyInstaller for Windows packaging.
+The repository includes a GUI smoke test (`tests/integration/smoke_dashboard_integration.py`), automated Windows/Linux regression runs, packaging checks and Windows UI captures. Test native tray behavior, scaling, mixed RTL text and multi-monitor windows manually when changing those features.
 
 ```text
 Pocket/
-├── app.pyw                Windows GUI and application entry point
-├── pocket/                 Runtime modules: UI, notes, commands, networking
-│   ├── *_ui.py             Mode-specific UI and navigation
-│   ├── command_*.py        Commands, search, storage and manual backups
-│   └── portable_storage.py Local-first storage location and safeguards
-├── commands/              Approved public command examples; no private library
-├── assets/                Current application icons
-├── docs/                  Guides, reference screenshots and archived releases
-├── tests/
-│   ├── test_*.py          Automated regression suites
-│   ├── integration/       Current end-to-end GUI smoke test
-│   └── manual/            Archived historical visual scripts
-├── build-*.bat            Development and packaging commands
-└── .github/workflows/     Active regression CI and v1.32.0 release pipeline
+├── app.pyw                   Entry point and main application controller
+├── pocket/                   UI, commands, notes, storage, networking
+├── commands/                 Public example CLI data (not private commands)
+├── assets/
+│   ├── app.png               Official Pocket icon shown in this README
+│   └── app.ico               Icon used by the Windows build
+├── docs/                     Documentation and actual GUI screenshots
+├── tests/                    Unit tests and GUI integration tests
+├── build-exe.bat             Standalone Windows build
+├── build-portable.bat        Portable Windows build
+└── .github/workflows/        CI and release automation
 ```
 
-For the complete source layout, build commands and privacy notes, see [Repository layout and maintenance](docs/REPOSITORY_LAYOUT.md).
+**Distribution hygiene:** public builds bundle only `commands/example_commands.json`, not a user's private `commands.json` or other local files. Older Git commits can still contain content removed from the current branch. Keep credentials and proprietary commands out of public issues, screenshots, commits and releases.
 
-Run the unit tests:
+See [repository layout documentation](docs/REPOSITORY_LAYOUT.md) or [open an issue](https://github.com/Dovshmi/Pocket/issues) for bugs and suggestions.
 
-```powershell
-py -3 -m unittest discover -s tests -p "test_*.py" -v
-```
+## What's new in v1.32.0?
 
-The repository also contains a real Tk GUI smoke test at `tests/integration/smoke_dashboard_integration.py`, plus historical scripts under `tests/manual/` and Windows screenshot captures for every tool in Normal/Mini/Dashboard, Extra Mini tile editing, theme and dropdown readability, and Dashboard scrolling. CI runs on Windows and Linux and verifies the Windows portable package. **Passing CI doesn't replace hands-on testing** of real Windows tray behavior, right-to-left text editing, display scaling, multi-monitor movement and native menus.
+- **Redesigned Dashboard** views for Notes, Commands, Shortcuts and Settings.
+- **Stronger data recovery**, safer atomic saves and clearer recovery handling.
+- **Improved code organization and regression coverage**, while retaining prior workflows.
+- Existing **Smart Templates**, adaptive **Extra Mini pages**, and the seven tools remain available.
 
-**Safe packaging:** Both `build-exe.bat` and the public release workflow now bundle **only `commands/example_commands.json`**. Your personal `commands.json` remains a local writable file and is excluded from the repository and release assets. The older private workbook-derived command files were removed from the current branch, **but remain visible in earlier Git history** until a separate history-remediation operation is authorized.
-
-Found a bug or have an idea? [Open an issue](https://github.com/Dovshmi/Pocket/issues). Include reproduction steps and Windows version, but remove personal notes, passwords, customer data and private network details first.
-
-## Version history
-
-| Milestone | Highlights |
-|:---|:---|
-| **v1.32.0 — latest stable** | Dashboard redesigns for Notes, Commands, Shortcuts and Settings; local data recovery and safer saves; modular runtime and test structure |
-| **v1.31.0** | Adaptive Extra Mini pages, interactive quick-action selection, Normal mode icon navigation and denser layouts, Notes focus improvements, themed scrollbars and consistent drawn tool icons |
-| **v1.30.0** | Optional Smart Command Templates; three fixed Extra Mini pages with 12 slots, exact note/command/template/shortcut actions, searchable picker and saved layouts |
-| **v1.29.1** | Readable dark dropdown selections, scrollable Dashboard Home, clearer tool-card navigation, focusable menus and improved tooltips; updated portable ZIP and standalone EXE |
-| **v1.29** | Wide Dashboard, optional editable Extra Mini launcher, modern Settings/design system, global Quick Search, clipboard Pause/Resume and heuristic sensitive-text filtering; standalone EXE and portable ZIP |
-| **v1.28** | Public portable packaging, single-instance Windows startup, Normal/Mini improvements |
-| **v1.27** | Mini tools, icon tabs, keyboard paging and tool scrolling |
-| **v1.26** | Native mixed-direction note editing and Notepad sync |
-| **v1.24–v1.25** | Clipboard, menu visibility, reminders and manual command backup/restore |
-| **Earlier** | Notes, commands, shortcuts, subnet calculation, network tools, custom themes and saved window position |
-
-See [all GitHub releases](https://github.com/Dovshmi/Pocket/releases) and the [commit history](https://github.com/Dovshmi/Pocket/commits/main). **v1.32.0 retains Smart Command Templates and adaptive Extra Mini paging, and adds a more productive Dashboard and recovery safeguards.**
-
-### Historical screenshots
-
-These are **real screenshots of older versions**, retained as historical references. They are not proof of the current layout's exact appearance.
-
-| Notes | Shortcuts | Network tools |
-|:---:|:---:|:---:|
-| <img src="docs/images/legacy/preview-notes-pinned-v117.png" width="195" alt="Legacy Notes screenshot"/> | <img src="docs/images/legacy/preview-shortcuts-fixed.png" width="195" alt="Legacy Shortcuts screenshot"/> | <img src="docs/images/legacy/preview-ports.png" width="195" alt="Legacy TCP ports screenshot"/> |
+For the complete history, visit **[GitHub releases](https://github.com/Dovshmi/Pocket/releases)** or **[the commit log](https://github.com/Dovshmi/Pocket/commits/main)**. This README focuses on using the **current release**, rather than repeating a lengthy version history.
 
 ## License
 
-Pocket is released under the [GNU General Public License v3.0](LICENSE).
-
----
+Pocket is licensed under the [GNU General Public License v3.0](LICENSE).
 
 <div align="center">
 
-**Pocket — all the small tools you reach for, in one place.**
+---
 
-[Back to top](#pocket)
+**Pocket — all the small tools you reach for, in one place.**
 
 </div>

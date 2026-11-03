@@ -1088,6 +1088,8 @@ class PocketDesk:
             self._build_settings()
         # Preserve a user-moved position when changing tabs.
         self._place_popup(self._last_tray_xy)
+        if self.cat is not None:
+            self.cat.invalidate()  # Never draw over a newly rebuilt field.
 
     def _show_more_menu(self):
         menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,

@@ -52,6 +52,7 @@ from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
 from pocket import normal_navigation
+from pocket import cat_companion
 from pocket import data_recovery
 from pocket.task_manager import TaskManager
 from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
@@ -132,7 +133,8 @@ def default_data() -> dict:
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
-                     "clipboard_paused": False, "clipboard_sensitive_filter": True},
+                     "clipboard_paused": False, "clipboard_sensitive_filter": True,
+                     "pocket_cat": True},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
@@ -161,7 +163,8 @@ def normalize_settings(raw):
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
-            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False}
+            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
+            "pocket_cat": raw.get("pocket_cat") is not False}
 
 
 def sanitize_clipboard(value):
@@ -301,6 +304,7 @@ class PocketDesk:
         self._clipboard_last = None
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
+        self.cat = None  # Independent, click-through window; never a Pocket control.
         self.theme = themes.valid_theme(self.data.get("theme"))
         self._apply_palette(self.theme)
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
@@ -419,6 +423,10 @@ class PocketDesk:
         self.tasks.every("reminders", 1500, self._reminder_poll, initial_ms=2500)
         self.tasks.every("notepad", 1200, self._notepad_poll)
         self.tasks.every("notes-editor", 350, self._bidi_poll)
+        self.cat = cat_companion.PocketCat(self.root)
+        self.cat.enable(self.settings["pocket_cat"])
+        if sys.platform == "win32" and self.settings["pocket_cat"]:
+            self.tasks.every("pocket-cat", cat_companion.TICK_MS, self._cat_tick, initial_ms=550)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
@@ -479,6 +487,8 @@ class PocketDesk:
         if self.tray:
             self.tray.set_icon(self.theme_icons[name]["ico"])
         for child in self.root.winfo_children():
+            if self.cat is not None and child is self.cat.window:
+                continue  # Preserve the separate click-through companion.
             child.destroy()
         self._header_context_menu = None
         self._build_shell()
@@ -1279,6 +1289,8 @@ class PocketDesk:
     def _build_shell_refresh(self):
         self._flush_current_note()
         for child in self.root.winfo_children():
+            if self.cat is not None and child is self.cat.window:
+                continue  # Preserve the separate click-through companion.
             child.destroy()
         self._header_context_menu = None
         self._build_shell()
@@ -1296,6 +1308,23 @@ class PocketDesk:
     def _task_error(self, name, error):
         # Periodic UI callbacks must not disappear silently after an exception.
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
+
+    def _cat_tick(self):
+        # An optional visual overlay; all user input stays with Pocket widgets.
+        if self.cat is not None:
+            self.cat.tick(blocked=self._modal)
+
+    def _set_pocket_cat_enabled(self, enabled):
+        self.settings["pocket_cat"] = bool(enabled)
+        if self.cat is not None:
+            self.cat.enable(enabled)
+        if self.tasks is not None and sys.platform == "win32":
+            if enabled and "pocket-cat" not in self.tasks.scheduled:
+                self.tasks.every("pocket-cat", cat_companion.TICK_MS,
+                                 self._cat_tick, initial_ms=150)
+            elif not enabled:
+                self.tasks.cancel("pocket-cat")
+        self.schedule_save()
 
     def _clipboard_poll(self):
         if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
@@ -4063,6 +4092,8 @@ class PocketDesk:
     def hide(self):
         if self._write_now() is False:
             return  # Retain the open window and unsaved data on disk error.
+        if self.cat is not None:
+            self.cat.hide()
         if self.preview or not self.tray or self.tray.error:
             self.root.iconify()
         else:
@@ -4175,6 +4206,8 @@ class PocketDesk:
         self.scan_cancel.set()
         if self.tasks is not None:
             self.tasks.stop()
+        if self.cat is not None:
+            self.cat.destroy()
         if self.tray:
             self.tray.stop()
         self.root.destroy()

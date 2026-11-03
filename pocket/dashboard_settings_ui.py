@@ -166,6 +166,9 @@ def _behavior(panel, app, colors):
 
 
 def _privacy(panel, app, colors):
+    _toggle(panel, app, colors, "pocket_cat", "Pocket Cat companion",
+            "An independent, click-through pixel cat inside Pocket; purely visual.",
+            app.settings["pocket_cat"], app._set_pocket_cat_enabled)
     _toggle(panel, app, colors, "clipboard_paused", "Pause clipboard capture",
             "Stop monitoring new text, while keeping current session history.",
             app.settings["clipboard_paused"], app._set_clipboard_paused)

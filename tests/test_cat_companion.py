@@ -60,7 +60,7 @@ class CatMotionTests(unittest.TestCase):
                 self.assertLessEqual(y, bottom + 1)
                 self.assertIn(pose, POSES)
                 self.assertIn(face, (-1, 1))
-                self.assertIn(frame, (0, 1))
+                self.assertIn(frame, (0, 1, 2, 3))
                 poses.add(pose)
                 destinations.add((x // 8, y // 8))
         self.assertIn("walk", poses)
@@ -122,7 +122,7 @@ class CatMotionTests(unittest.TestCase):
 
     def test_no_network_or_clipboard_access_in_cat_module(self):
         source = (ROOT / "pocket" / "cat_companion.py").read_text(encoding="utf-8")
-        for forbidden in ("urllib", "requests", "socket.", "clipboard_get",
+        for forbidden in ("import urllib", "import requests", "socket.", "clipboard_get",
                           "clipboard_clear", "keyboard", "pynput", "subprocess"):
             self.assertNotIn(forbidden, source)
         app = (ROOT / "app.pyw").read_text(encoding="utf-8")

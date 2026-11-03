@@ -413,11 +413,12 @@ class PocketCat:
             self.window.geometry(f"{SIZE}x{SIZE}+{x + cx}+{y + cy}")
             if not self.visible:
                 self.window.deiconify()
-                # Native styles may be reset by a later Tk <Map> event. Apply
-                # now and again after mapping completes, before user input.
+                # Flush the first native Map/Configure event synchronously;
+                # Tk otherwise rewrites extended styles *after* our setter.
+                # This happens only on showing the cat, not every animation.
+                self.window.update()
                 self._protect_window(self.window)
                 self.visible = True
-                self.window.after_idle(self._after_map)
             else:
                 self._protect_window(self.window)
         except (tk.TclError, RuntimeError, OSError):

@@ -169,7 +169,7 @@ class CatMotion:
         else:
             self.pose, self.remaining = "sit", self.random.randint(14, 48)
 
-    def step(self, width, height, pointer=None, safe_space=None):
+    def step(self, width, height, pointer=None, safe_space=None, busy=False):
         if safe_space is None:
             dims = int(width), int(height)
             if self._free_space is None or (self._free_space.width,
@@ -191,6 +191,15 @@ class CatMotion:
             self.route = []
             self._last_space = safe_space
             self.pose, self.remaining = "sit", 8
+
+        # When a real input owns keyboard focus, become a quiet mascot.
+        # Do not chase the pointer or wander while somebody is typing.
+        if busy:
+            self.route = []
+            self.pose = "sit"
+            self.remaining = max(self.remaining, 16)
+            quiet = "blink" if self.steps % 41 == 0 else "sit"
+            return round(self.x), round(self.y), quiet, self.facing, self.frame
 
         if pointer is not None and (not 0 <= pointer[0] < width or
                                     not 0 <= pointer[1] < height):

@@ -120,6 +120,21 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.show_tab(page)
                 app.root.update()
                 app._cat_tick()
+                if sys.platform == "win32":
+                    from pocket.cat_navigation import overlaps
+                    safe = app.cat.space
+                    check(safe is not None, f"{mode}/{page}: missing cat safe-area model")
+                    if app.cat.visible:
+                        cx, cy = round(app.cat.motion.x), round(app.cat.motion.y)
+                        check(safe.clear(cx, cy), f"{mode}/{page}: cat covers an input")
+                        silhouette = (cx, cy, cx+safe.size, cy+safe.size)
+                        for area in safe.obstacles:
+                            check(not overlaps(silhouette, area),
+                                  f"{mode}/{page}: cat obscures control {area}")
+                    if page == "notes":
+                        print("CAT SAFE AREA", mode, "available", safe.available,
+                              "spots", len(safe.points), "visible", app.cat.visible,
+                              flush=True)
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.

@@ -24,6 +24,9 @@ A customizable, **local-first Windows tray application** for the small tools you
 > [!NOTE]
 > **Current stable: v1.32.0.** The latest release redesigns the wide Dashboard experience for Notes, Commands, Shortcuts and Settings, improves local data recovery and preserves the existing Normal, Mini and Extra Mini workflows.
 
+> [!TIP]
+> **Testing the new Pocket Cat?** This `test-branch` includes an **experimental animated black cat** that wanders, naps and grooms inside all four layouts without intercepting clicks. Enable or disable it in **Settings → Pocket Cat companion**. Read the [Pocket Cat experiment guide](docs/POCKET_CAT_EXPERIMENT.md). **This feature is not yet part of the published v1.32.0 release.**
+
 ## Why Pocket?
 
 Pocket lives in the **Windows notification area** until you need it. Open it via a configurable global shortcut or its tray icon, use a tool, then hide it again. It is especially useful when switching between network troubleshooting, CLI reference material and everyday notes.

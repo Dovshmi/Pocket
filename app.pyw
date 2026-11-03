@@ -4206,8 +4206,9 @@ class PocketDesk:
         self.scan_cancel.set()
         if self.tasks is not None:
             self.tasks.stop()
-        if self.cat is not None:
-            self.cat.destroy()
+        cat = getattr(self, "cat", None)
+        if cat is not None:
+            cat.destroy()
         if self.tray:
             self.tray.stop()
         self.root.destroy()

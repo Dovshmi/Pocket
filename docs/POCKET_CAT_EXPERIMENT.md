@@ -15,6 +15,8 @@ the published v1.32.0 stable release**.
 - Wanders independently through the **unoccupied areas of the current Pocket window**.
   Uses a pathfinding grid to avoid visible buttons, labels, input fields,
   result tables, scrolling views and the native Windows note editor.
+- While you type or select data in a focused entry, editor or results list,
+  the cat pauses roaming and quietly sits or blinks until you finish.
 - Occasionally investigates the pointer **inside Pocket only**, but only
   along a path that never crosses protected UI. Can wake up when it moves.
   It is not a desktop-wide cursor follower.

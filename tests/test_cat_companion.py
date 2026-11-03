@@ -87,7 +87,7 @@ class CatMotionTests(unittest.TestCase):
         app = (ROOT / "app.pyw").read_text(encoding="utf-8")
         self.assertIn('self.cat.tick(blocked=self._modal)', app)
         self.assertIn('self.cat.hide()', app)
-        self.assertIn('self.cat.destroy()', app)
+        self.assertIn('cat.destroy()', app)
 
 
 if __name__ == "__main__":

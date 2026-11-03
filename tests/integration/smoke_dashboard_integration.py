@@ -135,6 +135,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         print("CAT SAFE AREA", mode, "available", safe.available,
                               "spots", len(safe.points), "visible", app.cat.visible,
                               flush=True)
+                        check(safe.available and app.cat.visible,
+                              f"{mode}: cat should have a visible safe resting position")
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
@@ -346,6 +348,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         if sys.platform == "win32":
             check(app.cat.window is not None and app.cat.window.winfo_exists(),
                   "Extra Mini lost the cat overlay")
+            check(app.cat.space is not None, "Extra Mini cat safe-area missing")
+            print("CAT SAFE AREA extra-mini", "available", app.cat.space.available,
+                  "spots", len(app.cat.space.points), "visible", app.cat.visible,
+                  flush=True)
+            if app.cat.visible:
+                check(app.cat.space.clear(app.cat.motion.x, app.cat.motion.y),
+                      "Cat overlaps an Extra Mini control")
         check(app._compact_editing, "Settings did not activate inline editor")
         check(len(app.compact_cards.winfo_children()) == 4, "not four card slots")
 

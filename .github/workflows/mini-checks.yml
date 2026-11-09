@@ -130,6 +130,9 @@ jobs:
                                  for part in path.split("/")), path
               assert archive.testzip() is None, "ZIP integrity failure"
           print("PASS: runnable portable EXE is packaged with only the public command seed")
+      - name: Verify extracted portable Pillow and Tk runtime
+        shell: pwsh
+        run: python tests/integration/check_packaged_release.py --version v1.30.0 --portable-only
       - name: Make downloadable branch-preview ZIP
         shell: pwsh
         run: Copy-Item 'dist/Pocket-Portable-v1.30.0.zip' 'dist/Pocket-SmartTemplates-ExtraMini-Preview.zip'

@@ -24,7 +24,7 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\example_commands.json;commands" app.pyw
+py -3 -m PyInstaller --noconfirm --clean --onefile --windowed --name PocketDesk --icon "assets\app.ico" --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --add-data "assets\app.ico;assets" --hidden-import PIL --hidden-import PIL.ImageTk --add-data "commands\example_commands.json;commands" app.pyw
 if errorlevel 1 (
   echo Build failed; check the output above.
   pause

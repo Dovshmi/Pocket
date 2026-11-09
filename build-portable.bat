@@ -19,7 +19,7 @@ REM Use the workflow-selected Python, not py -3 (which can select another versio
 REM Keep the PyInstaller .spec in the repository root so --add-data relative
 REM source paths resolve from here, not from a nested build/portable-spec dir.
 REM Separate temporary build outputs; never delete a user's existing portable folder.
-python -m PyInstaller --noconfirm --clean --onedir --windowed --name PocketDesk --icon "assets\app.ico" --collect-all tkinterdnd2 --hidden-import PIL --hidden-import PIL.ImageTk --add-data "assets\app.ico;assets" --add-data "commands\example_commands.json;commands" --distpath "build\portable-binaries" --workpath "build\portable-work" app.pyw
+python -m PyInstaller --noconfirm --clean --onedir --windowed --name PocketDesk --icon "assets\app.ico" --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --hidden-import PIL --hidden-import PIL.ImageTk --add-data "assets\app.ico;assets" --add-data "commands\example_commands.json;commands" --distpath "build\portable-binaries" --workpath "build\portable-work" app.pyw
 if errorlevel 1 exit /b 1
 python package_portable.py
 if errorlevel 1 exit /b 1

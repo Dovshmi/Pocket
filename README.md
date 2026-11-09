@@ -10,19 +10,19 @@
 
 A customizable, **local-first Windows tray application** for the small tools you reach for every day. No browser, account, cloud sync, or permanent internet connection required.
 
-[![Latest release](https://img.shields.io/badge/Stable-v1.32.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.0)
+[![Latest release](https://img.shields.io/badge/Stable-v1.32.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.1)
 ![Platform](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Local--first-No%20account-14866D?style=for-the-badge)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Current stable: v1.32.0.** The latest release redesigns the wide Dashboard experience for Notes, Commands, Shortcuts and Settings, improves local data recovery and preserves the existing Normal, Mini and Extra Mini workflows.
+> **Current stable: v1.32.1.** This maintenance release repairs Pillow binary packaging for Windows and adds tests of freshly extracted downloads. The Dashboard improvements and local-data safeguards from v1.32.0 are unchanged.
 
 ## Why Pocket?
 
@@ -37,7 +37,7 @@ Pocket lives in the **Windows notification area** until you need it. Open it via
 
 ## Screenshots
 
-These are **genuine Pocket screenshots captured during Windows GUI tests**, not generated mockups. The checked-in images are from **v1.30.0**. Dashboard layouts were refined in v1.32.0, so these show real features but not necessarily the exact current pixel arrangement. See [the latest GUI-test artifacts](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) for newer test captures.
+These are **genuine Pocket screenshots captured during Windows GUI tests**, not generated mockups. The checked-in images are from **v1.30.0**. Dashboard layouts were refined in v1.32.1, so these show real features but not necessarily the exact current pixel arrangement. See [the latest GUI-test artifacts](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) for newer test captures.
 
 <div align="center">
 <img src="docs/images/pocket-v130-real/dashboard_home.png" width="850" alt="Real Pocket Dashboard home" />
@@ -167,7 +167,7 @@ Closing the popup normally **hides it to the tray**; use **Exit** to stop the ap
 
 ### Portable ZIP — recommended
 
-**[Pocket-Portable-v1.32.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-Portable-v1.32.0.zip)**
+**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)**
 
 1. Download and **extract the entire ZIP** to a writable Windows directory.
 2. Launch `PocketDesk.exe` from the extracted `Pocket-Portable` folder (not from within the archive).
@@ -177,7 +177,7 @@ The included `portable.flag` keeps your local writable data in `data/` **beside 
 
 ### Standalone EXE
 
-**[Pocket-v1.32.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.32.0/Pocket-v1.32.0.exe)**
+**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)**
 
 Run the downloaded executable directly. This version uses the standard Windows data directory `%APPDATA%\PocketDesk\`, **not the EXE's folder**. Python is not needed.
 
@@ -276,7 +276,7 @@ Pocket/
 
 See [repository layout documentation](docs/REPOSITORY_LAYOUT.md) or [open an issue](https://github.com/Dovshmi/Pocket/issues) for bugs and suggestions.
 
-## What's new in v1.32.0?
+## What's new in v1.32.1?
 
 - **Redesigned Dashboard** views for Notes, Commands, Shortcuts and Settings.
 - **Stronger data recovery**, safer atomic saves and clearer recovery handling.

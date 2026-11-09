@@ -6,6 +6,27 @@ Use --preview to show the popup without the tray, for testing and screenshots.
 
 from __future__ import annotations
 
+# Packaging diagnostic: exercise compiled Pillow and Tcl/Tk before importing Pocket.
+# Used by the release CI on BOTH EXEs; never reads or writes user data.
+if "--self-test-deps" in __import__("sys").argv:
+    try:
+        import tkinter as _test_tk
+        from PIL import Image as _test_image, ImageDraw as _test_draw, ImageTk as _test_imagetk
+        from PIL import _imaging as _test_imaging
+        _test_root = _test_tk.Tk()
+        _test_root.withdraw()
+        _test_canvas = _test_image.new("RGBA", (12, 12), "#ffffff")
+        _test_draw.Draw(_test_canvas).rectangle((2, 2, 9, 9), fill="#222222")
+        _test_photo = _test_imagetk.PhotoImage(_test_canvas, master=_test_root)
+        assert _test_photo.width() == 12
+        _test_root.destroy()
+    except Exception:
+        import traceback as _test_traceback
+        _test_traceback.print_exc()
+        raise SystemExit(1)
+    raise SystemExit(0)
+
+
 import ctypes
 import ipaddress
 from datetime import datetime, timezone, timedelta

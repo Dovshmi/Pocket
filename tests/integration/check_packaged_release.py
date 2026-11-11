@@ -9,6 +9,8 @@ import tempfile
 import time
 import zipfile
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from package_portable import check_native_extensions, verify_manifest
 
 def check_release(version: str) -> None:

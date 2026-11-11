@@ -296,3 +296,18 @@ Pocket is licensed under the [GNU General Public License v3.0](LICENSE).
 **Pocket — all the small tools you reach for, in one place.**
 
 </div>
+
+
+## Windows work PC: ready-to-use Portable ZIP
+
+**Download the latest portable application:** [Pocket releases](https://github.com/Dovshmi/Pocket/releases/latest).
+Extract the **whole** `Pocket-Portable-v1.32.2.zip` to a new local writable folder,
+then double-click `PocketDesk.exe`. Do not run the EXE from inside the ZIP or
+copy the EXE alone; the adjacent `_internal` folder contains all its Python and
+DLL runtime files. No Python installation, administrator permissions or internet
+connection is required for offline features. The app stores personal data under
+`data/` beside the EXE in Portable mode.
+
+The ZIP also includes a checksum manifest and optional `Verify-Pocket.ps1`
+for IT-approved offline diagnostics. Corporate application-control policies
+can still block unsigned executables. See [workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

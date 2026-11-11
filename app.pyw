@@ -6,26 +6,46 @@ Use --preview to show the popup without the tray, for testing and screenshots.
 
 from __future__ import annotations
 
-# Packaging diagnostic: exercise compiled Pillow and Tcl/Tk before importing Pocket.
-# Used by the release CI on BOTH EXEs; never reads or writes user data.
+# Release diagnostic: test all compiled modules reported in workplace failures.
+# --deps-log=PATH is optional and records only a traceback, never Pocket user data.
 if "--self-test-deps" in __import__("sys").argv:
+    import sys as _test_sys
+    _test_log = next((a.partition("=")[2] for a in _test_sys.argv
+                      if a.startswith("--deps-log=")), None)
     try:
+        import _ctypes as _test_native_ctypes
+        import ctypes as _test_ctypes
+        import unicodedata as _test_unicodedata
+        import _tkinter as _test_native_tk
         import tkinter as _test_tk
-        from PIL import Image as _test_image, ImageDraw as _test_draw, ImageTk as _test_imagetk
-        from PIL import _imaging as _test_imaging
+        from PIL import Image as _test_image, ImageDraw as _test_draw
+        from PIL import ImageTk as _test_imagetk, _imaging as _test_imaging
+        if _test_unicodedata.normalize("NFC", "e\\u0301") != "\\u00e9":
+            raise RuntimeError("unicodedata normalization failed")
+        if _test_ctypes.sizeof(_test_ctypes.c_void_p) not in (4, 8):
+            raise RuntimeError("_ctypes is not usable")
         _test_root = _test_tk.Tk()
         _test_root.withdraw()
-        _test_canvas = _test_image.new("RGBA", (12, 12), "#ffffff")
-        _test_draw.Draw(_test_canvas).rectangle((2, 2, 9, 9), fill="#222222")
-        _test_photo = _test_imagetk.PhotoImage(_test_canvas, master=_test_root)
-        assert _test_photo.width() == 12
-        _test_root.destroy()
+        try:
+            _test_canvas = _test_image.new("RGBA", (12, 12), "#ffffff")
+            _test_draw.Draw(_test_canvas).rectangle((2, 2, 9, 9), fill="#222222")
+            _test_photo = _test_imagetk.PhotoImage(_test_canvas, master=_test_root)
+            if _test_photo.width() != 12:
+                raise RuntimeError("Pillow ImageTk failed")
+        finally:
+            _test_root.destroy()
     except Exception:
         import traceback as _test_traceback
+        _test_details = _test_traceback.format_exc()
+        if _test_log:
+            try:
+                from pathlib import Path as _test_path
+                _test_path(_test_log).write_text(_test_details, encoding="utf-8")
+            except OSError:
+                pass
         _test_traceback.print_exc()
         raise SystemExit(1)
     raise SystemExit(0)
-
 
 import ctypes
 import ipaddress

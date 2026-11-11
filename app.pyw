@@ -20,7 +20,7 @@ if "--self-test-deps" in __import__("sys").argv:
         import tkinter as _test_tk
         from PIL import Image as _test_image, ImageDraw as _test_draw
         from PIL import ImageTk as _test_imagetk, _imaging as _test_imaging
-        if _test_unicodedata.normalize("NFC", "e\\u0301") != "\\u00e9":
+        if _test_unicodedata.normalize("NFC", "e\u0301") != "\u00e9":
             raise RuntimeError("unicodedata normalization failed")
         if _test_ctypes.sizeof(_test_ctypes.c_void_p) not in (4, 8):
             raise RuntimeError("_ctypes is not usable")

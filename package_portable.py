@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "build" / "portable-binaries" / "PocketDesk"
 PACKAGE_DIR = ROOT / "build" / "portable-package" / "Pocket-Portable"
 RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.30.0")
-if not re.fullmatch(r"v[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.]+)?", RELEASE_VERSION):
+if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?", RELEASE_VERSION):
     raise ValueError("Invalid release version")
 OUTPUT = ROOT / "dist" / f"Pocket-Portable-{RELEASE_VERSION}.zip"
 
@@ -35,7 +35,7 @@ def write_manifest(folder: Path) -> None:
         if path.is_file() and path != manifest:
             digest = sha256(path.read_bytes()).hexdigest()
             entries.append(f"{digest}  {path.relative_to(folder).as_posix()}")
-    manifest.write_text("\\n".join(entries) + "\\n", encoding="utf-8")
+    manifest.write_text("\n".join(entries) + "\n", encoding="utf-8")
 
 def verify_manifest(folder: Path) -> None:
     manifest = folder / "bundle-manifest.sha256"
@@ -79,17 +79,17 @@ def package() -> Path:
         "vendors.json", "commands.json", "notepad", "notepad_exports",
         "backups", "*.log", ".env", ".env.*"))
     (PACKAGE_DIR / "portable.flag").write_text(
-        "Pocket Portable: user data lives in the adjacent data directory.\\n",
+        "Pocket Portable: user data lives in the adjacent data directory.\n",
         encoding="utf-8")
     (PACKAGE_DIR / "README.txt").write_text(
-        f"Pocket Portable {RELEASE_VERSION}\\n\\n"
-        "1. Extract the complete ZIP to a NEW LOCAL writable folder.\\n"
-        "2. Double-click PocketDesk.exe. Python and internet are not needed.\\n"
-        "3. Keep _internal in place; it contains required Windows DLLs.\\n"
-        "4. Save and move notes by copying the complete data folder.\\n"
-        "5. Do not run from inside the ZIP or from a mapped network drive.\\n"
-        "6. If blocked, ask IT to check corporate application-control logs.\\n"
-        "7. Optional offline check (IT-approved only): Verify-Pocket.ps1\\n",
+        f"Pocket Portable {RELEASE_VERSION}\n\n"
+        "1. Extract the complete ZIP to a NEW LOCAL writable folder.\n"
+        "2. Double-click PocketDesk.exe. Python and internet are not needed.\n"
+        "3. Keep _internal in place; it contains required Windows DLLs.\n"
+        "4. Save and move notes by copying the complete data folder.\n"
+        "5. Do not run from inside the ZIP or from a mapped network drive.\n"
+        "6. If blocked, ask IT to check corporate application-control logs.\n"
+        "7. Optional offline check (IT-approved only): Verify-Pocket.ps1\n",
         encoding="utf-8")
     script = ROOT / "scripts" / "Verify-Pocket.ps1"
     shutil.copy2(script, PACKAGE_DIR / "Verify-Pocket.ps1")

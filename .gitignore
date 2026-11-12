@@ -42,3 +42,6 @@ preview-*.png
 **/data-corrupt-*.json
 **/notepad/
 **/backups/
+
+# Explicitly published offline IEEE data; keep personal vendor caches ignored.
+!offline-data/vendors.json

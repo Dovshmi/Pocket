@@ -69,6 +69,8 @@ from tkinter import messagebox, filedialog, ttk
 
 from pocket import network_tools as net
 from pocket import dashdash_ports as remote_ports
+from pocket import dashdash_mac as remote_mac
+from pocket import source_toggle
 from pocket import command_helper as ch
 from pocket import smart_templates as smart
 from pocket import template_ui
@@ -179,7 +181,7 @@ def default_data() -> dict:
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single",
-                  "source": "local"},
+                  "source": "local", "mac_source": "local"},
     }
 
 
@@ -371,6 +373,8 @@ class PocketDesk:
         self.vendor_file = self.path.parent / "vendors.json"
         self.vendors, self.vendor_date = net.load_vendor_database(self.vendor_file)
         self.mac_results = []
+        self.mac_lookup_running = False
+        self.mac_lookup_token = 0
         self.mac_draft = "00:00:0C:12:34:56\n00-1B-63-12-34-56\nAABB.CCDD.EEFF"
         self.port_results = []
         self.scanning = False
@@ -3360,27 +3364,18 @@ class PocketDesk:
         self.port_mode = tk.StringVar(value=tools.get("mode", "single"))
         self.port_source = tk.StringVar(value="dashdash" if tools.get("source") == "dashdash" else "local")
 
-        label = tk.Label(self.body, text="TARGET IP (IPv4 or IPv6)", bg=BG, fg=MUTED,
-                         font=(FONT, 8, "bold"))
-        label.pack(anchor="w", pady=(0, 5))
+        target_heading = tk.Frame(self.body, bg=BG)
+        target_heading.pack(fill="x", pady=(0, 5))
+        tk.Label(target_heading, text="TARGET IP", bg=BG, fg=MUTED,
+                 font=(FONT, 8, "bold")).pack(side="left")
+        source_toggle.make_source_toggle(
+            target_heading, self.port_source, self._port_source_changed, self.theme,
+            hint="Local: IPv4/IPv6, up to 128 ports from this PC.\n"
+                 "DashDash: public IPv4 only, up to 16 ports checked at Vercel.\n"
+                 "Target IP and ports are sent to DashDash only when you run the check."
+        ).pack(side="right")
         self._entry(self.body, self.host_var).pack(fill="x", ipady=8, pady=(0, 10))
         self.host_var.trace_add("write", lambda *_: self._remember_port_preferences())
-
-        source_frame = tk.Frame(self.body, bg=BG)
-        source_frame.pack(fill="x", pady=(0, 6))
-        tk.Label(source_frame, text="CHECK FROM", bg=BG, fg=MUTED,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
-        for source, text in (("local", "Local (this PC)"),
-                             ("dashdash", "DashDash (remote)")):
-            tk.Radiobutton(source_frame, text=text, variable=self.port_source,
-                           value=source, command=self._port_source_changed,
-                           fg=WHITE, bg=BG, selectcolor=PANEL,
-                           activebackground=BG, activeforeground=ACCENT,
-                           font=(FONT, 9), highlightthickness=0).pack(side="left", padx=(0, 13))
-        self.port_source_info = tk.Label(
-            self.body, bg=BG, fg=MUTED, font=(FONT, 8),
-            anchor="w", justify="left", wraplength=290 if self.display_mode == "mini" else 410)
-        self.port_source_info.pack(fill="x", pady=(0, 10))
 
         modes = tk.Frame(self.body, bg=BG)
         modes.pack(fill="x", pady=(0, 6))
@@ -3425,7 +3420,6 @@ class PocketDesk:
         self._entry(self.port_selected_frame, self.custom_ports_var).pack(fill="x", ipady=7, pady=(0, 8))
         self.custom_ports_var.trace_add("write", lambda *_: self._remember_port_preferences())
         self._port_mode_changed()
-        self._port_source_changed()
 
         commands = tk.Frame(self.body, bg=BG)
         commands.pack(fill="x", pady=(4, 3))
@@ -3444,13 +3438,7 @@ class PocketDesk:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
 
     def _port_source_changed(self):
-        remote = self.port_source.get() == "dashdash"
-        self.port_source_info.config(text=(
-            "Remote: tests public IPv4 only, up to 16 ports. Sends the target IP and "
-            "ports to DashDash over HTTPS; the TCP test runs from Vercel."
-            if remote else
-            "Local: tests IPv4/IPv6 and up to 128 ports directly from this PC. "
-            "No DashDash request is made."))
+        # No network request: the user still needs to click Run TCP check.
         self._remember_port_preferences()
 
     def _port_mode_changed(self):
@@ -3472,6 +3460,7 @@ class PocketDesk:
 
     def _remember_port_preferences(self):
         self.data["tools"] = {
+            **self.data["tools"],  # Keep MAC source and future tool preferences.
             "target": self.host_var.get(), "single_port": self.single_port_var.get(),
             "custom_ports": self.custom_ports_var.get(), "mode": self.port_mode.get(),
             "source": self.port_source.get(),
@@ -3710,6 +3699,8 @@ class PocketDesk:
 
     def _build_mac(self):
         self._section_title(self.body, "Bulk MAC vendors", "Identify manufacturers from MAC prefixes", "Update IEEE DB", self._update_vendors)
+        tools = self.data["tools"]
+        self.mac_source = tk.StringVar(value="dashdash" if tools.get("mac_source") == "dashdash" else "local")
         status_line = tk.Frame(self.body, bg=BG)
         status_line.pack(fill="x", pady=(0, 12))
         self.vendor_info = tk.Label(status_line, text=self._vendor_summary(), bg=BG,
@@ -3719,8 +3710,16 @@ class PocketDesk:
                      bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right")
         action_label(status_line, "Get CSV ↗", self._show_ieee_downloads, fg=SECONDARY,
                      bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
-        tk.Label(self.body, text="PASTE MAC ADDRESSES  (one per line or comma-separated)",
-                 bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 6))
+        mac_heading = tk.Frame(self.body, bg=BG)
+        mac_heading.pack(fill="x", pady=(0, 6))
+        tk.Label(mac_heading, text="MAC ADDRESSES", bg=BG, fg=MUTED,
+                 font=(FONT, 8, "bold")).pack(side="left")
+        source_toggle.make_source_toggle(
+            mac_heading, self.mac_source, self._mac_source_changed, self.theme,
+            hint="Local: offline IEEE database, up to 5,000 MACs.\n"
+                 "DashDash: up to 100 MACs queried on the server.\n"
+                 "Selected MAC addresses are sent to DashDash only when you click Check vendors."
+        ).pack(side="right")
         self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
@@ -3733,13 +3732,20 @@ class PocketDesk:
         self.mac_input.insert("1.0", self.mac_draft)
         actions = tk.Frame(self.body, bg=BG)
         actions.pack(fill="x")
-        action_label(actions, "Check vendors", self._run_mac_lookup, fg="#121622", bg=ACCENT,
-                     hover="#BBC0FF", font_size=9).pack(side="left", padx=(0, 7))
+        self.mac_check_button = action_label(
+            actions, "Check vendors", self._run_mac_lookup, fg="#121622", bg=ACCENT,
+            hover="#BBC0FF", font_size=9)
+        self.mac_check_button.pack(side="left", padx=(0, 7))
+        if self.mac_lookup_running:
+            self.mac_check_button.config(state="disabled")
         action_label(actions, "Copy results", self._copy_mac_results, fg=SECONDARY,
                      bg=PANEL, hover=CARD, font_size=9).pack(side="left", padx=(0, 6))
         action_label(actions, "Export CSV", self._export_mac, fg=SECONDARY,
                      bg=PANEL, hover=CARD, font_size=9).pack(side="left")
-        self.mac_info = tk.Label(self.body, text="Up to 5,000 addresses per batch • Lookups stay local",
+        summary = ("Up to 100 MACs • Checked via DashDash when requested"
+                   if self.mac_source.get() == "dashdash"
+                   else "Up to 5,000 MACs • Local lookup without internet")
+        self.mac_info = tk.Label(self.body, text=summary,
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.mac_info.pack(fill="x", pady=(12, 4))
         self.mac_tree = self._tree(self.body, ("MAC address", "Vendor / result", "Registry"),
@@ -3806,22 +3812,68 @@ class PocketDesk:
                 self.events.put(("vendor_error", str(exc)))
         threading.Thread(target=worker, name="PocketDeskIEEEImport", daemon=True).start()
 
-    def _run_mac_lookup(self):
-        self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        try:
-            self.mac_results = net.batch_lookup(self.mac_draft, self.vendors)
-        except ValueError as exc:
-            self._warning("MAC lookup", str(exc))
-            return
+    def _mac_source_changed(self):
+        # Switching never starts a request. Ignore any in-flight remote result.
+        self.data["tools"]["mac_source"] = self.mac_source.get()
+        self.schedule_save()
+        if self.mac_lookup_running:
+            self.mac_lookup_token += 1
+            self.mac_lookup_running = False
+            self.mac_check_button.config(state="normal")
+        self.mac_info.config(
+            text=("Up to 100 MACs • Checked via DashDash when requested"
+                  if self.mac_source.get() == "dashdash"
+                  else "Up to 5,000 MACs • Local lookup without internet"),
+            fg=MUTED)
+
+    def _show_mac_results(self, source):
         for item in self.mac_tree.get_children():
             self.mac_tree.delete(item)
         for item in self.mac_results[:500]:
             self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
         valid = sum(result["vendor"] != "Invalid MAC" for result in self.mac_results)
-        message = f"{valid}/{len(self.mac_results)} valid • {len(self.mac_results)} rows"
+        message = f"{valid}/{len(self.mac_results)} valid • {len(self.mac_results)} rows • {source}"
         if len(self.mac_results) > 500:
             message += " • Showing first 500; exports contain all"
         self.mac_info.config(text=message, fg=ACCENT)
+
+    def _run_mac_lookup(self):
+        if self.mac_lookup_running:
+            return
+        self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        if self.mac_source.get() == "dashdash":
+            try:
+                macs = remote_mac.parse_remote_macs(self.mac_draft)
+            except ValueError as exc:
+                self._warning("MAC lookup", str(exc))
+                return
+            self.mac_lookup_token += 1
+            token = self.mac_lookup_token
+            self.mac_lookup_running = True
+            self.mac_results = []
+            for row in self.mac_tree.get_children():
+                self.mac_tree.delete(row)
+            self.mac_check_button.config(state="disabled")
+            self.mac_info.config(text=f"Checking {len(macs)} MAC(s) via DashDash…", fg=ACCENT)
+
+            def worker():
+                try:
+                    rows = remote_mac.lookup_remote_macs(macs)
+                    self.events.put(("mac_remote_result", (token, rows)))
+                except Exception as exc:
+                    self.events.put(("mac_remote_error", (token, str(exc))))
+
+            threading.Thread(target=worker, name="PocketDeskDashDashMac",
+                             daemon=True).start()
+            return
+        # The default path remains wholly offline.
+        self.mac_lookup_token += 1
+        try:
+            self.mac_results = net.batch_lookup(self.mac_draft, self.vendors)
+        except ValueError as exc:
+            self._warning("MAC lookup", str(exc))
+            return
+        self._show_mac_results("Local")
 
     def _copy_mac_results(self):
         if not self.mac_results:
@@ -4229,6 +4281,22 @@ class PocketDesk:
                             else:
                                 self.scan_info.config(text=f"Finished • {opened} open of {total} tested",
                                                       fg=ACCENT if opened else SECONDARY)
+                elif name == "mac_remote_result":
+                    token, rows = xy
+                    if token == self.mac_lookup_token:
+                        self.mac_lookup_running = False
+                        self.mac_results = rows
+                        if self.current_tab == "mac":
+                            self.mac_check_button.config(state="normal")
+                            self._show_mac_results("DashDash")
+                elif name == "mac_remote_error":
+                    token, error = xy
+                    if token == self.mac_lookup_token:
+                        self.mac_lookup_running = False
+                        if self.current_tab == "mac":
+                            self.mac_check_button.config(state="normal")
+                            self.mac_info.config(text=f"DashDash error: {error[:110]}",
+                                                 fg=DANGER)
                 elif name == "vendor_progress":
                     if self.current_tab == "mac":
                         self.vendor_info.config(text=xy, fg=ACCENT)

@@ -142,6 +142,46 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.root.update()
                     check(selector.get() == selected,
                           f"{mode}: {page} switch did not return to its original state")
+                if page == "ports":
+                    from pocket import port_presets as port_prefs
+                    check(not app.port_quick_frame.winfo_ismapped(),
+                          f"{mode}: quick ports must start collapsed")
+                    check(int(app.port_count.cget("text").split("/")[1]) == 16,
+                          f"{mode}: 16-port limit should be visible")
+                    initial_text = app.ports_var.get()
+                    app.ports_var.set("7777,8888")
+                    app.root.update()
+                    app.port_quick_button.invoke()
+                    app.root.update()
+                    check(app.port_quick_frame.winfo_ismapped(),
+                          f"{mode}: quick selection did not expand")
+                    check(len(app.port_quick_buttons) >= 28,
+                          f"{mode}: quick preset options were lost")
+                    app.port_quick_buttons[443].invoke()
+                    app.root.update()
+                    check(app.ports_var.get() == "7777,8888,443",
+                          f"{mode}: quick click replaced an existing manual port")
+                    app.port_quick_buttons[22].invoke()
+                    app.root.update()
+                    check(app.ports_var.get() == "7777,8888,443,22",
+                          f"{mode}: quick click must append (not replace)")
+                    app.port_quick_buttons[443].invoke()
+                    app.root.update()
+                    check(app.ports_var.get() == "7777,8888,22",
+                          f"{mode}: second quick click must remove only selected port")
+                    app.ports_var.set(",".join(map(str, range(1, 17))))
+                    app.root.update()
+                    app.port_quick_buttons[443].invoke()
+                    app.root.update()
+                    check(len(port_prefs.parse_manual_ports(app.ports_var.get())) == 16,
+                          f"{mode}: quick selection exceeded the 16-port maximum")
+                    app.port_quick_button.invoke()
+                    app.root.update()
+                    check(not app.port_quick_frame.winfo_ismapped(),
+                          f"{mode}: quick selection failed to collapse")
+                    app.ports_var.set(initial_text)
+                    app.root.update()
+                    check(not app.scanning, f"{mode}: quick selection started a scan")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (

@@ -71,6 +71,7 @@ from pocket import network_tools as net
 from pocket import dashdash_ports as remote_ports
 from pocket import dashdash_mac as remote_mac
 from pocket import source_toggle
+from pocket import port_presets as presets
 from pocket import command_helper as ch
 from pocket import smart_templates as smart
 from pocket import template_ui
@@ -3356,13 +3357,14 @@ class PocketDesk:
         dialog.after(40, lambda: purpose_input.focus_set() if purpose_input.winfo_exists() else None)
 
     def _build_ports(self):
-        self._section_title(self.body, "TCP port checker", "Check one IP and selected TCP ports", "Export CSV", self._export_ports)
+        self._section_title(self.body, "TCP port checker", "Check one IP and up to 16 TCP ports",
+                            "Export CSV", self._export_ports)
         tools = self.data["tools"]
         self.host_var = tk.StringVar(value=tools.get("target", "192.168.1.1"))
-        self.single_port_var = tk.StringVar(value=tools.get("single_port", "443"))
-        self.custom_ports_var = tk.StringVar(value=tools.get("custom_ports", ""))
-        self.port_mode = tk.StringVar(value=tools.get("mode", "single"))
-        self.port_source = tk.StringVar(value="dashdash" if tools.get("source") == "dashdash" else "local")
+        self.ports_var = tk.StringVar(value=presets.migrate_port_input(tools))
+        self.port_source = tk.StringVar(
+            value="dashdash" if tools.get("source") == "dashdash" else "local")
+        self.port_quick_expanded = False
 
         target_heading = tk.Frame(self.body, bg=BG)
         target_heading.pack(fill="x", pady=(0, 5))
@@ -3370,56 +3372,56 @@ class PocketDesk:
                  font=(FONT, 8, "bold")).pack(side="left")
         source_toggle.make_source_toggle(
             target_heading, self.port_source, self._port_source_changed, self.theme,
-            hint="Local: IPv4/IPv6, up to 128 ports from this PC.\n"
+            hint="Local: IPv4/IPv6, up to 16 ports from this PC.\n"
                  "DashDash: public IPv4 only, up to 16 ports checked at Vercel.\n"
-                 "Target IP and ports are sent to DashDash only when you run the check."
+                 "IP and ports are sent only when you run a DashDash check."
         ).pack(side="right")
         self._entry(self.body, self.host_var).pack(fill="x", ipady=8, pady=(0, 10))
         self.host_var.trace_add("write", lambda *_: self._remember_port_preferences())
 
-        modes = tk.Frame(self.body, bg=BG)
-        modes.pack(fill="x", pady=(0, 6))
-        self.port_modes = modes
-        for mode, label in (("single", "Single port"), ("selected", "Selected ports")):
-            tk.Radiobutton(modes, text=label, variable=self.port_mode, value=mode,
-                           command=self._port_mode_changed, fg=WHITE, bg=BG,
-                           selectcolor=PANEL, activebackground=BG,
-                           activeforeground=ACCENT, font=(FONT, 9),
-                           highlightthickness=0).pack(side="left", padx=(0, 13))
-        self.port_options_button = action_label(modes, "Hide ports", self._toggle_port_inputs,
-                                                fg=ACCENT, bg=BG, hover=PANEL,
-                                                padx=6, pady=4, font_size=8)
-        self.port_options_button.pack(side="right")
+        port_heading = tk.Frame(self.body, bg=BG)
+        port_heading.pack(fill="x", pady=(0, 5))
+        tk.Label(port_heading, text="TCP PORTS (comma-separated)", bg=BG,
+                 fg=MUTED, font=(FONT, 8, "bold")).pack(side="left")
+        self.port_count = tk.Label(port_heading, text="0/16", bg=BG, fg=MUTED,
+                                   font=(FONT, 8, "bold"), anchor="e")
+        self.port_count.pack(side="right")
+        self.ports_entry = self._entry(self.body, self.ports_var)
+        self.ports_entry.pack(fill="x", ipady=8, pady=(0, 6))
 
-        self.port_single_frame = tk.Frame(self.body, bg=BG)
-        self.port_selected_frame = tk.Frame(self.body, bg=BG)
-        tk.Label(self.port_single_frame, text="TCP PORT  (1–65535)", bg=BG, fg=MUTED,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(3, 5))
-        self._entry(self.port_single_frame, self.single_port_var).pack(fill="x", ipady=8, pady=(0, 9))
-        self.single_port_var.trace_add("write", lambda *_: self._remember_port_preferences())
-        tk.Label(self.port_selected_frame, text="COMMON PORTS", bg=BG, fg=MUTED,
-                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(1, 6))
-        checks = tk.Frame(self.port_selected_frame, bg=BG)
-        checks.pack(fill="x")
-        self.port_checks = {}
-        chosen = tools.get("selected_ports", [22, 80, 443, 3389])
-        if not isinstance(chosen, list):
-            chosen = []
-        for i, (port, service) in enumerate(net.COMMON_PORTS):
-            flag = tk.BooleanVar(value=port in chosen)
-            self.port_checks[port] = flag
-            tk.Checkbutton(checks, text=f"{port} {service}", variable=flag,
-                           command=self._remember_port_preferences, bg=BG, fg=WHITE,
-                           activebackground=BG, activeforeground=WHITE,
-                           selectcolor=PANEL, font=(FONT, 8),
-                           highlightthickness=0, anchor="w", width=12
-                           ).grid(row=i//(2 if self.display_mode == "mini" else 4),
-                                  column=i%(2 if self.display_mode == "mini" else 4), sticky="w")
-        tk.Label(self.port_selected_frame, text="ADDITIONAL PORTS  (e.g. 8000, 8443, 9000-9003)",
-                 bg=BG, fg=MUTED, font=(FONT, 8, "bold")).pack(anchor="w", pady=(9, 5))
-        self._entry(self.port_selected_frame, self.custom_ports_var).pack(fill="x", ipady=7, pady=(0, 8))
-        self.custom_ports_var.trace_add("write", lambda *_: self._remember_port_preferences())
-        self._port_mode_changed()
+        quick_row = tk.Frame(self.body, bg=BG)
+        quick_row.pack(fill="x", pady=(0, 6))
+        self.port_quick_button = action_label(
+            quick_row, "▸ Quick Port Selection", self._toggle_quick_ports,
+            fg=ACCENT, bg=PANEL, hover=CARD, padx=8, pady=5, font_size=8)
+        self.port_quick_button.pack(side="left")
+        action_label(quick_row, "Clear", lambda: self.ports_var.set(""),
+                     fg=SECONDARY, bg=BG, hover=PANEL, padx=6, pady=5,
+                     font_size=8).pack(side="right")
+
+        # Build presets once per screen; their panel stays collapsed by default.
+        self.port_quick_frame = tk.Frame(self.body, bg=BG)
+        self.port_quick_buttons = {}
+        columns = 3 if self.display_mode == "mini" else (6 if self.display_mode == "dashboard" else 4)
+        for column in range(columns):
+            self.port_quick_frame.grid_columnconfigure(column, weight=1, uniform="port")
+        for i, (port, label) in enumerate(presets.QUICK_PORTS):
+            short = str(port) if self.display_mode == "mini" else f"{port} {label}"
+            button = tk.Button(
+                self.port_quick_frame, text=short,
+                command=lambda p=port: self._select_quick_port(p),
+                fg=SECONDARY, bg=PANEL, activebackground=CARD_HOVER,
+                activeforeground=WHITE, relief="flat", bd=0, cursor="hand2",
+                highlightthickness=1, highlightbackground=BORDER,
+                highlightcolor=ACCENT, takefocus=True,
+                font=(FONT, 8), padx=3, pady=4)
+            button.grid(row=i // columns, column=i % columns, sticky="ew",
+                        padx=2, pady=2)
+            design.Tooltip(button, f"{port} • {label} (click to add/remove)",
+                           self.theme)
+            self.port_quick_buttons[port] = button
+        self.ports_var.trace_add("write", lambda *_: self._ports_changed())
+        self._refresh_ports_preview()
 
         commands = tk.Frame(self.body, bg=BG)
         commands.pack(fill="x", pady=(4, 3))
@@ -3427,7 +3429,7 @@ class PocketDesk:
                      bg=ACCENT, hover="#BBC0FF", font_size=9).pack(side="left")
         action_label(commands, "Stop", self._stop_scan, fg=SECONDARY,
                      bg=BG, hover=CARD, font_size=9).pack(side="left", padx=(8, 0))
-        self.scan_info = tk.Label(self.body, text="Connect test only • No UDP scanning",
+        self.scan_info = tk.Label(self.body, text="TCP connect only • No UDP scanning",
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.scan_info.pack(fill="x", pady=(9, 1))
         self.port_tree = self._tree(self.body, ("Port", "Service", "TCP status", "Time"),
@@ -3438,34 +3440,56 @@ class PocketDesk:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
 
     def _port_source_changed(self):
-        # No network request: the user still needs to click Run TCP check.
+        # Source choice never starts a TCP check.
         self._remember_port_preferences()
 
-    def _port_mode_changed(self):
-        self.port_single_frame.pack_forget()
-        self.port_selected_frame.pack_forget()
-        if self.port_mode.get() == "single":
-            self.port_options_button.pack_forget()
-            self.port_single_frame.pack(fill="x", after=self.port_modes)
+    def _toggle_quick_ports(self):
+        self.port_quick_expanded = not self.port_quick_expanded
+        if self.port_quick_expanded:
+            # Place the expanded presets below the existing Quick Selection row.
+            self.port_quick_frame.pack(fill="x", after=self.port_quick_button.master,
+                                       pady=(0, 6))
+            self.port_quick_button.config(text="▾ Quick Port Selection")
         else:
-            self.port_options_button.pack(side="right")
-            self.port_options_button.config(text="Hide ports" if self.port_inputs_expanded else "Edit ports")
-            if self.port_inputs_expanded:
-                self.port_selected_frame.pack(fill="x", after=self.port_modes)
+            self.port_quick_frame.pack_forget()
+            self.port_quick_button.config(text="▸ Quick Port Selection")
+
+    def _select_quick_port(self, port):
+        try:
+            updated = presets.toggle_quick_port(self.ports_var.get(), port)
+        except ValueError as exc:
+            self.scan_info.config(text=str(exc), fg=DANGER)
+            return
+        # Update only the text field; other manually entered ports stay intact.
+        self.ports_var.set(updated)
+
+    def _ports_changed(self):
+        self._refresh_ports_preview()
         self._remember_port_preferences()
 
-    def _toggle_port_inputs(self):
-        self.port_inputs_expanded = not self.port_inputs_expanded
-        self._port_mode_changed()
+    def _refresh_ports_preview(self):
+        try:
+            values = presets.parse_manual_ports(
+                self.ports_var.get(), limit=65535, allow_empty=True)
+            count = len(values)
+            self.port_count.config(text=f"{count}/16",
+                                   fg=DANGER if count > presets.MAX_SELECTED_PORTS else MUTED)
+        except ValueError:
+            values = []
+            self.port_count.config(text="Invalid", fg=DANGER)
+        chosen = set(values)
+        for port, widget in self.port_quick_buttons.items():
+            selected = port in chosen
+            widget.config(fg=ACCENT if selected else SECONDARY,
+                          bg=CARD if selected else PANEL,
+                          highlightbackground=ACCENT if selected else BORDER)
 
     def _remember_port_preferences(self):
         self.data["tools"] = {
-            **self.data["tools"],  # Keep MAC source and future tool preferences.
-            "target": self.host_var.get(), "single_port": self.single_port_var.get(),
-            "custom_ports": self.custom_ports_var.get(), "mode": self.port_mode.get(),
+            **self.data["tools"],  # Preserve MAC source and legacy preferences.
+            "target": self.host_var.get(),
+            "ports_input": self.ports_var.get(),
             "source": self.port_source.get(),
-            "selected_ports": [p for p, flag in self.port_checks.items() if flag.get()]
-            if hasattr(self, "port_checks") else self.data["tools"].get("selected_ports", []),
         }
         self.schedule_save()
 
@@ -3475,19 +3499,7 @@ class PocketDesk:
             return
         try:
             ip = net.parse_target(self.host_var.get())
-            if self.port_mode.get() == "single":
-                ports = net.parse_ports(self.single_port_var.get())
-                if len(ports) != 1:
-                    raise ValueError("Single-port mode accepts exactly one port.")
-            else:
-                ports = [p for p, v in self.port_checks.items() if v.get()]
-                if self.custom_ports_var.get().strip():
-                    ports.extend(net.parse_ports(self.custom_ports_var.get()))
-                ports = sorted(set(ports))
-                if not ports:
-                    raise ValueError("Select at least one TCP port or enter additional ports.")
-                if len(ports) > net.MAX_PORTS:
-                    raise ValueError(f"Maximum {net.MAX_PORTS} ports per check.")
+            ports = presets.parse_manual_ports(self.ports_var.get())
             source = self.port_source.get()
             if source == "dashdash":
                 ip, ports = remote_ports.validate_remote_check(ip, ports)
@@ -3497,22 +3509,21 @@ class PocketDesk:
         self.port_results = []
         for item in self.port_tree.get_children():
             self.port_tree.delete(item)
-        if self.port_mode.get() == "selected":
-            # Let the result table expand after the user has selected ports.
-            self.port_inputs_expanded = False
-            self._port_mode_changed()
+        if self.port_quick_expanded:
+            self._toggle_quick_ports()
         self.scanning = True
         self.scan_cancel = threading.Event()
         self.scan_error = None
         self.scan_token += 1
         token = self.scan_token
         location = "via DashDash (remote)" if source == "dashdash" else "locally"
-        self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip} {location}…", fg=ACCENT)
+        self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip} {location}…",
+                              fg=ACCENT)
 
         def worker():
             try:
                 if source == "dashdash":
-                    # One HTTPS request to DashDash; do not issue local TCP connects.
+                    # One HTTPS request; no local TCP connections in remote mode.
                     results = remote_ports.check_remote_ports(ip, ports)
                 else:
                     results = net.scan_tcp_ports(ip, ports, cancel=self.scan_cancel)

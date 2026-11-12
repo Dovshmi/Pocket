@@ -144,44 +144,85 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: {page} switch did not return to its original state")
                 if page == "ports":
                     from pocket import port_presets as port_prefs
+                    # Switching layouts reconstructs the tool without losing favorites.
+                    if mode != "normal":
+                        check(7777 in app.port_favorites,
+                              f"{mode}: favorite was lost when changing layout")
+                    app.port_favorites = []
+                    app.data["tools"]["favorite_ports"] = []
+                    app.last_scan_ports = []
+                    app._render_quick_ports()
                     check(not app.port_quick_frame.winfo_ismapped(),
-                          f"{mode}: quick ports must start collapsed")
+                          f"{mode}: Quick Port Selection must start collapsed")
+                    check(not app.port_quick_buttons,
+                          f"{mode}: Quick Port Selection should have no fixed port presets")
                     check(int(app.port_count.cget("text").split("/")[1]) == 16,
-                          f"{mode}: 16-port limit should be visible")
-                    initial_text = app.ports_var.get()
+                          f"{mode}: sixteen-port counter is missing")
+                    old_input = app.ports_var.get()
                     app.ports_var.set("7777,8888")
                     app.root.update()
                     app.port_quick_button.invoke()
                     app.root.update()
                     check(app.port_quick_frame.winfo_ismapped(),
-                          f"{mode}: quick selection did not expand")
-                    check(len(app.port_quick_buttons) >= 28,
-                          f"{mode}: quick preset options were lost")
-                    app.port_quick_buttons[443].invoke()
+                          f"{mode}: Quick Port Selection did not expand")
+                    check(not app.port_quick_buttons,
+                          f"{mode}: input text alone should not create quick items")
+                    # Simulate the completion step without network I/O.
+                    app._record_last_scan([7777, 8888, 443])
                     app.root.update()
-                    check(app.ports_var.get() == "7777,8888,443",
-                          f"{mode}: quick click replaced an existing manual port")
-                    app.port_quick_buttons[22].invoke()
+                    check(list(app.port_quick_buttons) == [7777, 8888, 443],
+                          f"{mode}: last-scan ports were not shown together")
+                    app.port_star_buttons[7777].invoke()
                     app.root.update()
-                    check(app.ports_var.get() == "7777,8888,443,22",
-                          f"{mode}: quick click must append (not replace)")
-                    app.port_quick_buttons[443].invoke()
+                    check(app.port_favorites == [7777] and
+                          app.data["tools"]["favorite_ports"] == [7777],
+                          f"{mode}: starred port was not saved")
+                    check(app.port_star_buttons[7777].cget("text") == "★",
+                          f"{mode}: saved port should have a filled star")
+                    app._record_last_scan([3389, 9000])
                     app.root.update()
-                    check(app.ports_var.get() == "7777,8888,22",
-                          f"{mode}: second quick click must remove only selected port")
+                    check(list(app.port_quick_buttons) == [7777, 3389, 9000],
+                          f"{mode}: stale temporary ports were not removed")
+                    check(app.port_quick_buttons[9000].cget("text") == "9000 · Custom",
+                          f"{mode}: unknown ports must display Custom usage")
+                    check(app.port_star_buttons[9000].cget("text") == "☆",
+                          f"{mode}: temporary ports should show an empty star")
+                    app.port_quick_buttons[3389].invoke()
+                    app.root.update()
+                    check(app.ports_var.get() == "7777,8888,3389",
+                          f"{mode}: quick click replaced manually entered ports")
+                    app.port_quick_buttons[3389].invoke()
+                    app.root.update()
+                    check(app.ports_var.get() == "7777,8888",
+                          f"{mode}: clicking again should only remove the selected port")
+                    app.port_star_buttons[9000].invoke()
+                    app.root.update()
+                    check(app.port_favorites == [7777, 9000],
+                          f"{mode}: second star did not save as favorite")
+                    app.port_star_buttons[9000].invoke()
+                    app.root.update()
+                    check(app.port_favorites == [7777] and
+                          9000 in app.port_quick_buttons,
+                          f"{mode}: unstarred recent port should stay until next check")
+                    app._record_last_scan([443])
+                    app.root.update()
+                    check(list(app.port_quick_buttons) == [7777, 443],
+                          f"{mode}: unstarred temporary port should vanish next check")
+                    # A full input must not accept a seventeenth port.
                     app.ports_var.set(",".join(map(str, range(1, 17))))
                     app.root.update()
                     app.port_quick_buttons[443].invoke()
                     app.root.update()
                     check(len(port_prefs.parse_manual_ports(app.ports_var.get())) == 16,
-                          f"{mode}: quick selection exceeded the 16-port maximum")
+                          f"{mode}: quick selection exceeded the port limit")
+                    capture(app, output, mode + "_ports_favorites")
                     app.port_quick_button.invoke()
                     app.root.update()
                     check(not app.port_quick_frame.winfo_ismapped(),
-                          f"{mode}: quick selection failed to collapse")
-                    app.ports_var.set(initial_text)
+                          f"{mode}: quick panel did not collapse")
+                    app.ports_var.set(old_input)
                     app.root.update()
-                    check(not app.scanning, f"{mode}: quick selection started a scan")
+                    check(not app.scanning, f"{mode}: favorites started a scan")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (

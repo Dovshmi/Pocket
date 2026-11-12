@@ -378,6 +378,8 @@ class PocketDesk:
         self.mac_lookup_token = 0
         self.mac_draft = "00:00:0C:12:34:56\n00-1B-63-12-34-56\nAABB.CCDD.EEFF"
         self.port_results = []
+        self.last_scan_ports = []  # Session only; not saved to data.json.
+        self.scan_requested_ports = []
         self.scanning = False
         self.scan_token = 0
         self.scan_cancel = threading.Event()
@@ -3365,6 +3367,7 @@ class PocketDesk:
         self.port_source = tk.StringVar(
             value="dashdash" if tools.get("source") == "dashdash" else "local")
         self.port_quick_expanded = False
+        self.port_favorites = presets.normalize_favorites(tools.get("favorite_ports", []))
 
         target_heading = tk.Frame(self.body, bg=BG)
         target_heading.pack(fill="x", pady=(0, 5))
@@ -3399,27 +3402,12 @@ class PocketDesk:
                      fg=SECONDARY, bg=BG, hover=PANEL, padx=6, pady=5,
                      font_size=8).pack(side="right")
 
-        # Build presets once per screen; their panel stays collapsed by default.
+        # One combined dynamic list, never a catalog of permanently shown ports.
+        # Its contents are favorites (on disk) + last completed check (in RAM).
         self.port_quick_frame = tk.Frame(self.body, bg=BG)
         self.port_quick_buttons = {}
-        columns = 3 if self.display_mode == "mini" else (6 if self.display_mode == "dashboard" else 4)
-        for column in range(columns):
-            self.port_quick_frame.grid_columnconfigure(column, weight=1, uniform="port")
-        for i, (port, label) in enumerate(presets.QUICK_PORTS):
-            short = str(port) if self.display_mode == "mini" else f"{port} {label}"
-            button = tk.Button(
-                self.port_quick_frame, text=short,
-                command=lambda p=port: self._select_quick_port(p),
-                fg=SECONDARY, bg=PANEL, activebackground=CARD_HOVER,
-                activeforeground=WHITE, relief="flat", bd=0, cursor="hand2",
-                highlightthickness=1, highlightbackground=BORDER,
-                highlightcolor=ACCENT, takefocus=True,
-                font=(FONT, 8), padx=3, pady=4)
-            button.grid(row=i // columns, column=i % columns, sticky="ew",
-                        padx=2, pady=2)
-            design.Tooltip(button, f"{port} • {label} (click to add/remove)",
-                           self.theme)
-            self.port_quick_buttons[port] = button
+        self.port_star_buttons = {}
+        self._render_quick_ports()
         self.ports_var.trace_add("write", lambda *_: self._ports_changed())
         self._refresh_ports_preview()
 
@@ -3454,13 +3442,82 @@ class PocketDesk:
             self.port_quick_frame.pack_forget()
             self.port_quick_button.config(text="▸ Quick Port Selection")
 
+    def _render_quick_ports(self):
+        """Render favorites and last check together; no fixed port shortcuts."""
+        frame = self.port_quick_frame
+        for child in frame.winfo_children():
+            child.destroy()
+        self.port_quick_buttons = {}
+        self.port_star_buttons = {}
+        visible = presets.quick_ports(self.port_favorites, self.last_scan_ports)
+        if not visible:
+            tk.Label(frame, text="No recent ports yet • Run a check, then ★ to save",
+                     bg=BG, fg=SECONDARY, font=(FONT, 8),
+                     anchor="w").pack(fill="x", padx=5, pady=5)
+            return
+        columns = 2 if self.display_mode == "mini" else (
+            5 if self.display_mode == "dashboard" else 3)
+        for column in range(columns):
+            frame.grid_columnconfigure(column, weight=1, uniform="port")
+        favorites = set(self.port_favorites)
+        for i, port in enumerate(visible):
+            starred = port in favorites
+            item = tk.Frame(frame, bg=PANEL, highlightbackground=BORDER,
+                            highlightthickness=1)
+            item.grid(row=i // columns, column=i % columns, sticky="ew",
+                      padx=2, pady=2)
+            item.grid_columnconfigure(0, weight=1)
+            service = presets.port_usage(port)
+            button = tk.Button(
+                item, text=f"{port} · {service}",
+                command=lambda p=port: self._select_quick_port(p),
+                fg=SECONDARY, bg=PANEL, activebackground=CARD_HOVER,
+                activeforeground=WHITE, relief="flat", bd=0, cursor="hand2",
+                takefocus=True, anchor="w", font=(FONT, 8),
+                padx=5, pady=5)
+            button.grid(row=0, column=0, sticky="ew")
+            star = tk.Button(
+                item, text="★" if starred else "☆",
+                command=lambda p=port: self._toggle_port_favorite(p),
+                fg="#F5C66A" if starred else SECONDARY,
+                bg=PANEL, activebackground=CARD_HOVER,
+                activeforeground="#F5C66A", relief="flat", bd=0,
+                cursor="hand2", takefocus=True, font=(FONT, 10),
+                padx=4, pady=2)
+            star.grid(row=0, column=1, sticky="e")
+            self.port_quick_buttons[port] = button
+            self.port_star_buttons[port] = star
+            design.Tooltip(button, f"TCP {port} • {service} • click to add/remove",
+                           self.theme)
+            design.Tooltip(star, "Remove from favorites" if starred else
+                           "Save as favorite", self.theme)
+        self._refresh_ports_preview()
+
+    def _toggle_port_favorite(self, port):
+        try:
+            updated = presets.toggle_favorite(self.port_favorites, port)
+        except ValueError as exc:
+            self.scan_info.config(text=str(exc), fg=DANGER)
+            return
+        self.port_favorites = updated
+        self.data["tools"]["favorite_ports"] = list(updated)
+        self.schedule_save()
+        self._render_quick_ports()
+
+    def _record_last_scan(self, ports):
+        """Only completed checks replace transient port shortcuts."""
+        self.last_scan_ports = presets.quick_ports([], ports)[:presets.MAX_SELECTED_PORTS]
+        if (self.current_tab == "ports" and hasattr(self, "port_quick_frame")
+                and self.port_quick_frame.winfo_exists()):
+            self._render_quick_ports()
+
     def _select_quick_port(self, port):
         try:
             updated = presets.toggle_quick_port(self.ports_var.get(), port)
         except ValueError as exc:
             self.scan_info.config(text=str(exc), fg=DANGER)
             return
-        # Update only the text field; other manually entered ports stay intact.
+        # Never modify other typed ports or favorite flags.
         self.ports_var.set(updated)
 
     def _ports_changed(self):
@@ -3481,8 +3538,7 @@ class PocketDesk:
         for port, widget in self.port_quick_buttons.items():
             selected = port in chosen
             widget.config(fg=ACCENT if selected else SECONDARY,
-                          bg=CARD if selected else PANEL,
-                          highlightbackground=ACCENT if selected else BORDER)
+                          bg=CARD if selected else PANEL)
 
     def _remember_port_preferences(self):
         self.data["tools"] = {
@@ -3512,6 +3568,7 @@ class PocketDesk:
         if self.port_quick_expanded:
             self._toggle_quick_ports()
         self.scanning = True
+        self.scan_requested_ports = list(ports)
         self.scan_cancel = threading.Event()
         self.scan_error = None
         self.scan_token += 1
@@ -4280,6 +4337,11 @@ class PocketDesk:
                 elif name == "port_done":
                     if xy == self.scan_token:
                         self.scanning = False
+                        # Only a complete, successful check updates the one-session
+                        # list; failures/stopped scans do not silently erase it.
+                        if (not self.scan_error and not self.scan_cancel.is_set()
+                                and len(self.port_results) == len(self.scan_requested_ports)):
+                            self._record_last_scan(self.scan_requested_ports)
                         if self.current_tab == "ports":
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)

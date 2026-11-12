@@ -182,7 +182,7 @@ def default_data() -> dict:
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single",
-                  "source": "local", "mac_source": "local"},
+                  "source": "local", "mac_source": "local", "favorite_ports": []},
     }
 
 
@@ -385,7 +385,6 @@ class PocketDesk:
         self.scan_cancel = threading.Event()
         self.scan_error = None
         self.updating_vendors = False
-        self.port_inputs_expanded = True
         # One writable library; the EXE's bundled copy is only a seed.
         install = (Path(sys.executable).resolve().parent if getattr(sys, "frozen", False)
                    else Path(__file__).resolve().parent)

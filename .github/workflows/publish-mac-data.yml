@@ -1,0 +1,53 @@
+name: Publish Pocket offline MAC vendor database
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[publish mac database]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Export authoritative public IEEE registry records from mirror
+        run: python scripts/build_offline_mac_vendors.py
+      - name: Validate against actual PocketDesk MAC parser
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from pocket.network_tools import load_vendor_database, mac_lookup
+          path = Path("dist/vendors.json")
+          vendors, updated = load_vendor_database(path)
+          assert len(vendors) > 55_000, len(vendors)
+          assert updated != "Invalid vendor database — update required"
+          for prefix, (name, registry) in vendors.items():
+              assert len(prefix) in (6, 7, 9), prefix
+              assert registry in ("MA-L", "MA-M", "MA-S", "IAB")
+              assert name
+          example = next(prefix for prefix, value in vendors.items() if len(prefix) == 6)
+          result = mac_lookup(example + "000000", vendors)
+          assert result["vendor"] not in ("Unknown / unregistered", "Invalid MAC"), result
+          print("PASS Pocket MAC lookup and offline cache format",len(vendors))
+          PY
+      - name: Upload as separate raw JSON asset to v1.32.2 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload v1.32.2             dist/vendors.json             dist/vendors-SHA256.txt             dist/vendors-README.txt             --clobber
+      - name: Upload backup workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-offline-MAC-database
+          path: |
+            dist/vendors.json
+            dist/vendors-SHA256.txt
+            dist/vendors-README.txt
+          retention-days: 30

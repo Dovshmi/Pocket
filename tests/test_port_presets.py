@@ -58,12 +58,43 @@ class PortPresetTests(unittest.TestCase):
                                                      "selected_ports": [22],
                                                      "custom_ports": "bad"}), "22,bad")
 
-    def test_extra_quick_ports_have_unique_tcp_numbers(self):
-        nums = [number for number, _ in presets.QUICK_PORTS]
+    def test_service_labels_do_not_create_default_shortcuts(self):
+        nums = [number for number, _ in presets.PORT_SERVICE_CATALOG]
         self.assertGreaterEqual(len(nums), 28)
         self.assertEqual(len(nums), len(set(nums)))
-        self.assertTrue(all(isinstance(number, int) and 1 <= number <= 65535
-                            for number in nums))
+        self.assertEqual(presets.quick_ports([], []), [])
+        self.assertEqual(presets.port_usage(443), "HTTPS")
+        self.assertEqual(presets.port_usage(8291), "WinBox")
+        self.assertEqual(presets.port_usage(49152), "Custom")
+
+    def test_favorites_and_recent_are_one_list_without_fixed_ports(self):
+        # Starred ports appear first; temporary ports follow with no duplicates.
+        self.assertEqual(presets.quick_ports([9000, 22], [22, 8080, 3389]),
+                         [9000, 22, 8080, 3389])
+        self.assertEqual(presets.quick_ports([9000, 22], [3389, 443]),
+                         [9000, 22, 3389, 443])
+        self.assertNotIn(8080, presets.quick_ports([9000, 22], [3389, 443]))
+        self.assertNotIn(80, presets.quick_ports([], [3389]))
+
+    def test_starring_and_unstarring_preserves_recent_ports(self):
+        starred = presets.toggle_favorite([22], 9000)
+        self.assertEqual(starred, [22, 9000])
+        self.assertEqual(presets.quick_ports(starred, [3389, 9000]),
+                         [22, 9000, 3389])
+        unstarred = presets.toggle_favorite(starred, 9000)
+        self.assertEqual(unstarred, [22])
+        self.assertEqual(presets.quick_ports(unstarred, [3389, 9000]),
+                         [22, 3389, 9000])
+        self.assertEqual(presets.quick_ports(unstarred, [3389]), [22, 3389])
+
+    def test_favorites_validate_persistent_profile_data(self):
+        raw = [443, 22, 443, None, True, False, 0, 65536, "80", 9000]
+        self.assertEqual(presets.normalize_favorites(raw), [443, 22, 9000])
+        self.assertEqual(presets.normalize_favorites({}), [])
+        with self.assertRaises(ValueError):
+            presets.toggle_favorite([22], 0)
+        with self.assertRaises(ValueError):
+            presets.toggle_favorite(list(range(1, presets.MAX_FAVORITES + 1)), 443)
 
 
 if __name__ == "__main__":

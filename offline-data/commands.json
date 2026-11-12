@@ -4585,6 +4585,182 @@
       "command": "TA10",
       "category": "Other",
       "source_row": 20
+    },
+    {
+      "id": "2a133c779214e4eb",
+      "machine": "Nokia 7210",
+      "description": "חיפוש כתובת MAC בטבלת FDB",
+      "command": "show service fdb-mac | match <MAC_ADDRESS>",
+      "category": "VLAN / L2",
+      "source_row": 14
+    },
+    {
+      "id": "0b44cc87231d4b67",
+      "machine": "HT",
+      "description": "הצגת סטטוס חייגן PPP",
+      "command": "show PPP",
+      "category": "Routing",
+      "source_row": 30
+    },
+    {
+      "id": "75e6e1955dca05cb",
+      "machine": "ADB",
+      "description": "כניסה למצב אבחון",
+      "command": "#debug",
+      "category": "Diagnostics",
+      "source_row": 9
+    },
+    {
+      "id": "be1eb8b9fc938caf",
+      "machine": "ADB",
+      "description": "הצגת מידע ARP במצב אבחון",
+      "command": "(debug)#arp info",
+      "category": "Diagnostics",
+      "source_row": 10
+    },
+    {
+      "id": "586973bb653230db",
+      "machine": "ADB",
+      "description": "כניסה לתפריט המערכת",
+      "command": "#system",
+      "category": "System",
+      "source_row": 21
+    },
+    {
+      "id": "e26e6850720dd664",
+      "machine": "ADB",
+      "description": "אתחול הנתב",
+      "command": "reboot now",
+      "category": "System",
+      "source_row": 22
+    },
+    {
+      "id": "e3dd331f4d11d321",
+      "machine": "CheckPoint",
+      "description": "הצגת הגדרות גישת הניהול",
+      "command": "show admin-access",
+      "category": "System",
+      "source_row": 10
+    },
+    {
+      "id": "7e0a84e4c8bb4654",
+      "machine": "CheckPoint",
+      "description": "הגדרת פורט גישה לממשק הניהול",
+      "command": "set admin-access web-access-port <PORT>",
+      "category": "Configuration",
+      "source_row": 13
+    },
+    {
+      "id": "9a735808d3d8cff8",
+      "machine": "CheckPoint",
+      "description": "ביטול תמיכה בגרסאות TLS חלשות",
+      "command": "set admin-access support-weak-tls-version false",
+      "category": "Configuration",
+      "source_row": 14
+    },
+    {
+      "id": "913bd711e4b31329",
+      "machine": "SDWAN",
+      "description": "הצגת סיכום שכני BGP ב-IPv4",
+      "command": "sh bgp ipv4 unicast summary",
+      "category": "Routing",
+      "source_row": 17
+    },
+    {
+      "id": "6a8ff7842db2971c",
+      "machine": "MSAG Nokia",
+      "description": "הצגת טבלת MAC לפי VLAN ופורט",
+      "command": "show vlan bridge-port-fdb",
+      "category": "VLAN / L2",
+      "source_row": 7
+    },
+    {
+      "id": "10f503744451d316",
+      "machine": "OS-6450",
+      "description": "הפעלה או השבתה של ממשק; יש לבחור up או down",
+      "command": "interface <INTERFACE> admin <up|down>",
+      "category": "Configuration",
+      "source_row": 41
+    },
+    {
+      "id": "2c9d10721cc881f6",
+      "machine": "OS-6450",
+      "description": "מחיקת הקצאות DHCP קיימות (פעולה משנה מצב)",
+      "command": "dhcp-server lease-delete all",
+      "category": "Configuration",
+      "source_row": 49
+    },
+    {
+      "id": "58def63376b7d639",
+      "machine": "MT 6860",
+      "description": "הצגת למידת MAC לפי VLAN",
+      "command": "show mac-learning domain vlan vlan <VLAN_ID>",
+      "category": "VLAN / L2",
+      "source_row": 7
+    },
+    {
+      "id": "8659154b1dc87bc9",
+      "machine": "MT 6860",
+      "description": "הצגת שירות Ethernet לפי S-VLAN",
+      "command": "show ethernet-service svlan <SVLAN_ID>",
+      "category": "VLAN / L2",
+      "source_row": 11
+    },
+    {
+      "id": "b93f0281285939fd",
+      "machine": "Cisco",
+      "description": "כניסה לסשן מודול WLAN",
+      "command": "service-module wlan-ap0 session",
+      "category": "System",
+      "source_row": 52
+    },
+    {
+      "id": "225102904c64d69e",
+      "machine": "M500",
+      "description": "הפעלת שירות DHCP בממשק",
+      "command": "service dhcp int <INTERFACE>",
+      "category": "Configuration",
+      "source_row": 26
+    },
+    {
+      "id": "39303dcd722cd69b",
+      "machine": "Juniper SRX",
+      "description": "הצגת VLANs",
+      "command": "show vlans",
+      "category": "VLAN / L2",
+      "source_row": 7
+    },
+    {
+      "id": "3077dccb881a36cf",
+      "machine": "Juniper SRX",
+      "description": "הצגת טבלת MAC",
+      "command": "show ethernet-switching table",
+      "category": "VLAN / L2",
+      "source_row": 8
+    },
+    {
+      "id": "fe4a83197dd4807b",
+      "machine": "B-Wifi",
+      "description": "הצגת סטטוס רישום לבקר",
+      "command": "get scg",
+      "category": "System",
+      "source_row": 33
+    },
+    {
+      "id": "3af97d2a70042cca",
+      "machine": "B-Wifi",
+      "description": "הצגת גרסת המערכת",
+      "command": "get version",
+      "category": "System",
+      "source_row": 36
+    },
+    {
+      "id": "2c426044226118c8",
+      "machine": "VCloud",
+      "description": "הצגת מצב ממשקים בקצרה",
+      "command": "sh interfaces brief",
+      "category": "Interfaces",
+      "source_row": 14
     }
   ],
   "machines": [

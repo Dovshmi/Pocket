@@ -107,6 +107,41 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page in ("ports", "mac"):
+                    # The slide selector must fit on an existing input-label row,
+                    # remain interactive, and never start a network operation.
+                    selector = app.port_source if page == "ports" else app.mac_source
+                    control = [w for w in widgets(app.body)
+                               if isinstance(w, tk.Canvas) and
+                               int(w.cget("width")) == 44 and
+                               int(w.cget("height")) == 22]
+                    check(len(control) == 1,
+                          f"{mode}: {page} should have exactly one compact source switch")
+                    control = control[0]
+                    heading = "TARGET IP" if page == "ports" else "MAC ADDRESSES"
+                    labels = [w for w in widgets(app.body)
+                              if isinstance(w, tk.Label) and w.cget("text") == heading]
+                    check(len(labels) == 1 and
+                          abs(labels[0].winfo_rooty() - control.winfo_rooty()) <= 10,
+                          f"{mode}: {page} source switch should share the input heading row")
+                    selected = selector.get()
+                    saved_other = app.data["tools"].get(
+                        "mac_source" if page == "ports" else "source")
+                    control.event_generate("<Button-1>", x=22, y=11)
+                    app.root.update()
+                    check(selector.get() != selected,
+                          f"{mode}: {page} switch did not toggle")
+                    check(app.data["tools"].get(
+                        "source" if page == "ports" else "mac_source") == selector.get(),
+                        f"{mode}: {page} source was not saved")
+                    check(app.data["tools"].get(
+                        "mac_source" if page == "ports" else "source") == saved_other,
+                        f"{mode}: switching {page} changed the other tool's preference")
+                    capture(app, output, mode + "_" + page + "_remote")
+                    control.event_generate("<Button-1>", x=22, y=11)
+                    app.root.update()
+                    check(selector.get() == selected,
+                          f"{mode}: {page} switch did not return to its original state")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (

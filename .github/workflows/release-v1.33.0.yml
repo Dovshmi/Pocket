@@ -1,0 +1,114 @@
+name: Publish Pocket v1.33.0
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pocket-release-v1.33.0
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[release v1.33.0]')
+    runs-on: windows-latest
+    env:
+      POCKET_RELEASE_VERSION: v1.33.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: x64
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-build.txt
+      - name: Compile Pocket and run all unit tests
+        shell: pwsh
+        run: |
+          python -m py_compile app.pyw
+          python -m compileall -q pocket
+          python -m unittest discover -s tests -p "test_*.py" -v
+          if ($LASTEXITCODE -ne 0) { throw 'Unit tests failed' }
+      - name: Test Normal, Mini, Dashboard and Extra Mini UI
+        run: python tests/integration/smoke_dashboard_integration.py
+      - name: Build complete portable ZIP
+        shell: cmd
+        run: call build-portable.bat
+      - name: Build standalone Windows EXE
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name Pocket-v1.33.0 --icon assets/app.ico --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --hidden-import _ctypes --hidden-import _tkinter --hidden-import unicodedata --add-data "assets/app.ico;assets" --add-data "commands/example_commands.json;commands" --distpath dist --workpath build/standalone-work app.pyw
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone EXE build failed' }
+      - name: Validate privacy, ZIP integrity, assets and checksums
+        shell: python
+        run: |
+          import hashlib
+          import zipfile
+          from pathlib import Path
+          folder = Path('dist')
+          archive_path = folder / 'Pocket-Portable-v1.33.0.zip'
+          exe_path = folder / 'Pocket-v1.33.0.exe'
+          assert archive_path.is_file() and archive_path.stat().st_size > 1_000_000
+          assert exe_path.is_file() and exe_path.stat().st_size > 1_000_000
+          with zipfile.ZipFile(archive_path) as z:
+              assert z.testzip() is None
+              names = z.namelist()
+              for required in ('Pocket-Portable/PocketDesk.exe',
+                               'Pocket-Portable/portable.flag',
+                               'Pocket-Portable/bundle-manifest.sha256',
+                               'Pocket-Portable/Verify-Pocket.ps1',
+                               'Pocket-Portable/README.txt'):
+                  assert required in names, required
+              assert any(n.endswith('/commands/example_commands.json') for n in names)
+              assert 'v1.33.0' in z.read('Pocket-Portable/README.txt').decode('utf-8')
+              forbidden_files = {'data.json', 'data-recovery.json', 'commands.json',
+                                 'vendors.json', '.env'}
+              forbidden_dirs = {'data', 'notepad', 'backups', 'notepad_exports'}
+              for name in names:
+                  parts = name.split('/')
+                  assert not any(part in forbidden_files for part in parts), name
+                  assert not any(part.startswith('data-corrupt-') and
+                                 part.endswith('.json') for part in parts), name
+                  assert not any(part in forbidden_dirs for part in parts[:-1]), name
+          sums = []
+          for path in (archive_path, exe_path):
+              sums.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}")
+          (folder / 'SHA256SUMS.txt').write_text('\n'.join(sums) + '\n', encoding='ascii')
+          print('PASS: self-contained public packages and SHA-256 checksums')
+      - name: Test extracted portable ZIP, native DLLs and GUI
+        run: python tests/integration/check_packaged_release.py --version v1.33.0 --portable-only
+      - name: Test standalone dependencies and GUI startup
+        shell: pwsh
+        run: |
+          $env:APPDATA = Join-Path $env:RUNNER_TEMP 'pocket-v133-standalone-profile'
+          New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
+          $exe = Join-Path (Get-Location) 'dist/Pocket-v1.33.0.exe'
+          & $exe --self-test-deps
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone dependency self-test failed' }
+          $process = Start-Process -FilePath $exe -ArgumentList '--preview' -PassThru
+          try {
+            Start-Sleep -Seconds 9
+            $process.Refresh()
+            if ($process.HasExited) { throw "Standalone EXE exited unexpectedly: $($process.ExitCode)" }
+          } finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+      - name: Publish stable v1.33.0 release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.33.0
+          target_commitish: ${{ github.sha }}
+          name: Pocket v1.33.0 — Remote Network Tools & Smart Port Favorites
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/Pocket-Portable-v1.33.0.zip
+            dist/Pocket-v1.33.0.exe
+            dist/SHA256SUMS.txt

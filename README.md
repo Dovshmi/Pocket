@@ -10,19 +10,19 @@
 
 A customizable, **local-first Windows tray application** for the small tools you reach for every day. No browser, account, cloud sync, or permanent internet connection required.
 
-[![Latest release](https://img.shields.io/badge/Stable-v1.32.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.1)
+[![Latest release](https://img.shields.io/badge/Stable-v1.33.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.33.0)
 ![Platform](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Local--first-No%20account-14866D?style=for-the-badge)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Current stable: v1.32.1.** This maintenance release repairs Pillow binary packaging for Windows and adds tests of freshly extracted downloads. The Dashboard improvements and local-data safeguards from v1.32.0 are unchanged.
+> **Current stable: v1.33.0.** Introduces opt-in remote TCP and MAC lookups through DashDash, unified 16-port checks, and a single compact starred/last-scan quick-port list. Local remains the default; the release includes both Portable ZIP and standalone EXE. See [release notes](RELEASE_NOTES.md).
 
 ## Why Pocket?
 
@@ -76,8 +76,8 @@ These are **genuine Pocket screenshots captured during Windows GUI tests**, not 
 | **Notes** | Notes with titles, phone numbers, timestamps, pinning, duplication, Notepad editing, Hebrew/English direction and reminders | Offline |
 | **Commands** | Local CLI search, categories, machines, favorites, editing, Smart Templates and manual library backup | Offline |
 | **Shortcuts** | Save, find and open URLs, files and directories | Online only when opening a web link |
-| **TCP Ports** | Scan chosen TCP ports and ranges on a specified IPv4/IPv6 address, with export | User-initiated network test |
-| **MAC Lookup** | IEEE vendor-prefix lookup, offline cache, batch lookup, manual registry update/import | Offline with cache; internet for update |
+| **TCP Ports** | Up to 16 comma-separated ports, ★ favorites/last-scan shortcuts, Local or DashDash remote checks, CSV export | User-initiated local/remote TCP check |
+| **MAC Lookup** | Bulk IEEE MAC vendor lookup with offline cache or on-demand DashDash lookup, CSV export | Offline by default; remote request only when selected |
 | **Subnet Calculator** | IPv4 CIDR, network/broadcast, masks, wildcard, hosts, and network splitting | Offline |
 | **Clipboard** | Session-only text history, search, pin, copy, delete, pause and privacy filter | Offline |
 
@@ -106,9 +106,20 @@ With **Smart Templates**, an existing command can include fields such as `{{IP}}
 
 ### Network utilities
 
-**TCP Port Checker** — enter a **literal IPv4 or IPv6 address** and a port or range (up to **128 TCP ports** per scan). Start a scan to see **OPEN**, **CLOSED**, **TIMEOUT**, or **ERROR** results, then copy or export them. Hostname-based targets are not currently supported. A timeout may indicate filtering or packet loss and is not proof of a closed port.
+**TCP Port Checker** — one shared **TCP Ports** field accepts one or more comma-separated numbers (for example, `22,80,443,3389`), up to **16 unique ports** per check in **both** modes. The `0/16` counter flags too many or invalid entries. Use **Quick Port Selection** to expand one compact list containing **saved ★ favorites first**, followed by **non-favorite ports from the last completed TCP check**. No built-in or default ports are displayed automatically. A successful subsequent check replaces the temporary entries; failed or stopped checks leave the previous list intact. Press **☆** to save a temporary port as a favorite, or **★** to unstar it. Clicking the port name adds/removes only that port in the input without replacing other typed ports. Known ports show their TCP service names (such as SSH, HTTPS, RDP, WinBox, MySQL); unknown ports display **Custom**. **Clear** empties only the input, not the favorites. The panel starts collapsed in Normal, Mini and Dashboard, and is available when those tools are opened from Extra Mini.
 
-**MAC Vendor Lookup** — identify IEEE prefix registrations using a locally cached database (MA-L, MA-M, MA-S, and IAB). Look up multiple addresses, import registry CSV files, manually download refreshed registries, and export results. Prefix ownership does not prove the specific owner or manufacturer of a device.
+- **Local (this PC)** is the default. Enter a literal IPv4 or IPv6 address. Connections originate from your Windows PC, including reachable private LAN addresses; no DashDash request is sent.
+- **DashDash (remote)** sends one explicit HTTPS request to `https://dashdash-tau.vercel.app/api/port-check`. The DashDash/Vercel server checks up to **16 TCP ports** for **one public IPv4 address** and returns results to Pocket. Private, local, reserved and IPv6 targets are not supported by that endpoint. Remote results reflect connectivity **from Vercel**, not from your workplace or local network.
+
+Both modes are manual: choose the source and press **Run TCP check**. The table shows **OPEN**, **CLOSED**, **TIMEOUT** (or **ERROR** for applicable local failures), with response times, plus CSV export. Changing the source does not run a check. The choice is remembered locally; existing profiles default to Local. Hostname-based targets are not currently supported. A TCP connection is not proof of application health; a timeout may indicate filtering and does not prove a port is closed.
+
+**Remote-check privacy/security:** the target IP and requested ports are transmitted to DashDash over HTTPS when you press Run. The DashDash API currently has no application-level authentication; do not assume it is private. Use this only for targets you are authorized to test. When disconnected, keep using Local mode.
+
+**MAC Vendor Lookup** — identify IEEE prefix registrations using the small **Local / DashDash** slide switch beside the MAC input heading.
+- **Local (default)** searches the locally cached IEEE database (MA-L, MA-M, MA-S, and IAB) with **up to 5,000** addresses. Import registry CSV files or explicitly download refreshed registries; no MAC addresses leave the computer during local lookups.
+- **DashDash** queries `https://dashdash-tau.vercel.app/api/mac-lookup` for **up to 100 distinct MAC addresses** per request. This uses the registry packaged on the DashDash server, not your local cache. The MAC addresses are transmitted over HTTPS **only when you click Check vendors**. Unsupported or malformed input receives an error rather than silently uploading it. If the internet is unavailable, switch back to Local.
+
+The source switches on **both** TCP and MAC pages are compact and sit alongside existing input labels, rather than occupying a separate explanatory panel. They are keyboard operable (**Tab**, **Space** / **Enter**) and show extra details on hover/focus. The current choice is remembered separately for each tool across Normal, Mini and Dashboard, but both start in Local mode for existing installations. Previous Single Port or Selected Ports preferences are migrated to the unified TCP field on first use; lists longer than 16 require manual reduction before a check. **Favorites** persist in the existing `data.json` profile (`tools.favorite_ports`), while the last completed scan is held **in memory only** and disappears when Pocket exits. No extra JSON file or automatic server request is created. Results can still be copied and exported. Prefix registration is not proof of ownership or manufacture of a device.
 
 **IPv4 Subnet Calculator** — calculate the network address, broadcast, mask, wildcard, usable hosts and address counts, and split a network into smaller subnets. `/31` and `/32` have special handling. **No network access is involved.**
 
@@ -167,7 +178,7 @@ Closing the popup normally **hides it to the tray**; use **Exit** to stop the ap
 
 ### Portable ZIP — recommended
 
-**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)**
+**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)**
 
 1. Download and **extract the entire ZIP** to a writable Windows directory.
 2. Launch `PocketDesk.exe` from the extracted `Pocket-Portable` folder (not from within the archive).
@@ -177,7 +188,7 @@ The included `portable.flag` keeps your local writable data in `data/` **beside 
 
 ### Standalone EXE
 
-**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)**
+**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)**
 
 Run the downloaded executable directly. This version uses the standard Windows data directory `%APPDATA%\PocketDesk\`, **not the EXE's folder**. Python is not needed.
 
@@ -215,8 +226,10 @@ To protect notes/settings against malformed files or interrupted writes, Pocket 
 | Feature | Internet or network use |
 |:---|:---|
 | Notes, search, commands, templates, subnet calculations, clipboard | None |
-| MAC lookup using cached/imported registries | None |
-| TCP port checks | Contact only your specified target when you start a check |
+| Local MAC lookup using cached/imported registries | None |
+| DashDash MAC lookup | One HTTPS POST with selected MAC addresses when explicitly selected and started |
+| Local TCP port checks | Contact only the specified target directly from your PC when started |
+| DashDash remote TCP port checks | HTTPS request to DashDash only when explicitly selected and started; sends target public IPv4 and selected TCP ports |
 | IEEE vendor-registry download | External HTTPS only when manually requested |
 | Web shortcuts | Only when you open the destination |
 
@@ -301,7 +314,7 @@ Pocket is licensed under the [GNU General Public License v3.0](LICENSE).
 ## Windows work PC: ready-to-use Portable ZIP
 
 **Download the latest portable application:** [Pocket releases](https://github.com/Dovshmi/Pocket/releases/latest).
-Extract the **whole** `Pocket-Portable-v1.32.2.zip` to a new local writable folder,
+Extract the **whole** `Pocket-Portable-v1.33.0.zip` to a new local writable folder,
 then double-click `PocketDesk.exe`. Do not run the EXE from inside the ZIP or
 copy the EXE alone; the adjacent `_internal` folder contains all its Python and
 DLL runtime files. No Python installation, administrator permissions or internet

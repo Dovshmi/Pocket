@@ -1,0 +1,36 @@
+name: Pocket remote-source branch checks
+
+on:
+  push:
+    branches: [feature/dashdash-remote-port-check]
+  workflow_dispatch:
+
+jobs:
+  sources-and-layouts:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Pocket requirements
+        run: python -m pip install -r requirements.txt
+      - name: Compile all Pocket sources
+        run: |
+          python -m py_compile app.pyw
+          python -m compileall -q pocket tests
+      - name: Run remote-source unit tests (HTTP mocked)
+        run: python -m unittest -v tests.test_dashdash_ports tests.test_dashdash_mac tests.test_port_presets
+      - name: Install X virtual framebuffer
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Verify Normal, Mini and Dashboard UI (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
+      - name: Verify Normal, Mini and Dashboard UI (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_dashboard_integration.py

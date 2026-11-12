@@ -68,6 +68,7 @@ import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
 from pocket import network_tools as net
+from pocket import dashdash_ports as remote_ports
 from pocket import command_helper as ch
 from pocket import smart_templates as smart
 from pocket import template_ui
@@ -177,7 +178,8 @@ def default_data() -> dict:
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
-                  "selected_ports": [22, 80, 443, 3389], "mode": "single"},
+                  "selected_ports": [22, 80, 443, 3389], "mode": "single",
+                  "source": "local"},
     }
 
 
@@ -374,6 +376,7 @@ class PocketDesk:
         self.scanning = False
         self.scan_token = 0
         self.scan_cancel = threading.Event()
+        self.scan_error = None
         self.updating_vendors = False
         self.port_inputs_expanded = True
         # One writable library; the EXE's bundled copy is only a seed.
@@ -3355,12 +3358,29 @@ class PocketDesk:
         self.single_port_var = tk.StringVar(value=tools.get("single_port", "443"))
         self.custom_ports_var = tk.StringVar(value=tools.get("custom_ports", ""))
         self.port_mode = tk.StringVar(value=tools.get("mode", "single"))
+        self.port_source = tk.StringVar(value="dashdash" if tools.get("source") == "dashdash" else "local")
 
         label = tk.Label(self.body, text="TARGET IP (IPv4 or IPv6)", bg=BG, fg=MUTED,
                          font=(FONT, 8, "bold"))
         label.pack(anchor="w", pady=(0, 5))
         self._entry(self.body, self.host_var).pack(fill="x", ipady=8, pady=(0, 10))
         self.host_var.trace_add("write", lambda *_: self._remember_port_preferences())
+
+        source_frame = tk.Frame(self.body, bg=BG)
+        source_frame.pack(fill="x", pady=(0, 6))
+        tk.Label(source_frame, text="CHECK FROM", bg=BG, fg=MUTED,
+                 font=(FONT, 8, "bold")).pack(anchor="w", pady=(0, 4))
+        for source, text in (("local", "Local (this PC)"),
+                             ("dashdash", "DashDash (remote)")):
+            tk.Radiobutton(source_frame, text=text, variable=self.port_source,
+                           value=source, command=self._port_source_changed,
+                           fg=WHITE, bg=BG, selectcolor=PANEL,
+                           activebackground=BG, activeforeground=ACCENT,
+                           font=(FONT, 9), highlightthickness=0).pack(side="left", padx=(0, 13))
+        self.port_source_info = tk.Label(
+            self.body, bg=BG, fg=MUTED, font=(FONT, 8),
+            anchor="w", justify="left", wraplength=290 if self.display_mode == "mini" else 410)
+        self.port_source_info.pack(fill="x", pady=(0, 10))
 
         modes = tk.Frame(self.body, bg=BG)
         modes.pack(fill="x", pady=(0, 6))
@@ -3405,6 +3425,7 @@ class PocketDesk:
         self._entry(self.port_selected_frame, self.custom_ports_var).pack(fill="x", ipady=7, pady=(0, 8))
         self.custom_ports_var.trace_add("write", lambda *_: self._remember_port_preferences())
         self._port_mode_changed()
+        self._port_source_changed()
 
         commands = tk.Frame(self.body, bg=BG)
         commands.pack(fill="x", pady=(4, 3))
@@ -3421,6 +3442,16 @@ class PocketDesk:
             self._add_port_result(result)
         if self.scanning:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
+
+    def _port_source_changed(self):
+        remote = self.port_source.get() == "dashdash"
+        self.port_source_info.config(text=(
+            "Remote: tests public IPv4 only, up to 16 ports. Sends the target IP and "
+            "ports to DashDash over HTTPS; the TCP test runs from Vercel."
+            if remote else
+            "Local: tests IPv4/IPv6 and up to 128 ports directly from this PC. "
+            "No DashDash request is made."))
+        self._remember_port_preferences()
 
     def _port_mode_changed(self):
         self.port_single_frame.pack_forget()
@@ -3443,6 +3474,7 @@ class PocketDesk:
         self.data["tools"] = {
             "target": self.host_var.get(), "single_port": self.single_port_var.get(),
             "custom_ports": self.custom_ports_var.get(), "mode": self.port_mode.get(),
+            "source": self.port_source.get(),
             "selected_ports": [p for p, flag in self.port_checks.items() if flag.get()]
             if hasattr(self, "port_checks") else self.data["tools"].get("selected_ports", []),
         }
@@ -3467,6 +3499,9 @@ class PocketDesk:
                     raise ValueError("Select at least one TCP port or enter additional ports.")
                 if len(ports) > net.MAX_PORTS:
                     raise ValueError(f"Maximum {net.MAX_PORTS} ports per check.")
+            source = self.port_source.get()
+            if source == "dashdash":
+                ip, ports = remote_ports.validate_remote_check(ip, ports)
         except ValueError as exc:
             self._warning("Invalid scan input", str(exc))
             return
@@ -3479,13 +3514,22 @@ class PocketDesk:
             self._port_mode_changed()
         self.scanning = True
         self.scan_cancel = threading.Event()
+        self.scan_error = None
         self.scan_token += 1
         token = self.scan_token
-        self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip}…", fg=ACCENT)
+        location = "via DashDash (remote)" if source == "dashdash" else "locally"
+        self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip} {location}…", fg=ACCENT)
 
         def worker():
             try:
-                for result in net.scan_tcp_ports(ip, ports, cancel=self.scan_cancel):
+                if source == "dashdash":
+                    # One HTTPS request to DashDash; do not issue local TCP connects.
+                    results = remote_ports.check_remote_ports(ip, ports)
+                else:
+                    results = net.scan_tcp_ports(ip, ports, cancel=self.scan_cancel)
+                for result in results:
+                    if self.scan_cancel.is_set():
+                        break
                     self.events.put(("port_result", (token, result)))
             except Exception as exc:
                 self.events.put(("port_error", (token, str(exc))))
@@ -4158,23 +4202,33 @@ class PocketDesk:
                     self._warning("Shortcut unavailable", "That keyboard shortcut is already in use. Your previous shortcut remains active.")
                 elif name == "port_result":
                     token, result = xy
-                    if token == self.scan_token:
+                    if token == self.scan_token and not self.scan_cancel.is_set():
                         self.port_results.append(result)
                         if self.current_tab == "ports":
                             self._add_port_result(result)
                             self.scan_info.config(text=f"Checked {len(self.port_results)} port(s)…", fg=ACCENT)
                 elif name == "port_error":
                     token, error = xy
-                    if token == self.scan_token and self.current_tab == "ports":
-                        self.scan_info.config(text=f"Scan error: {error[:55]}", fg=DANGER)
+                    if token == self.scan_token:
+                        self.scan_error = str(error)
+                        if self.current_tab == "ports":
+                            self.scan_info.config(text=f"Scan error: {self.scan_error[:100]}",
+                                                  fg=DANGER)
                 elif name == "port_done":
                     if xy == self.scan_token:
                         self.scanning = False
                         if self.current_tab == "ports":
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)
-                            self.scan_info.config(text=f"Finished • {opened} open of {total} tested",
-                                                  fg=ACCENT if opened else SECONDARY)
+                            if self.scan_error:
+                                self.scan_info.config(text=f"Scan error: {self.scan_error[:100]}",
+                                                      fg=DANGER)
+                            elif self.scan_cancel.is_set():
+                                self.scan_info.config(text=f"Stopped • {total} results received",
+                                                      fg=SECONDARY)
+                            else:
+                                self.scan_info.config(text=f"Finished • {opened} open of {total} tested",
+                                                      fg=ACCENT if opened else SECONDARY)
                 elif name == "vendor_progress":
                     if self.current_tab == "mac":
                         self.vendor_info.config(text=xy, fg=ACCENT)

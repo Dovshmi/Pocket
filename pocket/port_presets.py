@@ -1,15 +1,19 @@
-"""One shared 16-port list with additive quick-selection presets.
+"""Manual TCP input and the compact favorite + last-scan quick list.
 
-Pure functions: no network access, UI, or persistent data writes.
+Port names below are labels only: NONE are shown automatically as default
+Quick Port Selection items. Only favorites and the last completed scan appear.
+This module is pure, does no network I/O and does not write persistent data.
 """
 from __future__ import annotations
 
 from . import network_tools as net
 
 MAX_SELECTED_PORTS = 16
+MAX_FAVORITES = 128
+
 
 # All presets are TCP services; never imply UDP reachability from a TCP check.
-QUICK_PORTS = (
+PORT_SERVICE_CATALOG = (
     (21, "FTP"), (22, "SSH"), (23, "Telnet"), (25, "SMTP"),
     (53, "DNS"), (80, "HTTP"), (110, "POP3"), (143, "IMAP"),
     (443, "HTTPS"), (445, "SMB"), (3389, "RDP"), (5900, "VNC"),
@@ -21,6 +25,53 @@ QUICK_PORTS = (
     (27017, "MongoDB"), (8000, "HTTP Dev"), (9200, "Elastic"),
     (1883, "MQTT"), (5672, "AMQP"), (6443, "K8s API"),
 )
+
+
+PORT_SERVICE_NAMES = dict(PORT_SERVICE_CATALOG)
+
+
+def port_usage(port: int) -> str:
+    """Human-readable TCP service, or Custom for an unrecognized port."""
+    return PORT_SERVICE_NAMES.get(port, "Custom")
+
+
+def normalize_favorites(raw, *, maximum: int = MAX_FAVORITES) -> list[int]:
+    """Load old/invalid profile values defensively without inserting defaults."""
+    if not isinstance(raw, list):
+        return []
+    result = []
+    seen = set()
+    for port in raw:
+        if type(port) is int and 1 <= port <= 65535 and port not in seen:
+            seen.add(port)
+            result.append(port)
+            if len(result) == maximum:
+                break
+    return result
+
+
+def toggle_favorite(favorites: list[int], port: int) -> list[int]:
+    """Add/remove one star. Never change recent ports or typed input."""
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError("Invalid TCP port for favorites.")
+    current = normalize_favorites(favorites)
+    if port in current:
+        return [p for p in current if p != port]
+    if len(current) >= MAX_FAVORITES:
+        raise ValueError(f"You can save up to {MAX_FAVORITES} favorite ports.")
+    return [*current, port]
+
+
+def quick_ports(favorites: list[int], last_scan: list[int]) -> list[int]:
+    """One list: starred ports first, then non-starred ports from last scan."""
+    stored = normalize_favorites(favorites)
+    seen = set(stored)
+    result = list(stored)
+    for port in last_scan if isinstance(last_scan, (list, tuple)) else ():
+        if type(port) is int and 1 <= port <= 65535 and port not in seen:
+            result.append(port)
+            seen.add(port)
+    return result
 
 
 def parse_manual_ports(raw: str, *, limit: int = MAX_SELECTED_PORTS,

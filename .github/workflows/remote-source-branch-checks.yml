@@ -24,7 +24,7 @@ jobs:
           python -m py_compile app.pyw
           python -m compileall -q pocket tests
       - name: Run remote-source unit tests (HTTP mocked)
-        run: python -m unittest -v tests.test_dashdash_ports tests.test_dashdash_mac
+        run: python -m unittest -v tests.test_dashdash_ports tests.test_dashdash_mac tests.test_port_presets
       - name: Install X virtual framebuffer
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb

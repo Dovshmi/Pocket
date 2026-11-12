@@ -10,19 +10,19 @@
 
 A customizable, **local-first Windows tray application** for the small tools you reach for every day. No browser, account, cloud sync, or permanent internet connection required.
 
-[![Latest release](https://img.shields.io/badge/Stable-v1.32.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.32.1)
+[![Latest release](https://img.shields.io/badge/Stable-v1.33.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.33.0)
 ![Platform](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Local--first-No%20account-14866D?style=for-the-badge)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Current stable: v1.32.1.** This maintenance release repairs Pillow binary packaging for Windows and adds tests of freshly extracted downloads. The Dashboard improvements and local-data safeguards from v1.32.0 are unchanged.
+> **Current stable: v1.33.0.** Introduces opt-in remote TCP and MAC lookups through DashDash, unified 16-port checks, and a single compact starred/last-scan quick-port list. Local remains the default; the release includes both Portable ZIP and standalone EXE. See [release notes](RELEASE_NOTES.md).
 
 ## Why Pocket?
 
@@ -76,8 +76,8 @@ These are **genuine Pocket screenshots captured during Windows GUI tests**, not 
 | **Notes** | Notes with titles, phone numbers, timestamps, pinning, duplication, Notepad editing, Hebrew/English direction and reminders | Offline |
 | **Commands** | Local CLI search, categories, machines, favorites, editing, Smart Templates and manual library backup | Offline |
 | **Shortcuts** | Save, find and open URLs, files and directories | Online only when opening a web link |
-| **TCP Ports** | Scan chosen TCP ports and ranges on a specified IPv4/IPv6 address, with export | User-initiated network test |
-| **MAC Lookup** | IEEE vendor-prefix lookup, offline cache, batch lookup, manual registry update/import | Offline with cache; internet for update |
+| **TCP Ports** | Up to 16 comma-separated ports, ★ favorites/last-scan shortcuts, Local or DashDash remote checks, CSV export | User-initiated local/remote TCP check |
+| **MAC Lookup** | Bulk IEEE MAC vendor lookup with offline cache or on-demand DashDash lookup, CSV export | Offline by default; remote request only when selected |
 | **Subnet Calculator** | IPv4 CIDR, network/broadcast, masks, wildcard, hosts, and network splitting | Offline |
 | **Clipboard** | Session-only text history, search, pin, copy, delete, pause and privacy filter | Offline |
 
@@ -178,7 +178,7 @@ Closing the popup normally **hides it to the tray**; use **Exit** to stop the ap
 
 ### Portable ZIP — recommended
 
-**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-Portable-v1.32.1.zip)**
+**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)**
 
 1. Download and **extract the entire ZIP** to a writable Windows directory.
 2. Launch `PocketDesk.exe` from the extracted `Pocket-Portable` folder (not from within the archive).
@@ -188,7 +188,7 @@ The included `portable.flag` keeps your local writable data in `data/` **beside 
 
 ### Standalone EXE
 
-**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.32.1/Pocket-v1.32.1.exe)**
+**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)**
 
 Run the downloaded executable directly. This version uses the standard Windows data directory `%APPDATA%\PocketDesk\`, **not the EXE's folder**. Python is not needed.
 
@@ -314,7 +314,7 @@ Pocket is licensed under the [GNU General Public License v3.0](LICENSE).
 ## Windows work PC: ready-to-use Portable ZIP
 
 **Download the latest portable application:** [Pocket releases](https://github.com/Dovshmi/Pocket/releases/latest).
-Extract the **whole** `Pocket-Portable-v1.32.2.zip` to a new local writable folder,
+Extract the **whole** `Pocket-Portable-v1.33.0.zip` to a new local writable folder,
 then double-click `PocketDesk.exe`. Do not run the EXE from inside the ZIP or
 copy the EXE alone; the adjacent `_internal` folder contains all its Python and
 DLL runtime files. No Python installation, administrator permissions or internet

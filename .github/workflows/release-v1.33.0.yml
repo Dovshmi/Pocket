@@ -87,8 +87,16 @@ jobs:
           $env:APPDATA = Join-Path $env:RUNNER_TEMP 'pocket-v133-standalone-profile'
           New-Item -ItemType Directory -Force -Path $env:APPDATA | Out-Null
           $exe = Join-Path (Get-Location) 'dist/Pocket-v1.33.0.exe'
-          & $exe --self-test-deps
-          if ($LASTEXITCODE -ne 0) { throw 'Standalone dependency self-test failed' }
+          # A windowed PyInstaller EXE can return control to PowerShell
+          # before it exits. Wait for its real exit code, not $LASTEXITCODE.
+          $diagnostic = Join-Path $env:RUNNER_TEMP 'pocket-v133-standalone-diagnostics.log'
+          $deps = Start-Process -FilePath $exe -ArgumentList @('--self-test-deps', "--deps-log=$diagnostic") -Wait -PassThru
+          if ($deps.ExitCode -ne 0) {
+            if (Test-Path -LiteralPath $diagnostic) {
+              Get-Content -LiteralPath $diagnostic
+            }
+            throw "Standalone dependency self-test failed: exit $($deps.ExitCode)"
+          }
           $process = Start-Process -FilePath $exe -ArgumentList '--preview' -PassThru
           try {
             Start-Sleep -Seconds 9

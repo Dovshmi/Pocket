@@ -3,7 +3,7 @@
 Copy these two JSON files into the `data/` folder next to `PocketDesk.exe`
 when running the **Pocket-Portable** release:
 
-- `commands.json`: the complete curated Pocket CLI command library (573 commands).
+- `commands.json`: the complete curated Pocket CLI command library (595 commands).
 - `vendors.json`: offline MAC manufacturer registrations (IEEE MA-L, MA-M,
   MA-S and IAB), exported for Pocket v1.32.2.
 

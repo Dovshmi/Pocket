@@ -114,7 +114,11 @@ Both modes are manual: choose the source and press **Run TCP check**. The table 
 
 **Remote-check privacy/security:** the target IP and requested ports are transmitted to DashDash over HTTPS when you press Run. The DashDash API currently has no application-level authentication; do not assume it is private. Use this only for targets you are authorized to test. When disconnected, keep using Local mode.
 
-**MAC Vendor Lookup** — identify IEEE prefix registrations using a locally cached database (MA-L, MA-M, MA-S, and IAB). Look up multiple addresses, import registry CSV files, manually download refreshed registries, and export results. Prefix ownership does not prove the specific owner or manufacturer of a device.
+**MAC Vendor Lookup** — identify IEEE prefix registrations using the small **Local / DashDash** slide switch beside the MAC input heading.
+- **Local (default)** searches the locally cached IEEE database (MA-L, MA-M, MA-S, and IAB) with **up to 5,000** addresses. Import registry CSV files or explicitly download refreshed registries; no MAC addresses leave the computer during local lookups.
+- **DashDash** queries `https://dashdash-tau.vercel.app/api/mac-lookup` for **up to 100 distinct MAC addresses** per request. This uses the registry packaged on the DashDash server, not your local cache. The MAC addresses are transmitted over HTTPS **only when you click Check vendors**. Unsupported or malformed input receives an error rather than silently uploading it. If the internet is unavailable, switch back to Local.
+
+The source switches on **both** TCP and MAC pages are compact and sit alongside existing input labels, rather than occupying a separate explanatory panel. They are keyboard operable (**Tab**, **Space** / **Enter**) and show extra details on hover/focus. The current choice is remembered separately for each tool across Normal, Mini and Dashboard, but both start in Local mode for existing installations. Results can still be copied and exported. Prefix registration is not proof of ownership or manufacture of a device.
 
 **IPv4 Subnet Calculator** — calculate the network address, broadcast, mask, wildcard, usable hosts and address counts, and split a network into smaller subnets. `/31` and `/32` have special handling. **No network access is involved.**
 
@@ -221,7 +225,8 @@ To protect notes/settings against malformed files or interrupted writes, Pocket 
 | Feature | Internet or network use |
 |:---|:---|
 | Notes, search, commands, templates, subnet calculations, clipboard | None |
-| MAC lookup using cached/imported registries | None |
+| Local MAC lookup using cached/imported registries | None |
+| DashDash MAC lookup | One HTTPS POST with selected MAC addresses when explicitly selected and started |
 | Local TCP port checks | Contact only the specified target directly from your PC when started |
 | DashDash remote TCP port checks | HTTPS request to DashDash only when explicitly selected and started; sends target public IPv4 and selected TCP ports |
 | IEEE vendor-registry download | External HTTPS only when manually requested |

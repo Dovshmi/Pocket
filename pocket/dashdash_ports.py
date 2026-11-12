@@ -23,7 +23,11 @@ def validate_remote_check(ip: str, ports: list[int]) -> tuple[str, list[int]]:
         address = ipaddress.IPv4Address(ip.strip())
     except (ValueError, AttributeError) as exc:
         raise ValueError("DashDash remote checks require a public IPv4 address.") from exc
-    if not address.is_global:
+    # Match DashDash's explicit SSRF blocks, including ranges that some
+    # Python versions classify as globally routable.
+    excluded = (ipaddress.IPv4Network("192.0.0.0/24"),
+                ipaddress.IPv4Network("192.88.99.0/24"))
+    if not address.is_global or any(address in network for network in excluded):
         raise ValueError("DashDash cannot test private, local, or reserved IP addresses.")
     if not isinstance(ports, list) or not ports:
         raise ValueError("Select at least one TCP port.")

@@ -1,0 +1,51 @@
+name: Sync Pocket offline reference files
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[sync offline data]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch exactly the previously released MAC vendor database
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -f offline-data/commands.json
+          mkdir -p offline-data
+          gh release download v1.32.2 -p 'vendors.json' -D offline-data
+          gh release download v1.32.2 -p 'vendors-SHA256.txt' -D "$RUNNER_TEMP"
+          (cd offline-data && sha256sum --check "$RUNNER_TEMP/vendors-SHA256.txt")
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          commands = json.loads(Path('offline-data/commands.json').read_text(encoding='utf-8'))
+          assert len(commands['commands']) == 573
+          assert len(commands['machines']) == 35
+          entries = json.loads(Path('offline-data/vendors.json').read_text(encoding='utf-8'))
+          assert isinstance(entries.get('vendors'), dict)
+          assert len(entries['vendors']) > 55000
+          print('PASS: offline commands and vendors verified', len(commands['commands']), len(entries['vendors']))
+          PY
+      - name: Add MAC vendor JSON to offline-data on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add offline-data/vendors.json
+          if git diff --cached --quiet; then
+            echo 'Vendor JSON is already current'
+          else
+            git commit -m 'data: add published offline MAC vendor database'
+            git push origin HEAD:main
+          fi

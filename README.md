@@ -106,7 +106,13 @@ With **Smart Templates**, an existing command can include fields such as `{{IP}}
 
 ### Network utilities
 
-**TCP Port Checker** — enter a **literal IPv4 or IPv6 address** and a port or range (up to **128 TCP ports** per scan). Start a scan to see **OPEN**, **CLOSED**, **TIMEOUT**, or **ERROR** results, then copy or export them. Hostname-based targets are not currently supported. A timeout may indicate filtering or packet loss and is not proof of a closed port.
+**TCP Port Checker** — choose where to run each TCP connect test:
+- **Local (this PC)** is the default. Enter a literal IPv4 or IPv6 address and up to **128 TCP ports**. Connections originate from your Windows PC, including to reachable private LAN addresses; no DashDash request is sent.
+- **DashDash (remote)** sends one explicit HTTPS request to `https://dashdash-tau.vercel.app/api/port-check`. The DashDash/Vercel server checks up to **16 TCP ports** for **one public IPv4 address** and returns the results to Pocket. Private, local, reserved and IPv6 targets are not supported by that endpoint. Remote results reflect connectivity **from Vercel**, not from your workplace or local network.
+
+Both modes are manual: choose the source and press **Run TCP check**. The table shows **OPEN**, **CLOSED**, **TIMEOUT** (or **ERROR** for applicable local failures), with response times, plus CSV export. Changing the source does not run a check. The choice is remembered locally; existing profiles default to Local. Hostname-based targets are not currently supported. A TCP connection is not proof of application health; a timeout may indicate filtering and does not prove a port is closed.
+
+**Remote-check privacy/security:** the target IP and requested ports are transmitted to DashDash over HTTPS when you press Run. The DashDash API currently has no application-level authentication; do not assume it is private. Use this only for targets you are authorized to test. When disconnected, keep using Local mode.
 
 **MAC Vendor Lookup** — identify IEEE prefix registrations using a locally cached database (MA-L, MA-M, MA-S, and IAB). Look up multiple addresses, import registry CSV files, manually download refreshed registries, and export results. Prefix ownership does not prove the specific owner or manufacturer of a device.
 
@@ -216,7 +222,8 @@ To protect notes/settings against malformed files or interrupted writes, Pocket 
 |:---|:---|
 | Notes, search, commands, templates, subnet calculations, clipboard | None |
 | MAC lookup using cached/imported registries | None |
-| TCP port checks | Contact only your specified target when you start a check |
+| Local TCP port checks | Contact only the specified target directly from your PC when started |
+| DashDash remote TCP port checks | HTTPS request to DashDash only when explicitly selected and started; sends target public IPv4 and selected TCP ports |
 | IEEE vendor-registry download | External HTTPS only when manually requested |
 | Web shortcuts | Only when you open the destination |
 

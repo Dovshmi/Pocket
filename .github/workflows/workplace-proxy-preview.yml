@@ -1,0 +1,106 @@
+name: Pocket Proxy Preview - Windows ZIP and EXE
+
+on:
+  push:
+    branches:
+      - experiment/workplace-pac-proxy
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-preview:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      POCKET_RELEASE_VERSION: v1.33.1-proxytest.1
+
+    steps:
+      - name: Checkout experimental branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11 x64
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: x64
+
+      - name: Install runtime dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Validate code and run offline tests
+        shell: pwsh
+        run: |
+          python -m compileall -q pocket
+          python -m unittest discover -s tests -p 'test_*.py' -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build production-style portable ZIP with embedded EXE
+        shell: cmd
+        run: call build-portable.bat
+
+      - name: Verify extracted native Windows runtime
+        shell: pwsh
+        run: |
+          python tests/integration/check_packaged_release.py --version $env:POCKET_RELEASE_VERSION --portable-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build standalone preview EXE
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed --noupx --name Pocket-ProxyPreview --icon "assets/app.ico" --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --hidden-import _ctypes --hidden-import _tkinter --hidden-import unicodedata --add-data "assets/app.ico;assets" --add-data "commands/example_commands.json;commands" --distpath "build/standalone-preview" --workpath "build/standalone-work" app.pyw
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Move-Item -Force "build/standalone-preview/Pocket-ProxyPreview.exe" "dist/Pocket-ProxyPreview-$env:POCKET_RELEASE_VERSION.exe"
+
+      - name: Verify preview contents and checksums
+        shell: pwsh
+        run: |
+          $zip = "dist/Pocket-Portable-$env:POCKET_RELEASE_VERSION.zip"
+          $exe = "dist/Pocket-ProxyPreview-$env:POCKET_RELEASE_VERSION.exe"
+          if (!(Test-Path $zip) -or !(Test-Path $exe)) { throw "Missing Windows preview files" }
+          @($zip, $exe) | ForEach-Object {
+            $hash = (Get-FileHash -Algorithm SHA256 $_).Hash.ToLower()
+            "$hash  $([IO.Path]::GetFileName($_))"
+          } | Set-Content -Encoding ascii "dist/SHA256SUMS-ProxyPreview.txt"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $archive = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $zip))
+          try {
+            if (!($archive.Entries.FullName -contains 'Pocket-Portable/PocketDesk.exe')) {
+              throw "Portable ZIP does not contain PocketDesk.exe"
+            }
+          } finally {
+            $archive.Dispose()
+          }
+
+      - name: Upload downloadable test ZIP and EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-v1.33.1-ProxyPreview-Windows
+          path: |
+            dist/Pocket-Portable-v1.33.1-proxytest.1.zip
+            dist/Pocket-ProxyPreview-v1.33.1-proxytest.1.exe
+            dist/SHA256SUMS-ProxyPreview.txt
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish optional GitHub pre-release (never stable main)
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:POCKET_RELEASE_VERSION
+          $notes = @"
+          Experimental Windows PAC/Proxy build. NOT an official stable release.
+          Branch: experiment/workplace-pac-proxy
+          Portable ZIP includes PocketDesk.exe and all required Python runtime.
+          No changes to main. Use only on work PCs where permitted by IT.
+          See docs/WORKPLACE_PROXY_PREVIEW.md in this branch for validation.
+          "@
+          if (gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null) {
+            gh release upload $tag "dist/Pocket-Portable-$tag.zip" "dist/Pocket-ProxyPreview-$tag.exe" "dist/SHA256SUMS-ProxyPreview.txt" --clobber --repo $env:GITHUB_REPOSITORY
+          } else {
+            gh release create $tag "dist/Pocket-Portable-$tag.zip" "dist/Pocket-ProxyPreview-$tag.exe" "dist/SHA256SUMS-ProxyPreview.txt" --repo $env:GITHUB_REPOSITORY --prerelease --target $env:GITHUB_SHA --title "Pocket $tag (Windows Proxy Preview)" --notes $notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

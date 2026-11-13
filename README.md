@@ -10,19 +10,19 @@
 
 A customizable, **local-first Windows tray application** for the small tools you reach for every day. No browser, account, cloud sync, or permanent internet connection required.
 
-[![Latest release](https://img.shields.io/badge/Stable-v1.33.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.33.0)
+[![Latest release](https://img.shields.io/badge/Stable-v1.33.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.33.1)
 ![Platform](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Local--first-No%20account-14866D?style=for-the-badge)
 [![GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
+**[Download portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-Portable-v1.33.1.zip)** · **[Download standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-v1.33.1.exe)** · **[Releases](https://github.com/Dovshmi/Pocket/releases)** · **[Issues](https://github.com/Dovshmi/Pocket/issues)**
 
 </div>
 
 ---
 
 > [!NOTE]
-> **Current stable: v1.33.0.** Introduces opt-in remote TCP and MAC lookups through DashDash, unified 16-port checks, and a single compact starred/last-scan quick-port list. Local remains the default; the release includes both Portable ZIP and standalone EXE. See [release notes](RELEASE_NOTES.md).
+> **Current stable: v1.33.1.** Adds Windows corporate Proxy Auto-Configuration (PAC/WPAD) support for manually initiated DashDash checks. Local remains the default; all existing v1.33.0 networking, command and UI features are retained. Includes both Portable ZIP and standalone EXE. See [release notes](RELEASE_NOTES.md).
 
 ## Why Pocket?
 
@@ -119,6 +119,8 @@ Both modes are manual: choose the source and press **Run TCP check**. The table 
 - **Local (default)** searches the locally cached IEEE database (MA-L, MA-M, MA-S, and IAB) with **up to 5,000** addresses. Import registry CSV files or explicitly download refreshed registries; no MAC addresses leave the computer during local lookups.
 - **DashDash** queries `https://dashdash-tau.vercel.app/api/mac-lookup` for **up to 100 distinct MAC addresses** per request. This uses the registry packaged on the DashDash server, not your local cache. The MAC addresses are transmitted over HTTPS **only when you click Check vendors**. Unsupported or malformed input receives an error rather than silently uploading it. If the internet is unavailable, switch back to Local.
 
+**Windows corporate proxy/PAC:** when DashDash mode is used on Windows, Pocket resolves the current user's proxy route for the exact HTTPS destination using WinHTTP, then sends the request through WinINet with the Windows certificate store. This supports workstations whose Chrome browser accesses the web through a PAC proxy while direct TCP/443 is blocked. Only the explicit remote operation uses this transport; Local never contacts DashDash. Corporate application-control or proxy policy can still deny the EXE. See [Windows proxy support](docs/WINDOWS_PROXY.md).
+
 The source switches on **both** TCP and MAC pages are compact and sit alongside existing input labels, rather than occupying a separate explanatory panel. They are keyboard operable (**Tab**, **Space** / **Enter**) and show extra details on hover/focus. The current choice is remembered separately for each tool across Normal, Mini and Dashboard, but both start in Local mode for existing installations. Previous Single Port or Selected Ports preferences are migrated to the unified TCP field on first use; lists longer than 16 require manual reduction before a check. **Favorites** persist in the existing `data.json` profile (`tools.favorite_ports`), while the last completed scan is held **in memory only** and disappears when Pocket exits. No extra JSON file or automatic server request is created. Results can still be copied and exported. Prefix registration is not proof of ownership or manufacture of a device.
 
 **IPv4 Subnet Calculator** — calculate the network address, broadcast, mask, wildcard, usable hosts and address counts, and split a network into smaller subnets. `/31` and `/32` have special handling. **No network access is involved.**
@@ -178,7 +180,7 @@ Closing the popup normally **hides it to the tray**; use **Exit** to stop the ap
 
 ### Portable ZIP — recommended
 
-**[Pocket-Portable-v1.32.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-Portable-v1.33.0.zip)**
+**[Pocket-Portable-v1.33.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-Portable-v1.33.1.zip)**
 
 1. Download and **extract the entire ZIP** to a writable Windows directory.
 2. Launch `PocketDesk.exe` from the extracted `Pocket-Portable` folder (not from within the archive).
@@ -188,7 +190,7 @@ The included `portable.flag` keeps your local writable data in `data/` **beside 
 
 ### Standalone EXE
 
-**[Pocket-v1.32.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.33.0/Pocket-v1.33.0.exe)**
+**[Pocket-v1.33.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-v1.33.1.exe)**
 
 Run the downloaded executable directly. This version uses the standard Windows data directory `%APPDATA%\PocketDesk\`, **not the EXE's folder**. Python is not needed.
 
@@ -289,12 +291,14 @@ Pocket/
 
 See [repository layout documentation](docs/REPOSITORY_LAYOUT.md) or [open an issue](https://github.com/Dovshmi/Pocket/issues) for bugs and suggestions.
 
-## What's new in v1.32.1?
+## What's new in v1.33.1?
 
-- **Redesigned Dashboard** views for Notes, Commands, Shortcuts and Settings.
-- **Stronger data recovery**, safer atomic saves and clearer recovery handling.
-- **Improved code organization and regression coverage**, while retaining prior workflows.
-- Existing **Smart Templates**, adaptive **Extra Mini pages**, and the seven tools remain available.
+- **Corporate Windows proxy support:** DashDash MAC lookups and remote TCP checks use the current user's approved Windows PAC/WPAD or manual proxy policy through native WinHTTP/WinINet.
+- **Workplace-tested compatibility:** a preview build was verified in a managed enterprise environment where browser HTTPS worked but direct TCP/443 did not.
+- **No change to offline behavior:** Local MAC, local TCP checks, notes, commands, clipboard and subnets retain their existing behavior.
+- **Safer diagnostics:** clearer errors for Windows proxy resolution and HTTPS transport, without weakening certificate validation or bypassing corporate restrictions.
+
+The v1.33.0 features—two network-check sources, unified 16-port input and compact quick-port favorites—remain available.
 
 For the complete history, visit **[GitHub releases](https://github.com/Dovshmi/Pocket/releases)** or **[the commit log](https://github.com/Dovshmi/Pocket/commits/main)**. This README focuses on using the **current release**, rather than repeating a lengthy version history.
 
@@ -314,7 +318,7 @@ Pocket is licensed under the [GNU General Public License v3.0](LICENSE).
 ## Windows work PC: ready-to-use Portable ZIP
 
 **Download the latest portable application:** [Pocket releases](https://github.com/Dovshmi/Pocket/releases/latest).
-Extract the **whole** `Pocket-Portable-v1.33.0.zip` to a new local writable folder,
+Extract the **whole** `Pocket-Portable-v1.33.1.zip` to a new local writable folder,
 then double-click `PocketDesk.exe`. Do not run the EXE from inside the ZIP or
 copy the EXE alone; the adjacent `_internal` folder contains all its Python and
 DLL runtime files. No Python installation, administrator permissions or internet

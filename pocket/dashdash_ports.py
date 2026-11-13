@@ -8,7 +8,8 @@ from __future__ import annotations
 import ipaddress
 import json
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
+from .windows_proxy_urlopen import urlopen
 
 DASHDASH_PORT_CHECK_URL = "https://dashdash-tau.vercel.app/api/port-check"
 REMOTE_MAX_PORTS = 16
@@ -72,7 +73,7 @@ def check_remote_ports(ip: str, ports: list[int]) -> list[dict]:
             raise ValueError("DashDash is limiting requests. Try again later.") from exc
         raise ValueError(f"DashDash HTTP {exc.code}" + (f": {detail}" if detail else ".")) from exc
     except (URLError, TimeoutError, OSError) as exc:
-        raise ValueError("Could not contact DashDash. Check your internet access or try Local.") from exc
+        raise ValueError(f"Could not contact DashDash via Windows proxy/PAC: {exc}. Try Local or ask IT.") from exc
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("DashDash returned an unexpectedly large response.")
     try:

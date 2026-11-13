@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 import re
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
+from .windows_proxy_urlopen import urlopen
 
 from . import network_tools as net
 
@@ -68,7 +69,7 @@ def lookup_remote_macs(macs: list[str]) -> list[dict]:
             raise ValueError("DashDash is limiting requests. Try again later.") from exc
         raise ValueError(f"DashDash MAC lookup returned HTTP {exc.code}.") from exc
     except (URLError, TimeoutError, OSError) as exc:
-        raise ValueError("Cannot reach DashDash. Check internet access or switch to Local.") from exc
+        raise ValueError(f"Cannot reach DashDash via Windows proxy/PAC: {exc}. Switch to Local or ask IT.") from exc
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("DashDash returned an unexpectedly large MAC response.")
     try:

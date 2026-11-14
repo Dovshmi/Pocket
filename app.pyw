@@ -165,16 +165,24 @@ def new_link(title, url, kind="url") -> dict:
 
 def default_data() -> dict:
     n = new_note("Welcome", "Your notes live here.\n\nCreate another note with + New. Everything saves automatically.")
+    # Factory shortcuts are seeded only for profiles without a data.json.
+    # Never add/recreate these entries when loading an existing user profile.
     links = [
-        new_link("GitHub", "https://github.com"),
-        new_link("YouTube", "https://www.youtube.com"),
-        new_link("Gmail", "https://mail.google.com"),
+        new_link("DashDash", "https://dashdash-tau.vercel.app"),
+        new_link("My GitHub", "https://github.com/Dovshmi"),
     ]
+    layout = shortcut_folders.normalize(None, links)
+    folder_id = shortcut_folders.add_folder(layout, "Ushpelo")
+    for link in links:
+        shortcut_folders.move(
+            layout, shortcut_folders.link_key(link["id"]),
+            shortcut_folders.folder_key(folder_id), "inside")
     return {
         "notes": [n],
         "active_note": n["id"],
         "links": links,
-        "shortcut_folders": shortcut_folders.normalize(None, links),
+        "shortcut_folders": layout,
+        "last_tab": "notes",
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
         "extra_mini_page": 0,
@@ -183,15 +191,17 @@ def default_data() -> dict:
         "window_position": None,
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
-                     "display_mode": "normal", "extra_mini_enabled": False,
+                     "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
                      "clipboard_image_limit": clipboard_images.MAX_IMAGES},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
-        "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
-                  "selected_ports": [22, 80, 443, 3389], "mode": "single",
+        "tools": {"target": "8.8.8.8", "single_port": "443", "custom_ports": "",
+                  "ports_input": "21,22,443,80,8080,3389,53",
+                  "selected_ports": [21, 22, 443, 80, 8080, 3389, 53],
+                  "mode": "selected",
                   "source": "local", "mac_source": "local", "favorite_ports": []},
     }
 
@@ -220,6 +230,21 @@ def normalize_settings(raw):
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
             "clipboard_image_limit": clipboard_images.normalize_limit(
                 raw.get("clipboard_image_limit"))}
+
+
+def restored_tab(raw, settings):
+    """Recover the last user-selected tool without forcing a hidden one open."""
+    visible = settings["visible_tabs"]
+    mode = settings["display_mode"]
+    default = "home" if mode == "dashboard" else "notes"
+    valid = set(visible) | {"settings"}
+    if mode == "dashboard":
+        valid.add("home")
+    if isinstance(raw, str) and raw in valid:
+        return raw
+    if default in valid:
+        return default
+    return visible[0] if visible else "settings"
 
 
 def sanitize_clipboard(value):
@@ -286,11 +311,13 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 ("prefix", subnet_pref.get("prefix"), "24"),
                 ("split", subnet_pref.get("split"), "/26"))
         }
+        settings = normalize_settings(data.get("settings"))
         return {"notes": notes, "active_note": active_id, "links": links,
+                "last_tab": restored_tab(data.get("last_tab"), settings),
                 "shortcut_folders": shortcut_folders.normalize(
                     data.get("shortcut_folders"), links),
                 "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
-                     normalize_settings(data.get("settings"))["extra_mini_tiles"]),
+                     settings["extra_mini_tiles"]),
                 "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
                 "tools": tools, "command_state": ch.safe_prefs(data.get("command_state")),
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
@@ -299,7 +326,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 "window_positions": mini.window_positions(data.get("window_positions"),
                                                               data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
-                "settings": normalize_settings(data.get("settings")),
+                "settings": settings,
                 "hotkey": hk.normalize_hotkey(data.get("hotkey")),
                 "convert_hotkey": hk.normalize_convert_hotkey(
                     data.get("convert_hotkey"), popup=data.get("hotkey"))}
@@ -390,7 +417,7 @@ class PocketDesk:
         self._compact_return = False  # True after opening a tool from the launcher.
         self._compact_editing = False
         self._extra_mini_previous_tab = "notes"
-        self.current_tab = "notes"
+        self.current_tab = restored_tab(self.data.get("last_tab"), self.settings)
         self._last_tray_xy = None
         self._dragging_window = False
         self._drag_moved = False
@@ -471,7 +498,7 @@ class PocketDesk:
             pass
         design.configure_ttk(self.root, self.theme)
         self._build_shell()
-        self.show_tab("home" if self.display_mode in ("dashboard", "compact") else "notes")
+        self.show_tab(self.current_tab)
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Control-k>", self._open_global_search)
@@ -1218,6 +1245,11 @@ class PocketDesk:
             self._build_settings()
         # Preserve a user-moved position when changing tabs.
         self._place_popup(self._last_tray_xy)
+        # Save the last user-selected tool, not transient Extra Mini/Home
+        # navigation. On restart restore the tool if it is still visible.
+        if self.display_mode != "compact" and self.data.get("last_tab") != which:
+            self.data["last_tab"] = which
+            self.schedule_save()
 
     def _show_more_menu(self):
         menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
@@ -3687,7 +3719,7 @@ class PocketDesk:
         self._section_title(self.body, "TCP port checker", "Check one IP and up to 16 TCP ports",
                             "Export CSV", self._export_ports)
         tools = self.data["tools"]
-        self.host_var = tk.StringVar(value=tools.get("target", "192.168.1.1"))
+        self.host_var = tk.StringVar(value=tools.get("target", "8.8.8.8"))
         self.ports_var = tk.StringVar(value=presets.migrate_port_input(tools))
         self.port_source = tk.StringVar(
             value="dashdash" if tools.get("source") == "dashdash" else "local")

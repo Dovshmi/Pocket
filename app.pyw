@@ -163,15 +163,16 @@ def new_link(title, url, kind="url") -> dict:
 
 def default_data() -> dict:
     n = new_note("Welcome", "Your notes live here.\n\nCreate another note with + New. Everything saves automatically.")
+    links = [
+        new_link("GitHub", "https://github.com"),
+        new_link("YouTube", "https://www.youtube.com"),
+        new_link("Gmail", "https://mail.google.com"),
+    ]
     return {
         "notes": [n],
         "active_note": n["id"],
-        "links": [
-            new_link("GitHub", "https://github.com"),
-            new_link("YouTube", "https://www.youtube.com"),
-            new_link("Gmail", "https://mail.google.com"),
-        ],
-        "shortcut_folders": {"folders": [], "root": [], "children": {}},
+        "links": links,
+        "shortcut_folders": shortcut_folders.normalize(None, links),
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
         "extra_mini_page": 0,

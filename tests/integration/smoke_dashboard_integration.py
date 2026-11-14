@@ -451,7 +451,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     heading = app.shortcut_folder_headers[folder_id]
                     sample_handle = app.shortcut_drag_handles[
                         sf.link_key(sample["id"])]
-                    check(heading.winfo_height() < sample_handle.master.winfo_height(),
+                    card = (sample_handle.master.master if mode == "dashboard"
+                            else sample_handle.master)
+                    check(heading.winfo_height() < card.winfo_height(),
                           f"{mode}: folder heading must be shorter than shortcut cards")
                     check(folder_id not in [item.get("id") for item in app.data["links"]],
                           f"{mode}: folders must not be treated as launchable links")

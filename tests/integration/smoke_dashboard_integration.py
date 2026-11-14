@@ -139,6 +139,59 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(len(app._clipboard_gallery_tiles) == 1,
                           f"{mode}: image preview tile was not rendered")
                     from pocket import clipboard_gallery
+                    canvas = app.clipboard_images_canvas
+                    for keystroke in ("<Left>", "<Right>", "<Control-c>",
+                                      "<Return>", "<Delete>"):
+                        check(bool(canvas.bind(keystroke)),
+                              f"{mode}: image gallery is missing {keystroke}")
+                    if mode == "mini":
+                        original_images = list(app.clipboard_images)
+                        for color in ((32, 91, 162), (11, 149, 85)):
+                            check(clipboard_images.add_image(
+                                app.clipboard_images,
+                                Image.new("RGB", (160, 80), color)),
+                                "Mini: extra image was not added")
+                        app._clipboard_selected_image_id = app.clipboard_images[0]["id"]
+                        clipboard_gallery.refresh_images(app, force=True)
+                        app.root.update()
+                        check(len(app._clipboard_gallery_tiles) == 3,
+                              "Mini: horizontal gallery must render all cards")
+                        frames = [app._clipboard_gallery_tiles[item["id"]]
+                                  for item in app.clipboard_images]
+                        check(len({tile.winfo_y() for tile in frames}) == 1,
+                              "Mini: images must all share a horizontal row")
+                        check(frames[0].winfo_x() < frames[1].winfo_x()
+                              < frames[2].winfo_x(),
+                              "Mini: image cards must advance left to right")
+                        check(canvas.xview()[1] - canvas.xview()[0] < 0.99,
+                              "Mini: horizontal overflow must enable scrolling")
+                        canvas.focus_force()
+                        canvas.event_generate("<Right>")
+                        app.root.update()
+                        check(app._clipboard_selected_image_id ==
+                              app.clipboard_images[1]["id"],
+                              "Mini: Right key must select the next image")
+                        canvas.event_generate("<Right>")
+                        app.root.update()
+                        check(app._clipboard_selected_image_id ==
+                              app.clipboard_images[2]["id"],
+                              "Mini: Right key must select third image")
+                        check(canvas.xview()[0] > 0.01,
+                              "Mini: keyboard navigation must scroll horizontally")
+                        check("3 / 3 selected" in app.clipboard_images_status.cget("text"),
+                              "Mini: selected-image counter is incorrect")
+                        selected_before_switch = app._clipboard_selected_image_id
+                        app.clipboard_page_buttons["text"].invoke()
+                        app.root.update()
+                        app.clipboard_page_buttons["images"].invoke()
+                        app.root.update()
+                        check(app._clipboard_selected_image_id == selected_before_switch,
+                              "Mini: chosen image was lost on page switch")
+                        capture(app, output, "mini_clipboard_horizontal_gallery")
+                        app.clipboard_images[:] = original_images
+                        app._clipboard_selected_image_id = original_images[0]["id"]
+                        clipboard_gallery.refresh_images(app, force=True)
+                        app.root.update()
                     from unittest.mock import patch
                     image_item = app.clipboard_images[0]
                     # Real GUI action is wired to the bitmap clipboard writer.

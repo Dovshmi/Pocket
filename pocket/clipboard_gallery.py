@@ -207,11 +207,14 @@ def _build_images_page(app, c):
     canvas = tk.Canvas(
         area, bg=c["BG"], highlightthickness=0, bd=0, takefocus=1)
     canvas.pack(side="left", fill="both", expand=True)
-    scroll = ttk.Scrollbar(
-        area, orient="vertical", command=canvas.yview,
-        style="Pocket.Vertical.TScrollbar")
-    scroll.pack(side="right", fill="y")
-    canvas.configure(yscrollcommand=scroll.set)
+    # Mini is a single horizontal carousel. The existing vertical grid and
+    # scrollbar are kept unchanged for Normal and Dashboard.
+    if app.display_mode != "mini":
+        scroll = ttk.Scrollbar(
+            area, orient="vertical", command=canvas.yview,
+            style="Pocket.Vertical.TScrollbar")
+        scroll.pack(side="right", fill="y")
+        canvas.configure(yscrollcommand=scroll.set)
     inner = tk.Frame(canvas, bg=c["BG"])
     window = canvas.create_window((0, 0), window=inner, anchor="nw")
     app.clipboard_images_canvas = canvas
@@ -223,10 +226,17 @@ def _build_images_page(app, c):
         scrollregion=canvas.bbox("all")))
 
     def resize(event):
-        canvas.itemconfigure(window, width=event.width)
-        # Rendering only on meaningful width changes avoids resize loops.
+        if app.display_mode == "mini":
+            # Width=0 lets the interior grow to the full combined card width,
+            # instead of squeezing the entire gallery into the viewport.
+            canvas.itemconfigure(window, width=0)
+        else:
+            canvas.itemconfigure(window, width=event.width)
         signature = app._clipboard_gallery_signature
-        if signature is None or abs(signature[0] - event.width) >= 14:
+        # Mini thumbnails also adapt to the remaining height on small screens.
+        if (signature is None or abs(signature[0] - event.width) >= 14
+                or (app.display_mode == "mini"
+                    and abs(signature[1] - event.height) >= 14)):
             app.root.after_idle(lambda: refresh_images(app))
     canvas.bind("<Configure>", resize)
 
@@ -238,6 +248,13 @@ def _build_images_page(app, c):
     canvas.bind("<Control-C>", image_key_copy)
     canvas.bind("<Return>", lambda _e: (preview_selected(app), "break")[1])
     canvas.bind("<Delete>", lambda _e: (delete_selected(app), "break")[1])
+    canvas.bind("<Left>", lambda _e: move_selection(app, -1))
+    canvas.bind("<Right>", lambda _e: move_selection(app, 1))
+    for widget in (canvas, inner):
+        widget.bind("<MouseWheel>", lambda e: _wheel(app, e))
+        widget.bind("<Shift-MouseWheel>", lambda e: _wheel(app, e))
+        widget.bind("<Button-4>", lambda e: _wheel(app, e))
+        widget.bind("<Button-5>", lambda e: _wheel(app, e))
 
 
 def show_page(app, page):
@@ -264,29 +281,122 @@ def show_page(app, page):
     panel = app.clipboard_images_page if page == "images" else app.clipboard_text_page
     panel.pack(fill="both", expand=True)
     if page == "images":
-        app.root.after_idle(lambda: refresh_images(app))
+        def activate_images():
+            canvas = getattr(app, "clipboard_images_canvas", None)
+            if (canvas is not None and canvas.winfo_exists()
+                    and canvas.winfo_ismapped()
+                    and app.current_tab == "clipboard"
+                    and app.clipboard_page == "images"):
+                refresh_images(app)
+                # Only Images owns these keystrokes; text search never does.
+                canvas.focus_set()
+        app.root.after_idle(activate_images)
     else:
         app._refresh_clipboard()
 
 
 def _wheel(app, event):
-    canvas = app.clipboard_images_canvas
-    if not canvas.winfo_exists():
+    if not app.clipboard_images_canvas.winfo_exists():
         return "break"
-    steps = (-1 if event.delta > 0 else 1) if event.delta else (
-        -1 if getattr(event, "num", 0) == 4 else 1)
-    canvas.yview_scroll(steps * 3, "units")
+    forward = (event.delta < 0) if getattr(event, "delta", 0) else (
+        getattr(event, "num", 0) == 5)
+    if app.display_mode == "mini":
+        # A regular mouse wheel selects the neighboring horizontal card.
+        # No dragging, extra arrows, or additional UI controls.
+        move_selection(app, 1 if forward else -1)
+    else:
+        app.clipboard_images_canvas.yview_scroll(
+            (1 if forward else -1) * 3, "units")
     return "break"
 
 
+def _selection_index(app):
+    ident = getattr(app, "_clipboard_selected_image_id", None)
+    return next((i for i, item in enumerate(app.clipboard_images)
+                 if item["id"] == ident), -1)
+
+
+def _update_status(app):
+    label = getattr(app, "clipboard_images_status", None)
+    if label is None or not label.winfo_exists():
+        return
+    count = len(app.clipboard_images)
+    capture = "PAUSED" if app.settings["clipboard_paused"] else "Capture ON"
+    if app.display_mode == "mini":
+        index = _selection_index(app)
+        label.configure(text=(
+            f"{index + 1 if index >= 0 else 0} / {count} selected · "
+            f"{count}/20 images · {capture}"))
+    else:
+        label.configure(text=f"{count}/20 images · RAM only · {capture}")
+
+
+def _ensure_selected_visible(app):
+    """Scroll the selected card into view without changing the selection."""
+    if (app.current_tab != "clipboard" or app.clipboard_page != "images"):
+        return
+    canvas = getattr(app, "clipboard_images_canvas", None)
+    if canvas is None or not canvas.winfo_exists() or not canvas.winfo_ismapped():
+        return
+    tile = getattr(app, "_clipboard_gallery_tiles", {}).get(
+        getattr(app, "_clipboard_selected_image_id", None))
+    if tile is None or not tile.winfo_exists():
+        return
+    bounds = canvas.bbox("all")
+    if bounds is None:
+        return
+    viewport = canvas.winfo_width() if app.display_mode == "mini" else canvas.winfo_height()
+    if viewport <= 1:
+        return
+    if app.display_mode == "mini":
+        span = max(1, bounds[2] - bounds[0])
+        # Center whenever possible, clamp to the last fully visible card.
+        target = tile.winfo_x() + tile.winfo_width() / 2 - viewport / 2
+        target = max(0, min(target, max(0, span - viewport)))
+        canvas.xview_moveto(target / span)
+    else:
+        span = max(1, bounds[3] - bounds[1])
+        top = canvas.canvasy(0)
+        bottom = top + viewport
+        tile_top = tile.winfo_y()
+        tile_bottom = tile_top + tile.winfo_height()
+        if tile_top < top:
+            canvas.yview_moveto(max(0, tile_top) / span)
+        elif tile_bottom > bottom:
+            canvas.yview_moveto(max(0, tile_bottom - viewport) / span)
+
+
+def _scroll_to_selection_later(app):
+    app.root.after_idle(lambda: _ensure_selected_visible(app))
+
+
 def select_image(app, ident):
+    if not any(item["id"] == ident for item in app.clipboard_images):
+        return
     app._clipboard_selected_image_id = ident
-    app.clipboard_images_canvas.focus_set()
+    canvas = getattr(app, "clipboard_images_canvas", None)
+    if canvas is not None and canvas.winfo_exists():
+        canvas.focus_set()
     c = themes.palette(app.theme)
     for key, tile in getattr(app, "_clipboard_gallery_tiles", {}).items():
         if tile.winfo_exists():
             tile.configure(highlightbackground=(
                 c["ACCENT"] if key == ident else c["BORDER"]))
+    _update_status(app)
+    _scroll_to_selection_later(app)
+
+
+def move_selection(app, step):
+    """Left/right keyboard navigation in Images only; no wrapping at edges."""
+    if (app.current_tab != "clipboard" or app.clipboard_page != "images"):
+        return None
+    if not app.clipboard_images:
+        return "break"
+    current = _selection_index(app)
+    index = (max(0, min(len(app.clipboard_images) - 1, current + step))
+             if current >= 0 else 0)
+    select_image(app, app.clipboard_images[index]["id"])
+    return "break"
 
 
 def refresh_images(app, *, force=False):
@@ -296,16 +406,18 @@ def refresh_images(app, *, force=False):
     status = app.clipboard_images_status
     if not status.winfo_exists():
         return
-    status.configure(text=f"{len(app.clipboard_images)}/20 images · RAM only · " +
-                     ("PAUSED" if app.settings["clipboard_paused"] else "Capture ON"))
     if getattr(app, "clipboard_page", "text") != "images":
+        _update_status(app)
         return
     width = canvas.winfo_width()
+    height = canvas.winfo_height()
     if width <= 15:
         return
     ids = tuple(item["id"] for item in app.clipboard_images)
-    signature = (width, ids, app.theme)
+    signature = (width, height if app.display_mode == "mini" else 0, ids, app.theme)
     if signature == app._clipboard_gallery_signature and not force:
+        _update_status(app)
+        _scroll_to_selection_later(app)
         return
     app._clipboard_gallery_signature = signature
     c = themes.palette(app.theme)
@@ -314,15 +426,22 @@ def refresh_images(app, *, force=False):
         child.destroy()
     app._clipboard_gallery_photos = []
     app._clipboard_gallery_tiles = {}
-    columns = columns_for_width(width)
-    for col in range(columns):
-        frame.columnconfigure(col, weight=1, uniform="thumbnail")
-    card_width = max(94, (width - 10 * columns - 12) // columns)
-    thumb_size = (max(65, card_width - 16), max(70, min(190, card_width * 3 // 4)))
+    horizontal = app.display_mode == "mini"
+    columns = len(app.clipboard_images) if horizontal else columns_for_width(width)
+    if not horizontal:
+        for col in range(columns):
+            frame.columnconfigure(col, weight=1, uniform="thumbnail")
+    card_width = (max(140, min(245, int(width * 0.77))) if horizontal
+                  else max(94, (width - 10 * columns - 12) // columns))
+    thumb_size = (
+        (card_width - 16, max(42, min(140, height - 42))) if horizontal
+        else (max(65, card_width - 16),
+              max(70, min(190, card_width * 3 // 4))))
     if app.clipboard_images and not any(
             item["id"] == getattr(app, "_clipboard_selected_image_id", None)
             for item in app.clipboard_images):
         app._clipboard_selected_image_id = app.clipboard_images[0]["id"]
+    _update_status(app)
     for index, item in enumerate(app.clipboard_images):
         ident = item["id"]
         tile = tk.Frame(
@@ -330,7 +449,8 @@ def refresh_images(app, *, force=False):
             highlightbackground=c["ACCENT"] if
             ident == getattr(app, "_clipboard_selected_image_id", None)
             else c["BORDER"], cursor="hand2")
-        tile.grid(row=index // columns, column=index % columns,
+        tile.grid(row=0 if horizontal else index // columns,
+                  column=index if horizontal else index % columns,
                   sticky="nsew", padx=3, pady=3)
         app._clipboard_gallery_tiles[ident] = tile
         picture = clipboard_images.decode_image(item["data"])
@@ -354,8 +474,7 @@ def refresh_images(app, *, force=False):
             widget.bind("<Button-4>", lambda event: _wheel(app, event))
             widget.bind("<Button-5>", lambda event: _wheel(app, event))
     canvas.configure(scrollregion=canvas.bbox("all"))
-    if force:
-        canvas.yview_moveto(0.0)
+    _scroll_to_selection_later(app)
 
 
 def image_menu(app, event, ident):
@@ -428,9 +547,12 @@ def delete_selected(app):
     item = selected_image(app)
     if item is None:
         return
+    previous_index = _selection_index(app)
     app.clipboard_images[:] = [
         entry for entry in app.clipboard_images if entry["id"] != item["id"]]
-    app._clipboard_selected_image_id = None
+    app._clipboard_selected_image_id = (
+        app.clipboard_images[min(previous_index, len(app.clipboard_images) - 1)]["id"]
+        if app.clipboard_images else None)
     refresh_images(app, force=True)
 
 

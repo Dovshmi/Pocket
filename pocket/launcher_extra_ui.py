@@ -6,6 +6,7 @@ The existing window, search, theme, tray, Edit and All tools controls remain.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 
 from . import launcher_pages as lp
 from . import launcher_picker as picker
@@ -100,7 +101,7 @@ def install_cards(app, cards, c):
 
     def menu_for(index, event):
         tile = app._compact_pages()[page()]["tiles"][index]
-        menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+        menu = menu_style.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
                        activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"])
         if tile is None:
             menu.add_command(label="Add to tile", command=lambda: add(index))

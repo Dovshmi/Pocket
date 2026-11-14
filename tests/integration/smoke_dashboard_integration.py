@@ -434,6 +434,26 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(any("Fix EN / HE keyboard layout" in t or
                               "FIX KEYBOARD LAYOUT" in t for t in labels),
                           f"{mode}: converter hotkey is missing from Settings")
+                    # All working modes share the modern selection, palette
+                    # and keyboard-accessible switch components.
+                    common = app.settings_controls
+                    required = {"mode_normal", "mode_mini", "mode_dashboard",
+                                "theme_blue", "theme_purple", "extra_mini",
+                                "change_hotkey", "change_convert_hotkey",
+                                "quick_search", "clipboard_paused",
+                                "sensitive_filter"}
+                    required.update("tool_" + key
+                                    for key, _ in app.VISIBLE_TABS_REFERENCE)
+                    check(required.issubset(common),
+                          f"{mode}: modern Settings options are missing")
+                    check(all(isinstance(common[key], tk.Checkbutton) and
+                              not bool(int(common[key].cget("indicatoron")))
+                              for key in ("extra_mini", "clipboard_paused",
+                                          "sensitive_filter")),
+                          f"{mode}: legacy checkbox indicators remain visible")
+                    check(common["theme_blue"].winfo_exists() and
+                          common["mode_mini"].winfo_exists(),
+                          f"{mode}: themed selection cards disappeared")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (

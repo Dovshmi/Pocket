@@ -1,7 +1,7 @@
 """Windows image clipboard support, deliberately isolated from the UI.
 
-History is memory-only and capped at twenty pictures. Nothing is written to
-Pocket's profile, the filesystem, or a network service.
+History is memory-only. Its configurable count limit defaults to twenty
+pictures. Nothing is written to Pocket's profile, disk or any network service.
 """
 from __future__ import annotations
 
@@ -16,8 +16,14 @@ import uuid
 from PIL import Image, ImageGrab
 
 MAX_IMAGES = 20
+IMAGE_LIMIT_CHOICES = (10, 20, 50, 100)
 MAX_PIXELS = 16_000_000
 MAX_PNG_BYTES = 12 * 1024 * 1024
+
+
+def normalize_limit(value):
+    """Constrain persisted count to known choices; reject bool/string/huge values."""
+    return value if type(value) is int and value in IMAGE_LIMIT_CHOICES else MAX_IMAGES
 
 
 def sequence_number():

@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 
 from . import pocket_design as design
 from . import hotkey_settings as hk
+from . import shortcut_folders
+from . import shortcut_sections_ui as sections_ui
 
 FONT = "Segoe UI"
 KINDS = (("all", "All"), ("url", "Websites"), ("file", "Files"), ("folder", "Folders"))
@@ -45,8 +47,11 @@ def build(app):
              font=(FONT, 13, "bold")).pack(anchor="w")
     tk.Label(intro, text="Open your websites, files and folders",
              bg=bg, fg=muted, font=(FONT, 9)).pack(anchor="w", pady=(2, 0))
-    design.button(header, "+ New shortcut", lambda: app._toggle_link_form(None),
-                  app.theme, primary=True, compact=True).pack(side="right")
+    app.shortcut_add_button = design.button(
+        header, "+ Add ▾",
+        lambda: sections_ui.show_add_menu(app, app.shortcut_add_button),
+        app.theme, primary=True, compact=True)
+    app.shortcut_add_button.pack(side="right")
 
     filters = tk.Frame(app.body, bg=panel, highlightthickness=1,
                        highlightbackground=border)
@@ -74,6 +79,8 @@ def build(app):
     app.dashboard_shortcut_count = tk.Label(
         status, text="", bg=panel, fg=accent, font=(FONT, 8, "bold"))
     app.dashboard_shortcut_count.pack(side="left")
+    tk.Label(status, text="⋮⋮  Drag to arrange",
+             bg=panel, fg=muted, font=(FONT, 8)).pack(side="left", padx=(12, 0))
     tk.Label(status, text="No automatic opening · Local-first",
              bg=panel, fg=muted, font=(FONT, 8)).pack(side="right")
 
@@ -148,10 +155,74 @@ def filter_state(app):
                          fg=c["ACCENT"] if active else c["SECONDARY"])
 
 
+def _card(app, parent, link, *, row, column, columns, colors):
+    """Compact Dashboard card with consistent right-edge grip and controls."""
+    c = colors
+    panel, accent, muted, white = (c["PANEL"], c["ACCENT"],
+                                   c["MUTED"], c["WHITE"])
+    folder_id = shortcut_folders.link_folder(
+        app.data["shortcut_folders"], link["id"])
+    tile = tk.Frame(
+        parent, bg=panel, highlightthickness=1,
+        highlightbackground=c["BORDER"])
+    tile.grid(row=row, column=column, sticky="nsew", padx=5, pady=(3, 6))
+    app.dashboard_shortcut_cards.append(tile)
+    app._register_shortcut_drop(tile, folder_id=folder_id)
+    sections_ui.register_target(app, tile, ("link", link["id"]))
+
+    # Match Mini/Normal and folder headers: the small handle sits at right.
+    grip = tk.Label(tile, text="⋮⋮", bg=panel, fg=muted,
+                    font=(FONT, 10, "bold"), cursor="fleur", padx=4, pady=6)
+    grip.pack(side="right", fill="y", padx=(1, 5))
+    sections_ui.setup_grip(app, grip, shortcut_folders.link_key(link["id"]))
+
+    content = tk.Frame(tile, bg=panel)
+    content.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=(6, 5))
+    header = tk.Frame(content, bg=panel)
+    header.pack(fill="x")
+    badge = tk.Label(
+        header, text={"url": "↗", "file": "▤", "folder": "▣"}.get(
+            link.get("kind", "url"), "↗"),
+        bg=c["ACCENT_DARK"], fg=accent, font=(FONT, 10, "bold"),
+        padx=5, pady=3)
+    badge.pack(side="left", padx=(0, 7))
+    button = tk.Button(
+        header, text=shorten(link["title"], 28 if columns == 2 else 20),
+        command=lambda item=link: app.open_shortcut(item),
+        bg=panel, fg=white, activebackground=panel,
+        activeforeground=accent, font=(FONT, 9, "bold"),
+        relief="flat", bd=0, anchor="w", cursor="hand2")
+    button.pack(side="left", fill="x", expand=True)
+    button.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
+
+    target = tk.Label(
+        content, text=shorten(
+            preview_target(link), 52 if columns == 1 else
+            (39 if columns == 2 else 31)),
+        bg=panel, fg=muted, font=(FONT, 8), anchor="w")
+    target.pack(fill="x", pady=(4, 2))
+    target.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
+    actions = tk.Frame(content, bg=panel)
+    actions.pack(fill="x", pady=(2, 0))
+    for caption, handler in (
+            ("Open", lambda item=link: app.open_shortcut(item)),
+            ("Copy", lambda item=link: app._copy_shortcut(item)),
+            ("···", lambda item=link: app._show_link_menu(item))):
+        design.button(actions, caption, handler, app.theme,
+                      compact=True).pack(side="left", padx=(0, 4))
+    for widget in (grip, content, header, badge, button, target, actions):
+        app._register_shortcut_drop(widget, folder_id=folder_id)
+    return tile
+
+
 def refresh(app):
     c = design.colors(app.theme)
-    bg, panel, accent = c["BG"], c["PANEL"], c["ACCENT"]
-    muted, white = c["MUTED"], c["WHITE"]
+    bg, accent = c["BG"], c["ACCENT"]
+    muted = c["MUTED"]
+    layout = shortcut_folders.normalize(
+        app.data.get("shortcut_folders"), app.data["links"])
+    app.data["shortcut_folders"] = layout
+    sections_ui.reset_targets(app)
     for child in app.links_stack.winfo_children():
         child.destroy()
 
@@ -161,51 +232,58 @@ def refresh(app):
         matches = [item for item in matches if item.get("kind", "url") == kind]
     app.dashboard_shortcut_count.configure(
         text=f"{len(matches)} of {len(app.data['links'])} shortcuts")
+
     count = app.dashboard_shortcut_columns
     app.dashboard_shortcut_cards = []
     for col in range(count):
         app.links_stack.grid_columnconfigure(col, weight=1, uniform="shortcut-cards")
-    if not matches:
-        tk.Label(app.links_stack,
-                 text="No matching shortcuts. Change the filter or add a new shortcut.",
-                 bg=bg, fg=muted, font=(FONT, 10), anchor="center").grid(
-                     row=0, column=0, columnspan=count, sticky="ew", pady=35)
-    for i, link in enumerate(matches):
-        tile = tk.Frame(app.links_stack, bg=panel, highlightthickness=1,
-                        highlightbackground=c["BORDER"])
-        tile.grid(row=i // count, column=i % count, sticky="nsew",
-                  padx=5, pady=(3, 6))
-        app.dashboard_shortcut_cards.append(tile)
-        app._register_shortcut_drop(tile)
-        header = tk.Frame(tile, bg=panel)
-        header.pack(fill="x", padx=9, pady=(8, 4))
-        label = {"url": "WEBSITE", "file": "FILE", "folder": "FOLDER"}.get(
-            link.get("kind", "url"), "SHORTCUT")
-        tk.Label(header, text=label, bg=c["ACCENT_DARK"], fg=accent,
-                 padx=6, pady=3, font=(FONT, 8, "bold")).pack(side="left")
-        button = tk.Button(
-            header, text=shorten(link["title"], 28 if count == 2 else 20),
-            command=lambda item=link: app.open_shortcut(item),
-            bg=panel, fg=white, activebackground=panel,
-            activeforeground=accent, font=(FONT, 9, "bold"),
-            relief="flat", bd=0, anchor="w", cursor="hand2")
-        button.pack(side="left", fill="x", expand=True, padx=(7, 0))
-        button.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
-        app._register_shortcut_drop(button)
-        target = tk.Label(
-            tile, text=shorten(preview_target(link), 52 if count == 1 else (39 if count == 2 else 31)),
-            bg=panel, fg=muted, font=(FONT, 8), anchor="w")
-        target.pack(fill="x", padx=10, pady=(0, 6))
-        target.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
-        actions = tk.Frame(tile, bg=panel)
-        actions.pack(fill="x", padx=8, pady=(0, 7))
-        for caption, handler in (
-                ("Open", lambda item=link: app.open_shortcut(item)),
-                ("Copy", lambda item=link: app._copy_shortcut(item)),
-                ("···", lambda item=link: app._show_link_menu(item))):
-            design.button(actions, caption, handler, app.theme,
-                          compact=True).pack(side="left", padx=(0, 5))
-    # New cards can be shorter than the previous filter; keep viewport valid.
+
+    rows = shortcut_folders.visible_rows(
+        layout, app.data["links"], query=app.link_query.get(), kind=kind)
+    row_no = 0
+    if layout["folders"]:
+        host = tk.Frame(app.links_stack, bg=bg)
+        host.grid(row=row_no, column=0, columnspan=count, sticky="ew")
+        sections_ui.unfiled_drop_zone(app, host)
+        row_no += 1
+    if not rows:
+        tk.Label(
+            app.links_stack,
+            text="No matching shortcuts. Change the filter or add a new shortcut.",
+            bg=bg, fg=muted, font=(FONT, 10), anchor="center"
+        ).grid(row=row_no, column=0, columnspan=count, sticky="ew", pady=35)
+        row_no += 1
+
+    column = 0
+    for row in rows:
+        if row["type"] == "link":
+            _card(app, app.links_stack, row["link"], row=row_no,
+                  column=column, columns=count, colors=c)
+            column += 1
+            if column >= count:
+                column = 0
+                row_no += 1
+            continue
+        if column:
+            row_no += 1
+            column = 0
+        group = row["folder"]
+        host = tk.Frame(app.links_stack, bg=bg)
+        host.grid(row=row_no, column=0, columnspan=count, sticky="ew")
+        sections_ui.folder_header(
+            app, host, group, row["total"], expanded=row["expanded"])
+        if row["expanded"] and row["links"]:
+            contents = tk.Frame(host, bg=bg)
+            contents.pack(fill="x", padx=(12, 0), pady=(0, 5))
+            app._register_shortcut_drop(contents, folder_id=group["id"])
+            for col in range(count):
+                contents.grid_columnconfigure(col, weight=1, uniform="folder-cards")
+            for n, link in enumerate(row["links"]):
+                _card(app, contents, link, row=n // count,
+                      column=n % count, columns=count, colors=c)
+        row_no += 1
+
+    # Reset the scroll area after filter/collapse without reloading the page.
     app.links_stack.update_idletasks()
     app._scroll_canvas.configure(scrollregion=app._scroll_canvas.bbox("all"))
 

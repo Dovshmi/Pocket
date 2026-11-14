@@ -64,6 +64,8 @@ import webbrowser
 from urllib.parse import urlsplit
 from pocket import shortcut_utils as shortcuts
 from pocket import shortcut_drop
+from pocket import shortcut_folders
+from pocket import shortcut_sections_ui as sections_ui
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
@@ -93,6 +95,8 @@ from pocket import settings_ui
 from pocket import pocket_design as design
 from pocket import quick_search
 from pocket import clipboard_policy
+from pocket import clipboard_images
+from pocket import clipboard_gallery
 from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
@@ -159,14 +163,16 @@ def new_link(title, url, kind="url") -> dict:
 
 def default_data() -> dict:
     n = new_note("Welcome", "Your notes live here.\n\nCreate another note with + New. Everything saves automatically.")
+    links = [
+        new_link("GitHub", "https://github.com"),
+        new_link("YouTube", "https://www.youtube.com"),
+        new_link("Gmail", "https://mail.google.com"),
+    ]
     return {
         "notes": [n],
         "active_note": n["id"],
-        "links": [
-            new_link("GitHub", "https://github.com"),
-            new_link("YouTube", "https://www.youtube.com"),
-            new_link("Gmail", "https://mail.google.com"),
-        ],
+        "links": links,
+        "shortcut_folders": shortcut_folders.normalize(None, links),
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
         "extra_mini_page": 0,
@@ -275,6 +281,8 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 ("split", subnet_pref.get("split"), "/26"))
         }
         return {"notes": notes, "active_note": active_id, "links": links,
+                "shortcut_folders": shortcut_folders.normalize(
+                    data.get("shortcut_folders"), links),
                 "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
                      normalize_settings(data.get("settings"))["extra_mini_tiles"]),
                 "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
@@ -337,13 +345,20 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        # Migrate old flat shortcuts without touching their saved IDs/targets.
+        self.data["shortcut_folders"] = shortcut_folders.normalize(
+            self.data.get("shortcut_folders"), self.data["links"])
         self._save_failure_reported = False
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
         self.display_mode = self.settings["display_mode"]
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
-        self.clipboard_items = []  # Session-only: never write copied text to disk.
+        self.clipboard_items = []  # Session-only text, never written to disk.
+        self.clipboard_images = []  # Up to 20 PNG screenshots, RAM only.
+        self.clipboard_page = "text"
+        self._clipboard_selected_image_id = None
+        self._clipboard_sequence = None
         self._clipboard_last = None
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
@@ -1149,6 +1164,7 @@ class PocketDesk:
             current.remove(key)
         if key == "clipboard":
             self._clipboard_last = None
+            self._clipboard_sequence = None
         self._build_shell_refresh()
         self.schedule_save()
 
@@ -1348,24 +1364,46 @@ class PocketDesk:
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
     def _clipboard_poll(self):
-        if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
-            try:
-                value = self.root.clipboard_get()
-                if isinstance(value, str) and value != self._clipboard_last:
-                    self._clipboard_last = value
-                    before = len(self.clipboard_items)
-                    if clipboard_policy.should_capture(value, paused=self.settings["clipboard_paused"],
-                                                       sensitive_filter=self.settings["clipboard_sensitive_filter"]):
-                        clipboard_add(self.clipboard_items, value)
-                    if self.current_tab == "clipboard" and (len(self.clipboard_items) != before or self.clipboard_items):
-                        self._refresh_clipboard()
-            except (tk.TclError, RuntimeError):
-                pass
-
+        if ("clipboard" not in self.settings["visible_tabs"]
+                or self.settings["clipboard_paused"]):
+            return
+        # On Windows the sequence counter avoids decoding the same image every
+        # 600 ms; Linux GUI test mode retains the original text-only behavior.
+        sequence = clipboard_images.sequence_number()
+        if sequence is not None and sequence == self._clipboard_sequence:
+            return
+        try:
+            value = self.root.clipboard_get()
+        except (tk.TclError, RuntimeError):
+            value = None
+        is_text = isinstance(value, str) and bool(value.strip())
+        allowed_text = is_text and clipboard_policy.should_capture(
+            value, paused=self.settings["clipboard_paused"],
+            sensitive_filter=self.settings["clipboard_sensitive_filter"])
+        # If the clipboard includes a sensitive text format, do not also save
+        # its accompanying bitmap, even if the image format is available.
+        blocked_sensitive = (is_text and self.settings["clipboard_sensitive_filter"]
+                             and not clipboard_policy.should_capture(
+                                 value, sensitive_filter=True, max_length=10**9)
+                             and clipboard_policy.should_capture(
+                                 value, sensitive_filter=False, max_length=10**9))
+        image = None if blocked_sensitive else clipboard_images.read_image()
+        if image is not None:
+            if clipboard_images.add_image(self.clipboard_images, image):
+                if self.current_tab == "clipboard":
+                    clipboard_gallery.refresh_images(self, force=True)
+        elif allowed_text and value != self._clipboard_last:
+            self._clipboard_last = value
+            before = len(self.clipboard_items)
+            clipboard_add(self.clipboard_items, value)
+            if self.current_tab == "clipboard" and len(self.clipboard_items) != before:
+                self._refresh_clipboard()
+        self._clipboard_sequence = sequence
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
         self._clipboard_last = None
+        self._clipboard_sequence = None
         self.schedule_save()
         if self.current_tab == "clipboard":
             self.show_tab("clipboard")
@@ -1376,40 +1414,11 @@ class PocketDesk:
     def _set_clipboard_sensitive_filter(self, enabled):
         self.settings["clipboard_sensitive_filter"] = bool(enabled)
         self._clipboard_last = None
+        self._clipboard_sequence = None
         self.schedule_save()
 
     def _build_clipboard(self):
-        self._section_title(self.body, "Clipboard history", "Session-only text · Never saved to disk",
-                            "Clear all", self._clear_clipboard)
-        privacy_row = tk.Frame(self.body, bg=BG)
-        privacy_row.pack(fill="x", pady=(0, 9))
-        self.clipboard_pause_button = design.button(
-            privacy_row, "Resume capture" if self.settings["clipboard_paused"] else "Pause capture",
-            self._toggle_clipboard_pause, self.theme, compact=True)
-        self.clipboard_pause_button.pack(side="left")
-        tk.Label(privacy_row, text="Sensitive-text filter: " +
-                 ("On" if self.settings["clipboard_sensitive_filter"] else "Off"),
-                 bg=BG, fg=MUTED, font=(FONT, 8)).pack(side="right")
-        self.clipboard_query = tk.StringVar()
-        entry = self._entry(self.body, self.clipboard_query)
-        entry.pack(fill="x", ipady=9, pady=(0, 9))
-        self.clipboard_query.trace_add("write", lambda *_:self._refresh_clipboard())
-        self.clipboard_status = tk.Label(self.body, text="", bg=BG, fg=MUTED, font=(FONT, 9))
-        self.clipboard_status.pack(anchor="w")
-        frame = tk.Frame(self.body, bg=BG)
-        frame.pack(fill="both", expand=True, pady=8)
-        self.clipboard_list = tk.Listbox(frame, bg=PANEL, fg=WHITE, selectbackground=ACCENT_DARK,
-                                        font=(FONT, 10), bd=0, exportselection=False)
-        self.clipboard_list.pack(fill="both", expand=True)
-        self.clipboard_list.bind("<Double-1>", lambda _e:self._copy_clipboard_item())
-        actions = tk.Frame(self.body, bg=BG)
-        actions.pack(fill="x")
-        for title, callback in (("Copy selected", self._copy_clipboard_item),
-                                ("Pin / Unpin", self._pin_clipboard_item),
-                                ("Delete", self._delete_clipboard_item)):
-            action_label(actions, title, callback, fg=ACCENT, bg=PANEL,
-                         font_size=8, padx=8).pack(side="left", padx=(0, 5))
-        self._refresh_clipboard()
+        clipboard_gallery.build(self)
 
     def _refresh_clipboard(self):
         if not hasattr(self, "clipboard_list") or not self.clipboard_list.winfo_exists():
@@ -1450,8 +1459,11 @@ class PocketDesk:
             self._refresh_clipboard()
 
     def _clear_clipboard(self):
-        self.clipboard_items.clear()
-        self._refresh_clipboard()
+        if self.clipboard_page == "images":
+            clipboard_gallery.clear_images(self)
+        else:
+            self.clipboard_items.clear()
+            self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         """Shared presentation across Pocket tools; preserve original callbacks."""
@@ -2119,48 +2131,92 @@ class PocketDesk:
         self.command_search_entry.icursor(tk.END)
 
     def _build_note_context_menu(self):
-        """Build menu from the current selection; also used by UI regression tests."""
+        """Short, grouped editor actions and explicit selection-only tools.
+
+        Keep existing RichEdit direction/selection callbacks intact. Cascades
+        distinguish editing, note-wide operations and actions that require a
+        highlighted selection, instead of one long ambiguous flat list.
+        """
         selected = self._selected_note_text()
         valid_ip = note_selection_ip(selected)
         lookup = note_command_query(selected)
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
-                       activebackground=ACCENT_DARK, activeforeground=WHITE,
-                       bd=1, relief="flat", font=(FONT, 9))
-        for title, key, action in (
-            ("Undo", "Ctrl+Z", lambda: self._note_edit_action("undo")),
-            ("Redo", "Ctrl+Y", lambda: self._note_edit_action("redo")),
-        ):
-            menu.add_command(label=f"{title}     {key}", command=action)
+        menu_colors = dict(
+            tearoff=False, bg=PANEL, fg=WHITE, disabledforeground=MUTED,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat", font=(FONT, 9))
+        menu = tk.Menu(self.root, **menu_colors)
+
+        def invoke(action):
+            try:
+                action()
+            finally:
+                self._finish_note_context_menu_action()
+
+        menu.add_command(
+            label="Undo", accelerator="Ctrl+Z",
+            command=lambda: invoke(lambda: self._note_edit_action("undo")))
+        menu.add_command(
+            label="Redo", accelerator="Ctrl+Y",
+            command=lambda: invoke(lambda: self._note_edit_action("redo")))
         menu.add_separator()
-        menu.add_command(label="Cut     Ctrl+X", state="normal" if selected else "disabled",
-                         command=lambda: self._note_edit_action("cut"))
-        menu.add_command(label="Copy     Ctrl+C", state="normal" if selected else "disabled",
-                         command=lambda: self._note_edit_action("copy"))
+        menu.add_command(
+            label="Cut selected text", accelerator="Ctrl+X",
+            state="normal" if selected else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("cut")))
+        menu.add_command(
+            label="Copy selected text", accelerator="Ctrl+C",
+            state="normal" if selected else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("copy")))
         try:
             self.root.clipboard_get()
             paste_ready = True
         except tk.TclError:
             paste_ready = False
-        menu.add_command(label="Paste     Ctrl+V", state="normal" if paste_ready else "disabled",
-                         command=lambda: self._note_edit_action("paste"))
-        menu.add_command(label="Select all     Ctrl+A", command=self._select_all_note_text)
+        menu.add_command(
+            label="Paste text", accelerator="Ctrl+V",
+            state="normal" if paste_ready else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("paste")))
+        menu.add_command(
+            label="Select all text", accelerator="Ctrl+A",
+            command=lambda: invoke(self._select_all_note_text))
+
         menu.add_separator()
-        menu.add_radiobutton(label="Right to Left (עברית)", variable=self.note_direction_var,
-                             value="rtl", command=lambda: self._set_note_direction("rtl"))
-        menu.add_radiobutton(label="Left to Right (English)", variable=self.note_direction_var,
-                             value="ltr", command=lambda: self._set_note_direction("ltr"))
+        direction = tk.Menu(menu, **menu_colors)
+        direction.add_radiobutton(
+            label="Right to Left (עברית)", variable=self.note_direction_var,
+            value="rtl", command=lambda: invoke(lambda: self._set_note_direction("rtl")))
+        direction.add_radiobutton(
+            label="Left to Right (English)", variable=self.note_direction_var,
+            value="ltr", command=lambda: invoke(lambda: self._set_note_direction("ltr")))
+        menu.add_cascade(label="Text direction", menu=direction)
+
+        note_actions = tk.Menu(menu, **menu_colors)
+        note_actions.add_command(
+            label="Copy entire note", command=lambda: invoke(self._copy_entire_note))
+        note_actions.add_command(
+            label="Insert date and time", command=lambda: invoke(self._insert_note_timestamp))
+        note_actions.add_command(
+            label="Open note in Notepad", command=lambda: invoke(self.open_notepad))
+        menu.add_cascade(label="Note actions", menu=note_actions)
+
         menu.add_separator()
-        menu.add_command(label="Copy entire note", command=self._copy_entire_note)
-        menu.add_command(label="Insert date & time", command=self._insert_note_timestamp)
-        menu.add_command(label="Open in Notepad", command=self.open_notepad)
-        if valid_ip or lookup:
-            menu.add_separator()
-        if valid_ip:
-            menu.add_command(label=f"Check selected IP  ({valid_ip})",
-                             command=lambda target=valid_ip: self._check_selected_note_ip(target))
-        if lookup:
-            menu.add_command(label="Find selection in Commands",
-                             command=lambda text=lookup: self._find_selected_note_command(text))
+        selection_actions = tk.Menu(menu, **menu_colors)
+        if valid_ip and "ports" in self.settings["visible_tabs"]:
+            selection_actions.add_command(
+                label=f"Prepare port check for {valid_ip}",
+                command=lambda target=valid_ip: invoke(
+                    lambda: self._check_selected_note_ip(target)))
+        if lookup and "commands" in self.settings["visible_tabs"]:
+            selection_actions.add_command(
+                label="Find selected text in Commands",
+                command=lambda value=lookup: invoke(
+                    lambda: self._find_selected_note_command(value)))
+        if selection_actions.index("end") is not None:
+            menu.add_cascade(label="Use selected text in Pocket", menu=selection_actions)
+        else:
+            selection_actions.destroy()
+            menu.add_command(
+                label="Select text to use Pocket tools", state="disabled")
         return menu
 
     def _release_note_context_menu(self, menu):
@@ -2300,16 +2356,21 @@ class PocketDesk:
     def _build_links(self):
         if self.display_mode == "dashboard":
             return dashboard_shortcuts.build(self)
-        self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
+        heading = self._section_title(
+            self.body, "Quick shortcuts", "Websites, files and folders",
+            "+ Add ▾", lambda: sections_ui.show_add_menu(self, self.shortcut_add_button))
+        self.shortcut_add_button = next(
+            (child for child in heading.winfo_children()
+             if isinstance(child, tk.Button)), None)
         search_row = tk.Frame(self.body, bg=BG)
         search_row.pack(fill="x", pady=(0, 8))
         tk.Label(search_row, text="⌕", bg=BG, fg=MUTED, font=(FONT, 14)).pack(side="left", padx=(0, 6))
         self.link_query = tk.StringVar()
         search = self._entry(search_row, self.link_query)
         search.config(font=(FONT, 9))
-        search.pack(side="left", fill="x", expand=True, ipady=5)
+        search.pack(side="left", fill="x", expand=True, ipady=4)
         self.link_query.trace_add("write", lambda *_: self.refresh_links())
-        tk.Label(search_row, text="Search shortcuts", fg=MUTED, bg=BG,
+        tk.Label(search_row, text="Search", fg=MUTED, bg=BG,
                  font=(FONT, 8)).pack(side="right", padx=(8, 0))
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
@@ -2355,47 +2416,103 @@ class PocketDesk:
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
         self.refresh_links()
 
-    def _register_shortcut_drop(self, widget):
-        """Register both Explorer file drops and browser URL/text drops."""
+    def _register_shortcut_drop(self, widget, *, folder_id=None):
+        """Accept external Explorer/browser drops; optional folder auto-files.
+
+        Folder targets are explicit rather than inferred from pointer position,
+        because TkDnD sometimes reports the descendant rather than the header.
+        """
         if not self.dnd_available:
             return
         try:
             widget.drop_target_register(DND_FILES, DND_TEXT)
-            widget.dnd_bind('<<DropEnter>>', self._drop_enter, add='+')
+            widget.dnd_bind(
+                '<<DropEnter>>',
+                lambda event, folder=folder_id: self._drop_enter(event, folder),
+                add='+')
             widget.dnd_bind('<<DropLeave>>', self._drop_leave, add='+')
-            widget.dnd_bind('<<Drop>>', self._shortcut_dropped, add='+')
+            widget.dnd_bind(
+                '<<Drop>>',
+                lambda event, folder=folder_id: self._shortcut_dropped(
+                    event, folder_id=folder),
+                add='+')
         except tk.TclError:
             # Unsupported native TkDnD runtime; regular shortcut creation works.
             self.dnd_available = False
             if hasattr(self, 'drop_hint') and self.drop_hint.winfo_exists():
                 self.drop_hint.config(text='Drag & drop unavailable · Install tkinterdnd2 (see README)')
 
-    def _drop_enter(self, _event):
-        if self.current_tab == 'links' and self.drop_panel.winfo_exists():
+    def _drop_enter(self, _event, folder_id=None):
+        if self.current_tab != 'links':
+            return 'refuse_drop'
+        if folder_id:
+            bar = getattr(self, "shortcut_folder_headers", {}).get(folder_id)
+            if bar is not None and bar.winfo_exists():
+                bar.configure(highlightbackground=ACCENT)
+                self._shortcut_external_drop_folder = folder_id
+            return 'copy'
+        if self.drop_panel.winfo_exists():
             self.drop_panel.config(highlightbackground=ACCENT, bg=ACCENT_DARK)
             self.drop_title.config(bg=ACCENT_DARK)
             self.drop_hint.config(bg=ACCENT_DARK)
         return 'copy'
 
     def _drop_leave(self, _event):
+        folder_id = getattr(self, "_shortcut_external_drop_folder", None)
+        self._shortcut_external_drop_folder = None
+        if folder_id:
+            bar = getattr(self, "shortcut_folder_headers", {}).get(folder_id)
+            if bar is not None and bar.winfo_exists():
+                bar.configure(highlightbackground=BORDER)
         if self.current_tab == 'links' and self.drop_panel.winfo_exists():
             self.drop_panel.config(highlightbackground=ACCENT_DARK, bg=PANEL)
             self.drop_title.config(bg=PANEL)
             self.drop_hint.config(bg=PANEL)
 
-    def _shortcut_dropped(self, event):
-        """A native drop opens an editable draft; it never writes the data file."""
+    def _shortcut_dropped(self, event, *, folder_id=None):
+        """Save validated external drops INSIDE a folder, or draft elsewhere.
+
+        No URLs are fetched and no destinations opened. Dropping onto the
+        general surface retains the existing explicit review/save workflow.
+        """
         if self.current_tab != 'links':
             return 'refuse_drop'
         self._drop_leave(event)
         try:
-            suggestion = shortcut_drop.guess_shortcut(event.data, splitlist=self.root.tk.splitlist)
+            suggestion = shortcut_drop.guess_shortcut(
+                event.data, splitlist=self.root.tk.splitlist)
         except (ValueError, OSError) as exc:
             self._warning('Shortcut drop', str(exc))
             return 'refuse_drop'
+        if folder_id is not None:
+            layout = self.data["shortcut_folders"]
+            if not any(group["id"] == folder_id for group in layout["folders"]):
+                return 'refuse_drop'
+            try:
+                target = shortcuts.normalize_shortcut(
+                    suggestion["kind"], suggestion["url"])
+                title = suggestion["title"].strip()
+                if not title or len(title) > 180:
+                    raise ValueError("The shortcut name is empty or too long.")
+            except (ValueError, OSError) as exc:
+                self._warning('Shortcut drop', str(exc))
+                return 'refuse_drop'
+            new_item = new_link(title, target, suggestion["kind"])
+            self.data["links"].insert(0, new_item)
+            shortcut_folders.add_link(layout, new_item["id"], group=folder_id)
+            self.schedule_save()
+            # Finish the native TkDnD event before destroying its target on
+            # refresh. The new shortcut appears in the expanded folder.
+            self.root.after_idle(
+                lambda: self.refresh_links() if self.current_tab == "links" else None)
+            return 'copy'
+
+        # Dropping outside a folder still shows an editable draft, not an
+        # unexpected persistent shortcut.
         self._toggle_link_form(None, draft=suggestion)
         self.drop_title.config(text='✓  READY TO SAVE — REVIEW BELOW')
-        self.drop_hint.config(text='Edit the suggested name or target, then click Save shortcut')
+        self.drop_hint.config(
+            text='Edit the suggested name or target, then click Save shortcut')
         if self._scroll_canvas and self._scroll_canvas.winfo_exists():
             self._scroll_canvas.yview_moveto(0)
         return 'copy'
@@ -2409,46 +2526,101 @@ class PocketDesk:
             return
         if self.display_mode == "dashboard":
             return dashboard_shortcuts.refresh(self)
+        layout = shortcut_folders.normalize(
+            self.data.get("shortcut_folders"), self.data["links"])
+        self.data["shortcut_folders"] = layout
+        sections_ui.reset_targets(self)
         for child in self.links_stack.winfo_children():
             child.destroy()
-        matches = hk.filter_shortcuts(self.data["links"], self.link_query.get())
-        if not matches:
-            tk.Label(self.links_stack, text=("No matching shortcuts." if self.data["links"] else "No shortcuts yet. Add a website, file or folder above."),
-                     fg=SECONDARY, bg=BG, font=(FONT, 10), wraplength=360).pack(pady=25)
-        for link in matches:
-            self._link_tile(link)
+        rows = shortcut_folders.visible_rows(
+            layout, self.data["links"], query=self.link_query.get())
+        if layout["folders"]:
+            sections_ui.unfiled_drop_zone(self, self.links_stack)
+        if not rows:
+            tk.Label(
+                self.links_stack,
+                text=("No matching shortcuts." if self.data["links"]
+                      else "No shortcuts yet. Add a website, file or folder above."),
+                fg=SECONDARY, bg=BG, font=(FONT, 10),
+                wraplength=260 if self.display_mode == "mini" else 360
+            ).pack(pady=25)
+        for row in rows:
+            if row["type"] == "link":
+                self._link_tile(row["link"])
+                continue
+            folder = row["folder"]
+            sections_ui.folder_header(
+                self, self.links_stack, folder, row["total"],
+                expanded=row["expanded"])
+            if row["expanded"]:
+                container = tk.Frame(self.links_stack, bg=BG)
+                container.pack(fill="x", padx=(10, 2), pady=(0, 3))
+                self._register_shortcut_drop(container, folder_id=folder["id"])
+                for link in row["links"]:
+                    self._link_tile(link, parent=container)
 
-    def _link_tile(self, link):
-        tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 5 if self.display_mode in ("mini", "normal") else 10),
-                  padx=(1, 2 if self.display_mode in ("mini", "normal") else 6),
-                  ipady=2 if self.display_mode in ("mini", "normal") else 6)
+    def _link_tile(self, link, *, parent=None):
+        """Compact, readable card: type icon left, action + drag grip right."""
+        tile = tk.Frame(
+            parent if parent is not None else self.links_stack,
+            bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        tile.pack(fill="x", pady=(0, 5),
+                  padx=(1, 2 if self.display_mode == "mini" else 4),
+                  ipady=2 if self.display_mode == "mini" else 4)
         kind = link.get("kind", "url")
-        badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
-        tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 12 if self.display_mode in ("mini", "normal") else 17, "bold"),
-                 width=2 if self.display_mode in ("mini", "normal") else 3,
-                 height=2).pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal") else (12, 10))
+        folder_id = shortcut_folders.link_folder(
+            self.data["shortcut_folders"], link["id"])
+        sections_ui.register_target(self, tile, ("link", link["id"]))
+        self._register_shortcut_drop(tile, folder_id=folder_id)
+
+        # The grip is packed FIRST on the right. No oversized drag handle
+        # consumes the important left-edge area of a small shortcut.
+        grip = tk.Label(
+            tile, text="⋮⋮", fg=MUTED, bg=PANEL, cursor="fleur",
+            font=(FONT, 10, "bold"), padx=3, pady=5)
+        grip.pack(side="right", padx=(2, 5))
+        sections_ui.setup_grip(
+            self, grip, shortcut_folders.link_key(link["id"]))
+
+        actions = tk.Frame(tile, bg=PANEL)
+        actions.pack(side="right", padx=(0, 2))
+        action_label(
+            actions, "↗", lambda item=link: self.open_shortcut(item),
+            fg=ACCENT, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=11).pack(side="left")
+        action_label(
+            actions, "⧉", lambda item=link: self._copy_shortcut(item),
+            fg=SECONDARY, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=10).pack(side="left")
+        action_label(
+            actions, "···", lambda item=link: self._show_link_menu(item),
+            fg=MUTED, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=10).pack(side="left")
+
+        icon = tk.Label(
+            tile, text={"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗"),
+            bg=ACCENT_DARK, fg=ACCENT, font=(FONT, 10, "bold"),
+            width=2, padx=2, pady=6)
+        icon.pack(side="left", padx=(7, 7))
+
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
-        title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11, "bold"), cursor="hand2")
-        title.pack(fill="x", pady=(3, 2))
+        title = tk.Label(
+            desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
+            font=(FONT, 9 if self.display_mode == "mini" else 10, "bold"),
+            cursor="hand2")
+        title.pack(fill="x", pady=(2, 1))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
-        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:16 if self.display_mode == 'mini' else 28]}", anchor="w", fg=MUTED, bg=PANEL,
-                 font=(FONT, 8)).pack(fill="x")
-        title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
-        self._register_shortcut_drop(tile)
-        self._register_shortcut_drop(title)
-        actions = tk.Frame(tile, bg=PANEL)
-        actions.pack(side="right", padx=(0, 2) if self.display_mode == "mini" else (0, 8))
-        action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
-        action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
-                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5, font_size=13).pack(side="left")
-        action_label(actions, "···", lambda item=link: self._show_link_menu(item),
-                     fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=12).pack(side="left")
+        detail = tk.Label(
+            desc, text=f"{kind.upper()}  ·  "
+                       f"{summary[:18 if self.display_mode == 'mini' else 35]}",
+            anchor="w", fg=MUTED, bg=PANEL, font=(FONT, 8))
+        detail.pack(fill="x")
+        title.bind("<Button-1>", lambda _event, item=link: self.open_shortcut(item))
+        for widget in (grip, icon, desc, title, detail, actions):
+            self._register_shortcut_drop(widget, folder_id=folder_id)
+        return tile
 
     def _show_link_menu(self, item):
         kind = item.get("kind", "url")
@@ -2457,6 +2629,19 @@ class PocketDesk:
         menu.add_command(label="Edit shortcut", command=lambda: self._toggle_link_form(item))
         menu.add_command(label="Copy URL" if kind == "url" else "Copy path",
                          command=lambda: self._copy_url(item["url"]))
+        menu.add_separator()
+        if self.data["shortcut_folders"]["folders"]:
+            menu.add_cascade(
+                label="Move to Pocket folder",
+                menu=sections_ui.link_move_menu(self, menu, item))
+        menu.add_command(
+            label="Move shortcut up",
+            command=lambda: sections_ui.move_step(
+                self, shortcut_folders.link_key(item["id"]), -1))
+        menu.add_command(
+            label="Move shortcut down",
+            command=lambda: sections_ui.move_step(
+                self, shortcut_folders.link_key(item["id"]), 1))
         menu.add_separator()
         menu.add_command(label="Delete shortcut", command=lambda: self._delete_link(item))
         x, y = self.root.winfo_pointerxy()
@@ -2475,6 +2660,7 @@ class PocketDesk:
 
     def _delete_link(self, item):
         self.data["links"] = [l for l in self.data["links"] if l["id"] != item["id"]]
+        shortcut_folders.remove_link(self.data["shortcut_folders"], item["id"])
         self.refresh_links()
         self.schedule_save()
 
@@ -2586,7 +2772,9 @@ class PocketDesk:
                 edited = True
                 break
         if not edited:
-            self.data["links"].insert(0, new_link(title, target, kind))
+            new_item = new_link(title, target, kind)
+            self.data["links"].insert(0, new_item)
+            shortcut_folders.add_link(self.data["shortcut_folders"], new_item["id"])
         self._close_form()
         self.refresh_links()
         self.schedule_save()

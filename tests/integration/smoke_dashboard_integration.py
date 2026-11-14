@@ -29,6 +29,15 @@ def check(condition, message):
     if not condition:
         raise AssertionError(message)
 
+def menu_labels(menu):
+    """A separator has no -label option on Windows or X11 Tk."""
+    end = menu.index("end")
+    if end is None:
+        return []
+    return [menu.entrycget(i, "label") if menu.type(i) != "separator" else ""
+            for i in range(end + 1)]
+
+
 
 def capture(app, output, label):
     if not output:
@@ -107,6 +116,180 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "notes":
+                    # Compact native submenus explain editor actions and
+                    # which Pocket tools require a selected text fragment.
+                    from unittest.mock import patch
+                    with patch.object(app, "_selected_note_text", return_value="8.8.8.8"):
+                        note_menu = app._build_note_context_menu()
+                    labels = menu_labels(note_menu)
+                    check("Text direction" in labels and "Note actions" in labels,
+                          f"{mode}: Notes right-click lacks clear action groups")
+                    check("Use selected text in Pocket" in labels,
+                          f"{mode}: selected text tool group is missing")
+                    edit_index = labels.index("Copy selected text")
+                    check(note_menu.entrycget(edit_index, "state") == "normal",
+                          f"{mode}: Copy selected text must be enabled")
+                    submenu_path = note_menu.entrycget(
+                        labels.index("Use selected text in Pocket"), "menu")
+                    pocket_menu = app.root.nametowidget(submenu_path)
+                    choices = menu_labels(pocket_menu)
+                    check(any("port check" in text for text in choices),
+                          f"{mode}: selected IP action missing from Notes")
+                    note_menu.destroy()
+                    with patch.object(app, "_selected_note_text", return_value=""):
+                        no_selection = app._build_note_context_menu()
+                    empty_labels = menu_labels(no_selection)
+                    check("Select text to use Pocket tools" in empty_labels,
+                          f"{mode}: Notes must explain why selection tools are unavailable")
+                    no_selection.destroy()
+                if page == "clipboard":
+                    from PIL import Image
+                    from pocket import clipboard_images
+                    if not app.clipboard_images:
+                        check(clipboard_images.add_image(
+                            app.clipboard_images,
+                            Image.new("RGB", (180, 100), "#283f74")),
+                            "Image history did not accept a test screenshot")
+                    check("text" in app.clipboard_page_buttons and
+                          "images" in app.clipboard_page_buttons,
+                          f"{mode}: missing Clipboard sub-tabs")
+                    toggle = app.clipboard_page_toggle
+                    check(int(toggle.cget("width")) == 44 and
+                          int(toggle.cget("height")) == 22,
+                          f"{mode}: Clipboard switch should be compact like Local/DashDash")
+                    check(app.clipboard_page_buttons["images"].winfo_width() < 100,
+                          f"{mode}: Clipboard choice button is too wide")
+                    check(toggle.winfo_rootx() > app.body.winfo_rootx() +
+                          app.body.winfo_width() // 2,
+                          f"{mode}: Clipboard switch must be aligned to the right")
+                    app.clipboard_page_buttons["images"].invoke()
+                    app.root.update()
+                    check(app.clipboard_page == "images" and
+                          app.clipboard_text_page.winfo_manager() == "",
+                          f"{mode}: image page should replace text search")
+                    check(not app.clipboard_query_entry.winfo_ismapped(),
+                          f"{mode}: image page must not show text search")
+                    check(app.clipboard_images_canvas.winfo_width() >= 150,
+                          f"{mode}: image gallery is too narrow")
+                    check(len(app._clipboard_gallery_tiles) == 1,
+                          f"{mode}: image preview tile was not rendered")
+                    from pocket import clipboard_gallery
+                    canvas = app.clipboard_images_canvas
+                    for keystroke in ("<Left>", "<Right>", "<Control-c>",
+                                      "<Return>", "<Delete>"):
+                        check(bool(canvas.bind(keystroke)),
+                              f"{mode}: image gallery is missing {keystroke}")
+                    if mode == "mini":
+                        original_images = list(app.clipboard_images)
+                        for color in ((32, 91, 162), (11, 149, 85)):
+                            check(clipboard_images.add_image(
+                                app.clipboard_images,
+                                Image.new("RGB", (160, 80), color)),
+                                "Mini: extra image was not added")
+                        app._clipboard_selected_image_id = app.clipboard_images[0]["id"]
+                        clipboard_gallery.refresh_images(app, force=True)
+                        app.root.update()
+                        check(len(app._clipboard_gallery_tiles) == 3,
+                              "Mini: horizontal gallery must render all cards")
+                        frames = [app._clipboard_gallery_tiles[item["id"]]
+                                  for item in app.clipboard_images]
+                        check(len({tile.winfo_y() for tile in frames}) == 1,
+                              "Mini: images must all share a horizontal row")
+                        check(frames[0].winfo_x() < frames[1].winfo_x()
+                              < frames[2].winfo_x(),
+                              "Mini: image cards must advance left to right")
+                        check(canvas.xview()[1] - canvas.xview()[0] < 0.99,
+                              "Mini: horizontal overflow must enable scrolling")
+                        canvas.focus_force()
+                        canvas.event_generate("<Right>")
+                        app.root.update()
+                        check(app._clipboard_selected_image_id ==
+                              app.clipboard_images[1]["id"],
+                              "Mini: Right key must select the next image")
+                        canvas.event_generate("<Right>")
+                        app.root.update()
+                        check(app._clipboard_selected_image_id ==
+                              app.clipboard_images[2]["id"],
+                              "Mini: Right key must select third image")
+                        check(canvas.xview()[0] > 0.01,
+                              "Mini: keyboard navigation must scroll horizontally")
+                        check("3 / 3 selected" in app.clipboard_images_status.cget("text"),
+                              "Mini: selected-image counter is incorrect")
+                        selected_before_switch = app._clipboard_selected_image_id
+                        app.clipboard_page_buttons["text"].invoke()
+                        app.root.update()
+                        app.clipboard_page_buttons["images"].invoke()
+                        app.root.update()
+                        check(app._clipboard_selected_image_id == selected_before_switch,
+                              "Mini: chosen image was lost on page switch")
+                        capture(app, output, "mini_clipboard_horizontal_gallery")
+                        app.clipboard_images[:] = original_images
+                        app._clipboard_selected_image_id = original_images[0]["id"]
+                        clipboard_gallery.refresh_images(app, force=True)
+                        app.root.update()
+                    from unittest.mock import patch
+                    image_item = app.clipboard_images[0]
+                    # Real GUI action is wired to the bitmap clipboard writer.
+                    with patch.object(clipboard_images, "copy_image") as copy_image:
+                        clipboard_gallery.select_image(app, image_item["id"])
+                        buttons = [w for w in widgets(app.clipboard_images_page)
+                                   if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
+                        check(len(buttons) == 1, f"{mode}: image Copy action missing")
+                        buttons[0].invoke()
+                        copy_image.assert_called_once_with(image_item["data"])
+                    capture(app, output, mode + "_clipboard_images")
+                    app.clipboard_page_buttons["text"].invoke()
+                    app.root.update()
+                    check(app.clipboard_page == "text" and
+                          app.clipboard_list.winfo_exists(),
+                          f"{mode}: existing text Clipboard was lost")
+                    check(app.clipboard_query_entry.winfo_width() <
+                          app.clipboard_text_page.winfo_width() * 0.8,
+                          f"{mode}: Clipboard search should be narrow")
+                    check(app.clipboard_query_entry.winfo_height() < 36,
+                          f"{mode}: Clipboard search should be shorter")
+                    actions_y = app.clipboard_text_actions.winfo_rooty()
+                    list_y = app.clipboard_list.winfo_rooty()
+                    if mode == "mini":
+                        check(actions_y >= list_y + app.clipboard_list.winfo_height(),
+                              "Mini: Copy/Pin/Delete must be beneath the text history")
+                    else:
+                        check(actions_y < list_y,
+                              f"{mode}: keep text actions above the list")
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.selection_set(0)
+                    expected_text = app._clipboard_filtered[0]["text"]
+                    menu_colors = clipboard_gallery.themes.palette(app.theme)
+                    sample_menu = clipboard_gallery.build_text_context_menu(
+                        app, menu_colors, {"text": "8.8.8.8", "pinned": False})
+                    main_labels = menu_labels(sample_menu)
+                    check("Copy full text" in main_labels and
+                          "Use text in Pocket" in main_labels,
+                          f"{mode}: Clipboard right-click groups missing")
+                    tool_path = sample_menu.entrycget(
+                        main_labels.index("Use text in Pocket"), "menu")
+                    tool_menu = app.root.nametowidget(tool_path)
+                    tool_labels = menu_labels(tool_menu)
+                    check("Prepare TCP port check" in tool_labels and
+                          "Open Subnet Calculator" in tool_labels and
+                          "Create a new Note from text" in tool_labels,
+                          f"{mode}: Clipboard context tool actions missing")
+                    check("Open MAC lookup with address" not in tool_labels,
+                          f"{mode}: irrelevant MAC action should be hidden for IP")
+                    sample_menu.destroy()
+                    text_copy_buttons = [w for w in widgets(app.clipboard_text_page)
+                                         if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
+                    check(len(text_copy_buttons) == 1,
+                          f"{mode}: text Copy action missing")
+                    text_copy_buttons[0].invoke()
+                    app.root.update()
+                    check(app.root.clipboard_get() == expected_text,
+                          f"{mode}: text Copy must put full selection on Windows clipboard")
+                    check(text_copy_buttons[0].winfo_rooty() +
+                          text_copy_buttons[0].winfo_height() <=
+                          app.root.winfo_rooty() + app.root.winfo_height(),
+                          f"{mode}: copy action must stay visible")
                 if page in ("ports", "mac"):
                     # The slide selector must fit on an existing input-label row,
                     # remain interactive, and never start a network operation.
@@ -247,6 +430,101 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     controls["sensitive_filter"].invoke()
                     check(app.settings["clipboard_sensitive_filter"] == original_filter,
                           "Dashboard sensitive-text toggle did not restore the preference")
+                if page == "links":
+                    import copy
+                    from types import SimpleNamespace
+                    from pocket import shortcut_folders as sf
+                    from pocket import shortcut_sections_ui as folders_ui
+                    old_layout = copy.deepcopy(app.data["shortcut_folders"])
+                    check(app.shortcut_add_button.cget("text") == "+ Add ▾",
+                          f"{mode}: only one Add dropdown must be shown")
+                    from unittest.mock import patch
+                    with patch.object(folders_ui, "show_add_menu") as add_menu:
+                        app.shortcut_add_button.invoke()
+                        add_menu.assert_called_once_with(
+                            app, app.shortcut_add_button)
+                    sample = app.data["links"][0]
+                    folder_id = sf.add_folder(app.data["shortcut_folders"],
+                                              "Network tools")
+                    # Put the folder first, within the Mini viewport.
+                    check(sf.move(app.data["shortcut_folders"],
+                                  sf.folder_key(folder_id),
+                                  sf.link_key(sample["id"]), "before"),
+                          f"{mode}: could not order new folder ahead of shortcuts")
+                    app.refresh_links()
+                    app.root.update()
+                    check(folder_id in app.shortcut_folder_headers,
+                          f"{mode}: shortcut folder header was not displayed")
+                    heading = app.shortcut_folder_headers[folder_id]
+                    sample_handle = app.shortcut_drag_handles[
+                        sf.link_key(sample["id"])]
+                    card = sample_handle.master
+                    check(heading.winfo_height() < card.winfo_height(),
+                          f"{mode}: folder heading must be shorter than shortcut cards")
+                    folder_grip = app.shortcut_drag_handles[
+                        sf.folder_key(folder_id)]
+                    check(sample_handle.winfo_rootx() >
+                          card.winfo_rootx() + card.winfo_width() // 2,
+                          f"{mode}: shortcut drag grip must be on the right")
+                    check(folder_grip.winfo_rootx() >
+                          heading.winfo_rootx() + heading.winfo_width() // 2,
+                          f"{mode}: folder drag grip must be on the right")
+                    check(folder_id not in [item.get("id") for item in app.data["links"]],
+                          f"{mode}: folders must not be treated as launchable links")
+                    # Simulate the same dedicated drag grip callbacks that the
+                    # real UI receives, from an unfiled card onto a folder heading.
+                    x = sample_handle.winfo_rootx() + sample_handle.winfo_width() // 2
+                    y = sample_handle.winfo_rooty() + sample_handle.winfo_height() // 2
+                    destination_x = heading.winfo_rootx() + heading.winfo_width() // 2
+                    destination_y = heading.winfo_rooty() + heading.winfo_height() // 2
+                    folders_ui.begin_drag(
+                        app, sf.link_key(sample["id"]),
+                        SimpleNamespace(x_root=x, y_root=y))
+                    folders_ui.drag_motion(
+                        app, SimpleNamespace(x_root=destination_x,
+                                             y_root=destination_y))
+                    folders_ui.finish_drag(
+                        app, SimpleNamespace(x_root=destination_x,
+                                             y_root=destination_y))
+                    app.root.update()
+                    check(sf.link_folder(app.data["shortcut_folders"],
+                                         sample["id"]) == folder_id,
+                          f"{mode}: mouse drag failed to move a shortcut into folder")
+                    check(sf.link_key(sample["id"]) in app.shortcut_drag_handles,
+                          f"{mode}: moved shortcut is not visible in open folder")
+                    before_drop = len(app.data["links"])
+                    app._shortcut_dropped(
+                        SimpleNamespace(data="https://example.org/pocket-drop-check"),
+                        folder_id=folder_id)
+                    app.root.update()
+                    check(len(app.data["links"]) == before_drop + 1,
+                          f"{mode}: external URL drop must create one shortcut")
+                    imported = next(
+                        link for link in app.data["links"]
+                        if link["url"] == "https://example.org/pocket-drop-check")
+                    check(sf.link_folder(app.data["shortcut_folders"],
+                                         imported["id"]) == folder_id,
+                          f"{mode}: external URL was not saved inside folder")
+                    check(not app.form_holder.winfo_manager(),
+                          f"{mode}: folder drop must not open a separate Add form")
+                    check(sf.set_expanded(app.data["shortcut_folders"],
+                                          folder_id, False),
+                          f"{mode}: folder did not collapse")
+                    app.refresh_links()
+                    app.root.update()
+                    check(sf.link_key(sample["id"]) not in app.shortcut_drag_handles,
+                          f"{mode}: collapsed folder still renders its shortcut card")
+                    check(sf.delete_folder(app.data["shortcut_folders"], folder_id),
+                          f"{mode}: folder deletion was rejected")
+                    check(sf.link_key(sample["id"]) in app.data["shortcut_folders"]["root"],
+                          f"{mode}: deleting a folder must preserve its shortcut")
+                    check(sf.link_key(imported["id"]) in app.data["shortcut_folders"]["root"],
+                          f"{mode}: deleting a folder must preserve imported shortcuts")
+                    app._delete_link(imported)
+                    app.root.update()
+                    app.data["shortcut_folders"] = old_layout
+                    app.refresh_links()
+                    app.root.update()
                 if page == "links" and mode == "dashboard":
                     check(app.dashboard_shortcut_columns >= 2,
                           "Dashboard Shortcuts should display multiple columns")

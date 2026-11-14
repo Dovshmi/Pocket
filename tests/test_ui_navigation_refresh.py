@@ -81,70 +81,74 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertIn('self.bidi_editor.release_focus_to(destination)', source)
         self.assertIn('self._move_mini_note(step)', source)
 
-    def test_mini_native_note_focus_loss_hides_without_forcing_focus(self):
-        root = Mock()
-        root.state.return_value = "normal"
-        # Tk still thinks the old child editor is active after activation
-        # moves to another application.
-        root.focus_displayof.return_value = object()
-        editor = Mock()
-        editor.foreground_is_external.return_value = True
-        editor.has_focus.return_value = True
+    def test_clicking_phone_forces_handoff_even_if_getfocus_is_stale(self):
+        target = Mock()
+        target.winfo_exists.return_value = True
         desk = SimpleNamespace(
-            preview=False, pinned=False, _modal=False,
-            _dragging_window=False, root=root,
-            bidi_editor=editor, _bidi_active=lambda: True,
-            hide=Mock())
-        app["PocketDesk"]._maybe_hide(desk)
-        desk.hide.assert_called_once()
-        editor.has_focus.assert_not_called()
-        root.focus_displayof.assert_not_called()
+            current_tab="notes", _modal=False, _note_focus_pending=None,
+            root=Mock(), bidi_editor=Mock(),
+            _bidi_active=lambda: True,
+            _dismiss_note_menus_for_click=Mock(), _flush_current_note=Mock(),
+            _verify_note_input_focus=Mock())
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        desk._flush_current_note.assert_called_once()
+        desk.bidi_editor.release_focus_to.assert_called_once_with(target)
+        target.focus_force.assert_called_once()
+        desk.bidi_editor.has_focus.assert_not_called()
+        desk.root.after_idle.assert_called_once_with(
+            desk._verify_note_input_focus, target)
+        self.assertIs(desk._note_focus_pending, target)
 
-    def test_native_editor_focus_watchdog_respects_pin_and_modal(self):
-        root = Mock()
-        root.state.return_value = "normal"
-        root.focus_displayof.return_value = None
-        editor = Mock()
-        editor.foreground_is_external.return_value = True
+    def test_note_field_click_repairs_stale_editor_menu_modal_guard(self):
+        target = Mock()
+        stale_menu = Mock()
         desk = SimpleNamespace(
-            preview=False, pinned=True, _modal=False,
-            _dragging_window=False, root=root, bidi_editor=editor,
-            _bidi_active=lambda: True, hide=Mock())
-        app["PocketDesk"]._maybe_hide(desk)
-        desk.hide.assert_not_called()
-        desk.pinned = False
-        desk._modal = True
-        app["PocketDesk"]._maybe_hide(desk)
-        desk.hide.assert_not_called()
-        desk._modal = False
-        editor.foreground_is_external.return_value = False
-        editor.has_focus.return_value = True
-        app["PocketDesk"]._maybe_hide(desk)
-        desk.hide.assert_not_called()
+            current_tab="notes", _modal=True, _note_focus_pending=None,
+            _note_context_menu=stale_menu, _note_context_menu_was_modal=False,
+            _note_picker_context_menu=None, root=Mock(),
+            bidi_editor=Mock(), _bidi_active=lambda: True,
+            _flush_current_note=Mock(), _verify_note_input_focus=Mock())
+        desk._release_note_context_menu = lambda menu: (
+            app["PocketDesk"]._release_note_context_menu(desk, menu))
+        desk._finish_note_context_menu_action = lambda: (
+            app["PocketDesk"]._finish_note_context_menu_action(desk))
+        desk._dismiss_note_menus_for_click = lambda: (
+            app["PocketDesk"]._dismiss_note_menus_for_click(desk))
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        self.assertFalse(desk._modal)
+        self.assertIsNone(desk._note_context_menu)
+        desk.bidi_editor.release_focus_to.assert_called_once_with(target)
+        target.focus_force.assert_called_once()
 
-    def test_mini_editor_poll_detects_activation_without_tk_focusout(self):
+    def test_delayed_focus_fix_only_runs_for_current_field(self):
+        first, second = Mock(), Mock()
+        first.winfo_exists.return_value = True
+        second.winfo_exists.return_value = True
         root = Mock()
-        root.state.return_value = "normal"
-        editor = Mock()
-        editor.get_text.return_value = "unchanged text"
-        editor.foreground_is_external.return_value = True
-        note = {"body": "unchanged text"}
+        root.focus_get.return_value = None
         desk = SimpleNamespace(
-            display_mode="mini", preview=False, root=root,
-            bidi_editor=editor, _loading_note=False,
-            _bidi_active=lambda: True, active_note=lambda: note,
-            _edit_dirty=Mock(), _maybe_hide=Mock())
-        app["PocketDesk"]._bidi_poll(desk)
-        desk._maybe_hide.assert_called_once()
-        desk._edit_dirty.assert_not_called()
-        desk.display_mode = "normal"
-        desk._maybe_hide.reset_mock()
-        app["PocketDesk"]._bidi_poll(desk)
-        desk._maybe_hide.assert_not_called()
-        desk.display_mode = "mini"
-        desk.preview = True
-        app["PocketDesk"]._bidi_poll(desk)
-        desk._maybe_hide.assert_not_called()
+            current_tab="notes", _modal=False,
+            _note_focus_pending=second, root=root,
+            bidi_editor=Mock(), _bidi_active=lambda: True)
+        app["PocketDesk"]._verify_note_input_focus(desk, first)
+        first.focus_force.assert_not_called()
+        app["PocketDesk"]._verify_note_input_focus(desk, second)
+        desk.bidi_editor.release_focus_to.assert_called_once_with(second)
+        second.focus_force.assert_called_once()
+        self.assertIsNone(desk._note_focus_pending)
+
+    def test_real_modal_dialog_still_blocks_note_focus_changes(self):
+        target = Mock()
+        desk = SimpleNamespace(
+            current_tab="notes", _modal=True, _note_focus_pending=None,
+            _dismiss_note_menus_for_click=Mock(), _bidi_active=lambda: True,
+            bidi_editor=Mock(), root=Mock())
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        desk.bidi_editor.release_focus_to.assert_not_called()
+        target.focus_force.assert_not_called()
 
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"pocket"/"compact_dashboard.py").read_text(encoding="utf-8")

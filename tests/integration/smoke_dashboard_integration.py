@@ -70,10 +70,34 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
 
     try:
         app.root.update()
-        check(app.display_mode == "normal", "fresh data should start in Normal")
-        check(app.root.winfo_width() == view_dimensions("normal")[0],
-              "Normal geometry is wrong")
-        print("PASS: initial window and isolated data")
+        check(app.display_mode == "mini", "fresh data should start in Mini")
+        check(app.root.winfo_width() == view_dimensions("mini")[0],
+              "Mini geometry is wrong")
+        check(app.current_tab == "notes", "Fresh Pocket must open Notes")
+        check(app.data["last_tab"] == "notes", "Factory tab was not initialized")
+        check(app.data["settings"]["display_mode"] == "mini",
+              "Mini must be the saved factory mode")
+        # Only the two requested starter links should appear inside Ushpelo.
+        initial_links = app.data["links"]
+        check([(link["title"], link["url"]) for link in initial_links] == [
+            ("DashDash", "https://dashdash-tau.vercel.app"),
+            ("My GitHub", "https://github.com/Dovshmi")],
+              "Factory shortcuts are incorrect")
+        folders = app.data["shortcut_folders"]
+        check(len(folders["folders"]) == 1 and
+              folders["folders"][0]["title"] == "Ushpelo",
+              "Ushpelo default folder is missing")
+        folder_id = folders["folders"][0]["id"]
+        check(folders["children"][folder_id] ==
+              [link["id"] for link in initial_links],
+              "Factory shortcuts must appear in user-requested order")
+        check(folders["root"] == ["f:" + folder_id],
+              "Factory folder should be first and contain both shortcuts")
+        check(app.data["tools"]["target"] == "8.8.8.8" and
+              app.data["tools"]["ports_input"] == "21,22,443,80,8080,3389,53",
+              "Factory TCP presets were not applied")
+        check(not app.scanning, "Fresh profile must not initiate a TCP scan")
+        print("PASS: Mini startup, Ushpelo links and TCP defaults")
 
         from tkinter import ttk
         from pocket.icon_themes import palette
@@ -116,6 +140,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "ports" and mode == "mini":
+                    check(app.host_var.get() == "8.8.8.8" and
+                          app.ports_var.get() == "21,22,443,80,8080,3389,53",
+                          "Mini TCP input must reflect factory ports")
+                    check(app.port_source.get() == "local",
+                          "Default port source must remain local")
                 if page == "notes":
                     # Windows RichEdit is an HWND distinct from Tk's Entry
                     # controls. Explicitly exercise the reported Mini failure:

@@ -83,14 +83,14 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(app.header_credit.winfo_rootx() >=
               name.winfo_rootx() + name.winfo_width() - 2,
               "Mini credit must begin at the end of Pocket, not under the P")
-        check(not any(isinstance(w, tk.Label) and w.cget("text") == "_"
+        check(not any(isinstance(w, tk.Button) and w.cget("text") == "_"
                       for w in header.winfo_children()),
               "Extra Mini button displayed while option is disabled")
         app._set_extra_mini_enabled(True)
         app.root.update()
         header = app.header_credit.master
         mini_buttons = [w for w in header.winfo_children()
-                        if isinstance(w, tk.Label) and w.cget("text") == "_"]
+                        if isinstance(w, tk.Button) and w.cget("text") == "_"]
         check(len(mini_buttons) == 1 and mini_buttons[0].winfo_width() <= 30,
               "Extra Mini control should be one small underscore button")
         name = next(w for w in header.winfo_children()
@@ -101,7 +101,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app._set_extra_mini_enabled(False)
         app.root.update()
         header = app.header_credit.master
-        check(not any(isinstance(w, tk.Label) and w.cget("text") == "_"
+        check(not any(isinstance(w, tk.Button) and w.cget("text") == "_"
                       for w in header.winfo_children()),
               "Extra Mini control remained after the option was unchecked")
         check(app.root.winfo_width() == view_dimensions("mini")[0],

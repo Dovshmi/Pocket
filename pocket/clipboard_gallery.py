@@ -11,6 +11,7 @@ from tkinter import messagebox, ttk
 from PIL import Image, ImageTk
 
 from . import clipboard_images
+from . import clipboard_routing
 from . import icon_themes as themes
 from . import pocket_design as design
 
@@ -54,7 +55,7 @@ def build(app):
 
     # Same compact labelled switch used by Local / DashDash. No full-width tabs.
     switch = tk.Frame(app.body, bg=c["BG"])
-    switch.pack(anchor="w", pady=(0, 5))
+    switch.pack(side="top", anchor="e", pady=(0, 4))
     app.clipboard_page_buttons = {}
     left = tk.Button(
         switch, text="Text", cursor="hand2", bd=0, relief="flat",
@@ -95,22 +96,35 @@ def build(app):
 
 def _build_text_page(app, c):
     parent = app.clipboard_text_page
+    # Compact search: less height and only part of the width, leaving more room
+    # for the text history in both Mini and Normal.
     app.clipboard_query = tk.StringVar()
-    entry = design.entry(parent, app.clipboard_query, app.theme)
+    search_row = tk.Frame(parent, bg=c["BG"])
+    search_row.pack(fill="x", pady=(0, 4))
+    entry = design.entry(search_row, app.clipboard_query, app.theme, compact=True)
     app.clipboard_query_entry = entry
-    entry.pack(fill="x", ipady=8, pady=(0, 7))
+    entry.configure(width=20)
+    entry.pack(side="left", fill="x", expand=False, ipady=3)
     app.clipboard_query.trace_add("write", lambda *_: app._refresh_clipboard())
+
     app.clipboard_status = tk.Label(
         parent, text="", bg=c["BG"], fg=c["MUTED"],
         font=("Segoe UI", 9), anchor="w")
-    app.clipboard_status.pack(fill="x")
-    # Keep copy actions above the expanding list: always visible in Mini.
+    app.clipboard_status.pack(fill="x", pady=(0, 2))
+
     footer = tk.Frame(parent, bg=c["BG"])
-    footer.pack(fill="x", pady=(4, 3))
+    # In Mini, reserve the bottom row before allocating the list's flexible
+    # space. The actions remain visible at the bottom even on short monitors.
+    if app.display_mode == "mini":
+        footer.pack(side="bottom", fill="x", pady=(4, 0))
+    else:
+        footer.pack(fill="x", pady=(3, 3))
     for title, fn in (("Copy", app._copy_clipboard_item),
                       ("Pin / Unpin", app._pin_clipboard_item),
                       ("Delete", app._delete_clipboard_item)):
         _action(footer, title, fn, c).pack(side="left", padx=(0, 3))
+    app.clipboard_text_actions = footer
+
     frame = tk.Frame(parent, bg=c["BG"])
     frame.pack(fill="both", expand=True, pady=(3, 0))
     app.clipboard_list = tk.Listbox(
@@ -125,17 +139,41 @@ def _build_text_page(app, c):
         return "break"
 
     def text_menu(event):
-        index = app.clipboard_list.nearest(event.y)
-        if 0 <= index < app.clipboard_list.size():
-            app.clipboard_list.selection_clear(0, tk.END)
-            app.clipboard_list.selection_set(index)
-            app.clipboard_list.activate(index)
+        listing = app.clipboard_list
+        if listing.size():
+            index = listing.nearest(event.y)
+            box = listing.bbox(index)
+            if box and box[1] <= event.y < box[1] + box[3]:
+                listing.selection_clear(0, tk.END)
+                listing.selection_set(index)
+                listing.activate(index)
+            else:
+                listing.selection_clear(0, tk.END)
+        selected = app._selected_clipboard_item()
+        content = selected["text"] if selected else ""
+        destinations = clipboard_routing.destination_values(content)
+        enabled = set(app.settings["visible_tabs"])
         menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
                        activebackground=c["ACCENT_DARK"],
                        activeforeground=c["WHITE"])
-        menu.add_command(label="Copy to clipboard", command=app._copy_clipboard_item)
-        menu.add_command(label="Pin / Unpin", command=app._pin_clipboard_item)
-        menu.add_command(label="Delete", command=app._delete_clipboard_item)
+        menu.add_command(
+            label="Copy to Clipboard", command=app._copy_clipboard_item,
+            state="normal" if selected else "disabled")
+        menu.add_command(label="Pin / Unpin", command=app._pin_clipboard_item,
+                         state="normal" if selected else "disabled")
+        menu.add_command(label="Delete", command=app._delete_clipboard_item,
+                         state="normal" if selected else "disabled")
+        menu.add_separator()
+        for destination, label in (
+                ("ports", "Send to TCP Ports"),
+                ("mac", "Send to MAC Lookup"),
+                ("subnet", "Send to Subnet Calculator"),
+                ("notes", "Open as new Note")):
+            can_send = destination in enabled and destination in destinations
+            menu.add_command(
+                label=label, state="normal" if can_send else "disabled",
+                command=lambda tool=destination, data=content:
+                    clipboard_routing.send_to_tool(app, tool, data))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -146,6 +184,9 @@ def _build_text_page(app, c):
     app.clipboard_list.bind("<Control-C>", copy_text)
     app.clipboard_list.bind("<Return>", copy_text)
     app.clipboard_list.bind("<Button-3>", text_menu)
+    app.clipboard_list.bind("<Control-Button-1>", text_menu)
+    # Also callable from GUI regression tests without requiring an OS click.
+    app.clipboard_text_context_menu = text_menu
     app._refresh_clipboard()
 
 

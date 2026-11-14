@@ -124,6 +124,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: Clipboard switch should be compact like Local/DashDash")
                     check(app.clipboard_page_buttons["images"].winfo_width() < 100,
                           f"{mode}: Clipboard choice button is too wide")
+                    check(toggle.winfo_rootx() > app.body.winfo_rootx() +
+                          app.body.winfo_width() // 2,
+                          f"{mode}: Clipboard switch must be aligned to the right")
                     app.clipboard_page_buttons["images"].invoke()
                     app.root.update()
                     check(app.clipboard_page == "images" and
@@ -152,6 +155,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(app.clipboard_page == "text" and
                           app.clipboard_list.winfo_exists(),
                           f"{mode}: existing text Clipboard was lost")
+                    check(app.clipboard_query_entry.winfo_width() <
+                          app.clipboard_text_page.winfo_width() * 0.8,
+                          f"{mode}: Clipboard search should be narrow")
+                    check(app.clipboard_query_entry.winfo_height() < 36,
+                          f"{mode}: Clipboard search should be shorter")
+                    actions_y = app.clipboard_text_actions.winfo_rooty()
+                    list_y = app.clipboard_list.winfo_rooty()
+                    if mode == "mini":
+                        check(actions_y >= list_y + app.clipboard_list.winfo_height(),
+                              "Mini: Copy/Pin/Delete must be beneath the text history")
+                    else:
+                        check(actions_y < list_y,
+                              f"{mode}: keep text actions above the list")
                     app.clipboard_list.selection_clear(0, tk.END)
                     app.clipboard_list.selection_set(0)
                     expected_text = app._clipboard_filtered[0]["text"]

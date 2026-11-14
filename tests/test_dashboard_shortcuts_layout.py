@@ -30,17 +30,24 @@ class DashboardShortcutsTests(unittest.TestCase):
         self.assertIn('if self.display_mode == "dashboard":\n            return dashboard_shortcuts.toggle_form(self, item, draft=draft)', APP)
         self.assertIn('if self.display_mode == "dashboard":\n            return dashboard_shortcuts.close_form(self)', APP)
         # The existing Normal/Mini flows must remain present and operational.
-        self.assertIn('self._section_title(self.body, "Quick shortcuts"', APP)
+        self.assertIn('heading = self._section_title(', APP)
+        self.assertIn('"Quick shortcuts", "Websites, files and folders"', APP)
+        self.assertIn('"+ Add ▾"', APP)
         self.assertIn("def _link_tile(self, link, *, parent=None):", APP)
 
     def test_dashboard_reuses_safe_shortcut_callbacks(self):
-        for name in ("_register_shortcut_drop", "_toggle_link_form", "_save_link",
+        for name in ("_register_shortcut_drop", "_save_link",
                      "_browse_shortcut", "_close_form", "open_shortcut",
                      "_copy_shortcut", "_show_link_menu", "refresh_links"):
             self.assertIn("app." + name, UI)
         self.assertIn("tk.Canvas(frame", UI)
         self.assertIn('style="Pocket.Vertical.TScrollbar"', UI)
         self.assertIn("app.links_stack.grid_columnconfigure(", UI)
+        # Add now opens a shared shortcut/folder menu instead of creating a
+        # shortcut directly; the existing editor remains available via it.
+        self.assertIn('sections_ui.show_add_menu(app, app.shortcut_add_button)', UI)
+        menu_ui = (ROOT / "pocket" / "shortcut_sections_ui.py").read_text(encoding="utf-8")
+        self.assertIn('app._toggle_link_form(None)', menu_ui)
 
 
 if __name__ == "__main__":

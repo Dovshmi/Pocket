@@ -43,7 +43,7 @@ class ModernSettingsTests(unittest.TestCase):
         for count in clipboard_images.IMAGE_LIMIT_CHOICES:
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": count})["clipboard_image_limit"], count)
-        for value in (-1, 0, 200, True, "100", 12.5, None):
+        for value in (-1, 0, 50, 100, 200, True, "30", 12.5, None):
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
 
@@ -52,7 +52,7 @@ class ModernSettingsTests(unittest.TestCase):
         saved = []
         images = [{"id": str(i)} for i in range(24)]
         desk = SimpleNamespace(
-            settings={"clipboard_image_limit": 50},
+            settings={"clipboard_image_limit": 30},
             clipboard_images=images,
             _clipboard_selected_image_id="23",
             schedule_save=lambda: saved.append(True),
@@ -73,10 +73,10 @@ class ModernSettingsTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "data.json"
             data = app["default_data"]()
-            data["settings"]["clipboard_image_limit"] = 50
+            data["settings"]["clipboard_image_limit"] = 25
             app["save_data"](path, data)
             loaded = app["load_data"](path)
-            self.assertEqual(loaded["settings"]["clipboard_image_limit"], 50)
+            self.assertEqual(loaded["settings"]["clipboard_image_limit"], 25)
             self.assertNotIn("clipboard_images", path.read_text(encoding="utf-8"))
 
     def test_empty_slots_survive_json_settings_round_trip(self):

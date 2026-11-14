@@ -506,8 +506,9 @@ def copy_selected(app):
     try:
         clipboard_images.copy_image(item["data"])
         app._clipboard_sequence = clipboard_images.sequence_number()
-        app.clipboard_images_status.configure(
-            text=f'{len(app.clipboard_images)}/20 images · Copied to clipboard')
+        _update_status(app)
+        label = app.clipboard_images_status
+        label.configure(text=label.cget("text") + " · Copied")
     except (OSError, MemoryError, ValueError) as exc:
         messagebox.showerror("Image clipboard", str(exc), parent=app.root)
 
@@ -535,6 +536,11 @@ def preview_selected(app):
         if window.winfo_exists():
             window.destroy()
         app._modal = previous_modal
+        canvas = getattr(app, "clipboard_images_canvas", None)
+        if (app.current_tab == "clipboard" and app.clipboard_page == "images"
+                and canvas is not None and canvas.winfo_exists()):
+            # Return keyboard ownership to Images after dismissing the preview.
+            app.root.after_idle(canvas.focus_set)
 
     _action(window, "Close preview", close_preview, c).pack(pady=(2, 10))
     window.protocol("WM_DELETE_WINDOW", close_preview)

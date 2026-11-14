@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
     appmod = runpy.run_path(str(ROOT / "app.pyw"), run_name="pocket_ui_audit")
     from pocket.compact_dashboard import display_slots
     from pocket.mini_layout import view_dimensions
+    from pocket import app_info
 
     app = appmod["PocketDesk"](preview=True)
     errors = []
@@ -147,6 +148,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             app._set_display_mode(mode)
             app.root.update()
             check(app.display_mode == mode, "could not select " + mode)
+            check(app.header_credit.winfo_exists() and
+                  app.header_credit.cget("text") == app_info.AUTHOR_CREDIT,
+                  f"{mode}: Pocket author credit is missing")
+            check(app.header_credit.cget("font") and
+                  app.header_credit.winfo_manager() in ("place", "pack"),
+                  f"{mode}: author credit has no usable layout")
             for page in PANES:
                 app.show_tab(page)
                 app.root.update()
@@ -614,6 +621,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     common["image_limit_" + str(old_limit)].invoke()
                     check(app.settings["clipboard_image_limit"] == old_limit,
                           f"{mode}: prior image limit was not restored")
+                if page == "settings":
+                    check(app.settings_footer_author.winfo_exists() and
+                          app.settings_footer_author.cget("text") ==
+                          app_info.AUTHOR_CREDIT,
+                          f"{mode}: Settings author credit is missing")
+                    check(app.settings_footer_version.winfo_exists() and
+                          app.settings_footer_version.cget("text") ==
+                          "Version " + app_info.version_label(),
+                          f"{mode}: Settings version is incorrect")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (

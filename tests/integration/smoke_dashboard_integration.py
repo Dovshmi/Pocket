@@ -118,21 +118,55 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check("text" in app.clipboard_page_buttons and
                           "images" in app.clipboard_page_buttons,
                           f"{mode}: missing Clipboard sub-tabs")
+                    toggle = app.clipboard_page_toggle
+                    check(int(toggle.cget("width")) == 44 and
+                          int(toggle.cget("height")) == 22,
+                          f"{mode}: Clipboard switch should be compact like Local/DashDash")
+                    check(app.clipboard_page_buttons["images"].winfo_width() < 100,
+                          f"{mode}: Clipboard choice button is too wide")
                     app.clipboard_page_buttons["images"].invoke()
                     app.root.update()
                     check(app.clipboard_page == "images" and
                           app.clipboard_text_page.winfo_manager() == "",
                           f"{mode}: image page should replace text search")
+                    check(not app.clipboard_query_entry.winfo_ismapped(),
+                          f"{mode}: image page must not show text search")
                     check(app.clipboard_images_canvas.winfo_width() >= 150,
                           f"{mode}: image gallery is too narrow")
                     check(len(app._clipboard_gallery_tiles) == 1,
                           f"{mode}: image preview tile was not rendered")
+                    from pocket import clipboard_gallery
+                    from unittest.mock import patch
+                    image_item = app.clipboard_images[0]
+                    # Real GUI action is wired to the bitmap clipboard writer.
+                    with patch.object(clipboard_images, "copy_image") as copy_image:
+                        clipboard_gallery.select_image(app, image_item["id"])
+                        buttons = [w for w in widgets(app.clipboard_images_page)
+                                   if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
+                        check(len(buttons) == 1, f"{mode}: image Copy action missing")
+                        buttons[0].invoke()
+                        copy_image.assert_called_once_with(image_item["data"])
                     capture(app, output, mode + "_clipboard_images")
                     app.clipboard_page_buttons["text"].invoke()
                     app.root.update()
                     check(app.clipboard_page == "text" and
                           app.clipboard_list.winfo_exists(),
                           f"{mode}: existing text Clipboard was lost")
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.selection_set(0)
+                    expected_text = app._clipboard_filtered[0]["text"]
+                    text_copy_buttons = [w for w in widgets(app.clipboard_text_page)
+                                         if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
+                    check(len(text_copy_buttons) == 1,
+                          f"{mode}: text Copy action missing")
+                    text_copy_buttons[0].invoke()
+                    app.root.update()
+                    check(app.root.clipboard_get() == expected_text,
+                          f"{mode}: text Copy must put full selection on Windows clipboard")
+                    check(text_copy_buttons[0].winfo_rooty() +
+                          text_copy_buttons[0].winfo_height() <=
+                          app.root.winfo_rooty() + app.root.winfo_height(),
+                          f"{mode}: copy action must stay visible")
                 if page in ("ports", "mac"):
                     # The slide selector must fit on an existing input-label row,
                     # remain interactive, and never start a network operation.

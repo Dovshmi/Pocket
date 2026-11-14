@@ -97,6 +97,7 @@ def _build_text_page(app, c):
     parent = app.clipboard_text_page
     app.clipboard_query = tk.StringVar()
     entry = design.entry(parent, app.clipboard_query, app.theme)
+    app.clipboard_query_entry = entry
     entry.pack(fill="x", ipady=8, pady=(0, 7))
     app.clipboard_query.trace_add("write", lambda *_: app._refresh_clipboard())
     app.clipboard_status = tk.Label(

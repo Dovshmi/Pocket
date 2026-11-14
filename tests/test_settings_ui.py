@@ -47,6 +47,27 @@ class ModernSettingsTests(unittest.TestCase):
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
 
+    def test_lowering_limit_drops_oldest_ram_images_and_updates_selection(self):
+        from types import SimpleNamespace
+        saved = []
+        images = [{"id": str(i)} for i in range(24)]
+        desk = SimpleNamespace(
+            settings={"clipboard_image_limit": 50},
+            clipboard_images=images,
+            _clipboard_selected_image_id="23",
+            schedule_save=lambda: saved.append(True),
+            current_tab="settings",
+        )
+        app["PocketDesk"]._set_clipboard_image_limit(desk, 10)
+        self.assertEqual(desk.settings["clipboard_image_limit"], 10)
+        self.assertEqual(len(images), 10)
+        self.assertEqual([item["id"] for item in images],
+                         [str(i) for i in range(10)])
+        self.assertEqual(desk._clipboard_selected_image_id, "0")
+        self.assertEqual(saved, [True])
+        app["PocketDesk"]._set_clipboard_image_limit(desk, 10)
+        self.assertEqual(saved, [True])
+
     def test_image_limit_persists_without_saving_image_history(self):
         from tempfile import TemporaryDirectory
         with TemporaryDirectory() as folder:

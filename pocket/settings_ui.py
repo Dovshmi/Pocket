@@ -286,7 +286,7 @@ def _image_capacity(parent, app, c, *, compact=False, wide=False):
 
     choices = tk.Frame(section, bg=c["PANEL"])
     choices.pack(fill="x")
-    columns = 4 if wide else 2
+    columns = 5 if wide else 2
     buttons = {}
 
     def paint():
@@ -316,7 +316,7 @@ def _image_capacity(parent, app, c, *, compact=False, wide=False):
     paint()
 
     _label(section,
-           "20 is the default · 100 may use substantial RAM. "
+           "20 is the default · 30 is the maximum. "
            "Lowering the limit removes the oldest images immediately.",
            c, muted=True, size=8, anchor="w", justify="left",
            wraplength=190 if compact else 340

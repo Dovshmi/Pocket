@@ -31,7 +31,7 @@ class ClipboardImagesTests(unittest.TestCase):
         for number in range(12, 22):
             self.assertTrue(clipboard_images.add_image(
                 history, Image.new("RGB", (10, 10), (number, 5, 7)),
-                maximum=50))
+                maximum=30))
         self.assertEqual(len(history), 20)
         self.assertEqual(clipboard_images.decode_image(
             history[0]["data"]).getpixel((0, 0)), (21, 5, 7))

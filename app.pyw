@@ -92,6 +92,7 @@ from pocket import dashboard_settings_ui as dashboard_settings
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
+from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import quick_search
@@ -852,18 +853,26 @@ class PocketDesk:
         icon.bind("<Button-3>", self._show_theme_menu)
         icon.pack(side="left", padx=(0, 9))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
-        labels.pack(side="left", fill="y", expand=True)
+        # The title must sit immediately beside the logo. Expand=True
+        # inserts spare space before this label frame in Normal mode.
+        labels.pack(side="left", fill="y")
         app_title = tk.Label(labels, text="Pocket", font=(FONT, 16, "bold"), fg=WHITE,
                              bg=BG, anchor="w", cursor="fleur")
         app_title.pack(anchor="w", pady=(2, 0))
         self.shortcut_hint = tk.Label(labels, text=self._hotkey_hint(),
                                       font=(FONT, 8), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
+        # Absolute overlay: credit fits below the existing title and hotkey
+        # within the 62px header; it does not consume layout space.
+        credit = tk.Label(labels, text=app_info.AUTHOR_CREDIT,
+                          bg=BG, fg=MUTED, font=(FONT, 7), cursor="fleur")
+        credit.place(x=0, rely=1.0, y=-1, anchor="sw")
+        self.header_credit = credit
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
         self.shortcut_hint.config(cursor="hand2")
         self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
-        for handle in (header, labels, app_title):
+        for handle in (header, labels, app_title, credit):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
@@ -872,8 +881,10 @@ class PocketDesk:
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(9, 0), anchor="n", pady=(5, 0))
         if self.settings["extra_mini_enabled"]:
-            action_label(header, "▾", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=9, pady=7, font_size=11).pack(
+            # Match the PIN button's font and vertical padding exactly so
+            # the underscore control is equally high, not a taller tile.
+            action_label(header, "_", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=7, pady=7, font_size=8).pack(
                          side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
@@ -1119,11 +1130,18 @@ class PocketDesk:
         name = tk.Label(header, text="Pocket", bg=BG, fg=WHITE, font=(FONT, 14, "bold"),
                         cursor="fleur")
         name.pack(side="left", fill="y")
+        # Start the credit directly below the final "t" of Pocket while
+        # preserving its current baseline. Anchoring to the title's right
+        # edge is DPI- and font-safe; no header widget is repacked.
+        credit = tk.Label(header, text=app_info.AUTHOR_CREDIT, bg=BG,
+                          fg=MUTED, font=(FONT, 6), cursor="fleur")
+        credit.place(in_=name, relx=1.0, rely=1.0, y=-1, anchor="sw")
+        self.header_credit = credit
         self.shortcut_hint = tk.Label(header, text=self._hotkey_hint(), bg=BG, fg=MUTED,
                                       font=(FONT, 7), cursor="hand2")
         self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
         # Hidden in compact chrome but retained for hotkey-change status updates.
-        for handle in (header, name):
+        for handle in (header, name, credit):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
@@ -1132,8 +1150,9 @@ class PocketDesk:
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(9, 0), pady=(2, 0))
         if self.settings["extra_mini_enabled"]:
-            action_label(header, "▾ Extra Mini", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 4))
+            # Match Mini PIN's 7pt font and 5px vertical padding.
+            action_label(header, "_", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=7, pady=5, font_size=7).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
         # Eight compact icon tabs fit across the 346px mini window. Every
@@ -3199,9 +3218,10 @@ class PocketDesk:
         results_panel = tk.Frame(command_panes, bg=BG)
         details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
                            highlightthickness=1)
-        # Four data rows + column header need roughly 140px at the current
-        # tree style; reserve that even when the outer page scrolls.
-        command_panes.add(results_panel, minsize=150, stretch="always")
+        # Reserve enough physical height for the column heading and at least
+        # four *fully visible* command rows on high-DPI Windows screens.
+        # The previous 150px pane clipped the fourth row even with rows=4.
+        command_panes.add(results_panel, minsize=215, stretch="always")
         command_panes.add(details, minsize=195, stretch="never")
         self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
@@ -3247,8 +3267,9 @@ class PocketDesk:
         # Command first (left), description second (right); align Hebrew purposes to the right.
         self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
                                        (540, 335) if self.display_mode == "dashboard" else (230, 185),
-                                       rows=4, aligns=('w', 'e'))
-        # The pane's requested height guarantees four full result rows; the
+                                       rows=5, aligns=('w', 'e'))
+        # Five requested rows with a 215px result pane make at least four
+        # fully visible at normal Windows DPI. The
         # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())
@@ -4547,7 +4568,10 @@ class PocketDesk:
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
         if self.display_mode in ("normal", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            self.command_tree.configure(height=4)
+            # Keep the Normal results list tall after the popup is restored:
+            # the old height=4 reset silently undid _build_commands(rows=5).
+            self.command_tree.configure(
+                height=5 if self.display_mode == "normal" else 4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
 
     def _begin_window_drag(self, event):

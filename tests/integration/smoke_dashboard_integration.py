@@ -57,6 +57,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
     appmod = runpy.run_path(str(ROOT / "app.pyw"), run_name="pocket_ui_audit")
     from pocket.compact_dashboard import display_slots
     from pocket.mini_layout import view_dimensions
+    from pocket import app_info
 
     app = appmod["PocketDesk"](preview=True)
     errors = []
@@ -71,6 +72,41 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
     try:
         app.root.update()
         check(app.display_mode == "mini", "fresh data should start in Mini")
+        # Author starts directly below Pocket's final letter, not its P.
+        # Enabling Extra Mini must only add a small '_' action; neither
+        # logo nor title may move when its visibility changes.
+        header = app.header_credit.master
+        name = next(w for w in header.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+        original_name_x = name.winfo_rootx()
+        original_logo_x = app.header_icon.winfo_rootx()
+        check(app.header_credit.winfo_rootx() >=
+              name.winfo_rootx() + name.winfo_width() - 2,
+              "Mini credit must begin at the end of Pocket, not under the P")
+        check(not any(isinstance(w, tk.Button) and w.cget("text") == "_"
+                      for w in header.winfo_children()),
+              "Extra Mini button displayed while option is disabled")
+        app._set_extra_mini_enabled(True)
+        app.root.update()
+        header = app.header_credit.master
+        mini_buttons = [w for w in header.winfo_children()
+                        if isinstance(w, tk.Button) and w.cget("text") == "_"]
+        check(len(mini_buttons) == 1 and mini_buttons[0].winfo_width() <= 30,
+              "Extra Mini control should be one small underscore button")
+        check(abs(mini_buttons[0].winfo_height() -
+                  app.pin_button.winfo_height()) <= 1,
+              "Mini Extra Mini button must match PIN height")
+        name = next(w for w in header.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+        check(name.winfo_rootx() == original_name_x and
+              app.header_icon.winfo_rootx() == original_logo_x,
+              "Extra Mini toggle must not shift the Pocket logo or title")
+        app._set_extra_mini_enabled(False)
+        app.root.update()
+        header = app.header_credit.master
+        check(not any(isinstance(w, tk.Button) and w.cget("text") == "_"
+                      for w in header.winfo_children()),
+              "Extra Mini control remained after the option was unchecked")
         check(app.root.winfo_width() == view_dimensions("mini")[0],
               "Mini geometry is wrong")
         check(app.current_tab == "notes", "Fresh Pocket must open Notes")
@@ -147,6 +183,42 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             app._set_display_mode(mode)
             app.root.update()
             check(app.display_mode == mode, "could not select " + mode)
+            check(app.header_credit.winfo_exists() and
+                  app.header_credit.cget("text") == app_info.AUTHOR_CREDIT,
+                  f"{mode}: Pocket author credit is missing")
+            check(app.header_credit.cget("font") and
+                  app.header_credit.winfo_manager() in ("place", "pack"),
+                  f"{mode}: author credit has no usable layout")
+            if mode == "normal":
+                # The brand must sit immediately alongside its logo, not
+                # float toward the center of the header.
+                brand_container = app.header_credit.master
+                brand_title = next(
+                    w for w in brand_container.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+                logo_right = app.header_icon.winfo_rootx() + app.header_icon.winfo_width()
+                gap = brand_title.winfo_rootx() - logo_right
+                check(0 <= gap <= 20,
+                      "Normal Pocket branding drifted away from its logo")
+                title_x = brand_title.winfo_rootx()
+                logo_x = app.header_icon.winfo_rootx()
+                app._set_extra_mini_enabled(True)
+                app.root.update()
+                header = app.header_credit.master.master
+                actions = [w for w in header.winfo_children()
+                           if isinstance(w, tk.Button) and w.cget("text") == "_"]
+                check(len(actions) == 1 and
+                      abs(actions[0].winfo_height() -
+                          app.pin_button.winfo_height()) <= 1,
+                      "Normal Extra Mini button must match PIN height")
+                brand_title = next(
+                    w for w in app.header_credit.master.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+                check(brand_title.winfo_rootx() == title_x and
+                      app.header_icon.winfo_rootx() == logo_x,
+                      "Normal Extra Mini toggle shifted Pocket branding")
+                app._set_extra_mini_enabled(False)
+                app.root.update()
             for page in PANES:
                 app.show_tab(page)
                 app.root.update()
@@ -614,6 +686,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     common["image_limit_" + str(old_limit)].invoke()
                     check(app.settings["clipboard_image_limit"] == old_limit,
                           f"{mode}: prior image limit was not restored")
+                if page == "settings":
+                    check(app.settings_footer_author.winfo_exists() and
+                          app.settings_footer_author.cget("text") ==
+                          app_info.AUTHOR_CREDIT,
+                          f"{mode}: Settings author credit is missing")
+                    check(app.settings_footer_version.winfo_exists() and
+                          app.settings_footer_version.cget("text") ==
+                          "Version " + app_info.version_label(),
+                          f"{mode}: Settings version is incorrect")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (
@@ -813,8 +894,17 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 if page == "commands" and mode == "normal":
                     check(str(app.command_panes.cget("orient")) == "vertical",
                           "Normal Commands split should remain vertical")
-                    check(int(app.command_tree.cget("height")) == 4,
-                          "Normal Commands list should retain four-row layout")
+                    check(int(app.command_tree.cget("height")) >= 5,
+                          "Normal Commands list should request five rows")
+                    results = app.command_tree.get_children()
+                    check(len(results) >= 4,
+                          "Normal Command Helper has too few test commands")
+                    # Treeview(height=5) alone does not guarantee visibility:
+                    # the PanedWindow used to clip the fourth actual row.
+                    fourth = app.command_tree.bbox(results[3])
+                    check(bool(fourth) and
+                          fourth[1] + fourth[3] <= app.command_tree.winfo_height(),
+                          "Normal Command Helper must display four FULL rows")
                 if page == "commands":
                     check(hasattr(app, "smart_template_edit") and
                           app.smart_template_edit.winfo_exists(),

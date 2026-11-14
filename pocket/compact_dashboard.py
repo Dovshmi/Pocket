@@ -10,6 +10,7 @@ from . import menu_style
 
 from . import command_helper as ch
 from . import pocket_design as design
+from . import app_info
 from . import launcher_extra_ui as extra
 from . import tool_icons
 
@@ -307,7 +308,12 @@ def build_shell(app, colors):
     name = _label(header, "Pocket", bg=c["BG"], fg=c["WHITE"], bold=True,
                   size=12, cursor="fleur")
     name.pack(side="left", fill="y")
-    for widget in (header, name):
+    # Extra Mini is only 36px tall; keep every existing control in place.
+    credit = _label(header, app_info.AUTHOR_CREDIT, bg=c["BG"],
+                    fg=c["MUTED"], size=6, cursor="fleur")
+    credit.place(in_=name, x=0, rely=1.0, y=-1, anchor="sw")
+    app.header_credit = credit
+    for widget in (header, name, credit):
         widget.bind("<ButtonPress-1>", app._begin_window_drag)
         widget.bind("<B1-Motion>", app._continue_window_drag)
         widget.bind("<ButtonRelease-1>", app._finish_window_drag)

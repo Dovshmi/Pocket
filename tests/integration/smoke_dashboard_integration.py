@@ -29,6 +29,15 @@ def check(condition, message):
     if not condition:
         raise AssertionError(message)
 
+def menu_labels(menu):
+    """A separator has no -label option on Windows or X11 Tk."""
+    end = menu.index("end")
+    if end is None:
+        return []
+    return [menu.entrycget(i, "label") if menu.type(i) != "separator" else ""
+            for i in range(end + 1)]
+
+
 
 def capture(app, output, label):
     if not output:
@@ -113,8 +122,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     from unittest.mock import patch
                     with patch.object(app, "_selected_note_text", return_value="8.8.8.8"):
                         note_menu = app._build_note_context_menu()
-                    labels = [note_menu.entrycget(i, "label")
-                              for i in range(note_menu.index("end") + 1)]
+                    labels = menu_labels(note_menu)
                     check("Text direction" in labels and "Note actions" in labels,
                           f"{mode}: Notes right-click lacks clear action groups")
                     check("Use selected text in Pocket" in labels,
@@ -125,15 +133,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     submenu_path = note_menu.entrycget(
                         labels.index("Use selected text in Pocket"), "menu")
                     pocket_menu = app.root.nametowidget(submenu_path)
-                    choices = [pocket_menu.entrycget(i, "label")
-                               for i in range(pocket_menu.index("end") + 1)]
+                    choices = menu_labels(pocket_menu)
                     check(any("port check" in text for text in choices),
                           f"{mode}: selected IP action missing from Notes")
                     note_menu.destroy()
                     with patch.object(app, "_selected_note_text", return_value=""):
                         no_selection = app._build_note_context_menu()
-                    empty_labels = [no_selection.entrycget(i, "label")
-                                    for i in range(no_selection.index("end") + 1)]
+                    empty_labels = menu_labels(no_selection)
                     check("Select text to use Pocket tools" in empty_labels,
                           f"{mode}: Notes must explain why selection tools are unavailable")
                     no_selection.destroy()
@@ -257,16 +263,14 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     menu_colors = clipboard_gallery.themes.palette(app.theme)
                     sample_menu = clipboard_gallery.build_text_context_menu(
                         app, menu_colors, {"text": "8.8.8.8", "pinned": False})
-                    main_labels = [sample_menu.entrycget(i, "label")
-                                   for i in range(sample_menu.index("end") + 1)]
+                    main_labels = menu_labels(sample_menu)
                     check("Copy full text" in main_labels and
                           "Use text in Pocket" in main_labels,
                           f"{mode}: Clipboard right-click groups missing")
                     tool_path = sample_menu.entrycget(
                         main_labels.index("Use text in Pocket"), "menu")
                     tool_menu = app.root.nametowidget(tool_path)
-                    tool_labels = [tool_menu.entrycget(i, "label")
-                                   for i in range(tool_menu.index("end") + 1)]
+                    tool_labels = menu_labels(tool_menu)
                     check("Prepare TCP port check" in tool_labels and
                           "Open Subnet Calculator" in tool_labels and
                           "Create a new Note from text" in tool_labels,

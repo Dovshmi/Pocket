@@ -72,6 +72,38 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
     try:
         app.root.update()
         check(app.display_mode == "mini", "fresh data should start in Mini")
+        # Author starts directly below Pocket's final letter, not its P.
+        # Enabling Extra Mini must only add a small '_' action; neither
+        # logo nor title may move when its visibility changes.
+        header = app.header_credit.master
+        name = next(w for w in header.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+        original_name_x = name.winfo_rootx()
+        original_logo_x = app.header_icon.winfo_rootx()
+        check(app.header_credit.winfo_rootx() >=
+              name.winfo_rootx() + name.winfo_width() - 2,
+              "Mini credit must begin at the end of Pocket, not under the P")
+        check(not any(isinstance(w, tk.Label) and w.cget("text") == "_"
+                      for w in header.winfo_children()),
+              "Extra Mini button displayed while option is disabled")
+        app._set_extra_mini_enabled(True)
+        app.root.update()
+        header = app.header_credit.master
+        mini_buttons = [w for w in header.winfo_children()
+                        if isinstance(w, tk.Label) and w.cget("text") == "_"]
+        check(len(mini_buttons) == 1 and mini_buttons[0].winfo_width() <= 30,
+              "Extra Mini control should be one small underscore button")
+        name = next(w for w in header.winfo_children()
+                    if isinstance(w, tk.Label) and w.cget("text") == "Pocket")
+        check(name.winfo_rootx() == original_name_x and
+              app.header_icon.winfo_rootx() == original_logo_x,
+              "Extra Mini toggle must not shift the Pocket logo or title")
+        app._set_extra_mini_enabled(False)
+        app.root.update()
+        header = app.header_credit.master
+        check(not any(isinstance(w, tk.Label) and w.cget("text") == "_"
+                      for w in header.winfo_children()),
+              "Extra Mini control remained after the option was unchecked")
         check(app.root.winfo_width() == view_dimensions("mini")[0],
               "Mini geometry is wrong")
         check(app.current_tab == "notes", "Fresh Pocket must open Notes")

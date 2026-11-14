@@ -18,6 +18,29 @@ def _layout(app):
     return app.data["shortcut_folders"]
 
 
+def show_add_menu(app, button):
+    """One consistent Add dropdown for Mini, Normal and Dashboard."""
+    if button is None or not button.winfo_exists():
+        return
+    c = design.colors(app.theme)
+    menu = tk.Menu(
+        app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+        activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
+        disabledforeground=c["MUTED"], font=(FONT, 9), bd=1,
+        activeborderwidth=0)
+    menu.add_command(
+        label="↗   New shortcut",
+        command=lambda: app._toggle_link_form(None))
+    menu.add_command(
+        label="▣   New Pocket folder",
+        command=lambda: prompt_folder(app))
+    try:
+        menu.tk_popup(button.winfo_rootx(),
+                      button.winfo_rooty() + button.winfo_height())
+    finally:
+        menu.grab_release()
+
+
 def prompt_folder(app, ident=None):
     layout = _layout(app)
     folder = next((f for f in layout["folders"] if f["id"] == ident), None)
@@ -155,51 +178,60 @@ def folder_menu(app, ident):
 
 
 def folder_header(app, parent, folder, total, *, expanded):
-    """One low-height title row, not a tall full shortcut tile."""
+    """Compact divider-style folder title, not an oversized shortcut card."""
     c = design.colors(app.theme)
-    bar = tk.Frame(
-        parent, bg=c["PANEL"], highlightthickness=1,
-        highlightbackground=c["BORDER"])
+    bar = tk.Frame(parent, bg=c["PANEL"], highlightthickness=1,
+                   highlightbackground=c["BORDER"])
     bar.pack(fill="x", padx=(2, 3), pady=(6, 3), ipady=1)
     ident = folder["id"]
+
+    # Pack the grip FIRST on the right so folders and shortcut cards share
+    # exactly the same right-edge drag affordance in every layout.
+    grip = tk.Label(
+        bar, text="⋮⋮", bg=c["PANEL"], fg=c["SECONDARY"],
+        font=(FONT, 10, "bold"), cursor="fleur",
+        padx=5, pady=4)
+    grip.pack(side="right", padx=(1, 5))
+    more = tk.Button(
+        bar, text="···", bg=c["PANEL"], fg=c["MUTED"],
+        activebackground=c["PANEL"], activeforeground=c["ACCENT"],
+        bd=0, relief="flat", font=(FONT, 10, "bold"), cursor="hand2",
+        command=lambda: folder_menu(app, ident))
+    more.pack(side="right", padx=(0, 4))
+    count = tk.Label(
+        bar, text=str(total), bg=c["PANEL"], fg=c["SECONDARY"],
+        font=(FONT, 8), padx=3)
+    count.pack(side="right", padx=(0, 5))
+
     arrow = "▾" if expanded else "▸"
     btn = tk.Button(
-        bar, text=arrow, bg=c["PANEL"], fg=c["ACCENT"], relief="flat",
-        bd=0, cursor="hand2", font=(FONT, 11, "bold"), width=2,
-        command=lambda: toggle(app, ident))
-    btn.pack(side="left", padx=(5, 1))
+        bar, text=arrow, bg=c["PANEL"], fg=c["ACCENT"],
+        relief="flat", bd=0, cursor="hand2", font=(FONT, 10, "bold"),
+        width=2, command=lambda: toggle(app, ident))
+    btn.pack(side="left", padx=(4, 0))
     title = tk.Button(
         bar, text=folder["title"], bg=c["PANEL"], fg=c["WHITE"],
         activebackground=c["PANEL"], activeforeground=c["ACCENT"],
         relief="flat", bd=0, font=(FONT, 9, "bold"),
         anchor="w", cursor="hand2", command=lambda: toggle(app, ident))
-    title.pack(side="left", fill="x", expand=True, padx=(0, 4))
-    count = tk.Label(
-        bar, text=str(total), bg=c["PANEL"], fg=c["SECONDARY"],
-        font=(FONT, 8))
-    count.pack(side="left", padx=(0, 6))
-    menu = tk.Button(
-        bar, text="···", bg=c["PANEL"], fg=c["SECONDARY"], bd=0,
-        relief="flat", font=(FONT, 10, "bold"), cursor="hand2",
-        command=lambda: folder_menu(app, ident))
-    menu.pack(side="right", padx=(0, 6))
-    grip = tk.Label(
-        bar, text="⋮⋮", bg=c["PANEL"], fg=c["ACCENT"],
-        font=(FONT, 11, "bold"), cursor="fleur")
-    grip.pack(side="right", padx=(1, 6))
+    title.pack(side="left", fill="x", expand=True, padx=(1, 4))
+
     register_target(app, bar, ("folder", ident))
+    setup_grip(app, grip, folders.folder_key(ident))
+    for widget in (bar, grip, more, count, btn, title):
+        app._register_shortcut_drop(widget, folder_id=ident)
     for widget in (btn, title, count):
         widget.bind("<Button-3>", lambda _event, i=ident: folder_menu(app, i))
-    setup_grip(app, grip, folders.folder_key(ident))
     app.shortcut_folder_headers[ident] = bar
     return bar
+
 
 
 def unfiled_drop_zone(app, parent):
     """Small visible exit target for moving a shortcut out of a folder."""
     c = design.colors(app.theme)
     bar = tk.Label(
-        parent, text="Unfiled  ·  drop here to remove from a folder",
+        parent, text="Unfiled  ·  drop here",
         fg=c["MUTED"], bg=c["BG"], font=(FONT, 8),
         anchor="w", pady=3, cursor="hand2")
     bar.pack(fill="x", padx=5, pady=(1, 3))

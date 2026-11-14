@@ -436,6 +436,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     from pocket import shortcut_folders as sf
                     from pocket import shortcut_sections_ui as folders_ui
                     old_layout = copy.deepcopy(app.data["shortcut_folders"])
+                    check(app.shortcut_add_button.cget("text") == "+ Add ▾",
+                          f"{mode}: only one Add dropdown must be shown")
+                    from unittest.mock import patch
+                    with patch.object(folders_ui, "show_add_menu") as add_menu:
+                        app.shortcut_add_button.invoke()
+                        add_menu.assert_called_once_with(
+                            app, app.shortcut_add_button)
                     sample = app.data["links"][0]
                     folder_id = sf.add_folder(app.data["shortcut_folders"],
                                               "Network tools")
@@ -451,10 +458,17 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     heading = app.shortcut_folder_headers[folder_id]
                     sample_handle = app.shortcut_drag_handles[
                         sf.link_key(sample["id"])]
-                    card = (sample_handle.master.master if mode == "dashboard"
-                            else sample_handle.master)
+                    card = sample_handle.master
                     check(heading.winfo_height() < card.winfo_height(),
                           f"{mode}: folder heading must be shorter than shortcut cards")
+                    folder_grip = app.shortcut_drag_handles[
+                        sf.folder_key(folder_id)]
+                    check(sample_handle.winfo_rootx() >
+                          card.winfo_rootx() + card.winfo_width() // 2,
+                          f"{mode}: shortcut drag grip must be on the right")
+                    check(folder_grip.winfo_rootx() >
+                          heading.winfo_rootx() + heading.winfo_width() // 2,
+                          f"{mode}: folder drag grip must be on the right")
                     check(folder_id not in [item.get("id") for item in app.data["links"]],
                           f"{mode}: folders must not be treated as launchable links")
                     # Simulate the same dedicated drag grip callbacks that the
@@ -478,6 +492,21 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: mouse drag failed to move a shortcut into folder")
                     check(sf.link_key(sample["id"]) in app.shortcut_drag_handles,
                           f"{mode}: moved shortcut is not visible in open folder")
+                    before_drop = len(app.data["links"])
+                    app._shortcut_dropped(
+                        SimpleNamespace(data="https://example.org/pocket-drop-check"),
+                        folder_id=folder_id)
+                    app.root.update()
+                    check(len(app.data["links"]) == before_drop + 1,
+                          f"{mode}: external URL drop must create one shortcut")
+                    imported = next(
+                        link for link in app.data["links"]
+                        if link["url"] == "https://example.org/pocket-drop-check")
+                    check(sf.link_folder(app.data["shortcut_folders"],
+                                         imported["id"]) == folder_id,
+                          f"{mode}: external URL was not saved inside folder")
+                    check(not app.form_holder.winfo_manager(),
+                          f"{mode}: folder drop must not open a separate Add form")
                     check(sf.set_expanded(app.data["shortcut_folders"],
                                           folder_id, False),
                           f"{mode}: folder did not collapse")
@@ -489,6 +518,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: folder deletion was rejected")
                     check(sf.link_key(sample["id"]) in app.data["shortcut_folders"]["root"],
                           f"{mode}: deleting a folder must preserve its shortcut")
+                    check(sf.link_key(imported["id"]) in app.data["shortcut_folders"]["root"],
+                          f"{mode}: deleting a folder must preserve imported shortcuts")
+                    app._delete_link(imported)
+                    app.root.update()
                     app.data["shortcut_folders"] = old_layout
                     app.refresh_links()
                     app.root.update()

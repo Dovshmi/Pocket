@@ -1,4 +1,4 @@
-name: Pocket Clipboard feature checks
+name: Pocket feature checks
 
 on:
   push:
@@ -66,10 +66,10 @@ jobs:
         run: call build-portable.bat
       - name: Verify extracted portable package and GUI startup
         run: python tests/integration/check_packaged_release.py --version v1.33.1-clipboard.preview --portable-only
-      - name: Upload Pocket Clipboard test build
+      - name: Upload Pocket Shortcuts test build
         uses: actions/upload-artifact@v4
         with:
-          name: Pocket-Clipboard-Preview-Windows
+          name: Pocket-Shortcuts-Preview-Windows
           path: dist/Pocket-Portable-v1.33.1-clipboard.preview.zip
           if-no-files-found: error
           retention-days: 14

@@ -2356,23 +2356,22 @@ class PocketDesk:
     def _build_links(self):
         if self.display_mode == "dashboard":
             return dashboard_shortcuts.build(self)
-        self._section_title(self.body, "Quick shortcuts", "Websites, files and folders", "+ Add", lambda: self._toggle_link_form(None))
+        heading = self._section_title(
+            self.body, "Quick shortcuts", "Websites, files and folders",
+            "+ Add ▾", lambda: sections_ui.show_add_menu(self, self.shortcut_add_button))
+        self.shortcut_add_button = next(
+            (child for child in heading.winfo_children()
+             if isinstance(child, tk.Button)), None)
         search_row = tk.Frame(self.body, bg=BG)
         search_row.pack(fill="x", pady=(0, 8))
         tk.Label(search_row, text="⌕", bg=BG, fg=MUTED, font=(FONT, 14)).pack(side="left", padx=(0, 6))
         self.link_query = tk.StringVar()
         search = self._entry(search_row, self.link_query)
         search.config(font=(FONT, 9))
-        search.pack(side="left", fill="x", expand=True, ipady=5)
+        search.pack(side="left", fill="x", expand=True, ipady=4)
         self.link_query.trace_add("write", lambda *_: self.refresh_links())
-        action_label(
-            search_row, "+ Folder", lambda: sections_ui.prompt_folder(self),
-            fg=ACCENT, bg=PANEL, hover=CARD, padx=6, pady=4,
-            font_size=8).pack(side="right", padx=(8, 0))
-        tk.Label(
-            self.body, text="Drag ⋮⋮ handles to reorder · Drop on a folder title to file",
-            bg=BG, fg=MUTED, font=(FONT, 8), anchor="w",
-        ).pack(fill="x", pady=(0, 5))
+        tk.Label(search_row, text="Search", fg=MUTED, bg=BG,
+                 font=(FONT, 8)).pack(side="right", padx=(8, 0))
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
@@ -2417,47 +2416,103 @@ class PocketDesk:
         canvas.bind("<Leave>", lambda _e: canvas.unbind_all("<MouseWheel>"))
         self.refresh_links()
 
-    def _register_shortcut_drop(self, widget):
-        """Register both Explorer file drops and browser URL/text drops."""
+    def _register_shortcut_drop(self, widget, *, folder_id=None):
+        """Accept external Explorer/browser drops; optional folder auto-files.
+
+        Folder targets are explicit rather than inferred from pointer position,
+        because TkDnD sometimes reports the descendant rather than the header.
+        """
         if not self.dnd_available:
             return
         try:
             widget.drop_target_register(DND_FILES, DND_TEXT)
-            widget.dnd_bind('<<DropEnter>>', self._drop_enter, add='+')
+            widget.dnd_bind(
+                '<<DropEnter>>',
+                lambda event, folder=folder_id: self._drop_enter(event, folder),
+                add='+')
             widget.dnd_bind('<<DropLeave>>', self._drop_leave, add='+')
-            widget.dnd_bind('<<Drop>>', self._shortcut_dropped, add='+')
+            widget.dnd_bind(
+                '<<Drop>>',
+                lambda event, folder=folder_id: self._shortcut_dropped(
+                    event, folder_id=folder),
+                add='+')
         except tk.TclError:
             # Unsupported native TkDnD runtime; regular shortcut creation works.
             self.dnd_available = False
             if hasattr(self, 'drop_hint') and self.drop_hint.winfo_exists():
                 self.drop_hint.config(text='Drag & drop unavailable · Install tkinterdnd2 (see README)')
 
-    def _drop_enter(self, _event):
-        if self.current_tab == 'links' and self.drop_panel.winfo_exists():
+    def _drop_enter(self, _event, folder_id=None):
+        if self.current_tab != 'links':
+            return 'refuse_drop'
+        if folder_id:
+            bar = getattr(self, "shortcut_folder_headers", {}).get(folder_id)
+            if bar is not None and bar.winfo_exists():
+                bar.configure(highlightbackground=ACCENT)
+                self._shortcut_external_drop_folder = folder_id
+            return 'copy'
+        if self.drop_panel.winfo_exists():
             self.drop_panel.config(highlightbackground=ACCENT, bg=ACCENT_DARK)
             self.drop_title.config(bg=ACCENT_DARK)
             self.drop_hint.config(bg=ACCENT_DARK)
         return 'copy'
 
     def _drop_leave(self, _event):
+        folder_id = getattr(self, "_shortcut_external_drop_folder", None)
+        self._shortcut_external_drop_folder = None
+        if folder_id:
+            bar = getattr(self, "shortcut_folder_headers", {}).get(folder_id)
+            if bar is not None and bar.winfo_exists():
+                bar.configure(highlightbackground=BORDER)
         if self.current_tab == 'links' and self.drop_panel.winfo_exists():
             self.drop_panel.config(highlightbackground=ACCENT_DARK, bg=PANEL)
             self.drop_title.config(bg=PANEL)
             self.drop_hint.config(bg=PANEL)
 
-    def _shortcut_dropped(self, event):
-        """A native drop opens an editable draft; it never writes the data file."""
+    def _shortcut_dropped(self, event, *, folder_id=None):
+        """Save validated external drops INSIDE a folder, or draft elsewhere.
+
+        No URLs are fetched and no destinations opened. Dropping onto the
+        general surface retains the existing explicit review/save workflow.
+        """
         if self.current_tab != 'links':
             return 'refuse_drop'
         self._drop_leave(event)
         try:
-            suggestion = shortcut_drop.guess_shortcut(event.data, splitlist=self.root.tk.splitlist)
+            suggestion = shortcut_drop.guess_shortcut(
+                event.data, splitlist=self.root.tk.splitlist)
         except (ValueError, OSError) as exc:
             self._warning('Shortcut drop', str(exc))
             return 'refuse_drop'
+        if folder_id is not None:
+            layout = self.data["shortcut_folders"]
+            if not any(group["id"] == folder_id for group in layout["folders"]):
+                return 'refuse_drop'
+            try:
+                target = shortcuts.normalize_shortcut(
+                    suggestion["kind"], suggestion["url"])
+                title = suggestion["title"].strip()
+                if not title or len(title) > 180:
+                    raise ValueError("The shortcut name is empty or too long.")
+            except (ValueError, OSError) as exc:
+                self._warning('Shortcut drop', str(exc))
+                return 'refuse_drop'
+            new_item = new_link(title, target, suggestion["kind"])
+            self.data["links"].insert(0, new_item)
+            shortcut_folders.add_link(layout, new_item["id"], group=folder_id)
+            self.schedule_save()
+            # Finish the native TkDnD event before destroying its target on
+            # refresh. The new shortcut appears in the expanded folder.
+            self.root.after_idle(
+                lambda: self.refresh_links() if self.current_tab == "links" else None)
+            return 'copy'
+
+        # Dropping outside a folder still shows an editable draft, not an
+        # unexpected persistent shortcut.
         self._toggle_link_form(None, draft=suggestion)
         self.drop_title.config(text='✓  READY TO SAVE — REVIEW BELOW')
-        self.drop_hint.config(text='Edit the suggested name or target, then click Save shortcut')
+        self.drop_hint.config(
+            text='Edit the suggested name or target, then click Save shortcut')
         if self._scroll_canvas and self._scroll_canvas.winfo_exists():
             self._scroll_canvas.yview_moveto(0)
         return 'copy'
@@ -2500,51 +2555,71 @@ class PocketDesk:
             if row["expanded"]:
                 container = tk.Frame(self.links_stack, bg=BG)
                 container.pack(fill="x", padx=(10, 2), pady=(0, 3))
+                self._register_shortcut_drop(container, folder_id=folder["id"])
                 for link in row["links"]:
                     self._link_tile(link, parent=container)
 
     def _link_tile(self, link, *, parent=None):
-        tile = tk.Frame(parent if parent is not None else self.links_stack,
-                        bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
-        tile.pack(fill="x", pady=(0, 5 if self.display_mode in ("mini", "normal") else 10),
-                  padx=(1, 2 if self.display_mode in ("mini", "normal") else 6),
-                  ipady=2 if self.display_mode in ("mini", "normal") else 6)
+        """Compact, readable card: type icon left, action + drag grip right."""
+        tile = tk.Frame(
+            parent if parent is not None else self.links_stack,
+            bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        tile.pack(fill="x", pady=(0, 5),
+                  padx=(1, 2 if self.display_mode == "mini" else 4),
+                  ipady=2 if self.display_mode == "mini" else 4)
         kind = link.get("kind", "url")
-        grip = tk.Label(
-            tile, text="⋮⋮", bg=ACCENT_DARK, fg=ACCENT,
-            font=(FONT, 11, "bold"), width=2, height=2, cursor="fleur")
-        grip.pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal")
-                  else (12, 10))
+        folder_id = shortcut_folders.link_folder(
+            self.data["shortcut_folders"], link["id"])
         sections_ui.register_target(self, tile, ("link", link["id"]))
+        self._register_shortcut_drop(tile, folder_id=folder_id)
+
+        # The grip is packed FIRST on the right. No oversized drag handle
+        # consumes the important left-edge area of a small shortcut.
+        grip = tk.Label(
+            tile, text="⋮⋮", fg=MUTED, bg=PANEL, cursor="fleur",
+            font=(FONT, 10, "bold"), padx=3, pady=5)
+        grip.pack(side="right", padx=(2, 5))
         sections_ui.setup_grip(
             self, grip, shortcut_folders.link_key(link["id"]))
+
+        actions = tk.Frame(tile, bg=PANEL)
+        actions.pack(side="right", padx=(0, 2))
+        action_label(
+            actions, "↗", lambda item=link: self.open_shortcut(item),
+            fg=ACCENT, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=11).pack(side="left")
+        action_label(
+            actions, "⧉", lambda item=link: self._copy_shortcut(item),
+            fg=SECONDARY, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=10).pack(side="left")
+        action_label(
+            actions, "···", lambda item=link: self._show_link_menu(item),
+            fg=MUTED, bg=PANEL, hover=CARD,
+            padx=4, pady=4, font_size=10).pack(side="left")
+
+        icon = tk.Label(
+            tile, text={"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗"),
+            bg=ACCENT_DARK, fg=ACCENT, font=(FONT, 10, "bold"),
+            width=2, padx=2, pady=6)
+        icon.pack(side="left", padx=(7, 7))
+
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
-        title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11,
-                               "bold"), cursor="hand2")
-        title.pack(fill="x", pady=(3, 2))
+        title = tk.Label(
+            desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
+            font=(FONT, 9 if self.display_mode == "mini" else 10, "bold"),
+            cursor="hand2")
+        title.pack(fill="x", pady=(2, 1))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
-        tk.Label(
-            desc, text=f"{kind.upper()}  •  "
-                       f"{summary[:16 if self.display_mode == 'mini' else 28]}",
-            anchor="w", fg=MUTED, bg=PANEL, font=(FONT, 8)
-        ).pack(fill="x")
-        title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
-        self._register_shortcut_drop(tile)
-        self._register_shortcut_drop(title)
-        actions = tk.Frame(tile, bg=PANEL)
-        actions.pack(side="right", padx=(0, 2) if self.display_mode == "mini" else (0, 8))
-        action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5,
-                     font_size=15).pack(side="left")
-        action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
-                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5,
-                     font_size=13).pack(side="left")
-        action_label(actions, "···", lambda item=link: self._show_link_menu(item),
-                     fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5,
-                     font_size=12).pack(side="left")
+        detail = tk.Label(
+            desc, text=f"{kind.upper()}  ·  "
+                       f"{summary[:18 if self.display_mode == 'mini' else 35]}",
+            anchor="w", fg=MUTED, bg=PANEL, font=(FONT, 8))
+        detail.pack(fill="x")
+        title.bind("<Button-1>", lambda _event, item=link: self.open_shortcut(item))
+        for widget in (grip, icon, desc, title, detail, actions):
+            self._register_shortcut_drop(widget, folder_id=folder_id)
         return tile
 
     def _show_link_menu(self, item):

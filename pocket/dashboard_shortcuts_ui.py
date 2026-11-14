@@ -47,10 +47,11 @@ def build(app):
              font=(FONT, 13, "bold")).pack(anchor="w")
     tk.Label(intro, text="Open your websites, files and folders",
              bg=bg, fg=muted, font=(FONT, 9)).pack(anchor="w", pady=(2, 0))
-    design.button(header, "+ New shortcut", lambda: app._toggle_link_form(None),
-                  app.theme, primary=True, compact=True).pack(side="right")
-    design.button(header, "+ Folder", lambda: sections_ui.prompt_folder(app),
-                  app.theme, compact=True).pack(side="right", padx=(0, 8))
+    app.shortcut_add_button = design.button(
+        header, "+ Add ▾",
+        lambda: sections_ui.show_add_menu(app, app.shortcut_add_button),
+        app.theme, primary=True, compact=True)
+    app.shortcut_add_button.pack(side="right")
 
     filters = tk.Frame(app.body, bg=panel, highlightthickness=1,
                        highlightbackground=border)
@@ -78,8 +79,8 @@ def build(app):
     app.dashboard_shortcut_count = tk.Label(
         status, text="", bg=panel, fg=accent, font=(FONT, 8, "bold"))
     app.dashboard_shortcut_count.pack(side="left")
-    tk.Label(status, text="Drag ⋮⋮ to organize · Drop on a folder title to group",
-             bg=panel, fg=muted, font=(FONT, 8)).pack(side="left", padx=(18, 0))
+    tk.Label(status, text="⋮⋮  Drag to arrange",
+             bg=panel, fg=muted, font=(FONT, 8)).pack(side="left", padx=(12, 0))
     tk.Label(status, text="No automatic opening · Local-first",
              bg=panel, fg=muted, font=(FONT, 8)).pack(side="right")
 
@@ -155,50 +156,62 @@ def filter_state(app):
 
 
 def _card(app, parent, link, *, row, column, columns, colors):
-    """Draw a normal Dashboard card into either the root or a folder grid."""
+    """Compact Dashboard card with consistent right-edge grip and controls."""
     c = colors
     panel, accent, muted, white = (c["PANEL"], c["ACCENT"],
                                    c["MUTED"], c["WHITE"])
+    folder_id = shortcut_folders.link_folder(
+        app.data["shortcut_folders"], link["id"])
     tile = tk.Frame(
         parent, bg=panel, highlightthickness=1,
         highlightbackground=c["BORDER"])
     tile.grid(row=row, column=column, sticky="nsew", padx=5, pady=(3, 6))
     app.dashboard_shortcut_cards.append(tile)
-    app._register_shortcut_drop(tile)
+    app._register_shortcut_drop(tile, folder_id=folder_id)
     sections_ui.register_target(app, tile, ("link", link["id"]))
-    header = tk.Frame(tile, bg=panel)
-    header.pack(fill="x", padx=9, pady=(8, 4))
-    label = {"url": "WEBSITE", "file": "FILE", "folder": "FOLDER"}.get(
-        link.get("kind", "url"), "SHORTCUT")
-    tk.Label(header, text=label, bg=c["ACCENT_DARK"], fg=accent,
-             padx=6, pady=3, font=(FONT, 8, "bold")).pack(side="left")
+
+    # Match Mini/Normal and folder headers: the small handle sits at right.
+    grip = tk.Label(tile, text="⋮⋮", bg=panel, fg=muted,
+                    font=(FONT, 10, "bold"), cursor="fleur", padx=4, pady=6)
+    grip.pack(side="right", fill="y", padx=(1, 5))
+    sections_ui.setup_grip(app, grip, shortcut_folders.link_key(link["id"]))
+
+    content = tk.Frame(tile, bg=panel)
+    content.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=(6, 5))
+    header = tk.Frame(content, bg=panel)
+    header.pack(fill="x")
+    badge = tk.Label(
+        header, text={"url": "↗", "file": "▤", "folder": "▣"}.get(
+            link.get("kind", "url"), "↗"),
+        bg=c["ACCENT_DARK"], fg=accent, font=(FONT, 10, "bold"),
+        padx=5, pady=3)
+    badge.pack(side="left", padx=(0, 7))
     button = tk.Button(
         header, text=shorten(link["title"], 28 if columns == 2 else 20),
         command=lambda item=link: app.open_shortcut(item),
         bg=panel, fg=white, activebackground=panel,
         activeforeground=accent, font=(FONT, 9, "bold"),
         relief="flat", bd=0, anchor="w", cursor="hand2")
-    button.pack(side="left", fill="x", expand=True, padx=(7, 0))
+    button.pack(side="left", fill="x", expand=True)
     button.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
-    app._register_shortcut_drop(button)
-    grip = tk.Label(header, text="⋮⋮", bg=panel, fg=accent,
-                    cursor="fleur", font=(FONT, 11, "bold"))
-    grip.pack(side="right", padx=(5, 0))
-    sections_ui.setup_grip(app, grip, shortcut_folders.link_key(link["id"]))
+
     target = tk.Label(
-        tile, text=shorten(preview_target(link),
-                           52 if columns == 1 else (39 if columns == 2 else 31)),
+        content, text=shorten(
+            preview_target(link), 52 if columns == 1 else
+            (39 if columns == 2 else 31)),
         bg=panel, fg=muted, font=(FONT, 8), anchor="w")
-    target.pack(fill="x", padx=10, pady=(0, 6))
+    target.pack(fill="x", pady=(4, 2))
     target.bind("<Button-3>", lambda _e, item=link: app._show_link_menu(item))
-    actions = tk.Frame(tile, bg=panel)
-    actions.pack(fill="x", padx=8, pady=(0, 7))
+    actions = tk.Frame(content, bg=panel)
+    actions.pack(fill="x", pady=(2, 0))
     for caption, handler in (
             ("Open", lambda item=link: app.open_shortcut(item)),
             ("Copy", lambda item=link: app._copy_shortcut(item)),
             ("···", lambda item=link: app._show_link_menu(item))):
         design.button(actions, caption, handler, app.theme,
-                      compact=True).pack(side="left", padx=(0, 5))
+                      compact=True).pack(side="left", padx=(0, 4))
+    for widget in (grip, content, header, badge, button, target, actions):
+        app._register_shortcut_drop(widget, folder_id=folder_id)
     return tile
 
 
@@ -262,6 +275,7 @@ def refresh(app):
         if row["expanded"] and row["links"]:
             contents = tk.Frame(host, bg=bg)
             contents.pack(fill="x", padx=(12, 0), pady=(0, 5))
+            app._register_shortcut_drop(contents, folder_id=group["id"])
             for col in range(count):
                 contents.grid_columnconfigure(col, weight=1, uniform="folder-cards")
             for n, link in enumerate(row["links"]):

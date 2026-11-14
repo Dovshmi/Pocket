@@ -9,6 +9,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from . import icon_themes as themes
+from . import app_info
 
 FONT = "Segoe UI"
 
@@ -385,3 +386,19 @@ def build_settings(app, parent, *, wide=False):
     _launcher(left, app, c, wide=wide, compact=compact)
     _tools(right, app, c, wide=wide, compact=compact)
     _privacy(right, app, c, wide=wide, compact=compact)
+
+    # The footer is the last element of the scrollable Settings body in all
+    # three layouts. It is not a floating overlay and obscures no controls.
+    footer = tk.Frame(parent, bg=c["BG"])
+    footer.pack(fill="x", pady=(5, 8))
+    tk.Frame(footer, height=1, bg=c["BORDER"]).pack(fill="x", pady=(0, 10))
+    credits = tk.Frame(footer, bg=c["BG"])
+    credits.pack(fill="x", padx=3)
+    author = _label(credits, app_info.AUTHOR_CREDIT, c, size=8, muted=True,
+                    background=c["BG"], anchor="w")
+    author.pack(side="left")
+    version = _label(credits, "Version " + app_info.version_label(), c,
+                     size=8, muted=True, background=c["BG"], anchor="e")
+    version.pack(side="right")
+    app.settings_footer_author = author
+    app.settings_footer_version = version

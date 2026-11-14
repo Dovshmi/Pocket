@@ -92,6 +92,7 @@ from pocket import dashboard_settings_ui as dashboard_settings
 from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
+from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import quick_search
@@ -859,11 +860,17 @@ class PocketDesk:
         self.shortcut_hint = tk.Label(labels, text=self._hotkey_hint(),
                                       font=(FONT, 8), fg=MUTED, bg=BG, cursor="fleur")
         self.shortcut_hint.pack(anchor="w", pady=(1, 0))
+        # Absolute overlay: credit fits below the existing title and hotkey
+        # within the 62px header; it does not consume layout space.
+        credit = tk.Label(labels, text=app_info.AUTHOR_CREDIT,
+                          bg=BG, fg=MUTED, font=(FONT, 7), cursor="fleur")
+        credit.place(x=0, rely=1.0, y=-1, anchor="sw")
+        self.header_credit = credit
         # Dragging on the header behaves like a regular title bar. The PIN and
         # close controls are intentionally excluded so their clicks work normally.
         self.shortcut_hint.config(cursor="hand2")
         self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
-        for handle in (header, labels, app_title):
+        for handle in (header, labels, app_title, credit):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)
@@ -1119,11 +1126,17 @@ class PocketDesk:
         name = tk.Label(header, text="Pocket", bg=BG, fg=WHITE, font=(FONT, 14, "bold"),
                         cursor="fleur")
         name.pack(side="left", fill="y")
+        # Place the tiny credit over unused space below Pocket. The original
+        # 46px header, logo, title and right-side controls do not shift.
+        credit = tk.Label(header, text=app_info.AUTHOR_CREDIT, bg=BG,
+                          fg=MUTED, font=(FONT, 6), cursor="fleur")
+        credit.place(in_=name, x=0, rely=1.0, y=-1, anchor="sw")
+        self.header_credit = credit
         self.shortcut_hint = tk.Label(header, text=self._hotkey_hint(), bg=BG, fg=MUTED,
                                       font=(FONT, 7), cursor="hand2")
         self.shortcut_hint.bind("<Button-1>", self._open_hotkey_picker)
         # Hidden in compact chrome but retained for hotkey-change status updates.
-        for handle in (header, name):
+        for handle in (header, name, credit):
             handle.bind("<ButtonPress-1>", self._begin_window_drag)
             handle.bind("<B1-Motion>", self._continue_window_drag)
             handle.bind("<ButtonRelease-1>", self._finish_window_drag)

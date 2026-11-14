@@ -107,6 +107,32 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "clipboard":
+                    from PIL import Image
+                    from pocket import clipboard_images
+                    if not app.clipboard_images:
+                        check(clipboard_images.add_image(
+                            app.clipboard_images,
+                            Image.new("RGB", (180, 100), "#283f74")),
+                            "Image history did not accept a test screenshot")
+                    check("text" in app.clipboard_page_buttons and
+                          "images" in app.clipboard_page_buttons,
+                          f"{mode}: missing Clipboard sub-tabs")
+                    app.clipboard_page_buttons["images"].invoke()
+                    app.root.update()
+                    check(app.clipboard_page == "images" and
+                          app.clipboard_text_page.winfo_manager() == "",
+                          f"{mode}: image page should replace text search")
+                    check(app.clipboard_images_canvas.winfo_width() >= 150,
+                          f"{mode}: image gallery is too narrow")
+                    check(len(app._clipboard_gallery_tiles) == 1,
+                          f"{mode}: image preview tile was not rendered")
+                    capture(app, output, mode + "_clipboard_images")
+                    app.clipboard_page_buttons["text"].invoke()
+                    app.root.update()
+                    check(app.clipboard_page == "text" and
+                          app.clipboard_list.winfo_exists(),
+                          f"{mode}: existing text Clipboard was lost")
                 if page in ("ports", "mac"):
                     # The slide selector must fit on an existing input-label row,
                     # remain interactive, and never start a network operation.

@@ -93,6 +93,8 @@ from pocket import settings_ui
 from pocket import pocket_design as design
 from pocket import quick_search
 from pocket import clipboard_policy
+from pocket import clipboard_images
+from pocket import clipboard_gallery
 from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
@@ -343,7 +345,11 @@ class PocketDesk:
         self.display_mode = self.settings["display_mode"]
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
-        self.clipboard_items = []  # Session-only: never write copied text to disk.
+        self.clipboard_items = []  # Session-only text, never written to disk.
+        self.clipboard_images = []  # Up to 20 PNG screenshots, RAM only.
+        self.clipboard_page = "text"
+        self._clipboard_selected_image_id = None
+        self._clipboard_sequence = None
         self._clipboard_last = None
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
@@ -1149,6 +1155,7 @@ class PocketDesk:
             current.remove(key)
         if key == "clipboard":
             self._clipboard_last = None
+            self._clipboard_sequence = None
         self._build_shell_refresh()
         self.schedule_save()
 
@@ -1348,24 +1355,46 @@ class PocketDesk:
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
     def _clipboard_poll(self):
-        if "clipboard" in self.settings["visible_tabs"] and not self.settings["clipboard_paused"]:
-            try:
-                value = self.root.clipboard_get()
-                if isinstance(value, str) and value != self._clipboard_last:
-                    self._clipboard_last = value
-                    before = len(self.clipboard_items)
-                    if clipboard_policy.should_capture(value, paused=self.settings["clipboard_paused"],
-                                                       sensitive_filter=self.settings["clipboard_sensitive_filter"]):
-                        clipboard_add(self.clipboard_items, value)
-                    if self.current_tab == "clipboard" and (len(self.clipboard_items) != before or self.clipboard_items):
-                        self._refresh_clipboard()
-            except (tk.TclError, RuntimeError):
-                pass
-
+        if ("clipboard" not in self.settings["visible_tabs"]
+                or self.settings["clipboard_paused"]):
+            return
+        # On Windows the sequence counter avoids decoding the same image every
+        # 600 ms; Linux GUI test mode retains the original text-only behavior.
+        sequence = clipboard_images.sequence_number()
+        if sequence is not None and sequence == self._clipboard_sequence:
+            return
+        try:
+            value = self.root.clipboard_get()
+        except (tk.TclError, RuntimeError):
+            value = None
+        is_text = isinstance(value, str) and bool(value.strip())
+        allowed_text = is_text and clipboard_policy.should_capture(
+            value, paused=self.settings["clipboard_paused"],
+            sensitive_filter=self.settings["clipboard_sensitive_filter"])
+        # If the clipboard includes a sensitive text format, do not also save
+        # its accompanying bitmap, even if the image format is available.
+        blocked_sensitive = (is_text and self.settings["clipboard_sensitive_filter"]
+                             and not clipboard_policy.should_capture(
+                                 value, sensitive_filter=True, max_length=10**9)
+                             and clipboard_policy.should_capture(
+                                 value, sensitive_filter=False, max_length=10**9))
+        image = None if blocked_sensitive else clipboard_images.read_image()
+        if image is not None:
+            if clipboard_images.add_image(self.clipboard_images, image):
+                if self.current_tab == "clipboard":
+                    clipboard_gallery.refresh_images(self, force=True)
+        elif allowed_text and value != self._clipboard_last:
+            self._clipboard_last = value
+            before = len(self.clipboard_items)
+            clipboard_add(self.clipboard_items, value)
+            if self.current_tab == "clipboard" and len(self.clipboard_items) != before:
+                self._refresh_clipboard()
+        self._clipboard_sequence = sequence
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
         self._clipboard_last = None
+        self._clipboard_sequence = None
         self.schedule_save()
         if self.current_tab == "clipboard":
             self.show_tab("clipboard")
@@ -1376,40 +1405,11 @@ class PocketDesk:
     def _set_clipboard_sensitive_filter(self, enabled):
         self.settings["clipboard_sensitive_filter"] = bool(enabled)
         self._clipboard_last = None
+        self._clipboard_sequence = None
         self.schedule_save()
 
     def _build_clipboard(self):
-        self._section_title(self.body, "Clipboard history", "Session-only text · Never saved to disk",
-                            "Clear all", self._clear_clipboard)
-        privacy_row = tk.Frame(self.body, bg=BG)
-        privacy_row.pack(fill="x", pady=(0, 9))
-        self.clipboard_pause_button = design.button(
-            privacy_row, "Resume capture" if self.settings["clipboard_paused"] else "Pause capture",
-            self._toggle_clipboard_pause, self.theme, compact=True)
-        self.clipboard_pause_button.pack(side="left")
-        tk.Label(privacy_row, text="Sensitive-text filter: " +
-                 ("On" if self.settings["clipboard_sensitive_filter"] else "Off"),
-                 bg=BG, fg=MUTED, font=(FONT, 8)).pack(side="right")
-        self.clipboard_query = tk.StringVar()
-        entry = self._entry(self.body, self.clipboard_query)
-        entry.pack(fill="x", ipady=9, pady=(0, 9))
-        self.clipboard_query.trace_add("write", lambda *_:self._refresh_clipboard())
-        self.clipboard_status = tk.Label(self.body, text="", bg=BG, fg=MUTED, font=(FONT, 9))
-        self.clipboard_status.pack(anchor="w")
-        frame = tk.Frame(self.body, bg=BG)
-        frame.pack(fill="both", expand=True, pady=8)
-        self.clipboard_list = tk.Listbox(frame, bg=PANEL, fg=WHITE, selectbackground=ACCENT_DARK,
-                                        font=(FONT, 10), bd=0, exportselection=False)
-        self.clipboard_list.pack(fill="both", expand=True)
-        self.clipboard_list.bind("<Double-1>", lambda _e:self._copy_clipboard_item())
-        actions = tk.Frame(self.body, bg=BG)
-        actions.pack(fill="x")
-        for title, callback in (("Copy selected", self._copy_clipboard_item),
-                                ("Pin / Unpin", self._pin_clipboard_item),
-                                ("Delete", self._delete_clipboard_item)):
-            action_label(actions, title, callback, fg=ACCENT, bg=PANEL,
-                         font_size=8, padx=8).pack(side="left", padx=(0, 5))
-        self._refresh_clipboard()
+        clipboard_gallery.build(self)
 
     def _refresh_clipboard(self):
         if not hasattr(self, "clipboard_list") or not self.clipboard_list.winfo_exists():
@@ -1450,8 +1450,11 @@ class PocketDesk:
             self._refresh_clipboard()
 
     def _clear_clipboard(self):
-        self.clipboard_items.clear()
-        self._refresh_clipboard()
+        if self.clipboard_page == "images":
+            clipboard_gallery.clear_images(self)
+        else:
+            self.clipboard_items.clear()
+            self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         """Shared presentation across Pocket tools; preserve original callbacks."""

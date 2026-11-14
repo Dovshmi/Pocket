@@ -430,6 +430,66 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     controls["sensitive_filter"].invoke()
                     check(app.settings["clipboard_sensitive_filter"] == original_filter,
                           "Dashboard sensitive-text toggle did not restore the preference")
+                if page == "links":
+                    import copy
+                    from types import SimpleNamespace
+                    from pocket import shortcut_folders as sf
+                    from pocket import shortcut_sections_ui as folders_ui
+                    old_layout = copy.deepcopy(app.data["shortcut_folders"])
+                    sample = app.data["links"][0]
+                    folder_id = sf.add_folder(app.data["shortcut_folders"],
+                                              "Network tools")
+                    # Put the folder first, within the Mini viewport.
+                    check(sf.move(app.data["shortcut_folders"],
+                                  sf.folder_key(folder_id),
+                                  sf.link_key(sample["id"]), "before"),
+                          f"{mode}: could not order new folder ahead of shortcuts")
+                    app.refresh_links()
+                    app.root.update()
+                    check(folder_id in app.shortcut_folder_headers,
+                          f"{mode}: shortcut folder header was not displayed")
+                    heading = app.shortcut_folder_headers[folder_id]
+                    sample_handle = app.shortcut_drag_handles[
+                        sf.link_key(sample["id"])]
+                    check(heading.winfo_height() < sample_handle.master.winfo_height(),
+                          f"{mode}: folder heading must be shorter than shortcut cards")
+                    check(folder_id not in [item.get("id") for item in app.data["links"]],
+                          f"{mode}: folders must not be treated as launchable links")
+                    # Simulate the same dedicated drag grip callbacks that the
+                    # real UI receives, from an unfiled card onto a folder heading.
+                    x = sample_handle.winfo_rootx() + sample_handle.winfo_width() // 2
+                    y = sample_handle.winfo_rooty() + sample_handle.winfo_height() // 2
+                    destination_x = heading.winfo_rootx() + heading.winfo_width() // 2
+                    destination_y = heading.winfo_rooty() + heading.winfo_height() // 2
+                    folders_ui.begin_drag(
+                        app, sf.link_key(sample["id"]),
+                        SimpleNamespace(x_root=x, y_root=y))
+                    folders_ui.drag_motion(
+                        app, SimpleNamespace(x_root=destination_x,
+                                             y_root=destination_y))
+                    folders_ui.finish_drag(
+                        app, SimpleNamespace(x_root=destination_x,
+                                             y_root=destination_y))
+                    app.root.update()
+                    check(sf.link_folder(app.data["shortcut_folders"],
+                                         sample["id"]) == folder_id,
+                          f"{mode}: mouse drag failed to move a shortcut into folder")
+                    check(sf.link_key(sample["id"]) in app.shortcut_drag_handles,
+                          f"{mode}: moved shortcut is not visible in open folder")
+                    check(sf.set_expanded(app.data["shortcut_folders"],
+                                          folder_id, False),
+                          f"{mode}: folder did not collapse")
+                    app.refresh_links()
+                    app.root.update()
+                    check(sf.link_key(sample["id"]) not in app.shortcut_drag_handles,
+                          f"{mode}: collapsed folder still renders its shortcut card")
+                    check(sf.delete_folder(app.data["shortcut_folders"], folder_id),
+                          f"{mode}: folder deletion was rejected")
+                    check(sf.link_key(sample["id"]) in app.data["shortcut_folders"]["root"],
+                          f"{mode}: deleting a folder must preserve its shortcut")
+                    app.data["shortcut_folders"] = old_layout
+                    app.refresh_links()
+                    app.root.update()
                 if page == "links" and mode == "dashboard":
                     check(app.dashboard_shortcut_columns >= 2,
                           "Dashboard Shortcuts should display multiple columns")

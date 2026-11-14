@@ -64,6 +64,8 @@ import webbrowser
 from urllib.parse import urlsplit
 from pocket import shortcut_utils as shortcuts
 from pocket import shortcut_drop
+from pocket import shortcut_folders
+from pocket import shortcut_sections_ui as sections_ui
 import tkinter as tk
 from tkinter import messagebox, filedialog, ttk
 
@@ -169,6 +171,7 @@ def default_data() -> dict:
             new_link("YouTube", "https://www.youtube.com"),
             new_link("Gmail", "https://mail.google.com"),
         ],
+        "shortcut_folders": {"folders": [], "root": [], "children": {}},
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
         "extra_mini_page": 0,
@@ -277,6 +280,8 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 ("split", subnet_pref.get("split"), "/26"))
         }
         return {"notes": notes, "active_note": active_id, "links": links,
+                "shortcut_folders": shortcut_folders.normalize(
+                    data.get("shortcut_folders"), links),
                 "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
                      normalize_settings(data.get("settings"))["extra_mini_tiles"]),
                 "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
@@ -339,6 +344,9 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        # Migrate old flat shortcuts without touching their saved IDs/targets.
+        self.data["shortcut_folders"] = shortcut_folders.normalize(
+            self.data.get("shortcut_folders"), self.data["links"])
         self._save_failure_reported = False
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
@@ -2356,8 +2364,14 @@ class PocketDesk:
         search.config(font=(FONT, 9))
         search.pack(side="left", fill="x", expand=True, ipady=5)
         self.link_query.trace_add("write", lambda *_: self.refresh_links())
-        tk.Label(search_row, text="Search shortcuts", fg=MUTED, bg=BG,
-                 font=(FONT, 8)).pack(side="right", padx=(8, 0))
+        action_label(
+            search_row, "+ Folder", lambda: sections_ui.prompt_folder(self),
+            fg=ACCENT, bg=PANEL, hover=CARD, padx=6, pady=4,
+            font_size=8).pack(side="right", padx=(8, 0))
+        tk.Label(
+            self.body, text="Drag ⋮⋮ handles to reorder · Drop on a folder title to file",
+            bg=BG, fg=MUTED, font=(FONT, 8), anchor="w",
+        ).pack(fill="x", pady=(0, 5))
         self.form_holder = tk.Frame(self.body, bg=BG)
         # Explicit drop area: nothing is saved until the user confirms the form.
         self.drop_panel = tk.Frame(self.body, bg=PANEL, highlightbackground=ACCENT_DARK,
@@ -2456,46 +2470,81 @@ class PocketDesk:
             return
         if self.display_mode == "dashboard":
             return dashboard_shortcuts.refresh(self)
+        layout = shortcut_folders.normalize(
+            self.data.get("shortcut_folders"), self.data["links"])
+        self.data["shortcut_folders"] = layout
+        sections_ui.reset_targets(self)
         for child in self.links_stack.winfo_children():
             child.destroy()
-        matches = hk.filter_shortcuts(self.data["links"], self.link_query.get())
-        if not matches:
-            tk.Label(self.links_stack, text=("No matching shortcuts." if self.data["links"] else "No shortcuts yet. Add a website, file or folder above."),
-                     fg=SECONDARY, bg=BG, font=(FONT, 10), wraplength=360).pack(pady=25)
-        for link in matches:
-            self._link_tile(link)
+        rows = shortcut_folders.visible_rows(
+            layout, self.data["links"], query=self.link_query.get())
+        if layout["folders"]:
+            sections_ui.unfiled_drop_zone(self, self.links_stack)
+        if not rows:
+            tk.Label(
+                self.links_stack,
+                text=("No matching shortcuts." if self.data["links"]
+                      else "No shortcuts yet. Add a website, file or folder above."),
+                fg=SECONDARY, bg=BG, font=(FONT, 10),
+                wraplength=260 if self.display_mode == "mini" else 360
+            ).pack(pady=25)
+        for row in rows:
+            if row["type"] == "link":
+                self._link_tile(row["link"])
+                continue
+            folder = row["folder"]
+            sections_ui.folder_header(
+                self, self.links_stack, folder, row["total"],
+                expanded=row["expanded"])
+            if row["expanded"]:
+                container = tk.Frame(self.links_stack, bg=BG)
+                container.pack(fill="x", padx=(10, 2), pady=(0, 3))
+                for link in row["links"]:
+                    self._link_tile(link, parent=container)
 
-    def _link_tile(self, link):
-        tile = tk.Frame(self.links_stack, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+    def _link_tile(self, link, *, parent=None):
+        tile = tk.Frame(parent if parent is not None else self.links_stack,
+                        bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
         tile.pack(fill="x", pady=(0, 5 if self.display_mode in ("mini", "normal") else 10),
                   padx=(1, 2 if self.display_mode in ("mini", "normal") else 6),
                   ipady=2 if self.display_mode in ("mini", "normal") else 6)
         kind = link.get("kind", "url")
-        badge_text = {"url": "↗", "file": "▤", "folder": "▣"}.get(kind, "↗")
-        tk.Label(tile, text=badge_text, bg=ACCENT_DARK, fg=ACCENT,
-                 font=(FONT, 12 if self.display_mode in ("mini", "normal") else 17, "bold"),
-                 width=2 if self.display_mode in ("mini", "normal") else 3,
-                 height=2).pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal") else (12, 10))
+        grip = tk.Label(
+            tile, text="⋮⋮", bg=ACCENT_DARK, fg=ACCENT,
+            font=(FONT, 11, "bold"), width=2, height=2, cursor="fleur")
+        grip.pack(side="left", padx=(6, 4) if self.display_mode in ("mini", "normal")
+                  else (12, 10))
+        sections_ui.register_target(self, tile, ("link", link["id"]))
+        sections_ui.setup_grip(
+            self, grip, shortcut_folders.link_key(link["id"]))
         desc = tk.Frame(tile, bg=PANEL)
         desc.pack(side="left", fill="both", expand=True)
         title = tk.Label(desc, text=link["title"], anchor="w", fg=WHITE, bg=PANEL,
-                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11, "bold"), cursor="hand2")
+                         font=(FONT, 9 if self.display_mode in ("mini", "normal") else 11,
+                               "bold"), cursor="hand2")
         title.pack(fill="x", pady=(3, 2))
         target = link["url"]
         summary = urlsplit(target).netloc if kind == "url" else target
-        tk.Label(desc, text=f"{kind.upper()}  •  {summary[:16 if self.display_mode == 'mini' else 28]}", anchor="w", fg=MUTED, bg=PANEL,
-                 font=(FONT, 8)).pack(fill="x")
+        tk.Label(
+            desc, text=f"{kind.upper()}  •  "
+                       f"{summary[:16 if self.display_mode == 'mini' else 28]}",
+            anchor="w", fg=MUTED, bg=PANEL, font=(FONT, 8)
+        ).pack(fill="x")
         title.bind("<Button-1>", lambda _e, item=link: self.open_shortcut(item))
         self._register_shortcut_drop(tile)
         self._register_shortcut_drop(title)
         actions = tk.Frame(tile, bg=PANEL)
         actions.pack(side="right", padx=(0, 2) if self.display_mode == "mini" else (0, 8))
         action_label(actions, "↗", lambda item=link: self.open_shortcut(item),
-                     fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=15).pack(side="left")
+                     fg=ACCENT, bg=PANEL, hover=CARD, padx=7, pady=5,
+                     font_size=15).pack(side="left")
         action_label(actions, "⧉", lambda item=link: self._copy_shortcut(item),
-                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5, font_size=13).pack(side="left")
+                     fg=SECONDARY, bg=PANEL, hover=CARD, padx=6, pady=5,
+                     font_size=13).pack(side="left")
         action_label(actions, "···", lambda item=link: self._show_link_menu(item),
-                     fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5, font_size=12).pack(side="left")
+                     fg=MUTED, bg=PANEL, hover=CARD, padx=7, pady=5,
+                     font_size=12).pack(side="left")
+        return tile
 
     def _show_link_menu(self, item):
         kind = item.get("kind", "url")
@@ -2504,6 +2553,19 @@ class PocketDesk:
         menu.add_command(label="Edit shortcut", command=lambda: self._toggle_link_form(item))
         menu.add_command(label="Copy URL" if kind == "url" else "Copy path",
                          command=lambda: self._copy_url(item["url"]))
+        menu.add_separator()
+        if self.data["shortcut_folders"]["folders"]:
+            menu.add_cascade(
+                label="Move to Pocket folder",
+                menu=sections_ui.link_move_menu(self, menu, item))
+        menu.add_command(
+            label="Move shortcut up",
+            command=lambda: sections_ui.move_step(
+                self, shortcut_folders.link_key(item["id"]), -1))
+        menu.add_command(
+            label="Move shortcut down",
+            command=lambda: sections_ui.move_step(
+                self, shortcut_folders.link_key(item["id"]), 1))
         menu.add_separator()
         menu.add_command(label="Delete shortcut", command=lambda: self._delete_link(item))
         x, y = self.root.winfo_pointerxy()
@@ -2522,6 +2584,7 @@ class PocketDesk:
 
     def _delete_link(self, item):
         self.data["links"] = [l for l in self.data["links"] if l["id"] != item["id"]]
+        shortcut_folders.remove_link(self.data["shortcut_folders"], item["id"])
         self.refresh_links()
         self.schedule_save()
 
@@ -2633,7 +2696,9 @@ class PocketDesk:
                 edited = True
                 break
         if not edited:
-            self.data["links"].insert(0, new_link(title, target, kind))
+            new_item = new_link(title, target, kind)
+            self.data["links"].insert(0, new_item)
+            shortcut_folders.add_link(self.data["shortcut_folders"], new_item["id"])
         self._close_form()
         self.refresh_links()
         self.schedule_save()

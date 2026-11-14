@@ -62,6 +62,20 @@ class ClipboardImagesTests(unittest.TestCase):
         self.assertEqual(clipboard_gallery.columns_for_width(840), 4)
         self.assertEqual(clipboard_gallery.columns_for_width(2000), 5)
 
+    @unittest.skipUnless(sys.platform == "win32", "requires Windows clipboard")
+    def test_real_windows_bitmap_copy_round_trip(self):
+        # Verify the native CF_DIB writer is actually pasteable.
+        from PIL import ImageGrab
+        history = []
+        original = Image.new("RGB", (6, 4), (17, 121, 231))
+        self.assertTrue(clipboard_images.add_image(history, original))
+        clipboard_images.copy_image(history[0]["data"])
+        pasted = ImageGrab.grabclipboard()
+        self.assertIsInstance(pasted, Image.Image)
+        self.assertEqual(pasted.size, (6, 4))
+        self.assertEqual(pasted.convert("RGB").getpixel((2, 1)),
+                         (17, 121, 231))
+
     def test_non_windows_clipboard_is_guarded(self):
         with patch.object(sys, "platform", "linux"):
             self.assertIsNone(clipboard_images.sequence_number())

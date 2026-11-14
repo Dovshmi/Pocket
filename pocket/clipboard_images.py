@@ -16,7 +16,7 @@ import uuid
 from PIL import Image, ImageGrab
 
 MAX_IMAGES = 20
-IMAGE_LIMIT_CHOICES = (10, 20, 50, 100)
+IMAGE_LIMIT_CHOICES = (10, 15, 20, 25, 30)
 MAX_PIXELS = 16_000_000
 MAX_PNG_BYTES = 12 * 1024 * 1024
 

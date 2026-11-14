@@ -117,6 +117,38 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
                 if page == "notes":
+                    # Windows RichEdit is an HWND distinct from Tk's Entry
+                    # controls. Explicitly exercise the reported Mini failure:
+                    # click Title / Phone after typing in the note body.
+                    if sys.platform == "win32" and app.bidi_editor is not None:
+                        app.root.focus_force()
+                        app.root.update()
+                        for field, title in ((app.phone_entry, "Phone"),
+                                             (app.title_entry, "Title")):
+                            app.bidi_editor.focus_set()
+                            app.root.update()
+                            field.event_generate("<ButtonPress-1>", x=6, y=6)
+                            app.root.update()
+                            check(app.root.focus_get() is field,
+                                  f"{mode}: click did not move Tk focus to {title}")
+                            check(not app.bidi_editor.has_focus(),
+                                  f"{mode}: RichEdit still owns typing after {title} click")
+                        # A native popup may be dismissed without <Unmap>;
+                        # the next field click must clear its stale modal flag.
+                        stale = app._build_note_context_menu()
+                        app._note_context_menu = stale
+                        app._note_context_menu_was_modal = False
+                        app._modal = True
+                        app.bidi_editor.focus_set()
+                        app.phone_entry.event_generate("<ButtonPress-1>",
+                                                       x=6, y=6)
+                        app.root.update()
+                        check(not app._modal and app._note_context_menu is None,
+                              f"{mode}: dismissed Notes popup trapped modal state")
+                        check(app.root.focus_get() is app.phone_entry and
+                              not app.bidi_editor.has_focus(),
+                              f"{mode}: Phone remains trapped after popup dismiss")
+                        stale.destroy()
                     # Compact native submenus explain editor actions and
                     # which Pocket tools require a selected text fragment.
                     from unittest.mock import patch

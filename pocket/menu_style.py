@@ -1,7 +1,7 @@
 """Lightweight native Pocket menus with unmistakable disabled actions.
 
-Only the font of disabled entries changes; their Tk state, accelerator,
-keyboard handling and command callbacks remain native and unchanged.
+Disabled entries use the same readable foreground as enabled entries, but with
+an overstrike; their Tk state, accelerator and command callbacks remain unchanged.
 The style is applied to submenus as well as to top-level context menus.
 """
 from __future__ import annotations
@@ -15,6 +15,10 @@ class Menu(tk.Menu):
 
     def __init__(self, master=None, cnf=None, **kwargs):
         super().__init__(master, cnf or {}, **kwargs)
+        # Keep inaccessible actions recognizable instead of fading them out:
+        # native Tk uses disabledforeground for their label/accelerator color.
+        # The overstrike, plus state=disabled, communicates unavailability.
+        super().configure(disabledforeground=self.cget("foreground"))
         self._pocket_disabled_font = None
         self._pocket_original_fonts = {}
 

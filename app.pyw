@@ -879,8 +879,8 @@ class PocketDesk:
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(9, 0), anchor="n", pady=(5, 0))
         if self.settings["extra_mini_enabled"]:
-            action_label(header, "▾", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=9, pady=7, font_size=11).pack(
+            action_label(header, "_", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=10).pack(
                          side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
@@ -1126,11 +1126,12 @@ class PocketDesk:
         name = tk.Label(header, text="Pocket", bg=BG, fg=WHITE, font=(FONT, 14, "bold"),
                         cursor="fleur")
         name.pack(side="left", fill="y")
-        # Place the tiny credit over unused space below Pocket. The original
-        # 46px header, logo, title and right-side controls do not shift.
+        # Start the credit directly below the final "t" of Pocket while
+        # preserving its current baseline. Anchoring to the title's right
+        # edge is DPI- and font-safe; no header widget is repacked.
         credit = tk.Label(header, text=app_info.AUTHOR_CREDIT, bg=BG,
                           fg=MUTED, font=(FONT, 6), cursor="fleur")
-        credit.place(in_=name, x=0, rely=1.0, y=-1, anchor="sw")
+        credit.place(in_=name, relx=1.0, rely=1.0, y=-1, anchor="sw")
         self.header_credit = credit
         self.shortcut_hint = tk.Label(header, text=self._hotkey_hint(), bg=BG, fg=MUTED,
                                       font=(FONT, 7), cursor="hand2")
@@ -1145,8 +1146,8 @@ class PocketDesk:
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(9, 0), pady=(2, 0))
         if self.settings["extra_mini_enabled"]:
-            action_label(header, "▾ Extra Mini", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=8).pack(side="right", padx=(0, 4))
+            action_label(header, "_", self._return_to_compact, fg=ACCENT,
+                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=10).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
         # Eight compact icon tabs fit across the 346px mini window. Every

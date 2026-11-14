@@ -184,7 +184,8 @@ def default_data() -> dict:
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
                      "display_mode": "normal", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
-                     "clipboard_paused": False, "clipboard_sensitive_filter": True},
+                     "clipboard_paused": False, "clipboard_sensitive_filter": True,
+                     "clipboard_image_limit": clipboard_images.MAX_IMAGES},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -215,7 +216,9 @@ def normalize_settings(raw):
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
-            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False}
+            "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
+            "clipboard_image_limit": clipboard_images.normalize_limit(
+                raw.get("clipboard_image_limit"))}
 
 
 def sanitize_clipboard(value):
@@ -359,7 +362,7 @@ class PocketDesk:
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
         self.clipboard_items = []  # Session-only text, never written to disk.
-        self.clipboard_images = []  # Up to 20 PNG screenshots, RAM only.
+        self.clipboard_images = []  # Session-only PNG images, configurable count.
         self.clipboard_page = "text"
         self._clipboard_selected_image_id = None
         self._clipboard_sequence = None
@@ -1421,7 +1424,9 @@ class PocketDesk:
                                  value, sensitive_filter=False, max_length=10**9))
         image = None if blocked_sensitive else clipboard_images.read_image()
         if image is not None:
-            if clipboard_images.add_image(self.clipboard_images, image):
+            if clipboard_images.add_image(
+                    self.clipboard_images, image,
+                    maximum=self.settings["clipboard_image_limit"]):
                 if self.current_tab == "clipboard":
                     clipboard_gallery.refresh_images(self, force=True)
         elif allowed_text and value != self._clipboard_last:
@@ -1448,6 +1453,23 @@ class PocketDesk:
         self._clipboard_last = None
         self._clipboard_sequence = None
         self.schedule_save()
+
+    def _set_clipboard_image_limit(self, value):
+        """Apply image count immediately, trimming oldest RAM entries if reduced."""
+        limit = clipboard_images.normalize_limit(value)
+        if self.settings["clipboard_image_limit"] == limit:
+            return
+        self.settings["clipboard_image_limit"] = limit
+        del self.clipboard_images[limit:]
+        if (self._clipboard_selected_image_id is not None and
+                not any(item["id"] == self._clipboard_selected_image_id
+                        for item in self.clipboard_images)):
+            self._clipboard_selected_image_id = (
+                self.clipboard_images[0]["id"] if self.clipboard_images else None)
+        self.schedule_save()
+        if (self.current_tab == "clipboard" and
+                getattr(self, "clipboard_page", None) == "images"):
+            clipboard_gallery.refresh_images(self, force=True)
 
     def _build_clipboard(self):
         clipboard_gallery.build(self)

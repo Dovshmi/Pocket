@@ -6,6 +6,7 @@ All enabled tools remain available, even when the toolbar cannot fit them.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 
 from . import pocket_design as design
 from . import tool_icons
@@ -115,7 +116,7 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
             if hidden:
                 def open_more():
                     anchor = buttons["more"]
-                    menu = tk.Menu(app.root, tearoff=False, bg=panel, fg=white,
+                    menu = menu_style.Menu(app.root, tearoff=False, bg=panel, fg=white,
                                    activebackground=accent_dark,
                                    activeforeground=white, bd=1, relief="flat")
                     menu.images = []

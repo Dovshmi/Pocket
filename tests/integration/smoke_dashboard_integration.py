@@ -288,6 +288,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(app.root.clipboard_get() == "שלום",
                           f"{mode}: context keyboard layout must copy corrected text")
                     converted_menu.destroy()
+                    # Conversion legitimately prepends corrected text to the
+                    # session history and refreshes the list selection.
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.selection_set(0)
+                    expected_text = app._clipboard_filtered[0]["text"]
                     text_copy_buttons = [w for w in widgets(app.clipboard_text_page)
                                          if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
                     check(len(text_copy_buttons) == 1,

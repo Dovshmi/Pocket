@@ -853,7 +853,9 @@ class PocketDesk:
         icon.bind("<Button-3>", self._show_theme_menu)
         icon.pack(side="left", padx=(0, 9))
         labels = tk.Frame(header, bg=BG, cursor="fleur")
-        labels.pack(side="left", fill="y", expand=True)
+        # The title must sit immediately beside the logo. Expand=True
+        # inserts spare space before this label frame in Normal mode.
+        labels.pack(side="left", fill="y")
         app_title = tk.Label(labels, text="Pocket", font=(FONT, 16, "bold"), fg=WHITE,
                              bg=BG, anchor="w", cursor="fleur")
         app_title.pack(anchor="w", pady=(2, 0))
@@ -879,8 +881,10 @@ class PocketDesk:
                                        padx=10, pady=7, font_size=8)
         self.pin_button.pack(side="right", padx=(9, 0), anchor="n", pady=(5, 0))
         if self.settings["extra_mini_enabled"]:
+            # Match the PIN button's font and vertical padding exactly so
+            # the underscore control is equally high, not a taller tile.
             action_label(header, "_", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=10).pack(
+                         bg=PANEL, hover=CARD, padx=7, pady=7, font_size=8).pack(
                          side="right", padx=(5, 0), anchor="n", pady=(5, 0))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=8, pady=2, font_size=17).pack(side="right", anchor="n", pady=(4, 0))
@@ -1146,8 +1150,9 @@ class PocketDesk:
                                        bg=PANEL, padx=7, pady=5, font_size=7)
         self.pin_button.pack(side="right", padx=(9, 0), pady=(2, 0))
         if self.settings["extra_mini_enabled"]:
+            # Match Mini PIN's 7pt font and 5px vertical padding.
             action_label(header, "_", self._return_to_compact, fg=ACCENT,
-                         bg=PANEL, hover=CARD, padx=5, pady=5, font_size=10).pack(side="right", padx=(0, 4))
+                         bg=PANEL, hover=CARD, padx=7, pady=5, font_size=7).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
         # Eight compact icon tabs fit across the 346px mini window. Every
@@ -3213,9 +3218,10 @@ class PocketDesk:
         results_panel = tk.Frame(command_panes, bg=BG)
         details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
                            highlightthickness=1)
-        # Four data rows + column header need roughly 140px at the current
-        # tree style; reserve that even when the outer page scrolls.
-        command_panes.add(results_panel, minsize=150, stretch="always")
+        # Reserve enough physical height for the column heading and at least
+        # four *fully visible* command rows on high-DPI Windows screens.
+        # The previous 150px pane clipped the fourth row even with rows=4.
+        command_panes.add(results_panel, minsize=215, stretch="always")
         command_panes.add(details, minsize=195, stretch="never")
         self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
@@ -3261,8 +3267,9 @@ class PocketDesk:
         # Command first (left), description second (right); align Hebrew purposes to the right.
         self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
                                        (540, 335) if self.display_mode == "dashboard" else (230, 185),
-                                       rows=4, aligns=('w', 'e'))
-        # The pane's requested height guarantees four full result rows; the
+                                       rows=5, aligns=('w', 'e'))
+        # Five requested rows with a 215px result pane make at least four
+        # fully visible at normal Windows DPI. The
         # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())

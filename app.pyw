@@ -93,6 +93,7 @@ from pocket import compact_dashboard as compact
 from pocket import launcher_pages as lp
 from pocket import settings_ui
 from pocket import pocket_design as design
+from pocket import menu_style
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
@@ -562,7 +563,7 @@ class PocketDesk:
         self._write_now()
 
     def _show_theme_menu(self, event=None):
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         for key in themes.THEME_ORDER:
             menu.add_command(label=("● " if key == self.theme else "    ") + themes.THEMES[key]["name"],
@@ -1180,7 +1181,7 @@ class PocketDesk:
         self._place_popup(self._last_tray_xy)
 
     def _show_more_menu(self):
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         for key, label in VISIBLE_TABS:
             if key in self.settings["visible_tabs"] and key not in self.tab_buttons:
@@ -1968,7 +1969,7 @@ class PocketDesk:
 
     def _build_note_list_menu(self, note_id: str):
         note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE,
                        bd=1, relief="flat", font=(FONT, 9))
         if note:
@@ -2238,7 +2239,7 @@ class PocketDesk:
             tearoff=False, bg=PANEL, fg=WHITE, disabledforeground=MUTED,
             activebackground=ACCENT_DARK, activeforeground=WHITE,
             bd=1, relief="flat", font=(FONT, 9))
-        menu = tk.Menu(self.root, **menu_colors)
+        menu = menu_style.Menu(self.root, **menu_colors)
 
         def invoke(action):
             try:
@@ -2275,7 +2276,7 @@ class PocketDesk:
             command=lambda: invoke(self._select_all_note_text))
 
         menu.add_separator()
-        direction = tk.Menu(menu, **menu_colors)
+        direction = menu_style.Menu(menu, **menu_colors)
         direction.add_radiobutton(
             label="Right to Left (עברית)", variable=self.note_direction_var,
             value="rtl", command=lambda: invoke(lambda: self._set_note_direction("rtl")))
@@ -2284,7 +2285,7 @@ class PocketDesk:
             value="ltr", command=lambda: invoke(lambda: self._set_note_direction("ltr")))
         menu.add_cascade(label="Text direction", menu=direction)
 
-        note_actions = tk.Menu(menu, **menu_colors)
+        note_actions = menu_style.Menu(menu, **menu_colors)
         note_actions.add_command(
             label="Copy entire note", command=lambda: invoke(self._copy_entire_note))
         note_actions.add_command(
@@ -2294,7 +2295,7 @@ class PocketDesk:
         menu.add_cascade(label="Note actions", menu=note_actions)
 
         menu.add_separator()
-        selection_actions = tk.Menu(menu, **menu_colors)
+        selection_actions = menu_style.Menu(menu, **menu_colors)
         if valid_ip and "ports" in self.settings["visible_tabs"]:
             selection_actions.add_command(
                 label=f"Prepare port check for {valid_ip}",
@@ -2718,7 +2719,7 @@ class PocketDesk:
 
     def _show_link_menu(self, item):
         kind = item.get("kind", "url")
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         menu.add_command(label="Edit shortcut", command=lambda: self._toggle_link_form(item))
         menu.add_command(label="Copy URL" if kind == "url" else "Copy path",
@@ -3181,7 +3182,7 @@ class PocketDesk:
         self._refresh_command_results()
 
     def _show_command_backup_menu(self):
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         menu.add_command(label="Create new backup", command=self._create_command_backup)
         menu.add_command(label="Use existing backup", command=self._restore_command_backup)
@@ -4110,7 +4111,7 @@ class PocketDesk:
 
     def _show_ieee_downloads(self):
         """Explicit browser downloads when IEEE blocks Python HTTP requests."""
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+        menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
         for registry, url, _ in net.IEEE_LISTS:
             menu.add_command(label=f"Download {registry} official CSV",
@@ -4527,7 +4528,7 @@ class PocketDesk:
 
     def _show_header_menu(self, event):
         if self._header_context_menu is None:
-            self._header_context_menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
+            self._header_context_menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                                                 activebackground=ACCENT_DARK, activeforeground=WHITE,
                                                 bd=1, relief="flat")
             self._header_context_menu.add_command(label="Reset window position",

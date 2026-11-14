@@ -641,9 +641,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     folder_id = sf.add_folder(app.data["shortcut_folders"],
                                               "Network tools")
                     # Put the folder first, within the Mini viewport.
+                    # The factory shortcuts are now *inside* Ushpelo, so use
+                    # its root-row folder key instead of a nested link.
+                    first_row = app.data["shortcut_folders"]["root"][0]
                     check(sf.move(app.data["shortcut_folders"],
                                   sf.folder_key(folder_id),
-                                  sf.link_key(sample["id"]), "before"),
+                                  first_row, "before"),
                           f"{mode}: could not order new folder ahead of shortcuts")
                     app.refresh_links()
                     app.root.update()

@@ -97,7 +97,21 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               app.data["tools"]["ports_input"] == "21,22,443,80,8080,3389,53",
               "Factory TCP presets were not applied")
         check(not app.scanning, "Fresh profile must not initiate a TCP scan")
-        print("PASS: Mini startup, Ushpelo links and TCP defaults")
+        # Verify that user navigation persists a preferred tool to the saved
+        # profile, not just to this in-memory preview window.
+        app.show_tab("ports")
+        app.root.update()
+        app._write_now()
+        check(appmod["load_data"](app.path)["last_tab"] == "ports",
+              "Active Ports tool was not persisted across restart")
+        app.show_tab("links")
+        app.root.update()
+        app._write_now()
+        check(appmod["load_data"](app.path)["last_tab"] == "links",
+              "Active Shortcuts tool was not persisted across restart")
+        app.show_tab("notes")
+        app.root.update()
+        print("PASS: Mini startup, Ushpelo links, TCP defaults and last-tab restore")
 
         from tkinter import ttk
         from pocket.icon_themes import palette

@@ -2122,48 +2122,92 @@ class PocketDesk:
         self.command_search_entry.icursor(tk.END)
 
     def _build_note_context_menu(self):
-        """Build menu from the current selection; also used by UI regression tests."""
+        """Short, grouped editor actions and explicit selection-only tools.
+
+        Keep existing RichEdit direction/selection callbacks intact. Cascades
+        distinguish editing, note-wide operations and actions that require a
+        highlighted selection, instead of one long ambiguous flat list.
+        """
         selected = self._selected_note_text()
         valid_ip = note_selection_ip(selected)
         lookup = note_command_query(selected)
-        menu = tk.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
-                       activebackground=ACCENT_DARK, activeforeground=WHITE,
-                       bd=1, relief="flat", font=(FONT, 9))
-        for title, key, action in (
-            ("Undo", "Ctrl+Z", lambda: self._note_edit_action("undo")),
-            ("Redo", "Ctrl+Y", lambda: self._note_edit_action("redo")),
-        ):
-            menu.add_command(label=f"{title}     {key}", command=action)
+        menu_colors = dict(
+            tearoff=False, bg=PANEL, fg=WHITE, disabledforeground=MUTED,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat", font=(FONT, 9))
+        menu = tk.Menu(self.root, **menu_colors)
+
+        def invoke(action):
+            try:
+                action()
+            finally:
+                self._finish_note_context_menu_action()
+
+        menu.add_command(
+            label="Undo", accelerator="Ctrl+Z",
+            command=lambda: invoke(lambda: self._note_edit_action("undo")))
+        menu.add_command(
+            label="Redo", accelerator="Ctrl+Y",
+            command=lambda: invoke(lambda: self._note_edit_action("redo")))
         menu.add_separator()
-        menu.add_command(label="Cut     Ctrl+X", state="normal" if selected else "disabled",
-                         command=lambda: self._note_edit_action("cut"))
-        menu.add_command(label="Copy     Ctrl+C", state="normal" if selected else "disabled",
-                         command=lambda: self._note_edit_action("copy"))
+        menu.add_command(
+            label="Cut selected text", accelerator="Ctrl+X",
+            state="normal" if selected else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("cut")))
+        menu.add_command(
+            label="Copy selected text", accelerator="Ctrl+C",
+            state="normal" if selected else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("copy")))
         try:
             self.root.clipboard_get()
             paste_ready = True
         except tk.TclError:
             paste_ready = False
-        menu.add_command(label="Paste     Ctrl+V", state="normal" if paste_ready else "disabled",
-                         command=lambda: self._note_edit_action("paste"))
-        menu.add_command(label="Select all     Ctrl+A", command=self._select_all_note_text)
+        menu.add_command(
+            label="Paste text", accelerator="Ctrl+V",
+            state="normal" if paste_ready else "disabled",
+            command=lambda: invoke(lambda: self._note_edit_action("paste")))
+        menu.add_command(
+            label="Select all text", accelerator="Ctrl+A",
+            command=lambda: invoke(self._select_all_note_text))
+
         menu.add_separator()
-        menu.add_radiobutton(label="Right to Left (עברית)", variable=self.note_direction_var,
-                             value="rtl", command=lambda: self._set_note_direction("rtl"))
-        menu.add_radiobutton(label="Left to Right (English)", variable=self.note_direction_var,
-                             value="ltr", command=lambda: self._set_note_direction("ltr"))
+        direction = tk.Menu(menu, **menu_colors)
+        direction.add_radiobutton(
+            label="Right to Left (עברית)", variable=self.note_direction_var,
+            value="rtl", command=lambda: invoke(lambda: self._set_note_direction("rtl")))
+        direction.add_radiobutton(
+            label="Left to Right (English)", variable=self.note_direction_var,
+            value="ltr", command=lambda: invoke(lambda: self._set_note_direction("ltr")))
+        menu.add_cascade(label="Text direction", menu=direction)
+
+        note_actions = tk.Menu(menu, **menu_colors)
+        note_actions.add_command(
+            label="Copy entire note", command=lambda: invoke(self._copy_entire_note))
+        note_actions.add_command(
+            label="Insert date and time", command=lambda: invoke(self._insert_note_timestamp))
+        note_actions.add_command(
+            label="Open note in Notepad", command=lambda: invoke(self.open_notepad))
+        menu.add_cascade(label="Note actions", menu=note_actions)
+
         menu.add_separator()
-        menu.add_command(label="Copy entire note", command=self._copy_entire_note)
-        menu.add_command(label="Insert date & time", command=self._insert_note_timestamp)
-        menu.add_command(label="Open in Notepad", command=self.open_notepad)
-        if valid_ip or lookup:
-            menu.add_separator()
-        if valid_ip:
-            menu.add_command(label=f"Check selected IP  ({valid_ip})",
-                             command=lambda target=valid_ip: self._check_selected_note_ip(target))
-        if lookup:
-            menu.add_command(label="Find selection in Commands",
-                             command=lambda text=lookup: self._find_selected_note_command(text))
+        selection_actions = tk.Menu(menu, **menu_colors)
+        if valid_ip and "ports" in self.settings["visible_tabs"]:
+            selection_actions.add_command(
+                label=f"Prepare port check for {valid_ip}",
+                command=lambda target=valid_ip: invoke(
+                    lambda: self._check_selected_note_ip(target)))
+        if lookup and "commands" in self.settings["visible_tabs"]:
+            selection_actions.add_command(
+                label="Find selected text in Commands",
+                command=lambda value=lookup: invoke(
+                    lambda: self._find_selected_note_command(value)))
+        if selection_actions.index("end") is not None:
+            menu.add_cascade(label="Use selected text in Pocket", menu=selection_actions)
+        else:
+            selection_actions.destroy()
+            menu.add_command(
+                label="Select text to use Pocket tools", state="disabled")
         return menu
 
     def _release_note_context_menu(self, menu):

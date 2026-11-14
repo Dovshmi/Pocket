@@ -107,6 +107,36 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "notes":
+                    # Compact native submenus explain editor actions and
+                    # which Pocket tools require a selected text fragment.
+                    from unittest.mock import patch
+                    with patch.object(app, "_selected_note_text", return_value="8.8.8.8"):
+                        note_menu = app._build_note_context_menu()
+                    labels = [note_menu.entrycget(i, "label")
+                              for i in range(note_menu.index("end") + 1)]
+                    check("Text direction" in labels and "Note actions" in labels,
+                          f"{mode}: Notes right-click lacks clear action groups")
+                    check("Use selected text in Pocket" in labels,
+                          f"{mode}: selected text tool group is missing")
+                    edit_index = labels.index("Copy selected text")
+                    check(note_menu.entrycget(edit_index, "state") == "normal",
+                          f"{mode}: Copy selected text must be enabled")
+                    submenu_path = note_menu.entrycget(
+                        labels.index("Use selected text in Pocket"), "menu")
+                    pocket_menu = app.root.nametowidget(submenu_path)
+                    choices = [pocket_menu.entrycget(i, "label")
+                               for i in range(pocket_menu.index("end") + 1)]
+                    check(any("port check" in text for text in choices),
+                          f"{mode}: selected IP action missing from Notes")
+                    note_menu.destroy()
+                    with patch.object(app, "_selected_note_text", return_value=""):
+                        no_selection = app._build_note_context_menu()
+                    empty_labels = [no_selection.entrycget(i, "label")
+                                    for i in range(no_selection.index("end") + 1)]
+                    check("Select text to use Pocket tools" in empty_labels,
+                          f"{mode}: Notes must explain why selection tools are unavailable")
+                    no_selection.destroy()
                 if page == "clipboard":
                     from PIL import Image
                     from pocket import clipboard_images
@@ -224,6 +254,26 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.clipboard_list.selection_clear(0, tk.END)
                     app.clipboard_list.selection_set(0)
                     expected_text = app._clipboard_filtered[0]["text"]
+                    menu_colors = clipboard_gallery.themes.palette(app.theme)
+                    sample_menu = clipboard_gallery.build_text_context_menu(
+                        app, menu_colors, {"text": "8.8.8.8", "pinned": False})
+                    main_labels = [sample_menu.entrycget(i, "label")
+                                   for i in range(sample_menu.index("end") + 1)]
+                    check("Copy full text" in main_labels and
+                          "Use text in Pocket" in main_labels,
+                          f"{mode}: Clipboard right-click groups missing")
+                    tool_path = sample_menu.entrycget(
+                        main_labels.index("Use text in Pocket"), "menu")
+                    tool_menu = app.root.nametowidget(tool_path)
+                    tool_labels = [tool_menu.entrycget(i, "label")
+                                   for i in range(tool_menu.index("end") + 1)]
+                    check("Prepare TCP port check" in tool_labels and
+                          "Open Subnet Calculator" in tool_labels and
+                          "Create a new Note from text" in tool_labels,
+                          f"{mode}: Clipboard context tool actions missing")
+                    check("Open MAC lookup with address" not in tool_labels,
+                          f"{mode}: irrelevant MAC action should be hidden for IP")
+                    sample_menu.destroy()
                     text_copy_buttons = [w for w in widgets(app.clipboard_text_page)
                                          if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
                     check(len(text_copy_buttons) == 1,

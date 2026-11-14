@@ -150,30 +150,7 @@ def _build_text_page(app, c):
             else:
                 listing.selection_clear(0, tk.END)
         selected = app._selected_clipboard_item()
-        content = selected["text"] if selected else ""
-        destinations = clipboard_routing.destination_values(content)
-        enabled = set(app.settings["visible_tabs"])
-        menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
-                       activebackground=c["ACCENT_DARK"],
-                       activeforeground=c["WHITE"])
-        menu.add_command(
-            label="Copy to Clipboard", command=app._copy_clipboard_item,
-            state="normal" if selected else "disabled")
-        menu.add_command(label="Pin / Unpin", command=app._pin_clipboard_item,
-                         state="normal" if selected else "disabled")
-        menu.add_command(label="Delete", command=app._delete_clipboard_item,
-                         state="normal" if selected else "disabled")
-        menu.add_separator()
-        for destination, label in (
-                ("ports", "Send to TCP Ports"),
-                ("mac", "Send to MAC Lookup"),
-                ("subnet", "Send to Subnet Calculator"),
-                ("notes", "Open as new Note")):
-            can_send = destination in enabled and destination in destinations
-            menu.add_command(
-                label=label, state="normal" if can_send else "disabled",
-                command=lambda tool=destination, data=content:
-                    clipboard_routing.send_to_tool(app, tool, data))
+        menu = build_text_context_menu(app, c, selected)
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
@@ -188,6 +165,58 @@ def _build_text_page(app, c):
     # Also callable from GUI regression tests without requiring an OS click.
     app.clipboard_text_context_menu = text_menu
     app._refresh_clipboard()
+
+
+
+def build_text_context_menu(app, colors, selected):
+    """Explicitly grouped actions, showing only valid Pocket destinations."""
+    c = colors
+    content = selected["text"] if selected else ""
+    destinations = clipboard_routing.destination_values(content)
+    enabled = set(app.settings["visible_tabs"])
+    style = dict(
+        tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+        activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
+        disabledforeground=c["MUTED"], bd=1, relief="flat",
+        font=("Segoe UI", 9))
+    menu = tk.Menu(app.root, **style)
+    menu.add_command(
+        label="Copy full text", accelerator="Ctrl+C",
+        command=app._copy_clipboard_item,
+        state="normal" if selected else "disabled")
+    if selected:
+        menu.add_command(
+            label="Unpin from history" if selected["pinned"] else "Pin in history",
+            command=app._pin_clipboard_item)
+    else:
+        menu.add_command(label="Pin in history", state="disabled")
+    menu.add_command(
+        label="Delete from history", command=app._delete_clipboard_item,
+        state="normal" if selected else "disabled")
+    menu.add_separator()
+    if selected:
+        pocket = tk.Menu(menu, **style)
+        labels = (
+            ("ports", "Prepare TCP port check"),
+            ("mac", "Open MAC lookup with address"),
+            ("subnet", "Open Subnet Calculator"),
+            ("notes", "Create a new Note from text"))
+        for destination, label in labels:
+            if destination in enabled and destination in destinations:
+                pocket.add_command(
+                    label=label,
+                    command=lambda tool=destination, data=content:
+                        clipboard_routing.send_to_tool(app, tool, data))
+        if pocket.index("end") is not None:
+            menu.add_cascade(label="Use text in Pocket", menu=pocket)
+        else:
+            pocket.destroy()
+            menu.add_command(
+                label="No compatible Pocket tools enabled", state="disabled")
+    else:
+        menu.add_command(
+            label="Select an entry to use Pocket tools", state="disabled")
+    return menu
 
 
 def _build_images_page(app, c):

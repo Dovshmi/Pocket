@@ -19,7 +19,7 @@ class DashboardLayoutTests(unittest.TestCase):
         self.assertEqual(layout.view_dimensions("mini"), (346, 530))
         self.assertEqual(layout.view_dimensions("dashboard"), (1160, 800))
         self.assertEqual(layout.display_mode("unsupported"), "normal")
-        self.assertEqual(app["default_data"]()["settings"]["display_mode"], "normal")
+        self.assertEqual(app["default_data"]()["settings"]["display_mode"], "mini")
 
     def test_dashboard_position_is_independent(self):
         data = layout.window_positions(

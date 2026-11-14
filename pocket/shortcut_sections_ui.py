@@ -6,6 +6,7 @@ of tkinterdnd2's external Explorer/browser drop-to-draft workflow.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 from tkinter import messagebox, simpledialog
 
 from . import pocket_design as design
@@ -23,7 +24,7 @@ def show_add_menu(app, button):
     if button is None or not button.winfo_exists():
         return
     c = design.colors(app.theme)
-    menu = tk.Menu(
+    menu = menu_style.Menu(
         app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
         disabledforeground=c["MUTED"], font=(FONT, 9), bd=1,
@@ -133,7 +134,7 @@ def move_link_to(app, link, folder_id):
 
 def link_move_menu(app, parent, link):
     c = design.colors(app.theme)
-    menu = tk.Menu(
+    menu = menu_style.Menu(
         parent, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
         font=(FONT, 9))
@@ -156,7 +157,7 @@ def folder_menu(app, ident):
     if folder is None:
         return
     c = design.colors(app.theme)
-    menu = tk.Menu(
+    menu = menu_style.Menu(
         app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
         font=(FONT, 9))

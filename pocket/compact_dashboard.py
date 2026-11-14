@@ -6,6 +6,7 @@ Opening a tool restores that layout, and search remains entirely local.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 
 from . import command_helper as ch
 from . import pocket_design as design
@@ -191,7 +192,7 @@ def _label(parent, text, *, bg, fg, size=9, bold=False, **kwargs):
 def _show_tools(app, widget):
     """All available tools are reachable, even though only four are featured."""
     c = app._compact_colors
-    menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+    menu = menu_style.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
                    activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
                    bd=1, relief="flat")
     for key, icon, name in visible_navigation(app.settings["visible_tabs"]):

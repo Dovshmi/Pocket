@@ -70,10 +70,48 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
 
     try:
         app.root.update()
-        check(app.display_mode == "normal", "fresh data should start in Normal")
-        check(app.root.winfo_width() == view_dimensions("normal")[0],
-              "Normal geometry is wrong")
-        print("PASS: initial window and isolated data")
+        check(app.display_mode == "mini", "fresh data should start in Mini")
+        check(app.root.winfo_width() == view_dimensions("mini")[0],
+              "Mini geometry is wrong")
+        check(app.current_tab == "notes", "Fresh Pocket must open Notes")
+        check(app.data["last_tab"] == "notes", "Factory tab was not initialized")
+        check(app.data["settings"]["display_mode"] == "mini",
+              "Mini must be the saved factory mode")
+        # Only the two requested starter links should appear inside Ushpelo.
+        initial_links = app.data["links"]
+        check([(link["title"], link["url"]) for link in initial_links] == [
+            ("DashDash", "https://dashdash-tau.vercel.app"),
+            ("My GitHub", "https://github.com/Dovshmi")],
+              "Factory shortcuts are incorrect")
+        folders = app.data["shortcut_folders"]
+        check(len(folders["folders"]) == 1 and
+              folders["folders"][0]["title"] == "Ushpelo",
+              "Ushpelo default folder is missing")
+        folder_id = folders["folders"][0]["id"]
+        check(folders["children"][folder_id] ==
+              [link["id"] for link in initial_links],
+              "Factory shortcuts must appear in user-requested order")
+        check(folders["root"] == ["f:" + folder_id],
+              "Factory folder should be first and contain both shortcuts")
+        check(app.data["tools"]["target"] == "8.8.8.8" and
+              app.data["tools"]["ports_input"] == "21,22,443,80,8080,3389,53",
+              "Factory TCP presets were not applied")
+        check(not app.scanning, "Fresh profile must not initiate a TCP scan")
+        # Verify that user navigation persists a preferred tool to the saved
+        # profile, not just to this in-memory preview window.
+        app.show_tab("ports")
+        app.root.update()
+        app._write_now()
+        check(appmod["load_data"](app.path)["last_tab"] == "ports",
+              "Active Ports tool was not persisted across restart")
+        app.show_tab("links")
+        app.root.update()
+        app._write_now()
+        check(appmod["load_data"](app.path)["last_tab"] == "links",
+              "Active Shortcuts tool was not persisted across restart")
+        app.show_tab("notes")
+        app.root.update()
+        print("PASS: Mini startup, Ushpelo links, TCP defaults and last-tab restore")
 
         from tkinter import ttk
         from pocket.icon_themes import palette
@@ -116,7 +154,74 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
+                if page == "ports" and mode == "mini":
+                    check(app.host_var.get() == "8.8.8.8" and
+                          app.ports_var.get() == "21,22,443,80,8080,3389,53",
+                          "Mini TCP input must reflect factory ports")
+                    check(app.port_source.get() == "local",
+                          "Default port source must remain local")
                 if page == "notes":
+                    # Windows RichEdit is an HWND distinct from Tk's Entry
+                    # controls. Explicitly exercise the reported Mini failure:
+                    # click Title / Phone after typing in the note body.
+                    if sys.platform == "win32" and app.bidi_editor is not None:
+                        # The native white scrollbar must be hidden, not just
+                        # recolored. Keep Win32 multiline/autoscroll styles.
+                        import ctypes
+                        hwnd = ctypes.c_void_p(app.bidi_editor._hwnd)
+                        user32 = ctypes.windll.user32
+                        user32.GetWindowLongW.argtypes = (
+                            ctypes.c_void_p, ctypes.c_int)
+                        user32.GetWindowLongW.restype = ctypes.c_long
+                        flags = user32.GetWindowLongW(hwnd, -16)
+                        check(not (flags & 0x00200000),
+                              f"{mode}: RichEdit still shows a native vertical scrollbar")
+                        check(flags & 0x00000040,
+                              f"{mode}: RichEdit lost keyboard/caret autoscroll")
+                        # Long notes must remain navigable without showing a
+                        # scrollbar; test the actual native mouse-wheel path.
+                        saved_text = app.bidi_editor.get_text()
+                        try:
+                            app.bidi_editor.set_text(
+                                "\n".join(f"Scroll line {i}" for i in range(120)))
+                            app.root.update()
+                            before = app.bidi_editor._send(0x00CE)
+                            app.bidi_editor._send(0x020A, (0xFF88 << 16), 0)
+                            app.root.update()
+                            after = app.bidi_editor._send(0x00CE)
+                            check(after > before,
+                                  f"{mode}: scrolling long notes no longer works")
+                        finally:
+                            app.bidi_editor.set_text(saved_text)
+                            app.root.update()
+                        app.root.focus_force()
+                        app.root.update()
+                        for field, title in ((app.phone_entry, "Phone"),
+                                             (app.title_entry, "Title")):
+                            app.bidi_editor.focus_set()
+                            app.root.update()
+                            field.event_generate("<ButtonPress-1>", x=6, y=6)
+                            app.root.update()
+                            check(app.root.focus_get() is field,
+                                  f"{mode}: click did not move Tk focus to {title}")
+                            check(not app.bidi_editor.has_focus(),
+                                  f"{mode}: RichEdit still owns typing after {title} click")
+                        # A native popup may be dismissed without <Unmap>;
+                        # the next field click must clear its stale modal flag.
+                        stale = app._build_note_context_menu()
+                        app._note_context_menu = stale
+                        app._note_context_menu_was_modal = False
+                        app._modal = True
+                        app.bidi_editor.focus_set()
+                        app.phone_entry.event_generate("<ButtonPress-1>",
+                                                       x=6, y=6)
+                        app.root.update()
+                        check(not app._modal and app._note_context_menu is None,
+                              f"{mode}: dismissed Notes popup trapped modal state")
+                        check(app.root.focus_get() is app.phone_entry and
+                              not app.bidi_editor.has_focus(),
+                              f"{mode}: Phone remains trapped after popup dismiss")
+                        stale.destroy()
                     # Compact native submenus explain editor actions and
                     # which Pocket tools require a selected text fragment.
                     from unittest.mock import patch
@@ -142,7 +247,51 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     empty_labels = menu_labels(no_selection)
                     check("Select text to use Pocket tools" in empty_labels,
                           f"{mode}: Notes must explain why selection tools are unavailable")
+                    from tkinter import font as tkfont
+                    cut_index = empty_labels.index("Cut selected text")
+                    check(no_selection.entrycget(cut_index, "state") == "disabled",
+                          f"{mode}: Cut without a selection must be disabled")
+                    check(no_selection.cget("disabledforeground") ==
+                          no_selection.cget("foreground"),
+                          f"{mode}: disabled menu labels should not be dimmed")
+                    cut_font = no_selection.entrycget(cut_index, "font")
+                    check(cut_font and tkfont.Font(root=app.root, font=cut_font
+                              ).actual("overstrike"),
+                          f"{mode}: disabled Cut needs a visible strikethrough")
+                    placeholder_index = empty_labels.index(
+                        "Select text to use Pocket tools")
+                    placeholder_font = no_selection.entrycget(
+                        placeholder_index, "font")
+                    check(placeholder_font and tkfont.Font(
+                        root=app.root, font=placeholder_font).actual("overstrike"),
+                          f"{mode}: disabled placeholder also needs strikethrough")
                     no_selection.destroy()
+                    # State changes must restore the normal font, and keep
+                    # disabled actions non-invokable (not just visually dim).
+                    from pocket import menu_style
+                    dynamic_menu = menu_style.Menu(
+                        app.root, tearoff=False, fg="#E8ECF6",
+                        disabledforeground="#666666")
+                    check(str(dynamic_menu.cget("disabledforeground")).lower() == "#e8ecf6",
+                          f"{mode}: disabled items were dimmed despite override")
+                    hits = []
+                    dynamic_menu.add_command(
+                        label="Unavailable", state="disabled",
+                        command=lambda: hits.append("invoked"))
+                    dynamic_menu.invoke(0)
+                    check(not hits, f"{mode}: disabled item executed")
+                    dynamic_menu.entryconfigure(0, state="normal")
+                    check(dynamic_menu.entrycget(0, "font") != cut_font,
+                          f"{mode}: enabled item kept strikethrough font")
+                    dynamic_menu.invoke(0)
+                    check(hits == ["invoked"],
+                          f"{mode}: enabled item failed to execute")
+                    dynamic_menu.entryconfig(0, state="disabled")
+                    check(tkfont.Font(
+                        root=app.root, font=dynamic_menu.entrycget(0, "font")
+                        ).actual("overstrike"),
+                          f"{mode}: re-disabled menu action lost strikethrough")
+                    dynamic_menu.destroy()
                 if page == "clipboard":
                     from PIL import Image
                     from pocket import clipboard_images
@@ -434,6 +583,37 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(any("Fix EN / HE keyboard layout" in t or
                               "FIX KEYBOARD LAYOUT" in t for t in labels),
                           f"{mode}: converter hotkey is missing from Settings")
+                    # All working modes share the modern selection, palette
+                    # and keyboard-accessible switch components.
+                    common = app.settings_controls
+                    required = {"mode_normal", "mode_mini", "mode_dashboard",
+                                "theme_blue", "theme_purple", "extra_mini",
+                                "change_hotkey", "change_convert_hotkey",
+                                "quick_search", "clipboard_paused",
+                                "sensitive_filter"}
+                    required.update("tool_" + key
+                                    for key, _ in app.VISIBLE_TABS_REFERENCE)
+                    required.update("image_limit_" + str(value)
+                                    for value in (10, 15, 20, 25, 30))
+                    check(required.issubset(common),
+                          f"{mode}: modern Settings options are missing")
+                    check(all(isinstance(common[key], tk.Checkbutton) and
+                              not bool(int(common[key].cget("indicatoron")))
+                              for key in ("extra_mini", "clipboard_paused",
+                                          "sensitive_filter")),
+                          f"{mode}: legacy checkbox indicators remain visible")
+                    check(common["theme_blue"].winfo_exists() and
+                          common["mode_mini"].winfo_exists(),
+                          f"{mode}: themed selection cards disappeared")
+                    old_limit = app.settings["clipboard_image_limit"]
+                    common["image_limit_30"].invoke()
+                    check(app.settings["clipboard_image_limit"] == 30,
+                          f"{mode}: image history capacity did not update")
+                    check("✓" in common["image_limit_30"].cget("text"),
+                          f"{mode}: selected image limit is not highlighted")
+                    common["image_limit_" + str(old_limit)].invoke()
+                    check(app.settings["clipboard_image_limit"] == old_limit,
+                          f"{mode}: prior image limit was not restored")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (
@@ -475,9 +655,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     folder_id = sf.add_folder(app.data["shortcut_folders"],
                                               "Network tools")
                     # Put the folder first, within the Mini viewport.
+                    # The factory shortcuts are now *inside* Ushpelo, so use
+                    # its root-row folder key instead of a nested link.
+                    first_row = app.data["shortcut_folders"]["root"][0]
                     check(sf.move(app.data["shortcut_folders"],
                                   sf.folder_key(folder_id),
-                                  sf.link_key(sample["id"]), "before"),
+                                  first_row, "before"),
                           f"{mode}: could not order new folder ahead of shortcuts")
                     app.refresh_links()
                     app.root.update()

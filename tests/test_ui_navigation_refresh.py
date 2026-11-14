@@ -6,6 +6,8 @@ do not add fake features, network calls, or changes to data storage.
 from pathlib import Path
 import runpy
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from pocket import dashboard_ui as dashboard
 from pocket import compact_dashboard as compact
@@ -78,6 +80,75 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertEqual(source.count('self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field'), 2)
         self.assertIn('self.bidi_editor.release_focus_to(destination)', source)
         self.assertIn('self._move_mini_note(step)', source)
+
+    def test_clicking_phone_forces_handoff_even_if_getfocus_is_stale(self):
+        target = Mock()
+        target.winfo_exists.return_value = True
+        desk = SimpleNamespace(
+            current_tab="notes", _modal=False, _note_focus_pending=None,
+            root=Mock(), bidi_editor=Mock(),
+            _bidi_active=lambda: True,
+            _dismiss_note_menus_for_click=Mock(), _flush_current_note=Mock(),
+            _verify_note_input_focus=Mock())
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        desk._flush_current_note.assert_called_once()
+        desk.bidi_editor.release_focus_to.assert_called_once_with(target)
+        target.focus_force.assert_called_once()
+        desk.bidi_editor.has_focus.assert_not_called()
+        desk.root.after_idle.assert_called_once_with(
+            desk._verify_note_input_focus, target)
+        self.assertIs(desk._note_focus_pending, target)
+
+    def test_note_field_click_repairs_stale_editor_menu_modal_guard(self):
+        target = Mock()
+        stale_menu = Mock()
+        desk = SimpleNamespace(
+            current_tab="notes", _modal=True, _note_focus_pending=None,
+            _note_context_menu=stale_menu, _note_context_menu_was_modal=False,
+            _note_picker_context_menu=None, root=Mock(),
+            bidi_editor=Mock(), _bidi_active=lambda: True,
+            _flush_current_note=Mock(), _verify_note_input_focus=Mock())
+        desk._release_note_context_menu = lambda menu: (
+            app["PocketDesk"]._release_note_context_menu(desk, menu))
+        desk._finish_note_context_menu_action = lambda: (
+            app["PocketDesk"]._finish_note_context_menu_action(desk))
+        desk._dismiss_note_menus_for_click = lambda: (
+            app["PocketDesk"]._dismiss_note_menus_for_click(desk))
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        self.assertFalse(desk._modal)
+        self.assertIsNone(desk._note_context_menu)
+        desk.bidi_editor.release_focus_to.assert_called_once_with(target)
+        target.focus_force.assert_called_once()
+
+    def test_delayed_focus_fix_only_runs_for_current_field(self):
+        first, second = Mock(), Mock()
+        first.winfo_exists.return_value = True
+        second.winfo_exists.return_value = True
+        root = Mock()
+        root.focus_get.return_value = None
+        desk = SimpleNamespace(
+            current_tab="notes", _modal=False,
+            _note_focus_pending=second, root=root,
+            bidi_editor=Mock(), _bidi_active=lambda: True)
+        app["PocketDesk"]._verify_note_input_focus(desk, first)
+        first.focus_force.assert_not_called()
+        app["PocketDesk"]._verify_note_input_focus(desk, second)
+        desk.bidi_editor.release_focus_to.assert_called_once_with(second)
+        second.focus_force.assert_called_once()
+        self.assertIsNone(desk._note_focus_pending)
+
+    def test_real_modal_dialog_still_blocks_note_focus_changes(self):
+        target = Mock()
+        desk = SimpleNamespace(
+            current_tab="notes", _modal=True, _note_focus_pending=None,
+            _dismiss_note_menus_for_click=Mock(), _bidi_active=lambda: True,
+            bidi_editor=Mock(), root=Mock())
+        app["PocketDesk"]._note_focus_field(
+            desk, SimpleNamespace(widget=target))
+        desk.bidi_editor.release_focus_to.assert_not_called()
+        target.focus_force.assert_not_called()
 
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"pocket"/"compact_dashboard.py").read_text(encoding="utf-8")

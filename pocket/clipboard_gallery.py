@@ -6,6 +6,7 @@ width-aware thumbnail gallery with no search field. All state stays in RAM.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 from tkinter import messagebox, ttk
 
 from PIL import Image, ImageTk
@@ -179,7 +180,7 @@ def build_text_context_menu(app, colors, selected):
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
         disabledforeground=c["MUTED"], bd=1, relief="flat",
         font=("Segoe UI", 9))
-    menu = tk.Menu(app.root, **style)
+    menu = menu_style.Menu(app.root, **style)
     menu.add_command(
         label="Copy full text", accelerator="Ctrl+C",
         command=app._copy_clipboard_item,
@@ -195,7 +196,7 @@ def build_text_context_menu(app, colors, selected):
         state="normal" if selected else "disabled")
     menu.add_separator()
     if selected:
-        pocket = tk.Menu(menu, **style)
+        pocket = menu_style.Menu(menu, **style)
         labels = (
             ("ports", "Prepare TCP port check"),
             ("mac", "Open MAC lookup with address"),
@@ -225,7 +226,7 @@ def build_text_context_menu(app, colors, selected):
 def _build_images_page(app, c):
     parent = app.clipboard_images_page
     app.clipboard_images_status = tk.Label(
-        parent, bg=c["BG"], fg=c["MUTED"], text="0/20 images · RAM only",
+        parent, bg=c["BG"], fg=c["MUTED"], text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
         font=("Segoe UI", 9), anchor="w")
     app.clipboard_images_status.pack(fill="x", pady=(0, 3))
     footer = tk.Frame(parent, bg=c["BG"])
@@ -353,14 +354,15 @@ def _update_status(app):
     if label is None or not label.winfo_exists():
         return
     count = len(app.clipboard_images)
+    maximum = app.settings["clipboard_image_limit"]
     capture = "PAUSED" if app.settings["clipboard_paused"] else "Capture ON"
     if app.display_mode == "mini":
         index = _selection_index(app)
         label.configure(text=(
             f"{index + 1 if index >= 0 else 0} / {count} selected · "
-            f"{count}/20 images · {capture}"))
+            f"{count}/{maximum} images · {capture}"))
     else:
-        label.configure(text=f"{count}/20 images · RAM only · {capture}")
+        label.configure(text=f"{count}/{maximum} images · RAM only · {capture}")
 
 
 def _ensure_selected_visible(app):
@@ -513,7 +515,7 @@ def image_menu(app, event, ident):
     """Right-click any thumbnail to select and copy it, even in Mini."""
     select_image(app, ident)
     c = themes.palette(app.theme)
-    menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+    menu = menu_style.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
                    activebackground=c["ACCENT_DARK"],
                    activeforeground=c["WHITE"])
     menu.add_command(label="Copy image", command=lambda: copy_selected(app))

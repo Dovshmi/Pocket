@@ -66,6 +66,7 @@ class NativeBidiEditor(tk.Frame):
     WM_USER = 0x0400
     WM_SETTEXT, WM_GETTEXT, WM_GETTEXTLENGTH, WM_SETFONT = 0x000C, 0x000D, 0x000E, 0x0030
     WM_CONTEXTMENU, WM_NCDESTROY = 0x007B, 0x0082
+    WM_MOUSEWHEEL, EM_LINESCROLL = 0x020A, 0x00B6
     WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
     EM_GETSEL, EM_SETSEL, EM_REPLACESEL = 0x00B0, 0x00B1, 0x00C2
     EM_GETSELTEXT = WM_USER + 62
@@ -88,6 +89,7 @@ class NativeBidiEditor(tk.Frame):
         # and let a normal Tk timer construct/post the existing context menu.
         self._context_menu_events = queue.SimpleQueue()
         self._menu_timer = None
+        self._wheel_remainder = 0  # Accumulate high-resolution wheel deltas.
         self._user = ctypes.WinDLL("user32", use_last_error=True)
         self._gdi = ctypes.WinDLL("gdi32", use_last_error=True)
         self._comctl = ctypes.WinDLL("comctl32", use_last_error=True)
@@ -102,6 +104,9 @@ class NativeBidiEditor(tk.Frame):
         self._user.SendMessageW.argtypes = (ctypes.c_void_p, ctypes.c_uint32,
                                            ctypes.c_size_t, ctypes.c_ssize_t)
         self._user.SendMessageW.restype = ctypes.c_ssize_t
+        self._user.PostMessageW.argtypes = (
+            ctypes.c_void_p, ctypes.c_uint32, ctypes.c_size_t, ctypes.c_ssize_t)
+        self._user.PostMessageW.restype = ctypes.c_int
         self._user.MoveWindow.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
                                          ctypes.c_int, ctypes.c_int, ctypes.c_int)
         self._user.DestroyWindow.argtypes = (ctypes.c_void_p,)
@@ -117,10 +122,13 @@ class NativeBidiEditor(tk.Frame):
         self._gdi.CreateFontW.restype = ctypes.c_void_p
         self._gdi.DeleteObject.argtypes = (ctypes.c_void_p,)
 
-        WS_CHILD, WS_VISIBLE, WS_VSCROLL = 0x40000000, 0x10000000, 0x00200000
+        WS_CHILD, WS_VISIBLE = 0x40000000, 0x10000000
         ES_MULTILINE, ES_AUTOVSCROLL, ES_WANTRETURN = 0x0004, 0x0040, 0x1000
         WS_TABSTOP = 0x00010000
-        style = (WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP |
+        # RichEdit's native white scrollbar clashes with Pocket's dark theme.
+        # Omit WS_VSCROLL, but keep ES_AUTOVSCROLL for caret, keyboard and
+        # mouse-wheel scrolling through long notes without a visible rail.
+        style = (WS_CHILD | WS_VISIBLE | WS_TABSTOP |
                  ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN)
         self._hwnd = self._user.CreateWindowExW(
             0, "RICHEDIT50W", "", style, 0, 0, 1, 1,
@@ -177,6 +185,21 @@ class NativeBidiEditor(tk.Frame):
         during mouse/focus handling and terminate the whole Python process.
         Only marshal screen coordinates; the Tk timer does the actual work.
         """
+        if message == self.WM_MOUSEWHEEL:
+            # Without WS_VSCROLL, RichEdit no longer scrolls on wheel input
+            # automatically. Post native EM_LINESCROLL (not a Tk call), so
+            # the scrollbar can stay hidden without losing mouse navigation.
+            delta = ctypes.c_short((wp >> 16) & 0xffff).value
+            self._wheel_remainder += delta
+            ticks = int(self._wheel_remainder / 120)
+            self._wheel_remainder -= ticks * 120
+            if ticks:
+                try:
+                    self._user.PostMessageW(
+                        hwnd, self.EM_LINESCROLL, 0, -3 * ticks)
+                except Exception:
+                    return self._comctl.DefSubclassProc(hwnd, message, wp, lp)
+            return 0
         if message == self.WM_CONTEXTMENU and self._context_menu is not None:
             try:
                 # LPARAM is two signed 16-bit desktop coordinates. -1/-1 is
@@ -238,15 +261,18 @@ class NativeBidiEditor(tk.Frame):
             self._user.SetFocus(self._hwnd)
 
     def release_focus_to(self, widget):
-        """Explicitly transfer native keyboard focus to a Tk navigation control.
+        """Return keyboard focus to Tk's native top-level, not a child widget.
 
-        RichEdit has its own child HWND, outside Tk's widget focus machinery.
-        Calling Tk.focus_set() alone does not always clear GetFocus() for this
-        HWND. Transfer focus from the Tk event loop (never a Win32 subclass
-        callback) so arrow keys reach Pocket's normal Tk bindings again.
+        On Windows, Tk owns keyboard focus for its Entry/Combobox widgets via
+        the toplevel HWND. SetFocus(widget.winfo_id()) can focus the wrong native
+        window while Tk still thinks the target Entry is selected; keystrokes
+        then continue going to RichEdit. The caller subsequently uses Tk's
+        target.focus_force(), allowing Tk to select its actual child input.
+        Only call this from the Tk UI event loop, never SUBCLASSPROC.
         """
         if self._hwnd and widget.winfo_exists():
-            self._user.SetFocus(ctypes.c_void_p(widget.winfo_id()))
+            host = widget.winfo_toplevel()
+            self._user.SetFocus(ctypes.c_void_p(host.winfo_id()))
 
     def get_text(self) -> str:
         if not self._hwnd:

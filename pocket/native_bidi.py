@@ -117,10 +117,13 @@ class NativeBidiEditor(tk.Frame):
         self._gdi.CreateFontW.restype = ctypes.c_void_p
         self._gdi.DeleteObject.argtypes = (ctypes.c_void_p,)
 
-        WS_CHILD, WS_VISIBLE, WS_VSCROLL = 0x40000000, 0x10000000, 0x00200000
+        WS_CHILD, WS_VISIBLE = 0x40000000, 0x10000000
         ES_MULTILINE, ES_AUTOVSCROLL, ES_WANTRETURN = 0x0004, 0x0040, 0x1000
         WS_TABSTOP = 0x00010000
-        style = (WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP |
+        # RichEdit's native white scrollbar clashes with Pocket's dark theme.
+        # Omit WS_VSCROLL, but keep ES_AUTOVSCROLL for caret, keyboard and
+        # mouse-wheel scrolling through long notes without a visible rail.
+        style = (WS_CHILD | WS_VISIBLE | WS_TABSTOP |
                  ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN)
         self._hwnd = self._user.CreateWindowExW(
             0, "RICHEDIT50W", "", style, 0, 0, 1, 1,

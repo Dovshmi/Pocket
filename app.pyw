@@ -1040,7 +1040,9 @@ class PocketDesk:
         if clicked in direct_fields:
             # The early <ButtonPress-1> field handler owns this handoff.
             return
-        self._dismiss_note_menus_for_click()
+        if (getattr(self, "_note_context_menu", None) is not None or
+                getattr(self, "_note_picker_context_menu", None) is not None):
+            self._dismiss_note_menus_for_click()
         if self._modal:
             return
         if (clicked is getattr(self, "bidi_editor", None) or

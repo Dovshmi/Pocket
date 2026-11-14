@@ -34,7 +34,7 @@ def _action(parent, title, callback, colors):
 def build(app):
     c = themes.palette(app.theme)
     header = app._section_title(app.body, "Clipboard history",
-                                "Session-only text and images · Never saved to disk",
+                                "RAM only · Never saved to disk",
                                 "Clear text", app._clear_clipboard)
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
@@ -52,16 +52,39 @@ def build(app):
         bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8)
     ).pack(side="right")
 
+    # Same compact labelled switch used by Local / DashDash. No full-width tabs.
     switch = tk.Frame(app.body, bg=c["BG"])
-    switch.pack(fill="x", pady=(0, 7))
+    switch.pack(anchor="w", pady=(0, 5))
     app.clipboard_page_buttons = {}
-    for page, label in (("text", "Text"), ("images", "Images")):
-        btn = tk.Button(
-            switch, text=label, cursor="hand2", bd=0, relief="flat",
-            font=("Segoe UI", 10, "bold"), takefocus=True, pady=8,
-            command=lambda destination=page: show_page(app, destination))
-        btn.pack(side="left", fill="x", expand=True, padx=(0, 3))
-        app.clipboard_page_buttons[page] = btn
+    left = tk.Button(
+        switch, text="Text", cursor="hand2", bd=0, relief="flat",
+        font=("Segoe UI", 8, "bold"), takefocus=True,
+        bg=c["BG"], padx=2, pady=1,
+        command=lambda: show_page(app, "text"))
+    left.pack(side="left", padx=(0, 5))
+    app.clipboard_page_buttons["text"] = left
+    toggle = tk.Canvas(
+        switch, width=44, height=22, bg=c["BG"], bd=0,
+        highlightthickness=1, highlightbackground=c["BG"],
+        highlightcolor=c["ACCENT"], takefocus=True, cursor="hand2")
+    toggle.pack(side="left")
+    app.clipboard_page_toggle = toggle
+    right = tk.Button(
+        switch, text="Images", cursor="hand2", bd=0, relief="flat",
+        font=("Segoe UI", 8, "bold"), takefocus=True,
+        bg=c["BG"], padx=2, pady=1,
+        command=lambda: show_page(app, "images"))
+    right.pack(side="left", padx=(5, 0))
+    app.clipboard_page_buttons["images"] = right
+
+    def flip_page(_event=None):
+        show_page(app, "text" if app.clipboard_page == "images" else "images")
+        toggle.focus_set()
+        return "break"
+
+    toggle.bind("<Button-1>", flip_page)
+    toggle.bind("<space>", flip_page)
+    toggle.bind("<Return>", flip_page)
 
     app.clipboard_text_page = tk.Frame(app.body, bg=c["BG"])
     app.clipboard_images_page = tk.Frame(app.body, bg=c["BG"])
@@ -80,20 +103,48 @@ def _build_text_page(app, c):
         parent, text="", bg=c["BG"], fg=c["MUTED"],
         font=("Segoe UI", 9), anchor="w")
     app.clipboard_status.pack(fill="x")
+    # Keep copy actions above the expanding list: always visible in Mini.
+    footer = tk.Frame(parent, bg=c["BG"])
+    footer.pack(fill="x", pady=(4, 3))
+    for title, fn in (("Copy", app._copy_clipboard_item),
+                      ("Pin / Unpin", app._pin_clipboard_item),
+                      ("Delete", app._delete_clipboard_item)):
+        _action(footer, title, fn, c).pack(side="left", padx=(0, 3))
     frame = tk.Frame(parent, bg=c["BG"])
-    frame.pack(fill="both", expand=True, pady=(6, 4))
+    frame.pack(fill="both", expand=True, pady=(3, 0))
     app.clipboard_list = tk.Listbox(
         frame, bg=c["PANEL"], fg=c["WHITE"],
         selectbackground=c["ACCENT_DARK"], font=("Segoe UI", 10),
         bd=0, exportselection=False)
     app.clipboard_list.pack(fill="both", expand=True)
     app.clipboard_list.bind("<Double-1>", lambda _evt: app._copy_clipboard_item())
-    footer = tk.Frame(parent, bg=c["BG"])
-    footer.pack(fill="x")
-    for title, fn in (("Copy selected", app._copy_clipboard_item),
-                      ("Pin / Unpin", app._pin_clipboard_item),
-                      ("Delete", app._delete_clipboard_item)):
-        _action(footer, title, fn, c).pack(side="left", padx=(0, 3))
+
+    def copy_text(_event=None):
+        app._copy_clipboard_item()
+        return "break"
+
+    def text_menu(event):
+        index = app.clipboard_list.nearest(event.y)
+        if 0 <= index < app.clipboard_list.size():
+            app.clipboard_list.selection_clear(0, tk.END)
+            app.clipboard_list.selection_set(index)
+            app.clipboard_list.activate(index)
+        menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+                       activebackground=c["ACCENT_DARK"],
+                       activeforeground=c["WHITE"])
+        menu.add_command(label="Copy to clipboard", command=app._copy_clipboard_item)
+        menu.add_command(label="Pin / Unpin", command=app._pin_clipboard_item)
+        menu.add_command(label="Delete", command=app._delete_clipboard_item)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    app.clipboard_list.bind("<Control-c>", copy_text)
+    app.clipboard_list.bind("<Control-C>", copy_text)
+    app.clipboard_list.bind("<Return>", copy_text)
+    app.clipboard_list.bind("<Button-3>", text_menu)
     app._refresh_clipboard()
 
 
@@ -103,10 +154,16 @@ def _build_images_page(app, c):
         parent, bg=c["BG"], fg=c["MUTED"], text="0/20 images · RAM only",
         font=("Segoe UI", 9), anchor="w")
     app.clipboard_images_status.pack(fill="x", pady=(0, 3))
+    footer = tk.Frame(parent, bg=c["BG"])
+    footer.pack(fill="x", pady=(4, 4))
+    for title, action in (("Copy", lambda: copy_selected(app)),
+                          ("Preview", lambda: preview_selected(app)),
+                          ("Delete", lambda: delete_selected(app))):
+        _action(footer, title, action, c).pack(side="left", padx=(0, 4))
     area = tk.Frame(parent, bg=c["BG"])
     area.pack(fill="both", expand=True)
     canvas = tk.Canvas(
-        area, bg=c["BG"], highlightthickness=0, bd=0, takefocus=0)
+        area, bg=c["BG"], highlightthickness=0, bd=0, takefocus=1)
     canvas.pack(side="left", fill="both", expand=True)
     scroll = ttk.Scrollbar(
         area, orient="vertical", command=canvas.yview,
@@ -131,12 +188,14 @@ def _build_images_page(app, c):
             app.root.after_idle(lambda: refresh_images(app))
     canvas.bind("<Configure>", resize)
 
-    footer = tk.Frame(parent, bg=c["BG"])
-    footer.pack(fill="x", pady=(5, 0))
-    for title, action in (("Copy", lambda: copy_selected(app)),
-                          ("Preview", lambda: preview_selected(app)),
-                          ("Delete", lambda: delete_selected(app))):
-        _action(footer, title, action, c).pack(side="left", padx=(0, 4))
+    def image_key_copy(_event=None):
+        copy_selected(app)
+        return "break"
+
+    canvas.bind("<Control-c>", image_key_copy)
+    canvas.bind("<Control-C>", image_key_copy)
+    canvas.bind("<Return>", lambda _e: (preview_selected(app), "break")[1])
+    canvas.bind("<Delete>", lambda _e: (delete_selected(app), "break")[1])
 
 
 def show_page(app, page):
@@ -148,10 +207,16 @@ def show_page(app, page):
     c = themes.palette(app.theme)
     for key, btn in app.clipboard_page_buttons.items():
         selected = key == page
-        btn.configure(bg=c["ACCENT_DARK"] if selected else c["PANEL"],
-                      fg=c["WHITE"] if selected else c["SECONDARY"],
-                      activebackground=c["CARD_HOVER"],
-                      activeforeground=c["WHITE"])
+        btn.configure(bg=c["BG"], fg=c["WHITE"] if selected else c["MUTED"],
+                      activebackground=c["BG"], activeforeground=c["WHITE"])
+    toggle = app.clipboard_page_toggle
+    toggle.delete("all")
+    fill = c["ACCENT"] if page == "images" else c["CARD_HOVER"]
+    toggle.create_oval(2, 2, 21, 20, fill=fill, outline=fill)
+    toggle.create_rectangle(11, 2, 33, 20, fill=fill, outline=fill)
+    toggle.create_oval(23, 2, 42, 20, fill=fill, outline=fill)
+    x = 31 if page == "images" else 13
+    toggle.create_oval(x - 8, 3, x + 8, 19, fill=c["WHITE"], outline="")
     app.clipboard_text_page.pack_forget()
     app.clipboard_images_page.pack_forget()
     panel = app.clipboard_images_page if page == "images" else app.clipboard_text_page
@@ -174,6 +239,7 @@ def _wheel(app, event):
 
 def select_image(app, ident):
     app._clipboard_selected_image_id = ident
+    app.clipboard_images_canvas.focus_set()
     c = themes.palette(app.theme)
     for key, tile in getattr(app, "_clipboard_gallery_tiles", {}).items():
         if tile.winfo_exists():
@@ -241,12 +307,30 @@ def refresh_images(app, *, force=False):
             widget.bind("<Button-1>", lambda _e, i=ident: select_image(app, i))
             widget.bind("<Double-1>", lambda _e, i=ident: (
                 select_image(app, i), preview_selected(app)))
+            widget.bind("<Button-3>", lambda event, i=ident: image_menu(app, event, i))
             widget.bind("<MouseWheel>", lambda event: _wheel(app, event))
             widget.bind("<Button-4>", lambda event: _wheel(app, event))
             widget.bind("<Button-5>", lambda event: _wheel(app, event))
     canvas.configure(scrollregion=canvas.bbox("all"))
     if force:
         canvas.yview_moveto(0.0)
+
+
+def image_menu(app, event, ident):
+    """Right-click any thumbnail to select and copy it, even in Mini."""
+    select_image(app, ident)
+    c = themes.palette(app.theme)
+    menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+                   activebackground=c["ACCENT_DARK"],
+                   activeforeground=c["WHITE"])
+    menu.add_command(label="Copy image", command=lambda: copy_selected(app))
+    menu.add_command(label="Preview", command=lambda: preview_selected(app))
+    menu.add_command(label="Delete", command=lambda: delete_selected(app))
+    try:
+        menu.tk_popup(event.x_root, event.y_root)
+    finally:
+        menu.grab_release()
+    return "break"
 
 
 def selected_image(app):

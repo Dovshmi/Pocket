@@ -6,6 +6,8 @@ do not add fake features, network calls, or changes to data storage.
 from pathlib import Path
 import runpy
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from pocket import dashboard_ui as dashboard
 from pocket import compact_dashboard as compact
@@ -78,6 +80,71 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertEqual(source.count('self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field'), 2)
         self.assertIn('self.bidi_editor.release_focus_to(destination)', source)
         self.assertIn('self._move_mini_note(step)', source)
+
+    def test_mini_native_note_focus_loss_hides_without_forcing_focus(self):
+        root = Mock()
+        root.state.return_value = "normal"
+        # Tk still thinks the old child editor is active after activation
+        # moves to another application.
+        root.focus_displayof.return_value = object()
+        editor = Mock()
+        editor.foreground_is_external.return_value = True
+        editor.has_focus.return_value = True
+        desk = SimpleNamespace(
+            preview=False, pinned=False, _modal=False,
+            _dragging_window=False, root=root,
+            bidi_editor=editor, _bidi_active=lambda: True,
+            hide=Mock())
+        app["PocketDesk"]._maybe_hide(desk)
+        desk.hide.assert_called_once()
+        editor.has_focus.assert_not_called()
+        root.focus_displayof.assert_not_called()
+
+    def test_native_editor_focus_watchdog_respects_pin_and_modal(self):
+        root = Mock()
+        root.state.return_value = "normal"
+        root.focus_displayof.return_value = None
+        editor = Mock()
+        editor.foreground_is_external.return_value = True
+        desk = SimpleNamespace(
+            preview=False, pinned=True, _modal=False,
+            _dragging_window=False, root=root, bidi_editor=editor,
+            _bidi_active=lambda: True, hide=Mock())
+        app["PocketDesk"]._maybe_hide(desk)
+        desk.hide.assert_not_called()
+        desk.pinned = False
+        desk._modal = True
+        app["PocketDesk"]._maybe_hide(desk)
+        desk.hide.assert_not_called()
+        desk._modal = False
+        editor.foreground_is_external.return_value = False
+        editor.has_focus.return_value = True
+        app["PocketDesk"]._maybe_hide(desk)
+        desk.hide.assert_not_called()
+
+    def test_mini_editor_poll_detects_activation_without_tk_focusout(self):
+        root = Mock()
+        root.state.return_value = "normal"
+        editor = Mock()
+        editor.get_text.return_value = "unchanged text"
+        editor.foreground_is_external.return_value = True
+        note = {"body": "unchanged text"}
+        desk = SimpleNamespace(
+            display_mode="mini", preview=False, root=root,
+            bidi_editor=editor, _loading_note=False,
+            _bidi_active=lambda: True, active_note=lambda: note,
+            _edit_dirty=Mock(), _maybe_hide=Mock())
+        app["PocketDesk"]._bidi_poll(desk)
+        desk._maybe_hide.assert_called_once()
+        desk._edit_dirty.assert_not_called()
+        desk.display_mode = "normal"
+        desk._maybe_hide.reset_mock()
+        app["PocketDesk"]._bidi_poll(desk)
+        desk._maybe_hide.assert_not_called()
+        desk.display_mode = "mini"
+        desk.preview = True
+        app["PocketDesk"]._bidi_poll(desk)
+        desk._maybe_hide.assert_not_called()
 
     def test_extra_mini_tiles_remain_configurable(self):
         source=(root/"pocket"/"compact_dashboard.py").read_text(encoding="utf-8")

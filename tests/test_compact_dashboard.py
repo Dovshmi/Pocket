@@ -22,7 +22,7 @@ class ExtraMiniTests(unittest.TestCase):
         self.assertEqual(layout.view_dimensions("mini"), (346, 530))
         self.assertEqual(layout.view_dimensions("dashboard"), (1160, 800))
         self.assertFalse(app["default_data"]()["settings"]["extra_mini_enabled"])
-        self.assertEqual(app["default_data"]()["settings"]["display_mode"], "normal")
+        self.assertEqual(app["default_data"]()["settings"]["display_mode"], "mini")
 
     def test_legacy_compact_migrates_to_mini_with_toggle(self):
         old = app["normalize_settings"]({"display_mode": "compact"})

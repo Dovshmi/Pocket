@@ -8,13 +8,13 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.33.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.33.1)
+[![Release](https://img.shields.io/badge/Stable-v1.34.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.34.0)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-Portable-v1.33.1.zip)** ·
-**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-v1.33.1.exe)** ·
+**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.34.0/Pocket-Portable-v1.34.0.zip)** ·
+**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.34.0/Pocket-v1.34.0.exe)** ·
 **[All Releases](https://github.com/Dovshmi/Pocket/releases)**
 
 </div>
@@ -24,7 +24,7 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!NOTE]
-> **v1.33.1:** DashDash MAC lookups and remote TCP checks now support Windows-managed corporate **Proxy/PAC/WPAD** settings, including environments where a browser can reach HTTPS but direct TCP/443 is restricted. Local mode remains the default. [Release notes](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
+> **v1.34.0:** Clipboard now keeps **text and up to 20 session-only images**, with Mini's horizontal image gallery and keyboard navigation. Shortcuts gain **collapsible organizer folders**, right-side drag handles, one **+ Add** menu and direct drop-into-folder saving. Windows **Proxy/PAC/WPAD** support from v1.33.1 is retained. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
 
 ## Screenshots
 
@@ -66,15 +66,25 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 | :--- | :--- | :--- |
 | **Notes & reminders** | Titled notes with phone numbers, creation times, RTL/LTR editing, pin/duplicate, Notepad integration, and native Windows reminders | Offline |
 | **Commands Helper** | Searchable CLI references by device/topic; edit, favorite, fill validated Smart Templates such as `{{IP}}`, then copy | Offline |
-| **Quick Shortcuts** | Save, search, and open websites, local files, and folders | Online only when you open a web link |
+| **Quick Shortcuts** | Open websites, files, and Windows folders; group in collapsible Pocket folders, drag to reorder, or drop directly into a folder | Online only when you open a web link |
 | **TCP Port Check** | Check up to **16 TCP ports** per run, with favorites, last-check suggestions, status sorting, and CSV export | Local or optional DashDash |
 | **MAC Vendor Lookup** | Search cached IEEE registrations (MA-L, MA-M, MA-S, IAB), import CSV, or query DashDash | Local or optional DashDash |
 | **Subnet Calculator** | IPv4 CIDR, masks, wildcard, network/broadcast, usable hosts, and subnet splitting | Offline |
-| **Clipboard Manager** | Search, pin, copy, remove, and pause session-only clipboard history; optional sensitive-text filter | Offline |
+| **Clipboard Manager** | Separate Text and Images pages; search/pin/copy text, preview/copy up to 20 RAM-only images, Mini carousel, keyboard navigation and optional sensitive-text filter | Offline |
 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying; manual command backups are created **only when you choose Backup**.
 
-**Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu also stops clipboard monitoring; clipboard history is never saved to disk.
+**Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu also stops clipboard monitoring. **Text and screenshot history are kept in RAM only**, with images limited to 20 entries; neither is written to disk.
+
+## New in v1.34.0
+
+### Organize Quick Shortcuts
+
+Use **+ Add ▾** to create a shortcut or an organizer folder. Pocket folder headers are compact, collapsible sections (they are not real Windows directories). Drag the **⋮⋮** handles on the **right** to reorder folders or shortcuts, or drop a shortcut on a folder header to file it. Dragging a supported website/file/folder from outside Pocket onto a folder **saves a shortcut in that folder automatically**. Dropping elsewhere opens the editable draft, as before. Removing an organizer folder keeps its shortcuts.
+
+### Find and reuse screenshots
+
+The Clipboard's **Text / Images** switch separates searchable text from screenshots and images. The Images page has **no search box** and keeps up to **20** recent images in memory; the oldest image is evicted when a new one arrives. On Mini, use the horizontal gallery, mouse wheel, or **← / →**; on all layouts use **Enter** to preview, **Ctrl+C** to copy and **Delete** to remove a selected image. The saved bitmap can be pasted into Word or other compatible Windows applications. [Full v1.34.0 release notes](RELEASE_NOTES.md).
 
 ## Local vs. DashDash network checks
 
@@ -113,7 +123,7 @@ Pocket remembers window placement and supports **Blue, Dark Blue, Black, Red, Gr
 
 ### Portable ZIP — recommended for a work PC
 
-1. Download **[Pocket-Portable-v1.33.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-Portable-v1.33.1.zip)**.
+1. Download **[Pocket-Portable-v1.34.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.34.0/Pocket-Portable-v1.34.0.zip)**.
 2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
 3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
 4. Choose a window layout and theme in Settings.
@@ -122,7 +132,7 @@ No Python installation is required. The portable version stores personal data un
 
 ### Standalone EXE
 
-Download **[Pocket-v1.33.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.33.1/Pocket-v1.33.1.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+Download **[Pocket-v1.34.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.34.0/Pocket-v1.34.0.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
 
 > [!IMPORTANT]
 > Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

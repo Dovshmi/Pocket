@@ -2158,6 +2158,13 @@ class PocketDesk:
                 if note["body"] != content:
                     note["body"] = content
                     self._edit_dirty()
+            # The Windows child RichEdit can bypass Tk's root <FocusOut>.
+            # Reuse the existing 350 ms notes timer instead of adding a
+            # global keyboard hook or a new background polling thread.
+            if (self.display_mode == "mini" and not self.preview
+                    and self.root.state() == "normal"
+                    and self.bidi_editor.foreground_is_external()):
+                self._maybe_hide()
 
     def _selected_note_text(self) -> str:
         if self._bidi_active():
@@ -4434,10 +4441,18 @@ class PocketDesk:
     def _maybe_hide(self):
         if self.preview or self.pinned or self._modal or self._dragging_window:
             return
-        if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
-                and self.bidi_editor.has_focus()):
+        if self.root.state() != "normal":
             return
-        if self.root.state() == "normal" and self.root.focus_displayof() is None:
+        if self._bidi_active():
+            # Check foreground ownership *before* trusting GetFocus().
+            # Windows may leave the previous native RichEdit as its thread's
+            # last focused child after the user activates another program.
+            if self.bidi_editor.foreground_is_external():
+                self.hide()
+                return
+            if self.bidi_editor.has_focus():
+                return
+        if self.root.focus_displayof() is None:
             self.hide()
 
     def _screen_work_area(self, x: int, y: int) -> tuple[int, int, int, int]:

@@ -97,6 +97,7 @@ from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_gallery
+from pocket import keyboard_layout
 from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
@@ -186,6 +187,7 @@ def default_data() -> dict:
                      "clipboard_paused": False, "clipboard_sensitive_filter": True},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
+        "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
         "tools": {"target": "192.168.1.1", "single_port": "443", "custom_ports": "",
                   "selected_ports": [22, 80, 443, 3389], "mode": "single",
                   "source": "local", "mac_source": "local", "favorite_ports": []},
@@ -294,7 +296,9 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                                                               data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
                 "settings": normalize_settings(data.get("settings")),
-                "hotkey": hk.normalize_hotkey(data.get("hotkey"))}
+                "hotkey": hk.normalize_hotkey(data.get("hotkey")),
+                "convert_hotkey": hk.normalize_convert_hotkey(
+                    data.get("convert_hotkey"), popup=data.get("hotkey"))}
     except (OSError, ValueError, TypeError, UnicodeError) as error:
         if _retry:
             raise  # A recovery snapshot must never itself be renamed.
@@ -367,6 +371,9 @@ class PocketDesk:
         self.theme_icons = themes.ensure_icons(self.path.parent / "icons")
         self.events = queue.Queue()
         self.hotkey = hk.normalize_hotkey(self.data.get("hotkey"))
+        self.convert_hotkey = hk.normalize_convert_hotkey(
+            self.data.get("convert_hotkey"), popup=self.hotkey)
+        self.convert_hotkey_available = True
         self.hotkey_available = True
         self.tray = None
         self._save_job = None
@@ -486,7 +493,8 @@ class PocketDesk:
         self.tasks.every("notes-editor", 350, self._bidi_poll)
         if not preview and sys.platform == "win32":
             self.root.withdraw()
-            self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events, self.hotkey)
+            self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
+                                    self.hotkey, self.convert_hotkey)
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -567,6 +575,11 @@ class PocketDesk:
 
     def _hotkey_hint(self):
         return hk.hotkey_label(self.hotkey) + "  ·  Show / hide  ✎"
+
+    def _convert_hotkey_hint(self):
+        label = hk.hotkey_label(self.convert_hotkey)
+        return label + ("  ·  Fix keyboard layout"
+                        if self.convert_hotkey_available else "  ·  Unavailable")
 
     def _handle_find_shortcut(self, event=None):
         """Keep Ctrl+F in Commands locally scoped; search globally elsewhere."""
@@ -685,24 +698,26 @@ class PocketDesk:
         entry.focus_set()
         return "break"
 
-    def _open_hotkey_picker(self, _event=None):
+    def _open_hotkey_picker(self, _event=None, *, action="popup"):
         if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():
             self._hotkey_picker.lift()
             return "break"
         self._modal = True
         dialog = tk.Toplevel(self.root)
         self._hotkey_picker = dialog
-        dialog.title("Pocket · Popup shortcut")
+        is_convert = action == "convert"
+        dialog.title("Pocket · " + ("Keyboard layout fix" if is_convert else "Popup shortcut"))
         dialog.configure(bg=BG)
         dialog.resizable(False, False)
         dialog.transient(self.root)
         dialog.geometry(f"390x425+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
-        selected = self.hotkey.copy()
+        selected = (self.convert_hotkey if is_convert else self.hotkey).copy()
         flags = {key: tk.BooleanVar(value=selected[key]) for key in ("ctrl","shift","alt","win")}
         key_var = tk.StringVar(value=selected["key"])
-        tk.Label(dialog, text="Choose a popup shortcut", font=(FONT, 14, "bold"),
+        tk.Label(dialog, text=("Fix copied keyboard text" if is_convert else "Choose a popup shortcut"), font=(FONT, 14, "bold"),
                  fg=WHITE, bg=BG).pack(anchor="w", padx=18, pady=(18, 4))
-        tk.Label(dialog, text="Choose modifiers and click a key below.",
+        tk.Label(dialog, text=("Choose modifiers and a different key from the popup shortcut."
+                               if is_convert else "Choose modifiers and click a key below."),
                  fg=MUTED, bg=BG).pack(anchor="w", padx=18)
         mods = tk.Frame(dialog, bg=BG)
         mods.pack(fill="x", padx=16, pady=(14, 8))
@@ -746,19 +761,33 @@ class PocketDesk:
             if not (candidate["ctrl"] or candidate["alt"] or candidate["win"]):
                 status.config(text="Select Ctrl, Alt or Win to avoid bare global keys.")
                 return
-            if candidate == self.hotkey:
+            peer = self.hotkey if is_convert else self.convert_hotkey
+            if hk.collides(candidate, peer):
+                status.config(text="This shortcut is already used by another Pocket action.")
+                return
+            current = self.convert_hotkey if is_convert else self.hotkey
+            if candidate == current:
                 close()
                 return
             if self.tray and not self.tray.error:
-                # Windows registration is checked by the tray thread first.
-                self.tray.set_hotkey(candidate)
+                # Windows registration is validated before replacing the old key.
+                if is_convert:
+                    self.tray.set_convert_hotkey(candidate)
+                else:
+                    self.tray.set_hotkey(candidate)
                 status.config(text="Applying shortcut…", fg=ACCENT)
                 close()
             else:
-                self.hotkey = candidate
-                self.data["hotkey"] = candidate.copy()
-                self.shortcut_hint.config(text=self._hotkey_hint(), fg=MUTED)
+                if is_convert:
+                    self.convert_hotkey = candidate
+                    self.data["convert_hotkey"] = candidate.copy()
+                else:
+                    self.hotkey = candidate
+                    self.data["hotkey"] = candidate.copy()
+                    self.shortcut_hint.config(text=self._hotkey_hint(), fg=MUTED)
                 self._write_now()
+                if self.current_tab == "settings":
+                    self.root.after_idle(self._build_settings_refresh)
                 close()
         tk.Button(actions, text="Cancel", command=close, bg=CARD, fg=WHITE,
                   relief="flat", padx=12).pack(side="right")
@@ -767,6 +796,9 @@ class PocketDesk:
         dialog.protocol("WM_DELETE_WINDOW", close)
         dialog.grab_set()
         return "break"
+
+    def _open_convert_hotkey_picker(self, event=None):
+        return self._open_hotkey_picker(event, action="convert")
 
     def _build_shell(self):
         if self.display_mode == "mini":
@@ -1445,6 +1477,46 @@ class PocketDesk:
             self.root.clipboard_clear()
             self.root.clipboard_append(item["text"])
             self._clipboard_last = item["text"]
+
+    def _convert_clipboard_text(self, text=None):
+        """Correct physical EN/HE keyboard layout and copy the result.
+
+        The global shortcut reads the *current* Windows clipboard; the context
+        action passes a specific history item. Neither path calls DashDash,
+        opens the Pocket window, or persists converted text to data.json.
+        """
+        if text is None:
+            try:
+                text = self.root.clipboard_get()
+            except (tk.TclError, RuntimeError):
+                self._notify("Pocket · Keyboard layout", "No text in the clipboard.")
+                return False
+        if not isinstance(text, str) or not text.strip():
+            self._notify("Pocket · Keyboard layout", "No text to convert.")
+            return False
+        converted = keyboard_layout.convert(text)
+        if converted == text:
+            self._notify("Pocket · Keyboard layout", "No convertible keyboard characters.")
+            return False
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(converted)
+        except (tk.TclError, RuntimeError):
+            self._notify("Pocket · Keyboard layout", "Clipboard is currently unavailable.")
+            return False
+        self._clipboard_last = converted
+        self._clipboard_sequence = clipboard_images.sequence_number()
+        # Manual conversion stays usable when history capture is paused/hidden.
+        # Add to session history only when its existing privacy rules permit.
+        if "clipboard" in self.settings["visible_tabs"] and clipboard_policy.should_capture(
+            converted, paused=self.settings["clipboard_paused"],
+            sensitive_filter=self.settings["clipboard_sensitive_filter"]
+        ):
+            clipboard_add(self.clipboard_items, converted)
+            if self.current_tab == "clipboard":
+                self._refresh_clipboard()
+        self._notify("Pocket · Keyboard layout", "Corrected text copied. Press Ctrl+V to paste.")
+        return True
 
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
@@ -4494,6 +4566,8 @@ class PocketDesk:
                 name, xy = event
                 if name == "toggle":
                     self.toggle(xy)
+                elif name == "convert_clipboard":
+                    self._convert_clipboard_text()
                 elif name == "show":
                     self.show(xy)
                 elif name == "hotkey_error":
@@ -4507,6 +4581,21 @@ class PocketDesk:
                     self.schedule_save()
                 elif name == "hotkey_conflict":
                     self._warning("Shortcut unavailable", "That keyboard shortcut is already in use. Your previous shortcut remains active.")
+                elif name == "convert_hotkey_changed":
+                    self.convert_hotkey_available = True
+                    self.convert_hotkey = hk.normalize_convert_hotkey(
+                        xy, popup=self.hotkey)
+                    self.data["convert_hotkey"] = self.convert_hotkey.copy()
+                    self.schedule_save()
+                    if self.current_tab == "settings":
+                        self.show_tab("settings")
+                elif name == "convert_hotkey_conflict":
+                    self._warning("Keyboard shortcut unavailable",
+                                  "This shortcut is in use. The previous keyboard-fix shortcut remains active.")
+                elif name == "convert_hotkey_error":
+                    self.convert_hotkey_available = False
+                    if self.current_tab == "settings":
+                        self.show_tab("settings")
                 elif name == "port_result":
                     token, result = xy
                     if token == self.scan_token and not self.scan_cancel.is_set():
@@ -4670,9 +4759,10 @@ class WindowsTray:
 
     WM_HOTKEY_CHANGE = 0x8000 + 39
     WM_NOTIFICATION = 0x8000 + 40
+    WM_CONVERT_HOTKEY_CHANGE = 0x8000 + 41
     NIF_INFO = 0x10
 
-    def __init__(self, icon_path: Path, events, hotkey=None):
+    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -4680,9 +4770,13 @@ class WindowsTray:
         self._proc = None
         self._thread = None
         self.hotkey_ids = set()
+        self.convert_hotkey_ids = set()
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
+        self.convert_hotkey = hk.normalize_convert_hotkey(
+            convert_hotkey, popup=self.hotkey)
         self._pending_hotkey = None
+        self._pending_convert_hotkey = None
         self._pending_notification = None
         self._active_reminder_id = None
 
@@ -4699,6 +4793,12 @@ class WindowsTray:
         self._pending_hotkey = hk.normalize_hotkey(value)
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(self.hwnd, self.WM_HOTKEY_CHANGE, 0, 0)
+
+    def set_convert_hotkey(self, value):
+        self._pending_convert_hotkey = hk.normalize_hotkey(value)
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(
+                self.hwnd, self.WM_CONVERT_HOTKEY_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
@@ -4847,6 +4947,10 @@ class WindowsTray:
                 return 0
             if msg == self.WM_HOTKEY_CHANGE:
                 candidate = self._pending_hotkey
+                if candidate and hk.collides(candidate, self.convert_hotkey):
+                    self.events.put(("hotkey_conflict", None))
+                    self._pending_hotkey = None
+                    return 0
                 if candidate:
                     # Validate the new combination before dropping the working one.
                     # Alternating IDs also supports multiple successive edits.
@@ -4872,10 +4976,42 @@ class WindowsTray:
                         self.events.put(("hotkey_conflict", None))
                 self._pending_hotkey = None
                 return 0
+            if msg == self.WM_CONVERT_HOTKEY_CHANGE:
+                candidate = self._pending_convert_hotkey
+                if candidate and hk.collides(candidate, self.hotkey):
+                    self.events.put(("convert_hotkey_conflict", None))
+                    self._pending_convert_hotkey = None
+                    return 0
+                if candidate:
+                    # Two alternate ID ranges: register replacement before
+                    # relinquishing the old working Windows hotkey.
+                    base = (0xB40 if all(i < 0xB40
+                                         for i in self.convert_hotkey_ids)
+                            else 0xB30)
+                    new_ids = set()
+                    if candidate == self.convert_hotkey:
+                        new_ids = self.convert_hotkey_ids.copy()
+                    else:
+                        for hotkey_id, mods, key in hk.bindings(candidate, base):
+                            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                                new_ids.add(hotkey_id)
+                    if new_ids:
+                        if candidate != self.convert_hotkey:
+                            for old in tuple(self.convert_hotkey_ids):
+                                user.UnregisterHotKey(hwnd, old)
+                        self.convert_hotkey_ids = new_ids
+                        self.convert_hotkey = candidate
+                        self.events.put(("convert_hotkey_changed", candidate))
+                    else:
+                        self.events.put(("convert_hotkey_conflict", None))
+                self._pending_convert_hotkey = None
+                return 0
             if msg == self.WM_HOTKEY:
+                # Only queue actions; Tkinter clipboard access is UI-thread only.
                 if int(wp) in self.hotkey_ids:
-                    # Tkinter must be touched only by its main thread.
                     self.events.put(("toggle", None))
+                elif int(wp) in self.convert_hotkey_ids:
+                    self.events.put(("convert_clipboard", None))
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -4891,9 +5027,10 @@ class WindowsTray:
                     popup_menu(hwnd)
                 return 0
             if msg == self.WM_DESTROY:
-                for hotkey_id in tuple(self.hotkey_ids):
+                for hotkey_id in tuple(self.hotkey_ids | self.convert_hotkey_ids):
                     user.UnregisterHotKey(hwnd, hotkey_id)
                 self.hotkey_ids.clear()
+                self.convert_hotkey_ids.clear()
                 self.hwnd = None
                 shell.Shell_NotifyIconW(self.NIM_DELETE, ctypes.byref(nid))
                 user.PostQuitMessage(0)
@@ -4917,10 +5054,16 @@ class WindowsTray:
         for hotkey_id, mods, key in hk.bindings(self.hotkey):
             if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                 self.hotkey_ids.add(hotkey_id)
+        self.convert_hotkey_ids = set()
+        for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
+            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                self.convert_hotkey_ids.add(hotkey_id)
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:
             self.events.put(("hotkey_error", None))
+        if not self.convert_hotkey_ids:
+            self.events.put(("convert_hotkey_error", None))
         if not shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):
             user.DestroyWindow(hwnd)  # also unregisters the hotkeys
             raise ctypes.WinError()

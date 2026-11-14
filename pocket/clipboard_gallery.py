@@ -207,6 +207,9 @@ def build_text_context_menu(app, colors, selected):
                     label=label,
                     command=lambda tool=destination, data=content:
                         clipboard_routing.send_to_tool(app, tool, data))
+        pocket.add_command(
+            label="TRANSLATE EN/HE",
+            command=lambda value=content: app._convert_clipboard_text(value))
         if pocket.index("end") is not None:
             menu.add_cascade(label="Use text in Pocket", menu=pocket)
         else:

@@ -265,12 +265,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         app, menu_colors, {"text": "8.8.8.8", "pinned": False})
                     main_labels = menu_labels(sample_menu)
                     check("Copy full text" in main_labels and
-                          "Use text in Pocket" in main_labels,
+                          "Use text in Pocket" in main_labels and
+                          "TRANSLATE EN/HE" not in main_labels,
                           f"{mode}: Clipboard right-click groups missing")
                     tool_path = sample_menu.entrycget(
                         main_labels.index("Use text in Pocket"), "menu")
                     tool_menu = app.root.nametowidget(tool_path)
                     tool_labels = menu_labels(tool_menu)
+                    check("TRANSLATE EN/HE" in tool_labels,
+                          f"{mode}: clipboard translation must be inside Use text in Pocket")
                     check("Prepare TCP port check" in tool_labels and
                           "Open Subnet Calculator" in tool_labels and
                           "Create a new Note from text" in tool_labels,
@@ -278,6 +281,23 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check("Open MAC lookup with address" not in tool_labels,
                           f"{mode}: irrelevant MAC action should be hidden for IP")
                     sample_menu.destroy()
+                    converted_menu = clipboard_gallery.build_text_context_menu(
+                        app, menu_colors, {"text": "akuo", "pinned": False})
+                    labels = menu_labels(converted_menu)
+                    submenu_name = converted_menu.entrycget(
+                        labels.index("Use text in Pocket"), "menu")
+                    convert_submenu = app.root.nametowidget(submenu_name)
+                    convert_labels = menu_labels(convert_submenu)
+                    convert_submenu.invoke(convert_labels.index("TRANSLATE EN/HE"))
+                    app.root.update()
+                    check(app.root.clipboard_get() == "שלום",
+                          f"{mode}: context keyboard layout must copy corrected text")
+                    converted_menu.destroy()
+                    # Conversion legitimately prepends corrected text to the
+                    # session history and refreshes the list selection.
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.selection_set(0)
+                    expected_text = app._clipboard_filtered[0]["text"]
                     text_copy_buttons = [w for w in widgets(app.clipboard_text_page)
                                          if isinstance(w, tk.Button) and w.cget("text") == "Copy"]
                     check(len(text_copy_buttons) == 1,
@@ -406,12 +426,20 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.ports_var.set(old_input)
                     app.root.update()
                     check(not app.scanning, f"{mode}: favorites started a scan")
+                if page == "settings":
+                    check(app._convert_hotkey_hint().startswith("Ctrl+Alt+F9"),
+                          f"{mode}: converter shortcut was not restored")
+                    labels = [str(widget.cget("text")) for widget in widgets(app.body)
+                              if isinstance(widget, tk.Label) and "text" in widget.keys()]
+                    check(any("Fix EN / HE keyboard layout" in t or
+                              "FIX KEYBOARD LAYOUT" in t for t in labels),
+                          f"{mode}: converter hotkey is missing from Settings")
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (
                         "mode_normal", "mode_mini", "mode_dashboard",
                         "extra_mini", "customize_launcher",
-                        "change_hotkey", "quick_search",
+                        "change_hotkey", "change_convert_hotkey", "quick_search",
                         "clipboard_paused", "sensitive_filter")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:

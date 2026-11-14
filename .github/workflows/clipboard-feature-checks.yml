@@ -1,9 +1,10 @@
-name: Pocket feature checks
+name: Pocket keyboard layout feature checks
 
 on:
   push:
     branches:
       - feature/shortcuts-clipboard
+      - feature/keyboard-layout-fix
   workflow_dispatch:
 
 jobs:
@@ -62,14 +63,14 @@ jobs:
       - name: Build portable preview for testing (not a release)
         shell: cmd
         env:
-          POCKET_RELEASE_VERSION: v1.33.1-clipboard.preview
+          POCKET_RELEASE_VERSION: v1.34.0-keyboardfix.preview
         run: call build-portable.bat
       - name: Verify extracted portable package and GUI startup
-        run: python tests/integration/check_packaged_release.py --version v1.33.1-clipboard.preview --portable-only
+        run: python tests/integration/check_packaged_release.py --version v1.34.0-keyboardfix.preview --portable-only
       - name: Upload Pocket Shortcuts test build
         uses: actions/upload-artifact@v4
         with:
-          name: Pocket-Shortcuts-Preview-Windows
-          path: dist/Pocket-Portable-v1.33.1-clipboard.preview.zip
+          name: Pocket-KeyboardFix-Preview-Windows
+          path: dist/Pocket-Portable-v1.34.0-keyboardfix.preview.zip
           if-no-files-found: error
           retention-days: 14

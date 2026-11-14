@@ -162,6 +162,19 @@ def build_settings(app, parent):
           wraplength=wrap).pack(anchor="w", pady=(3, 7))
     _button(row, "Change shortcut", app._open_hotkey_picker, c).pack(anchor="w")
     _separator(behavior, c)
+    convert_row = tk.Frame(behavior, bg=c["PANEL"])
+    convert_row.pack(fill="x", padx=14, pady=(4, 10))
+    _text(convert_row, "Fix EN / HE keyboard layout", c, bold=True
+          ).pack(anchor="w")
+    _text(convert_row, app._convert_hotkey_hint(), c, size=8,
+          fg=c["MUTED"], wraplength=wrap
+          ).pack(anchor="w", pady=(3, 7))
+    _button(convert_row, "Change shortcut",
+            app._open_convert_hotkey_picker, c).pack(anchor="w")
+    _text(convert_row, "Converts current Windows clipboard text; does not open Pocket or contact the internet.",
+          c, fg=c["MUTED"], size=8, wraplength=wrap, justify="left"
+          ).pack(anchor="w", pady=(6, 0))
+    _separator(behavior, c)
     _toggle(behavior, c, "Pause clipboard capture",
             "Stop collecting new text; existing session history remains accessible.",
             app.settings["clipboard_paused"],

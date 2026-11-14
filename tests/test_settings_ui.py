@@ -38,7 +38,7 @@ class ModernSettingsTests(unittest.TestCase):
     def test_clipboard_image_limit_defaults_and_rejects_unsafe_values(self):
         from pocket import clipboard_images
         self.assertEqual(clipboard_images.IMAGE_LIMIT_CHOICES,
-                         (10, 20, 50, 100))
+                         (10, 15, 20, 25, 30))
         self.assertEqual(app["default_data"]()["settings"]["clipboard_image_limit"], 20)
         for count in clipboard_images.IMAGE_LIMIT_CHOICES:
             self.assertEqual(app["normalize_settings"](

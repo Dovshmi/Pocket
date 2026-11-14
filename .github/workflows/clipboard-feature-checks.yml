@@ -50,3 +50,26 @@ jobs:
       - name: Linux virtual GUI smoke
         if: runner.os == 'Linux'
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
+
+  portable-preview:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          architecture: "x64"
+      - name: Build portable preview for testing (not a release)
+        shell: cmd
+        env:
+          POCKET_RELEASE_VERSION: v1.33.1-clipboard.preview
+        run: call build-portable.bat
+      - name: Verify extracted portable package and GUI startup
+        run: python tests/integration/check_packaged_release.py --version v1.33.1-clipboard.preview --portable-only
+      - name: Upload Pocket Clipboard test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pocket-Clipboard-Preview-Windows
+          path: dist/Pocket-Portable-v1.33.1-clipboard.preview.zip
+          if-no-files-found: error
+          retention-days: 14

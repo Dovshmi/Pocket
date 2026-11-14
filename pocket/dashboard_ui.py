@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from . import pocket_design as design
+from . import app_info
 from . import tool_icons
 
 NAVIGATION = (
@@ -84,8 +85,13 @@ def build_shell(app, colors):
     brand_name.pack(anchor="w")
     _label(logo_text, "DESKTOP TOOLBOX", c, size=8, bg=c["SIDEBAR"],
            fg=c["MUTED"]).pack(anchor="w", pady=(1, 0))
+    # Add attribution within the existing, fixed-height brand rail.
+    credit = _label(logo_text, app_info.AUTHOR_CREDIT, c, size=7,
+                    bg=c["SIDEBAR"], fg=c["MUTED"], cursor="fleur")
+    credit.pack(anchor="w", pady=(4, 0))
+    app.header_credit = credit
 
-    for handle in (brand, brand_name, logo_text):
+    for handle in (brand, brand_name, logo_text, credit):
         handle.bind("<ButtonPress-1>", app._begin_window_drag)
         handle.bind("<B1-Motion>", app._continue_window_drag)
         handle.bind("<ButtonRelease-1>", app._finish_window_drag)

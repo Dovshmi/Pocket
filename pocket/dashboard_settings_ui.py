@@ -150,6 +150,20 @@ def _behavior(panel, app, colors):
                            app.theme, compact=True)
     button.pack(side="right")
     app.dashboard_settings_controls["change_hotkey"] = button
+    tk.Frame(panel, height=1, bg=colors["BORDER"]).pack(fill="x", padx=14, pady=(6, 8))
+    convert_bar = tk.Frame(panel, bg=colors["PANEL"])
+    convert_bar.pack(fill="x", padx=13, pady=(0, 8))
+    convert_label = tk.Frame(convert_bar, bg=colors["PANEL"])
+    convert_label.pack(side="left", fill="x", expand=True)
+    _label(convert_label, "FIX KEYBOARD LAYOUT (EN / HE)", colors,
+           size=8, muted=True, weight="bold").pack(anchor="w")
+    _label(convert_label, app._convert_hotkey_hint(), colors,
+           size=10, weight="bold").pack(anchor="w", pady=(3, 0))
+    convert_button = design.button(
+        convert_bar, "Change", app._open_convert_hotkey_picker,
+        app.theme, compact=True)
+    convert_button.pack(side="right")
+    app.dashboard_settings_controls["change_convert_hotkey"] = convert_button
     tk.Frame(panel, height=1, bg=colors["BORDER"]).pack(fill="x", padx=14, pady=(0, 5))
     search = tk.Frame(panel, bg=colors["PANEL"])
     search.pack(fill="x", padx=13, pady=(1, 12))

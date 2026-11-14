@@ -5,6 +5,8 @@ Keep validation independent of Tk/Win32 so the mapping can be unit tested.
 from __future__ import annotations
 
 DEFAULT_HOTKEY = {"ctrl": True, "shift": True, "alt": False, "win": False, "key": "*"}
+# Rarely used by regular Windows apps; configurable in Pocket Settings.
+DEFAULT_CONVERT_HOTKEY = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "F9"}
 KEYS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + tuple("0123456789") + ("*",) + tuple(f"F{i}" for i in range(1, 13))
 MOD_ALT, MOD_CTRL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
 HOTKEY_ID = 0xB10
@@ -51,6 +53,32 @@ def bindings(value, start_id: int = HOTKEY_ID) -> tuple[tuple[int, int, int], ..
     if item["key"] == "*":
         result.append((start_id + 1, modifiers, 0x6A))
     return tuple(result)
+
+
+def collides(left, right) -> bool:
+    """Detect actual Win32 hotkey collisions, including '*' and Shift+8."""
+    a = {(mods, key) for _, mods, key in bindings(left)}
+    b = {(mods, key) for _, mods, key in bindings(right)}
+    return not a.isdisjoint(b)
+
+
+def normalize_convert_hotkey(value, *, popup=None) -> dict:
+    """Migrate legacy data and never register both Pocket actions on one key."""
+    if (isinstance(value, dict) and value.get("key") in KEYS
+            and all(type(value.get(k)) is bool for k in ("ctrl", "shift", "alt", "win"))
+            and any(value[k] for k in ("ctrl", "alt", "win"))):
+        candidate = normalize_hotkey(value)
+    else:
+        candidate = DEFAULT_CONVERT_HOTKEY.copy()
+    other = normalize_hotkey(popup)
+    if collides(candidate, other):
+        candidate = DEFAULT_CONVERT_HOTKEY.copy()
+        # A user can configure the popup to the converter's default too.
+        if collides(candidate, other):
+            candidate["key"] = "F8"
+            if collides(candidate, other):
+                candidate["key"] = "F7"
+    return candidate
 
 
 def filter_shortcuts(items, query: str):

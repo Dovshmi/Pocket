@@ -184,6 +184,10 @@ def build_text_context_menu(app, colors, selected):
         label="Copy full text", accelerator="Ctrl+C",
         command=app._copy_clipboard_item,
         state="normal" if selected else "disabled")
+    menu.add_command(
+        label="Fix EN / HE keyboard layout · copy",
+        command=lambda value=content: app._convert_clipboard_text(value),
+        state="normal" if selected else "disabled")
     if selected:
         menu.add_command(
             label="Unpin from history" if selected["pinned"] else "Pin in history",

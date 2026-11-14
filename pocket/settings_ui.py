@@ -271,6 +271,58 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
             "Open", app._open_global_search, compact=compact, primary=True)
 
 
+def _image_capacity(parent, app, c, *, compact=False, wide=False):
+    """Memory-only screenshot count picker, shared across all Settings modes."""
+    from . import clipboard_images
+
+    section = tk.Frame(parent, bg=c["PANEL"])
+    section.pack(fill="x", padx=13, pady=(9, 12))
+    _label(section, "Image history capacity", c, size=9, bold=True,
+           anchor="w").pack(fill="x")
+    _label(section, "How many screenshots Pocket keeps in RAM.",
+           c, muted=True, size=8, anchor="w", justify="left",
+           wraplength=190 if compact else 320
+           ).pack(fill="x", pady=(3, 8))
+
+    choices = tk.Frame(section, bg=c["PANEL"])
+    choices.pack(fill="x")
+    columns = 4 if wide else 2
+    buttons = {}
+
+    def paint():
+        current = app.settings["clipboard_image_limit"]
+        for count, control in buttons.items():
+            active = count == current
+            control.configure(
+                text=f"{count}  ✓" if active else str(count),
+                bg=c["ACCENT_DARK"] if active else c["CARD"],
+                fg=c["WHITE"] if active else c["SECONDARY"],
+                highlightbackground=c["ACCENT"] if active else c["BORDER"])
+
+    def select(count):
+        app._set_clipboard_image_limit(count)
+        paint()
+
+    for index, count in enumerate(clipboard_images.IMAGE_LIMIT_CHOICES):
+        col, row = index % columns, index // columns
+        choices.grid_columnconfigure(col, weight=1, uniform="image_limits")
+        control = _button(
+            choices, str(count), lambda amount=count: select(amount), c,
+            compact=compact)
+        control.grid(row=row, column=col, sticky="nsew",
+                     padx=(0, 5) if col < columns - 1 else 0, pady=(0, 5))
+        buttons[count] = control
+        _register(app, "image_limit_" + str(count), control)
+    paint()
+
+    _label(section,
+           "20 is the default · 100 may use substantial RAM. "
+           "Lowering the limit removes the oldest images immediately.",
+           c, muted=True, size=8, anchor="w", justify="left",
+           wraplength=190 if compact else 340
+           ).pack(fill="x", pady=(6, 0))
+
+
 def _privacy(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Clipboard & privacy",
                     "Control local clipboard capture and sensitive data.",
@@ -284,6 +336,8 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             "Try to exclude passwords and tokens (not a guarantee).",
             app.settings["clipboard_sensitive_filter"],
             app._set_clipboard_sensitive_filter, compact=compact)
+    _divider(card, c)
+    _image_capacity(card, app, c, compact=compact, wide=wide)
     _divider(card, c)
     _label(card, "Clipboard history stays in memory for this session. "
            "Pocket contacts the network only when you request a network check.",

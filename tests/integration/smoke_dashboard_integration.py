@@ -266,12 +266,14 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     main_labels = menu_labels(sample_menu)
                     check("Copy full text" in main_labels and
                           "Use text in Pocket" in main_labels and
-                          "Fix EN / HE keyboard layout · copy" in main_labels,
+                          "TRANSLATE EN/HE" not in main_labels,
                           f"{mode}: Clipboard right-click groups missing")
                     tool_path = sample_menu.entrycget(
                         main_labels.index("Use text in Pocket"), "menu")
                     tool_menu = app.root.nametowidget(tool_path)
                     tool_labels = menu_labels(tool_menu)
+                    check("TRANSLATE EN/HE" in tool_labels,
+                          f"{mode}: clipboard translation must be inside Use text in Pocket")
                     check("Prepare TCP port check" in tool_labels and
                           "Open Subnet Calculator" in tool_labels and
                           "Create a new Note from text" in tool_labels,
@@ -282,8 +284,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     converted_menu = clipboard_gallery.build_text_context_menu(
                         app, menu_colors, {"text": "akuo", "pinned": False})
                     labels = menu_labels(converted_menu)
-                    converted_menu.invoke(labels.index(
-                        "Fix EN / HE keyboard layout · copy"))
+                    submenu_name = converted_menu.entrycget(
+                        labels.index("Use text in Pocket"), "menu")
+                    convert_submenu = app.root.nametowidget(submenu_name)
+                    convert_labels = menu_labels(convert_submenu)
+                    convert_submenu.invoke(convert_labels.index("TRANSLATE EN/HE"))
                     app.root.update()
                     check(app.root.clipboard_get() == "שלום",
                           f"{mode}: context keyboard layout must copy corrected text")

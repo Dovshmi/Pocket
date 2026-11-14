@@ -4568,7 +4568,10 @@ class PocketDesk:
         px, py = clamp_window_position(px, py, width, height, (left + 6, top + 6, right - 6, bottom - 6))
         if self.display_mode in ("normal", "compact") and self.current_tab == "commands" and hasattr(self, "command_tree") and self.command_tree.winfo_exists():
             self.command_code.configure(height=6 if height >= 770 else 5)
-            self.command_tree.configure(height=4)
+            # Keep the Normal results list tall after the popup is restored:
+            # the old height=4 reset silently undid _build_commands(rows=5).
+            self.command_tree.configure(
+                height=5 if self.display_mode == "normal" else 4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
 
     def _begin_window_drag(self, event):

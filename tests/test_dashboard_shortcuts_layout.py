@@ -31,7 +31,7 @@ class DashboardShortcutsTests(unittest.TestCase):
         self.assertIn('if self.display_mode == "dashboard":\n            return dashboard_shortcuts.close_form(self)', APP)
         # The existing Normal/Mini flows must remain present and operational.
         self.assertIn('self._section_title(self.body, "Quick shortcuts"', APP)
-        self.assertIn("def _link_tile(self, link):", APP)
+        self.assertIn("def _link_tile(self, link, *, parent=None):", APP)
 
     def test_dashboard_reuses_safe_shortcut_callbacks(self):
         for name in ("_register_shortcut_drop", "_toggle_link_form", "_save_link",

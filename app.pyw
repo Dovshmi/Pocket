@@ -384,6 +384,7 @@ class PocketDesk:
         self._loading_note = False
         self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
         self._bidi_editor_active = False
+        self._note_focus_pending = None
         self._modal = False
         self.pinned = False
         self._compact_return = False  # True after opening a tool from the launcher.
@@ -972,52 +973,88 @@ class PocketDesk:
             return
         self.root.focus_set()
 
-    def _note_focus_field(self, event):
-        """Give a clicked title/phone/selector focus BEFORE Tk class bindings.
+    def _dismiss_note_menus_for_click(self):
+        """A click on a Note field must clear a dismissed popup's modal guard.
 
-        On Windows the RichEdit child HWND can otherwise retain native keyboard
-        focus even as the Tk Entry visibly highlights. Binding this to each
-        note input before its class binding makes the first click reliable.
+        Tk's native Windows menu does not reliably emit <Unmap> when dismissed
+        by clicking somewhere else. Leaving _modal=True used to block *every*
+        subsequent title/phone focus transfer, which trapped typing in RichEdit.
+        Only release note-menu guards here; real dialogs keep their own guard.
         """
-        if self.current_tab != "notes" or self._modal:
+        if getattr(self, "_note_context_menu", None) is not None:
+            self._finish_note_context_menu_action()
+        picker = getattr(self, "_note_picker_context_menu", None)
+        if picker is not None:
+            self._note_picker_context_menu = None
+            try:
+                if picker.winfo_exists():
+                    picker.unpost()
+                    picker.destroy()
+            except tk.TclError:
+                pass
+            self._modal = getattr(self, "_note_picker_context_menu_was_modal", False)
+
+    def _verify_note_input_focus(self, target):
+        """Repair a late Windows RichEdit focus handoff after Tk's click class binding."""
+        if getattr(self, "_note_focus_pending", None) is not target:
+            return  # Another click has superseded this one.
+        self._note_focus_pending = None
+        if (self.current_tab != "notes" or self._modal or
+                not target.winfo_exists() or not self._bidi_active()):
+            return
+        if self.bidi_editor.has_focus() or self.root.focus_get() is not target:
+            self.bidi_editor.release_focus_to(target)
+            target.focus_force()
+
+    def _note_focus_field(self, event):
+        """Transfer real Win32 keyboard focus from RichEdit to a clicked Tk field.
+
+        Do it before the class binding, then verify after the click finishes.
+        Do not gate the transfer on GetFocus(): it can lag behind Tk focus.
+        """
+        if self.current_tab != "notes":
+            return
+        self._dismiss_note_menus_for_click()
+        if self._modal:
             return
         target = event.widget
-        if self._bidi_active() and self.bidi_editor.has_focus():
+        if self._bidi_active():
             self._flush_current_note()
             self.bidi_editor.release_focus_to(target)
-        target.focus_set()
+            target.focus_force()
+            self._note_focus_pending = target
+            self.root.after_idle(self._verify_note_input_focus, target)
+        else:
+            target.focus_set()
 
     def _note_click_focus(self, event):
-        """Single-click focus behavior for Notes in every working layout.
-
-        Native RichEdit is an independent Win32 HWND, not a Tk child widget.
-        Move its focus to the clicked Tk input or, on background/header
-        clicks, to the root. Text fields and the Mini note selector retain
-        native typing/selection; Mini arrow navigation then works normally
-        whenever focus is outside those editable widgets.
-        """
-        if self.current_tab != "notes" or self._modal or self.display_mode == "compact":
+        """Move focus away from RichEdit when clicking another Notes control."""
+        if self.current_tab != "notes" or self.display_mode == "compact":
             return
         clicked = event.widget
-        if clicked is getattr(self, "bidi_editor", None):
+        direct_fields = (
+            getattr(self, "title_entry", None),
+            getattr(self, "phone_entry", None),
+            getattr(self, "mini_note_picker", None),
+            getattr(self, "note_list", None))
+        if clicked in direct_fields:
+            # The early <ButtonPress-1> field handler owns this handoff.
             return
-        if clicked is getattr(self, "note_body", None):
+        self._dismiss_note_menus_for_click()
+        if self._modal:
             return
-        if isinstance(clicked, native_bidi.NativeBidiEditor):
+        if (clicked is getattr(self, "bidi_editor", None) or
+                clicked is getattr(self, "note_body", None) or
+                isinstance(clicked, native_bidi.NativeBidiEditor)):
             return
-
+        self._note_focus_pending = None
         editable = isinstance(clicked, (
             tk.Entry, tk.Text, tk.Listbox, tk.Spinbox,
             ttk.Entry, ttk.Combobox, ttk.Treeview, ttk.Spinbox))
         destination = clicked if editable else self.root
-
-        if self._bidi_active() and self.bidi_editor.has_focus():
+        if self._bidi_active():
             self._flush_current_note()
             self.bidi_editor.release_focus_to(destination)
-        # Focus Tk inputs as well as the underlying Win32 HWND. The first
-        # click must be sufficient even when a normal class binding is skipped
-        # by an active native editor. This also keeps Mini's caret/navigation
-        # ownership predictable.
         destination.focus_set()
 
     def _mini_keyboard_step(self, event, step):
@@ -1905,10 +1942,12 @@ class PocketDesk:
             previous.destroy()
         self._note_picker_context_menu = menu
         was_modal = self._modal
+        self._note_picker_context_menu_was_modal = was_modal
         self._modal = True
 
         def on_unmap(_event):
             if self._note_picker_context_menu is menu:
+                self._note_picker_context_menu = None
                 self._modal = was_modal
 
         menu.bind("<Unmap>", on_unmap)
@@ -1952,10 +1991,12 @@ class PocketDesk:
             previous.destroy()
         self._note_picker_context_menu = menu
         was_modal = self._modal
+        self._note_picker_context_menu_was_modal = was_modal
         self._modal = True
 
         def on_unmap(_event):
             if self._note_picker_context_menu is menu:
+                self._note_picker_context_menu = None
                 self._modal = was_modal
 
         menu.bind("<Unmap>", on_unmap)

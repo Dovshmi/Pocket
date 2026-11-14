@@ -35,6 +35,29 @@ class ModernSettingsTests(unittest.TestCase):
         self.assertIn("self._return_to_compact()", source)
         self.assertIn("self._set_extra_mini_enabled", source)
 
+    def test_clipboard_image_limit_defaults_and_rejects_unsafe_values(self):
+        from pocket import clipboard_images
+        self.assertEqual(clipboard_images.IMAGE_LIMIT_CHOICES,
+                         (10, 20, 50, 100))
+        self.assertEqual(app["default_data"]()["settings"]["clipboard_image_limit"], 20)
+        for count in clipboard_images.IMAGE_LIMIT_CHOICES:
+            self.assertEqual(app["normalize_settings"](
+                {"clipboard_image_limit": count})["clipboard_image_limit"], count)
+        for value in (-1, 0, 200, True, "100", 12.5, None):
+            self.assertEqual(app["normalize_settings"](
+                {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
+
+    def test_image_limit_persists_without_saving_image_history(self):
+        from tempfile import TemporaryDirectory
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "data.json"
+            data = app["default_data"]()
+            data["settings"]["clipboard_image_limit"] = 50
+            app["save_data"](path, data)
+            loaded = app["load_data"](path)
+            self.assertEqual(loaded["settings"]["clipboard_image_limit"], 50)
+            self.assertNotIn("clipboard_images", path.read_text(encoding="utf-8"))
+
     def test_empty_slots_survive_json_settings_round_trip(self):
         from tempfile import TemporaryDirectory
         with TemporaryDirectory() as folder:

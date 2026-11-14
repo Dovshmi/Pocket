@@ -139,7 +139,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         saved_text = app.bidi_editor.get_text()
                         try:
                             app.bidi_editor.set_text(
-                                "\\n".join(f"Scroll line {i}" for i in range(120)))
+                                "\n".join(f"Scroll line {i}" for i in range(120)))
                             app.root.update()
                             before = app.bidi_editor._send(0x00CE)
                             app.bidi_editor._send(0x020A, (0xFF88 << 16), 0)

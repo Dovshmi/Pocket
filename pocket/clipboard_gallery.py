@@ -6,6 +6,7 @@ width-aware thumbnail gallery with no search field. All state stays in RAM.
 from __future__ import annotations
 
 import tkinter as tk
+from . import menu_style
 from tkinter import messagebox, ttk
 
 from PIL import Image, ImageTk
@@ -179,7 +180,7 @@ def build_text_context_menu(app, colors, selected):
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
         disabledforeground=c["MUTED"], bd=1, relief="flat",
         font=("Segoe UI", 9))
-    menu = tk.Menu(app.root, **style)
+    menu = menu_style.Menu(app.root, **style)
     menu.add_command(
         label="Copy full text", accelerator="Ctrl+C",
         command=app._copy_clipboard_item,
@@ -195,7 +196,7 @@ def build_text_context_menu(app, colors, selected):
         state="normal" if selected else "disabled")
     menu.add_separator()
     if selected:
-        pocket = tk.Menu(menu, **style)
+        pocket = menu_style.Menu(menu, **style)
         labels = (
             ("ports", "Prepare TCP port check"),
             ("mac", "Open MAC lookup with address"),
@@ -514,7 +515,7 @@ def image_menu(app, event, ident):
     """Right-click any thumbnail to select and copy it, even in Mini."""
     select_image(app, ident)
     c = themes.palette(app.theme)
-    menu = tk.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
+    menu = menu_style.Menu(app.root, tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
                    activebackground=c["ACCENT_DARK"],
                    activeforeground=c["WHITE"])
     menu.add_command(label="Copy image", command=lambda: copy_selected(app))

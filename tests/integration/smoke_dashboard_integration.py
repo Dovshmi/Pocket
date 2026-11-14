@@ -142,7 +142,44 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     empty_labels = menu_labels(no_selection)
                     check("Select text to use Pocket tools" in empty_labels,
                           f"{mode}: Notes must explain why selection tools are unavailable")
+                    from tkinter import font as tkfont
+                    cut_index = empty_labels.index("Cut selected text")
+                    check(no_selection.entrycget(cut_index, "state") == "disabled",
+                          f"{mode}: Cut without a selection must be disabled")
+                    cut_font = no_selection.entrycget(cut_index, "font")
+                    check(cut_font and tkfont.Font(root=app.root, font=cut_font
+                              ).actual("overstrike"),
+                          f"{mode}: disabled Cut needs a visible strikethrough")
+                    placeholder_index = empty_labels.index(
+                        "Select text to use Pocket tools")
+                    placeholder_font = no_selection.entrycget(
+                        placeholder_index, "font")
+                    check(placeholder_font and tkfont.Font(
+                        root=app.root, font=placeholder_font).actual("overstrike"),
+                          f"{mode}: disabled placeholder also needs strikethrough")
                     no_selection.destroy()
+                    # State changes must restore the normal font, and keep
+                    # disabled actions non-invokable (not just visually dim).
+                    from pocket import menu_style
+                    dynamic_menu = menu_style.Menu(app.root, tearoff=False)
+                    hits = []
+                    dynamic_menu.add_command(
+                        label="Unavailable", state="disabled",
+                        command=lambda: hits.append("invoked"))
+                    dynamic_menu.invoke(0)
+                    check(not hits, f"{mode}: disabled item executed")
+                    dynamic_menu.entryconfigure(0, state="normal")
+                    check(dynamic_menu.entrycget(0, "font") != cut_font,
+                          f"{mode}: enabled item kept strikethrough font")
+                    dynamic_menu.invoke(0)
+                    check(hits == ["invoked"],
+                          f"{mode}: enabled item failed to execute")
+                    dynamic_menu.entryconfig(0, state="disabled")
+                    check(tkfont.Font(
+                        root=app.root, font=dynamic_menu.entrycget(0, "font")
+                        ).actual("overstrike"),
+                          f"{mode}: re-disabled menu action lost strikethrough")
+                    dynamic_menu.destroy()
                 if page == "clipboard":
                     from PIL import Image
                     from pocket import clipboard_images

@@ -30,7 +30,7 @@ class MiniFocusTests(TestCase):
         native.release_focus_to.assert_called_once_with(root)
         root.focus_set.assert_called_once()
 
-    def test_native_editor_is_not_forced_out_when_not_focused(self):
+    def test_stale_native_getfocus_does_not_block_click_away(self):
         native = SimpleNamespace(has_focus=Mock(return_value=False),
                                  release_focus_to=Mock())
         root = SimpleNamespace(focus_set=Mock())
@@ -39,7 +39,9 @@ class MiniFocusTests(TestCase):
                                note_body=object(), _bidi_active=Mock(return_value=True),
                                _flush_current_note=Mock())
         PocketDesk._note_click_focus(desk, SimpleNamespace(widget=object()))
-        native.release_focus_to.assert_not_called()
+        # GetFocus can be stale while RichEdit still intercepts keyboard input.
+        # Do not skip native handoff based on that unreliable snapshot.
+        native.release_focus_to.assert_called_once_with(root)
         root.focus_set.assert_called_once()
 
     def test_normal_title_click_moves_native_focus_into_title(self):

@@ -121,6 +121,35 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # controls. Explicitly exercise the reported Mini failure:
                     # click Title / Phone after typing in the note body.
                     if sys.platform == "win32" and app.bidi_editor is not None:
+                        # The native white scrollbar must be hidden, not just
+                        # recolored. Keep Win32 multiline/autoscroll styles.
+                        import ctypes
+                        hwnd = ctypes.c_void_p(app.bidi_editor._hwnd)
+                        user32 = ctypes.windll.user32
+                        user32.GetWindowLongW.argtypes = (
+                            ctypes.c_void_p, ctypes.c_int)
+                        user32.GetWindowLongW.restype = ctypes.c_long
+                        flags = user32.GetWindowLongW(hwnd, -16)
+                        check(not (flags & 0x00200000),
+                              f"{mode}: RichEdit still shows a native vertical scrollbar")
+                        check(flags & 0x00000040,
+                              f"{mode}: RichEdit lost keyboard/caret autoscroll")
+                        # Long notes must remain navigable without showing a
+                        # scrollbar; test the actual native mouse-wheel path.
+                        saved_text = app.bidi_editor.get_text()
+                        try:
+                            app.bidi_editor.set_text(
+                                "\\n".join(f"Scroll line {i}" for i in range(120)))
+                            app.root.update()
+                            before = app.bidi_editor._send(0x00CE)
+                            app.bidi_editor._send(0x020A, (0xFF88 << 16), 0)
+                            app.root.update()
+                            after = app.bidi_editor._send(0x00CE)
+                            check(after > before,
+                                  f"{mode}: scrolling long notes no longer works")
+                        finally:
+                            app.bidi_editor.set_text(saved_text)
+                            app.root.update()
                         app.root.focus_force()
                         app.root.update()
                         for field, title in ((app.phone_entry, "Phone"),
@@ -178,6 +207,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     cut_index = empty_labels.index("Cut selected text")
                     check(no_selection.entrycget(cut_index, "state") == "disabled",
                           f"{mode}: Cut without a selection must be disabled")
+                    check(no_selection.cget("disabledforeground") ==
+                          no_selection.cget("foreground"),
+                          f"{mode}: disabled menu labels should not be dimmed")
                     cut_font = no_selection.entrycget(cut_index, "font")
                     check(cut_font and tkfont.Font(root=app.root, font=cut_font
                               ).actual("overstrike"),
@@ -193,7 +225,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # State changes must restore the normal font, and keep
                     # disabled actions non-invokable (not just visually dim).
                     from pocket import menu_style
-                    dynamic_menu = menu_style.Menu(app.root, tearoff=False)
+                    dynamic_menu = menu_style.Menu(
+                        app.root, tearoff=False, fg="#E8ECF6",
+                        disabledforeground="#666666")
+                    check(dynamic_menu.cget("disabledforeground") == "#E8ECF6",
+                          f"{mode}: disabled items were dimmed despite override")
                     hits = []
                     dynamic_menu.add_command(
                         label="Unavailable", state="disabled",

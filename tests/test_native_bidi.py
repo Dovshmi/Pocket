@@ -1,5 +1,6 @@
 """Checks that the native Hebrew editor does not reorder underlying Unicode text."""
 import ctypes
+import os
 import queue
 import unittest
 from unittest.mock import Mock
@@ -24,6 +25,40 @@ class NativeBidiStructureTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(editor._context_menu_events.get_nowait(), (120, 170))
         editor._context_menu.assert_not_called()
+
+    def test_foreground_process_identifies_external_windows_without_tk(self):
+        editor = native_bidi.NativeBidiEditor.__new__(native_bidi.NativeBidiEditor)
+        editor._hwnd = 123
+        editor._user = Mock()
+        editor._user.GetForegroundWindow.return_value = 900
+
+        def foreground_owner(_window, pid_ptr):
+            ctypes.cast(pid_ptr, ctypes.POINTER(native_bidi.DWORD))[0] = (
+                os.getpid() + 1)
+            return 777
+
+        editor._user.GetWindowThreadProcessId.side_effect = foreground_owner
+        self.assertTrue(editor.foreground_is_external())
+
+        def pocket_owner(_window, pid_ptr):
+            ctypes.cast(pid_ptr, ctypes.POINTER(native_bidi.DWORD))[0] = (
+                os.getpid())
+            return 777
+
+        editor._user.GetWindowThreadProcessId.side_effect = pocket_owner
+        self.assertFalse(editor.foreground_is_external())
+        editor._user.GetForegroundWindow.return_value = 0
+        self.assertFalse(editor.foreground_is_external())
+        editor._hwnd = None
+        self.assertFalse(editor.foreground_is_external())
+
+    def test_unknown_foreground_owner_is_not_treated_as_focus_loss(self):
+        editor = native_bidi.NativeBidiEditor.__new__(native_bidi.NativeBidiEditor)
+        editor._hwnd = 123
+        editor._user = Mock()
+        editor._user.GetForegroundWindow.return_value = 987
+        editor._user.GetWindowThreadProcessId.return_value = 0
+        self.assertFalse(editor.foreground_is_external())
 
     def test_win32_colorref(self):
         self.assertEqual(native_bidi.colorref("#112233"), 0x332211)

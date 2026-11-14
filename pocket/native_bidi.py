@@ -10,7 +10,6 @@ No separate install, web component, or network access is required.
 from __future__ import annotations
 
 import ctypes
-import os
 import queue
 import sys
 import tkinter as tk
@@ -110,10 +109,6 @@ class NativeBidiEditor(tk.Frame):
         self._user.GetWindowTextLengthW.restype = ctypes.c_int
         self._user.GetFocus.restype = ctypes.c_void_p
         self._user.SetFocus.argtypes = (ctypes.c_void_p,)
-        self._user.GetForegroundWindow.restype = ctypes.c_void_p
-        self._user.GetWindowThreadProcessId.argtypes = (
-            ctypes.c_void_p, ctypes.POINTER(DWORD))
-        self._user.GetWindowThreadProcessId.restype = DWORD
         self._gdi.CreateFontW.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int,
                                          ctypes.c_int, ctypes.c_int, ctypes.c_uint,
                                          ctypes.c_uint, ctypes.c_uint, ctypes.c_uint,
@@ -237,26 +232,6 @@ class NativeBidiEditor(tk.Frame):
 
     def has_focus(self) -> bool:
         return bool(self._hwnd and self._user.GetFocus() == self._hwnd)
-
-    def foreground_is_external(self) -> bool:
-        """True only when Windows has activated a window outside Pocket.
-
-        A native RichEdit HWND does not reliably trigger Tk's <FocusOut>.
-        GetFocus() may still identify the old editor when another *process*
-        owns the foreground window. Checking its PID avoids hiding Pocket
-        when its own dialogs/menus take focus. Unknown/zero HWND is treated
-        as an inconclusive transition, not as deactivation.
-        """
-        if not self._hwnd:
-            return False
-        foreground = self._user.GetForegroundWindow()
-        if not foreground:
-            return False
-        owner = DWORD()
-        if not self._user.GetWindowThreadProcessId(
-                foreground, ctypes.byref(owner)):
-            return False
-        return bool(owner.value and owner.value != os.getpid())
 
     def focus_set(self):
         if self._hwnd:

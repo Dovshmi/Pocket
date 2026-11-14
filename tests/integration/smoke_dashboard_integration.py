@@ -228,7 +228,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     dynamic_menu = menu_style.Menu(
                         app.root, tearoff=False, fg="#E8ECF6",
                         disabledforeground="#666666")
-                    check(dynamic_menu.cget("disabledforeground") == "#E8ECF6",
+                    check(dynamic_menu.cget("disabledforeground").lower() == "#e8ecf6",
                           f"{mode}: disabled items were dimmed despite override")
                     hits = []
                     dynamic_menu.add_command(

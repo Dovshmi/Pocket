@@ -19,6 +19,23 @@ class ClipboardImagesTests(unittest.TestCase):
         self.assertEqual(clipboard_images.decode_image(
             history[-1]["data"]).getpixel((0, 0)), (1, 60, 90))
 
+    def test_configurable_capacity_retains_newest_images(self):
+        history = []
+        for number in range(12):
+            self.assertTrue(clipboard_images.add_image(
+                history, Image.new("RGB", (10, 10), (number, 5, 7)),
+                maximum=10))
+        self.assertEqual(len(history), 10)
+        self.assertEqual(clipboard_images.decode_image(
+            history[-1]["data"]).getpixel((0, 0)), (2, 5, 7))
+        for number in range(12, 22):
+            self.assertTrue(clipboard_images.add_image(
+                history, Image.new("RGB", (10, 10), (number, 5, 7)),
+                maximum=50))
+        self.assertEqual(len(history), 20)
+        self.assertEqual(clipboard_images.decode_image(
+            history[0]["data"]).getpixel((0, 0)), (21, 5, 7))
+
     def test_duplicate_does_not_consume_slot(self):
         history = []
         image = Image.new("RGBA", (30, 30), (10, 50, 200, 100))

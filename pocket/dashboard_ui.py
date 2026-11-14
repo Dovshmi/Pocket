@@ -152,7 +152,7 @@ def build_shell(app, colors):
 
     _link(header, "×", app.hide, c, padx=12, pady=4).pack(side="right", padx=(7, 0))
     if app.settings["extra_mini_enabled"]:
-        _link(header, "▾ Extra Mini", app._return_to_compact, c, emphasis=True,
+        _link(header, "_", app._return_to_compact, c, emphasis=True,
               padx=8, pady=6).pack(side="right", padx=3)
     app.pin_button = _link(header, "PIN", app.toggle_pin, c, padx=12, pady=6)
     app.pin_button.pack(side="right", padx=3)

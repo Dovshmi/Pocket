@@ -445,7 +445,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     required.update("tool_" + key
                                     for key, _ in app.VISIBLE_TABS_REFERENCE)
                     required.update("image_limit_" + str(value)
-                                    for value in (10, 20, 50, 100))
+                                    for value in (10, 15, 20, 25, 30))
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
                     check(all(isinstance(common[key], tk.Checkbutton) and
@@ -457,10 +457,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
-                    common["image_limit_50"].invoke()
-                    check(app.settings["clipboard_image_limit"] == 50,
+                    common["image_limit_30"].invoke()
+                    check(app.settings["clipboard_image_limit"] == 30,
                           f"{mode}: image history capacity did not update")
-                    check("✓" in common["image_limit_50"].cget("text"),
+                    check("✓" in common["image_limit_30"].cget("text"),
                           f"{mode}: selected image limit is not highlighted")
                     common["image_limit_" + str(old_limit)].invoke()
                     check(app.settings["clipboard_image_limit"] == old_limit,

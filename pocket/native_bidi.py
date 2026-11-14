@@ -238,15 +238,18 @@ class NativeBidiEditor(tk.Frame):
             self._user.SetFocus(self._hwnd)
 
     def release_focus_to(self, widget):
-        """Explicitly transfer native keyboard focus to a Tk navigation control.
+        """Return keyboard focus to Tk's native top-level, not a child widget.
 
-        RichEdit has its own child HWND, outside Tk's widget focus machinery.
-        Calling Tk.focus_set() alone does not always clear GetFocus() for this
-        HWND. Transfer focus from the Tk event loop (never a Win32 subclass
-        callback) so arrow keys reach Pocket's normal Tk bindings again.
+        On Windows, Tk owns keyboard focus for its Entry/Combobox widgets via
+        the toplevel HWND. SetFocus(widget.winfo_id()) can focus the wrong native
+        window while Tk still thinks the target Entry is selected; keystrokes
+        then continue going to RichEdit. The caller subsequently uses Tk's
+        target.focus_force(), allowing Tk to select its actual child input.
+        Only call this from the Tk UI event loop, never SUBCLASSPROC.
         """
         if self._hwnd and widget.winfo_exists():
-            self._user.SetFocus(ctypes.c_void_p(widget.winfo_id()))
+            host = widget.winfo_toplevel()
+            self._user.SetFocus(ctypes.c_void_p(host.winfo_id()))
 
     def get_text(self) -> str:
         if not self._hwnd:

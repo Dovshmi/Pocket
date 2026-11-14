@@ -33,9 +33,12 @@ def _action(parent, title, callback, colors):
 
 def build(app):
     c = themes.palette(app.theme)
-    app._section_title(app.body, "Clipboard history",
-                       "Session-only text and images · Never saved to disk",
-                       "Clear all", app._clear_clipboard)
+    header = app._section_title(app.body, "Clipboard history",
+                                "Session-only text and images · Never saved to disk",
+                                "Clear text", app._clear_clipboard)
+    app.clipboard_clear_button = next(
+        (child for child in header.winfo_children() if isinstance(child, tk.Button)),
+        None)
     privacy = tk.Frame(app.body, bg=c["BG"])
     privacy.pack(fill="x", pady=(0, 6))
     app.clipboard_pause_button = design.button(
@@ -139,6 +142,9 @@ def _build_images_page(app, c):
 def show_page(app, page):
     page = page if page in ("text", "images") else "text"
     app.clipboard_page = page  # Remember across menu/layout switches in session.
+    if app.clipboard_clear_button is not None:
+        app.clipboard_clear_button.configure(
+            text="Clear images" if page == "images" else "Clear text")
     c = themes.palette(app.theme)
     for key, btn in app.clipboard_page_buttons.items():
         selected = key == page
@@ -270,6 +276,8 @@ def preview_selected(app):
     max_width = max(260, min(1120, app.root.winfo_screenwidth() - 100))
     max_height = max(200, min(760, app.root.winfo_screenheight() - 140))
     picture.thumbnail((max_width - 36, max_height - 80), Image.Resampling.LANCZOS)
+    previous_modal = app._modal
+    app._modal = True
     window = tk.Toplevel(app.root)
     window.title(f'Pocket · Image {item["width"]}×{item["height"]}')
     window.configure(bg=c["BG"])
@@ -278,8 +286,15 @@ def preview_selected(app):
     display = tk.Label(window, image=photo, bg=c["BG"])
     display.image = photo
     display.pack(fill="both", expand=True, padx=12, pady=(12, 5))
-    _action(window, "Close preview", window.destroy, c).pack(pady=(2, 10))
-    window.bind("<Escape>", lambda _e: window.destroy())
+    def close_preview(_event=None):
+        if window.winfo_exists():
+            window.destroy()
+        app._modal = previous_modal
+
+    _action(window, "Close preview", close_preview, c).pack(pady=(2, 10))
+    window.protocol("WM_DELETE_WINDOW", close_preview)
+    window.bind("<Escape>", close_preview)
+    window.grab_set()
     window.focus_set()
 
 

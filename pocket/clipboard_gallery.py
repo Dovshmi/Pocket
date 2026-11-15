@@ -22,6 +22,16 @@ def columns_for_width(width):
     return max(1, min(5, int(width) // 205))
 
 
+def text_row_label(item):
+    """Display clipboard text without the legacy three-space left indent.
+
+    Pinned entries keep their visible star; ordinary entries begin at the
+    native Listbox text inset, matching other Pocket input panels.
+    """
+    preview = " ".join(item["text"].split())[:65]
+    return ("★ " if item["pinned"] else "") + preview
+
+
 def _action(parent, title, callback, colors):
     return tk.Button(
         parent, text=title, command=callback, relief="flat", bd=0,
@@ -128,10 +138,15 @@ def _build_text_page(app, c):
 
     frame = tk.Frame(parent, bg=c["BG"])
     frame.pack(fill="both", expand=True, pady=(3, 0))
+    # Match the 1px themed border used by Pocket's other input fields.
+    # Tk's default Listbox highlight ring is thicker/bright on Windows,
+    # making the Clipboard history look slightly offset from adjacent tools.
     app.clipboard_list = tk.Listbox(
         frame, bg=c["PANEL"], fg=c["WHITE"],
         selectbackground=c["ACCENT_DARK"], font=("Segoe UI", 10),
-        bd=0, exportselection=False)
+        bd=0, relief="flat", highlightthickness=1,
+        highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],
+        selectborderwidth=0, activestyle="none", exportselection=False)
     app.clipboard_list.pack(fill="both", expand=True)
     app.clipboard_list.bind("<Double-1>", lambda _evt: app._copy_clipboard_item())
 

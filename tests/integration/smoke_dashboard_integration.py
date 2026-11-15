@@ -219,11 +219,31 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                       "Normal Extra Mini toggle shifted Pocket branding")
                 app._set_extra_mini_enabled(False)
                 app.root.update()
+            # Audit the content gutter through every menu transition. A
+            # scrolling page must be mounted beneath the original shell body,
+            # never inside a scroll canvas left over from the previous tool.
+            stable_shell_body = app._mini_root_body
+            stable_shell_x = stable_shell_body.winfo_rootx() - app.root.winfo_rootx()
+            stable_shell_width = stable_shell_body.winfo_width()
             for page in PANES:
                 app.show_tab(page)
                 app.root.update()
                 check(app.current_tab == page, f"{mode}: {page} did not open")
                 check(app.body.winfo_exists(), f"{mode}: missing page body {page}")
+                check(app._mini_root_body is stable_shell_body and
+                      stable_shell_body.winfo_exists(),
+                      f"{mode}/{page}: lost the original tool-content frame")
+                check(abs(stable_shell_body.winfo_rootx() -
+                          app.root.winfo_rootx() - stable_shell_x) <= 2 and
+                      abs(stable_shell_body.winfo_width() -
+                          stable_shell_width) <= 2,
+                      f"{mode}/{page}: content gutter shifted on menu switch")
+                if app._tool_scroll_canvas is None:
+                    check(app.body is stable_shell_body,
+                          f"{mode}/{page}: tool was rendered in an old canvas")
+                else:
+                    check(app._tool_scroll_canvas.master is stable_shell_body,
+                          f"{mode}/{page}: nested scrolling canvas shifted the content")
                 # Capture every actual tool page in every working layout.
                 capture(app, output, mode + "_" + page)
                 if page == "ports" and mode == "mini":
@@ -465,6 +485,33 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(app.clipboard_page == "text" and
                           app.clipboard_list.winfo_exists(),
                           f"{mode}: existing text Clipboard was lost")
+                    # A native Listbox defaults to a thick white focus frame
+                    # and legacy Clipboard rows had three leading spaces.
+                    # The border, data and gutters should match the other
+                    # Pocket tools in Normal, Mini and Dashboard.
+                    listbox = app.clipboard_list
+                    text_panel = app.clipboard_text_page
+                    left_inset = (listbox.winfo_rootx() -
+                                  text_panel.winfo_rootx())
+                    right_inset = (text_panel.winfo_rootx() +
+                                   text_panel.winfo_width() -
+                                   listbox.winfo_rootx() -
+                                   listbox.winfo_width())
+                    check(left_inset >= 0 and right_inset >= 0 and
+                          abs(left_inset - right_inset) <= 1,
+                          f"{mode}: Clipboard text box has uneven left/right gutters")
+                    check(int(listbox.cget("highlightthickness")) == 1 and
+                          int(listbox.cget("borderwidth")) == 0,
+                          f"{mode}: Clipboard list still uses the legacy thick frame")
+                    from pocket import clipboard_gallery
+                    palette = clipboard_gallery.themes.palette(app.theme)
+                    check(listbox.winfo_rgb(listbox.cget("highlightbackground")) ==
+                          listbox.winfo_rgb(palette["BORDER"]),
+                          f"{mode}: Clipboard border does not match other inputs")
+                    check(all(listbox.get(i) ==
+                              clipboard_gallery.text_row_label(item)
+                              for i, item in enumerate(app._clipboard_filtered)),
+                          f"{mode}: Clipboard rows gained unwanted left padding")
                     check(app.clipboard_query_entry.winfo_width() <
                           app.clipboard_text_page.winfo_width() * 0.8,
                           f"{mode}: Clipboard search should be narrow")

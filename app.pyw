@@ -1572,8 +1572,7 @@ class PocketDesk:
         self._clipboard_filtered = [item for item in self.clipboard_items if query in item["text"].casefold()]
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
-            preview = " ".join(item["text"].split())[:65]
-            self.clipboard_list.insert(tk.END, ("★ " if item["pinned"] else "   ") + preview)
+            self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
                                      ("PAUSED" if self.settings["clipboard_paused"] else
                                       "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))

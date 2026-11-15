@@ -14,7 +14,7 @@ This patch is built from the updated `main` branch, including the fixes merged i
 ## Unchanged from v1.35.0
 
 - Modern Settings, Mini default for new profiles, Ushpelo starter shortcuts, and saved last-active menu.
-- Clipboard image history capacity 10, 15, 20, 25 or 30 (20 by default), kept only in RAM.
+- Clipboard image history capacity **10, 15, 20, 25, 30** (20 by default), kept only in RAM.
 - Offline EN/HE keyboard-layout conversion, fixed Notes editor focus and hidden editor scrollbar, Extra Mini control, improved Command Helper and author/version credits.
 - Local-first behavior. Network checks occur only when initiated by the user. Existing user settings, notes, shortcuts and clipboard privacy rules are unchanged.
 

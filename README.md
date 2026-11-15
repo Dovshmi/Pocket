@@ -8,13 +8,13 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.35.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.35.0)
+[![Release](https://img.shields.io/badge/Stable-v1.35.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.35.1)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.35.0/Pocket-Portable-v1.35.0.zip)** ·
-**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.35.0/Pocket-v1.35.0.exe)** ·
+**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.35.1/Pocket-Portable-v1.35.1.zip)** ·
+**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.35.1/Pocket-v1.35.1.exe)** ·
 **[All Releases](https://github.com/Dovshmi/Pocket/releases)**
 
 </div>
@@ -24,7 +24,7 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!NOTE]
-> **v1.35.0:** Modern Settings in all layouts; offline **EN/HE keyboard-layout correction**; configurable **10–30 session-only clipboard images** (default 20); more reliable Notes focus and scroll; clearer context menus; polished author/version headers; and better Normal Command Helper visibility. New installations default to Mini with Ushpelo starter links and Local TCP presets; **existing preferences remain untouched**. Windows **Proxy/PAC/WPAD** support is retained. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
+> **v1.35.1:** Clipboard text no longer starts with artificial spaces, the Clipboard border matches Pocket's dark theme, and Dashboard tool content stays aligned when changing menus. **All v1.35.0 features remain included**, with existing settings and notes preserved. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
 
 ## Screenshots
 
@@ -75,6 +75,15 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying; manual command backups are created **only when you choose Backup**.
 
 **Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu also stops clipboard monitoring. **Text and screenshot history are kept in RAM only**, with images capped at the selected 10–30 entries (default 20); neither is written to disk.
+
+## Fixed in v1.35.1
+
+- Removed the three leading spaces before **unpinned Clipboard text entries** so items line up with the normal content inset.
+- Replaced the Windows-native bright Clipboard focus frame with Pocket's subtle **1px themed border**.
+- Fixed **Dashboard** navigation between scrollable and normal pages so content doesn't become nested or shift horizontally.
+- Added regression checks of the content gutter across **all tools** in Normal, Mini and Dashboard.
+
+Read the [v1.35.1 release notes](RELEASE_NOTES.md) for the safe upgrade procedure. The features below were introduced with v1.35.0 and remain available.
 
 ## New in v1.35.0
 
@@ -129,7 +138,7 @@ Pocket remembers window placement, last active tool and supports **Blue, Dark Bl
 
 ### Portable ZIP — recommended for a work PC
 
-1. Download **[Pocket-Portable-v1.35.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.35.0/Pocket-Portable-v1.35.0.zip)**.
+1. Download **[Pocket-Portable-v1.35.1.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.35.1/Pocket-Portable-v1.35.1.zip)**.
 2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
 3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
 4. Choose a window layout and theme in Settings.
@@ -138,7 +147,7 @@ No Python installation is required. The portable version stores personal data un
 
 ### Standalone EXE
 
-Download **[Pocket-v1.35.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.35.0/Pocket-v1.35.0.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+Download **[Pocket-v1.35.1.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.35.1/Pocket-v1.35.1.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
 
 > [!IMPORTANT]
 > Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

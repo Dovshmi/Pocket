@@ -1,56 +1,38 @@
-# Pocket v1.35.0 — Modern Settings & Everyday Workflow Improvements
+# Pocket v1.35.1 — Clipboard Alignment & Consistent Layout
 
-**Stable Windows release · Windows 10/11 · Portable ZIP + standalone EXE**
+**Stable Windows patch release · Windows 10/11 · Portable ZIP + standalone EXE**
 
-This release collects the features and reliability fixes merged into `main` since v1.34.0. It retains the local-first workflow, the optional Windows proxy/PAC-aware DashDash checks, and the RAM-only clipboard history introduced in v1.34.0.
+This patch is built from the updated `main` branch, including the fixes merged in [PR #22](https://github.com/Dovshmi/Pocket/pull/22). It contains all v1.35.0 features.
 
-## Modern Settings and navigation
+## Fixed
 
-- Redesigned **Settings** across Normal, Mini and Dashboard with consistent cards, visible mode selections, six direct color choices, accessible switch-style controls and a subtle author/version footer.
-- **Mini** is the default layout for **new profiles only**. Existing installations retain their last chosen mode, window placement, theme, shortcuts and notes.
-- Pocket now remembers the **last selected tool** and restores it on restart when the tool is still enabled.
-- The tiny Extra Mini **`_`** button is available only when Extra Mini is enabled in Settings; header/branding positioning has been polished in Normal and Mini, and `By. Rony Shmidov` appears unobtrusively beneath Pocket.
-- Normal **Commands Helper** shows at least four complete result rows while retaining the separate temporary edit-before-copy area.
+- **Clipboard text alignment:** Removed an artificial three-space prefix from unpinned history entries. Clipboard rows now start at the normal Listbox text inset; pinned entries still show their star.
+- **Clipboard border:** Replaced the Windows-native, thick bright focus border with the same subtle **1px themed border** used elsewhere in Pocket, including a themed focus highlight.
+- **Dashboard navigation:** Restores the original tool-content parent when switching between scrollable and non-scrollable menus. This prevents progressively nested scroll frames and unintended horizontal offset or shrinkage.
+- **Consistent menus:** Added automated GUI checks for the horizontal content gutter and correct scroll-parent ownership across **Normal, Mini and Dashboard**, visiting every menu.
 
-## Clipboard history and keyboard layout
+## Unchanged from v1.35.0
 
-- Configure clipboard image capacity under **Settings → Clipboard & privacy**: **10, 15, 20, 25, 30**, with **20 as the default** and **30 maximum**.
-- Screenshots and clipboard text are **session-only and RAM-only**; the count preference is persisted, not the image bytes. Lowering the limit drops the oldest in-memory images.
-- New offline **EN/HE keyboard-layout correction** for accidentally typed characters on the wrong physical-key layout, available from **Clipboard Text → Use text in Pocket → TRANSLATE EN/HE** and via a configurable shortcut (default **Ctrl+Alt+F9**). This is a keyboard-position conversion, **not** semantic translation and requires no network.
-- Unavailable context-menu actions stay visible with a **strikethrough** and normal readable text color. They remain disabled and cannot execute.
+- Modern Settings, Mini default for new profiles, Ushpelo starter shortcuts, and saved last-active menu.
+- Clipboard image history capacity **10, 15, 20, 25, 30** (20 by default), kept only in RAM.
+- Offline EN/HE keyboard-layout conversion, fixed Notes editor focus and hidden editor scrollbar, Extra Mini control, improved Command Helper and author/version credits.
+- Local-first behavior. Network checks occur only when initiated by the user. Existing user settings, notes, shortcuts and clipboard privacy rules are unchanged.
 
-## Notes editor reliability
+## Verified release contents
 
-- Improved native Windows RichEdit focus handoff so clicking **Title** or **Phone** after editing a note gives those fields keyboard focus, including after dismissing a right-click menu.
-- Removed the intrusive white Notes editor scrollbar. Long notes remain scrollable with the mouse wheel, caret and keyboard navigation.
+The publishing workflow runs Windows unit and full GUI checks, builds both packages, verifies the extracted ZIP's dependencies and internal manifest, tests the standalone EXE startup, and creates SHA-256 checksums before publishing.
 
-## Useful new-install defaults
+- **Pocket-Portable-v1.35.1.zip** — extracted portable Windows app, with `PocketDesk.exe`, `_internal/`, integrity manifest and verification script.
+- **Pocket-v1.35.1.exe** — standalone Windows executable.
+- **SHA256SUMS.txt** — SHA-256 checksums for the ZIP and EXE.
 
-The following are **factory defaults only**; upgrades **do not overwrite saved user settings or shortcuts**.
+Public packages exclude user profiles, private `commands.json`, saved notes, credentials, and clipboard history. Binaries are not code-signed.
 
-- Mini mode on first launch.
-- Quick Shortcuts folder **Ushpelo** with **DashDash** (`https://dashdash-tau.vercel.app`) first and **My GitHub** (`https://github.com/Dovshmi`) second.
-- TCP checker prefilled with target `8.8.8.8` and ports `21,22,443,80,8080,3389,53` in **Local** mode. Prefilling never starts a network scan.
+## Upgrade without losing your data
 
-## Security, testing and compatibility
+1. Exit Pocket completely from the Windows system tray.
+2. Back up your current user data: portable installations keep it under `Pocket-Portable/data/`; standalone uses `%APPDATA%\\PocketDesk/`.
+3. For Portable, extract v1.35.1 into a **new folder** and copy your previous `data/` folder into it. Do **not** combine old and new `_internal/` directories.
+4. Open Pocket again. Your selected mode, theme, notes, last-used tool, TCP preferences and shortcut folders are preserved.
 
-- Local tools remain offline by default. TCP checks and remote MAC/vendor lookups run only on explicit request, and remote DashDash traffic continues to use Windows-configured proxy/PAC when needed.
-- Pocket never executes saved CLI reference commands.
-- Public release archives exclude personal notes, private credentials, user `commands.json`, cached clipboard contents and local data folders. The bundled command library is sanitized example data.
-- Release verification includes Windows/Linux unit and GUI tests, native DLL checks, extracted portable integrity checks, and startup of the packaged Portable and Standalone executables.
-
-## Official downloads
-
-- **Pocket-Portable-v1.35.0.zip** — self-contained extracted-app Windows package, including `PocketDesk.exe`, `_internal/`, a SHA-256 bundle manifest and the verification script.
-- **Pocket-v1.35.0.exe** — standalone Windows executable.
-- **SHA256SUMS.txt** — checksums for both release packages.
-
-## Upgrade without losing your work
-
-1. Fully **Exit Pocket** from the Windows tray.
-2. Back up your current profile. Portable: `Pocket-Portable/data/`. Standalone: `%APPDATA%\\PocketDesk/`. Keep your personal `commands.json`.
-3. For the portable version, **extract to a NEW writable directory**, rather than merging old and new `_internal/` files. Copy the existing `data/` folder to the new extracted `Pocket-Portable/` folder.
-4. Start Pocket and check your saved notes, shortcuts/folders, selected mode and Tools settings.
-5. Existing installations keep their current links and ports; **Ushpelo** and the new TCP presets apply only to fresh profiles.
-
-**Security:** Release executables are unsigned. Respect work-PC application control and ask IT where required. Clipboard images and text exist only in RAM while Pocket is running.
+The previous [v1.35.0 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.35.0) remains available separately.

@@ -165,6 +165,11 @@ def build_shell(app, colors):
     tk.Frame(workspace, bg=c["BORDER"], height=1).pack(fill="x")
     app.body = tk.Frame(workspace, bg=c["BG"])
     app.body.pack(fill="both", expand=True, padx=27, pady=(20, 21))
+    # Keep the *shell* body as the stable parent across menu changes.
+    # Scrolling tools temporarily replace app.body with a canvas child;
+    # without restoring this frame, later Dashboard menus nest scroll
+    # canvases and gradually lose their original horizontal alignment.
+    app._mini_root_body = app.body
     app._mini_root_body = app.body
     style_nav(app, app.current_tab)
 

@@ -125,8 +125,11 @@ class WindowsMarkBackend:
             if snapshot_status != 0 or not original.value:
                 # A genuinely empty clipboard needs no OLE data object. Mark
                 # should still work on a machine without previous copied text.
-                if self.user.CountClipboardFormats() != 0:
-                    raise MarkError("The current clipboard cannot be preserved safely.")
+                # Check while holding the clipboard lock. A failed format
+                # count must not be mistaken for an empty clipboard.
+                with self._opened():
+                    if self.user.CountClipboardFormats() != 0:
+                        raise MarkError("The current clipboard cannot be preserved safely.")
 
                 def clear_empty_clipboard():
                     with self._opened(owner=True):

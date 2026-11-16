@@ -5309,6 +5309,7 @@ class WindowsTray:
                         ("hBalloonIcon", wintypes.HICON)]
 
         user = ctypes.windll.user32
+        user.GetForegroundWindow.restype = wintypes.HWND
         kernel = ctypes.windll.kernel32
         shell = ctypes.windll.shell32
         kernel.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]

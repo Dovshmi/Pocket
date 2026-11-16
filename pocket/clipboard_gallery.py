@@ -22,6 +22,15 @@ def columns_for_width(width):
     return max(1, min(5, int(width) // 205))
 
 
+def pinned_first(items):
+    """Stable display order: pinned clipboard text first, otherwise newest first.
+
+    Preserve the session history order within each group. This is a view-only
+    sort: the underlying RAM history and pin flags are not mutated or saved.
+    """
+    return sorted(items, key=lambda item: not item.get("pinned", False))
+
+
 def text_row_label(item):
     """Display clipboard text without the legacy three-space left indent.
 

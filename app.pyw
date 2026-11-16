@@ -2622,8 +2622,11 @@ class PocketDesk:
 
     def add_note(self):
         self._flush_current_note()
-        self.data["notes"].insert(0, new_note())
-        self.data["active_note"] = self.data["notes"][0]["id"]
+        # Append at the end regardless of the previously selected note.
+        # ordered_notes() still keeps pinned notes at the top of every picker.
+        created = new_note()
+        self.data["notes"].append(created)
+        self.data["active_note"] = created["id"]
         if self.current_tab != "notes":
             self.show_tab("notes")
         else:
@@ -4565,7 +4568,7 @@ class PocketDesk:
             session["dismissed"] = None
 
     def open_notepad(self):
-        """Edit a note using its stable local file; saved changes sync into Pocket."""
+        """Open a readable, per-note .txt file while retaining live edit sync."""
         if sys.platform != "win32":
             messagebox.showinfo("Windows only", "Opening notes in Windows Notepad requires Windows.",
                                 parent=self.root)
@@ -4576,19 +4579,39 @@ class PocketDesk:
         self._flush_current_note()
         folder = self.path.parent / "notepad"
         try:
-            path = note_sync.note_path(folder, note["id"])
             session = self._notepad_sessions.get(note["id"])
-            if session is None:
-                if path.exists():
-                    external = note_sync.read_text(path)
+            if session is not None:
+                # Never rename an open working file or overwrite unsaved Notepad edits.
+                path = session["path"]
+            else:
+                # A title-based filename belongs to its original note even if the
+                # file is moved/deleted. Reserve the persisted names of other notes.
+                other_names = {
+                    item.get("notepad_filename")
+                    for item in self.data["notes"]
+                    if item["id"] != note["id"] and
+                    isinstance(item.get("notepad_filename"), str)
+                }
+                path = note_sync.named_note_path(
+                    folder, note["title"],
+                    saved_filename=note.get("notepad_filename"),
+                    reserved_names=other_names)
+                # Migrate older note_<uuid>.txt working files non-destructively:
+                # read old edits, then write a new readable filename. Keep the
+                # original on disk as a fallback; it is never silently discarded.
+                legacy = note_sync.note_path(folder, note["id"])
+                prior = (path if path.is_file() else
+                         legacy if legacy.is_file() else None)
+                if prior is not None:
+                    external = note_sync.read_text(prior)
                     if external != note["body"]:
                         self._modal = True
                         try:
                             answer = messagebox.askyesnocancel(
                                 "Existing Notepad edits",
-                                "A saved Notepad file differs from this Pocket note.\\n\\n"
-                                "Yes: import the Notepad version.\\n"
-                                "No: use Pocket's version (preserve a recovery copy).\\n"
+                                "A saved Notepad file differs from this Pocket note.\n\n"
+                                "Yes: import the Notepad version.\n"
+                                "No: use Pocket's version (preserve the external copy).\n"
                                 "Cancel: do not open.",
                                 parent=self.root)
                         finally:
@@ -4597,14 +4620,23 @@ class PocketDesk:
                             return
                         if answer:
                             self._import_notepad_body(note, external)
-                        else:
+                        elif prior == path:
                             note_sync.preserve_conflict(path, external)
                             note_sync.write_text(path, note["body"])
+                        # A legacy file is itself the preserved original copy.
+                    if prior != path:
+                        note_sync.create_text(path, note["body"])
                 else:
-                    note_sync.write_text(path, note["body"])
-                self._notepad_sessions[note["id"]] = {"path": path, "baseline": note["body"]}
-            # Reopening a session must never overwrite unsaved Notepad edits.
+                    note_sync.create_text(path, note["body"])
             subprocess.Popen(["notepad.exe", str(path)])
+            if session is None:
+                self._notepad_sessions[note["id"]] = {
+                    "path": path, "baseline": note["body"]}
+                # Save only the filename, not a path or a new ID. This survives a
+                # Pocket restart and prevents duplicate copies on repeat opens.
+                if note.get("notepad_filename") != path.name:
+                    note["notepad_filename"] = path.name
+                    self.schedule_save()
         except (OSError, ValueError, UnicodeError) as exc:
             messagebox.showerror("Notepad", str(exc), parent=self.root)
 

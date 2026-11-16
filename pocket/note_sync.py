@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 import os
+import re
 import uuid
 
 
@@ -25,10 +26,10 @@ def note_path(folder: Path, note_id: str) -> Path:
 # Windows-friendly, readable names for new Notepad working files. The note ID
 # remains the identity inside Pocket; the chosen filename is persisted in
 # data.json so reopening the same note never creates an accidental copy.
-_INVALID_WINDOWS_NAME = __import__("re").compile(r'[<>:"/\\|?*\x00-\x1f\x7f]')
+_INVALID_WINDOWS_NAME = re.compile(r'[<>:"/\\|?*\x00-\x1f\x7f]')
 _RESERVED_WINDOWS_NAMES = (
     {"CON", "PRN", "AUX", "NUL"} |
-    {f"{kind}{number}" for kind in ("COM", "LPT") for number in range(1, 10)}
+    {f"{kind}{number}" for kind in ("COM", "LPT") for number in (*range(1, 10), "¹", "²", "³")}
 )
 
 
@@ -36,7 +37,10 @@ def _safe_title_stem(title: str) -> str:
     """Keep Hebrew/Unicode, while avoiding invalid or reserved Windows names."""
     stem = _INVALID_WINDOWS_NAME.sub("_", title if isinstance(title, str) else "")
     stem = stem.strip(" .")[:96].rstrip(" .") or "Untitled note"
-    if stem.split(".")[0].upper() in _RESERVED_WINDOWS_NAMES:
+    # A title already ending in .txt should not produce "Title.txt.txt".
+    if stem.casefold().endswith(".txt"):
+        stem = stem[:-4].rstrip(" .") or "Untitled note"
+    if stem.split(".")[0].rstrip(" ").upper() in _RESERVED_WINDOWS_NAMES:
         stem = "_" + stem[:95]
     return stem
 
@@ -51,7 +55,7 @@ def _valid_saved_filename(filename) -> bool:
         return False
     stem = filename[:-4]
     return bool(stem and stem not in (".", "..") and
-                stem.split(".")[0].upper() not in _RESERVED_WINDOWS_NAMES)
+                stem.split(".")[0].rstrip(" ").upper() not in _RESERVED_WINDOWS_NAMES)
 
 
 def named_note_path(folder: Path, title: str, *, saved_filename=None,

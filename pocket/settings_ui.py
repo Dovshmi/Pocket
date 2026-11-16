@@ -319,25 +319,20 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
             "Pocket shortcut", app._hotkey_hint(),
             "Edit", app._open_hotkey_picker, compact=compact)
     _divider(card, c)
-    _action(card, app, c, "change_convert_hotkey",
-            "Fix EN / HE keyboard layout", app._convert_hotkey_hint(),
-            "Edit", app._open_convert_hotkey_picker, compact=compact)
-    _convert_mode_picker(card, app, c, compact=compact)
-    _divider(card, c)
     _action(card, app, c, "quick_search",
             "Quick Search", "Ctrl+K · Search all enabled tools locally.",
             "Open", app._open_global_search, compact=compact, primary=True)
 
 
 def _image_capacity(parent, app, c, *, compact=False, wide=False):
-    """Memory-only screenshot count picker, shared across all Settings modes."""
+    """RAM-only screenshot capacity; Database keeps all accepted images per day."""
     from . import clipboard_images
 
     section = tk.Frame(parent, bg=c["PANEL"])
     section.pack(fill="x", padx=13, pady=(9, 12))
     _label(section, "Image history capacity", c, size=9, bold=True,
            anchor="w").pack(fill="x")
-    _label(section, "How many screenshots Pocket keeps in RAM.",
+    _label(section, "Screenshot capacity in RAM mode (database is day-based).",
            c, muted=True, size=8, anchor="w", justify="left",
            wraplength=190 if compact else 320
            ).pack(fill="x", pady=(3, 8))
@@ -375,10 +370,49 @@ def _image_capacity(parent, app, c, *, compact=False, wide=False):
 
     _label(section,
            "20 is the default · 30 is the maximum. "
-           "Lowering the limit removes the oldest images immediately.",
+           "Lowering the RAM limit removes the oldest images immediately.",
            c, muted=True, size=8, anchor="w", justify="left",
            wraplength=190 if compact else 340
            ).pack(fill="x", pady=(6, 0))
+
+
+
+def _database_days_picker(parent, app, c, *, compact=False):
+    """Retention selects 1–5 calendar days; affects local text and PNG files."""
+    box = tk.Frame(parent, bg=c["PANEL"])
+    box.pack(fill="x", padx=13, pady=(10, 12))
+    _label(box, "Database history retention", c, bold=True,
+           size=9, anchor="w").pack(fill="x")
+    _label(box, "Keep the current day and up to four previous days. "
+           "Expired local files are deleted automatically.",
+           c, size=8, muted=True, anchor="w", justify="left",
+           wraplength=190 if compact else 360).pack(fill="x", pady=(4, 8))
+    buttons = {}
+    row = tk.Frame(box, bg=c["PANEL"])
+    row.pack(fill="x")
+
+    def paint():
+        for days, button in buttons.items():
+            active = app.settings["clipboard_days"] == days
+            button.configure(
+                text=f"{days}d ✓" if active else f"{days}d",
+                bg=c["ACCENT_DARK"] if active else c["CARD"],
+                fg=c["WHITE"] if active else c["SECONDARY"],
+                highlightbackground=c["ACCENT"] if active else c["BORDER"])
+
+    def choose(days):
+        app._set_clipboard_days(days)
+        paint()
+
+    for days in (1, 2, 3, 4, 5):
+        button = _button(row, f"{days}d",
+                         lambda value=days: choose(value), c, compact=compact)
+        button.pack(side="left", fill="x", expand=True,
+                    padx=(0, 3) if days != 5 else 0)
+        buttons[days] = button
+        _register(app, "clipboard_days_" + str(days), button)
+    paint()
+
 
 
 def _privacy(parent, app, c, *, compact=False, wide=False):
@@ -397,8 +431,21 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
     _divider(card, c)
     _image_capacity(card, app, c, compact=compact, wide=wide)
     _divider(card, c)
-    _label(card, "Clipboard history stays in memory for this session. "
-           "Pocket contacts the network only when you request a network check.",
+    _database_days_picker(card, app, c, compact=compact)
+    _divider(card, c)
+    _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
+            "Register the global EN / HE layout correction shortcut.",
+            app.settings["convert_enabled"],
+            app._set_convert_enabled, compact=compact)
+    _action(card, app, c, "change_convert_hotkey",
+            "Translate keyboard shortcut", app._convert_hotkey_hint(),
+            "Edit", app._open_convert_hotkey_picker, compact=compact)
+    _convert_mode_picker(card, app, c, compact=compact)
+    _divider(card, c)
+    _label(card, "RAM never writes Clipboard history to disk. DATABASE saves text and "
+           "screenshots in local daily folders and deletes expired days. "
+           "The sensitive-text filter is heuristic, not a guarantee. "
+           "Use DATABASE only if local storage is appropriate for your work.",
            c, size=8, muted=True, justify="left", anchor="w",
            wraplength=210 if compact else 350
            ).pack(fill="x", padx=13, pady=(10, 13))

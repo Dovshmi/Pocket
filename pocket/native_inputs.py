@@ -29,6 +29,9 @@ WM_SETTEXT, WM_GETTEXT, WM_GETTEXTLENGTH, WM_SETFONT = 0x000C, 0x000D, 0x000E, 0
 WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC = 0x0133, 0x0138
 WM_KEYDOWN, WM_CHAR, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0102, 0x0104, 0x0007
 WM_CONTEXTMENU, WM_KILLFOCUS, WM_MOUSEWHEEL = 0x007B, 0x0008, 0x020A
+EM_LINESCROLL = 0x00B6
+EM_GETFIRSTVISIBLELINE = 0x00CE
+WHEEL_DELTA = 120
 EM_SETCHARFORMAT, CFM_COLOR, SCF_ALL = 0x0444, 0x40000000, 0x0004
 WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
 WM_CLEAR = 0x0303
@@ -101,6 +104,7 @@ class _NativeMixin:
         self._native_menu_requested = False
         self._native_placeholder = None
         self._native_focus_callback = None
+        self._native_wheel_remainder = 0
 
         if not IS_WINDOWS:
             return
@@ -179,6 +183,9 @@ class _NativeMixin:
         self._u.SendMessageW.argtypes = (
             ctypes.c_void_p, ctypes.c_uint32, ctypes.c_size_t, ctypes.c_ssize_t)
         self._u.SendMessageW.restype = ctypes.c_ssize_t
+        self._u.PostMessageW.argtypes = (
+            ctypes.c_void_p, ctypes.c_uint32, ctypes.c_size_t, ctypes.c_ssize_t)
+        self._u.PostMessageW.restype = ctypes.c_int
         self._u.GetFocus.restype = ctypes.c_void_p
         self._u.SetFocus.argtypes = (ctypes.c_void_p,)
         self._u.SetFocus.restype = ctypes.c_void_p
@@ -221,6 +228,21 @@ class _NativeMixin:
 
     def _child_message(self, hwnd, msg, wp, lp, sid, ref):
         """Native callback: marshal context requests; never enter Tk here."""
+        if msg == WM_MOUSEWHEEL and self._native_multiline:
+            # A RichEdit without WS_VSCROLL won't move on wheel input by
+            # default. Queue line scrolling without adding a visible bar,
+            # just as Pocket's existing Windows Notes editor does.
+            # Small precision-touchpad deltas accumulate into whole notches.
+            delta = ctypes.c_short((wp >> 16) & 0xFFFF).value
+            self._native_wheel_remainder += delta
+            notches = int(self._native_wheel_remainder / WHEEL_DELTA)
+            self._native_wheel_remainder -= notches * WHEEL_DELTA
+            if notches:
+                self._u.PostMessageW(
+                    hwnd, EM_LINESCROLL, 0, -3 * notches)
+            # RichEdit itself clamps when all content fits; no artificial
+            # scrolling of the surrounding Pocket tool page occurs.
+            return 0
         if msg == WM_CONTEXTMENU:
             # No Windows default menu: Pocket's compact Tk menu is shown from
             # _native_tick, outside the Win32 subclass callback.

@@ -40,6 +40,8 @@ def can_edit(widget) -> bool:
 
 
 def has_selection(widget) -> bool:
+    if getattr(widget, "native_hwnd", None):
+        return widget.native_has_selection()
     try:
         if widget.winfo_class() == "Text":
             return bool(widget.tag_ranges("sel"))
@@ -49,7 +51,10 @@ def has_selection(widget) -> bool:
 
 
 def select_all(widget):
-    """Select complete Tk input content without changing application focus."""
+    """Select complete native or Tk input without changing focus."""
+    if getattr(widget, "native_hwnd", None):
+        widget.native_action("select_all")
+        return "break"
     try:
         if widget.winfo_class() == "Text":
             widget.tag_add("sel", "1.0", "end-1c")
@@ -81,6 +86,9 @@ def perform(widget, operation: str):
     if operation == "select_all":
         return select_all(widget)
     if operation not in ("copy", "cut", "paste", "undo", "redo"):
+        return "break"
+    if getattr(widget, "native_hwnd", None):
+        widget.native_action(operation)
         return "break"
     if operation != "copy" and not can_edit(widget):
         return "break"
@@ -210,7 +218,18 @@ def make_menu(root, widget, colors, dispatch):
     except (tk.TclError, RuntimeError):
         has_text_clipboard = False
 
-    if widget.winfo_class() == "Text" and bool(widget.cget("undo")) and writable:
+    native = bool(getattr(widget, "native_hwnd", None))
+    if native:
+        menu.add_command(label="Undo", accelerator="Ctrl+Z",
+                         state="normal" if writable and widget.native_can_undo()
+                         else "disabled",
+                         command=lambda: dispatch("undo"))
+        menu.add_command(label="Redo", accelerator="Ctrl+Y",
+                         state="normal" if writable and widget.native_can_redo()
+                         else "disabled",
+                         command=lambda: dispatch("redo"))
+        menu.add_separator()
+    elif widget.winfo_class() == "Text" and bool(widget.cget("undo")) and writable:
         menu.add_command(label="Undo", accelerator="Ctrl+Z",
                          command=lambda: dispatch("undo"))
         menu.add_command(label="Redo", accelerator="Ctrl+Y / Ctrl+Shift+Z",

@@ -140,6 +140,7 @@ class _NativeMixin:
             self._native_font = self._g.CreateFontW(
                 -pixels, 0, 0, 0, weight, 0, 0, 0, 1,
                 0, 0, 0, 0, face)
+            self._native_font_key = str(self.cget("font"))
             if self._native_font:
                 self._send(WM_SETFONT, self._native_font, 1)
             if multiline:
@@ -245,6 +246,44 @@ class _NativeMixin:
         buffer = ctypes.create_unicode_buffer(value)
         self._send(WM_SETTEXT, 0, ctypes.addressof(buffer))
         self._native_last_text = value
+
+    def _native_refresh_style(self):
+        """Honor runtime theme, font and read-only changes on the Win32 HWND."""
+        if not self._native_active or not self._native_hwnd:
+            return
+        fg = _rgb(self.cget("fg"), "#F3F4FA")
+        bg = _rgb(self.cget("bg"), "#161923")
+        if fg != self._native_fg or bg != self._native_bg:
+            self._native_fg, self._native_bg = fg, bg
+            if self._native_brush:
+                self._g.DeleteObject(ctypes.c_void_p(self._native_brush))
+            self._native_brush = self._g.CreateSolidBrush(bg)
+            if self._native_multiline:
+                self._send(EM_SETBKGNDCOLOR, 0, bg)
+            self._u.InvalidateRect(ctypes.c_void_p(self._native_hwnd), None, True)
+        new_font_key = str(self.cget("font"))
+        if new_font_key != self._native_font_key:
+            try:
+                from tkinter import font as tkfont
+                font = tkfont.Font(font=self.cget("font"))
+                face = font.actual("family")
+                pixels = max(12, font.metrics("linespace"))
+                weight = 700 if font.actual("weight") == "bold" else 400
+                new_font = self._g.CreateFontW(
+                    -pixels, 0, 0, 0, weight, 0, 0, 0, 1,
+                    0, 0, 0, 0, face)
+                if new_font:
+                    self._send(WM_SETFONT, new_font, 1)
+                    if self._native_font:
+                        self._g.DeleteObject(ctypes.c_void_p(self._native_font))
+                    self._native_font = new_font
+                    self._native_font_key = new_font_key
+            except (ValueError, TypeError, tk.TclError):
+                pass
+        state = str(self.cget("state"))
+        self._send(EM_SETREADONLY, int(state in ("disabled", "readonly")), 0)
+        self._u.EnableWindow(
+            ctypes.c_void_p(self._native_hwnd), state != "disabled")
 
     def _native_from_variable(self, *_):
         # Tcl variable traces may run before the underlying Tk Entry's own
@@ -417,6 +456,7 @@ class NativeEntry(_NativeMixin, tk.Entry):
         result = tk.Entry.configure(self, cnf, **kwargs)
         if getattr(self, "_native_active", False):
             self._sync_native_from_tk()
+            self._native_refresh_style()
             self._native_resize()
         return result
 
@@ -470,6 +510,7 @@ class NativeText(_NativeMixin, tk.Text):
         result = tk.Text.configure(self, cnf, **kwargs)
         if getattr(self, "_native_active", False):
             self._sync_native_from_tk()
+            self._native_refresh_style()
             self._native_resize()
         return result
 

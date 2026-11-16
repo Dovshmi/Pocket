@@ -383,7 +383,11 @@ class _NativeMixin:
 
     def _sync_native_from_tk(self):
         if self._native_active and not self._native_busy:
-            value = self._tk_value()
+            # A StringVar trace may run before Tk's internal Entry trace.
+            # Never copy a stale hidden Tk Entry value back over a newer
+            # native value (the cause of the sticky CLI search placeholder).
+            value = (self._native_var.get() if self._native_var is not None
+                     else self._tk_value())
             if value != self._read_native():
                 self._write_native(value)
 
@@ -416,10 +420,12 @@ class _NativeMixin:
         if not self._native_active or self._native_busy:
             return
         value = self._read_native()
-        if value == self._native_last_text and value == self._tk_value():
+        current = (self._native_var.get() if self._native_var is not None
+                   else self._tk_value())
+        if value == self._native_last_text and value == current:
             return
         self._native_last_text = value
-        if value != self._tk_value():
+        if value != current:
             self._native_busy = True
             try:
                 self._put_tk_value(value)

@@ -83,6 +83,7 @@ from pocket import icon_themes as themes
 from pocket import hotkey_settings as hk
 from pocket import note_sync
 from pocket import native_bidi
+from pocket import native_inputs
 from pocket import mini_layout as mini
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
@@ -519,6 +520,8 @@ class PocketDesk:
         # Tk labels/frames do not automatically take keyboard focus. Keep
         # Mini's command paging separate from the shared Notes focus bridge.
         self.root.bind("<Button-1>", self._dismiss_input_context_menu, add="+")
+        # Flush native edits before Tk button commands (e.g. Check vendors).
+        self.root.bind("<ButtonPress-1>", lambda _e: native_inputs.sync_all_native(), add="+")
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
         self.root.bind("<Button-1>", self._note_click_focus, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
@@ -1765,7 +1768,7 @@ class PocketDesk:
         self.created_label = tk.Label(details, text="", fg=MUTED, bg=PANEL, font=(FONT, 7))
         self.created_label.pack(anchor="w", padx=8, pady=(5, 0))
         self.title_var = tk.StringVar()
-        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+        self.title_entry = native_inputs.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
@@ -1776,7 +1779,7 @@ class PocketDesk:
         tk.Label(phone_row, text="Phone", bg=PANEL, fg=MUTED,
                  font=(FONT, 8)).pack(side="left", padx=(0, 4))
         self.phone_var = tk.StringVar()
-        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+        self.phone_entry = native_inputs.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
         self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
@@ -1897,7 +1900,7 @@ class PocketDesk:
                                       bg=PANEL, anchor="e")
         self.created_label.pack(side="right")
         self.title_var = tk.StringVar()
-        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+        self.title_entry = native_inputs.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
@@ -1910,7 +1913,7 @@ class PocketDesk:
         tk.Label(phone_row, text="PHONE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left", padx=(0, 7))
         self.phone_var = tk.StringVar()
-        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+        self.phone_entry = native_inputs.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 9), width=8)
@@ -3064,7 +3067,7 @@ class PocketDesk:
 
     @staticmethod
     def _entry(parent, value, *, width=None):
-        e = tk.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
+        e = native_inputs.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
                      insertbackground=WHITE, selectbackground=ACCENT_DARK,
                      highlightthickness=1, highlightbackground=BORDER,
                      highlightcolor=ACCENT, relief="flat", font=(FONT, 10),
@@ -4254,7 +4257,7 @@ class PocketDesk:
                  "Local: up to 5,000 unique MACs, fully offline.\n"
                  "DashDash: up to 100 unique valid MACs; only MACs, not CLI output, are sent on Check."
         ).pack(side="right")
-        self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
+        self.mac_input = native_inputs.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
                                  font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8,
@@ -4625,6 +4628,8 @@ class PocketDesk:
             return
         if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
                 and self.bidi_editor.has_focus()):
+            return
+        if native_inputs.has_native_focus():
             return
         if self.root.state() == "normal" and self.root.focus_displayof() is None:
             self.hide()

@@ -1,16 +1,31 @@
-"""Shared Tk text-edit controls for Pocket's on-demand desktop UI.
+"""Reliable, local text-edit shortcuts and context menus for Pocket.
 
-Class bindings apply to newly created Entry/Text widgets in every layout.
-Widget-specific right-click menus (Notes, pickers, RichEdit) take precedence.
-No clipboard polling or network access is performed here.
+Keybindings belong to Tk input classes, not the whole application: global
+note/search shortcuts and per-widget context menus remain authoritative.
+Tk's RichEdit (Windows) note body stays native and handles its own shortcuts.
 """
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 
 from . import menu_style
 
 EDIT_CLASSES = ("Entry", "TEntry", "Text", "Spinbox", "TSpinbox", "TCombobox")
+# Win32 virtual-key codes identify the physical letter shortcut even when
+# Windows is using a non-Latin keyboard layout (e.g. Hebrew).
+_WINDOWS_EDIT_KEYS = {
+    0x41: "select_all",  # Ctrl+A
+    0x43: "copy",        # Ctrl+C
+    0x56: "paste",       # Ctrl+V
+    0x58: "cut",         # Ctrl+X
+    0x5A: "undo",        # Ctrl+Z (Shift: redo)
+    0x59: "redo",        # Ctrl+Y
+}
+_LATIN_EDIT_KEYS = {
+    "a": "select_all", "c": "copy", "v": "paste",
+    "x": "cut", "z": "undo", "y": "redo",
+}
 
 
 def is_text_control(widget) -> bool:
@@ -34,7 +49,7 @@ def has_selection(widget) -> bool:
 
 
 def select_all(widget):
-    """Return 'break' to prevent Tk's class shortcut undoing the selection."""
+    """Select complete Tk input content without changing application focus."""
     try:
         if widget.winfo_class() == "Text":
             widget.tag_add("sel", "1.0", "end-1c")
@@ -48,8 +63,19 @@ def select_all(widget):
     return "break"
 
 
+def _selected_text(widget):
+    if widget.winfo_class() == "Text":
+        return widget.get("sel.first", "sel.last")
+    return widget.get()[widget.index("sel.first"):widget.index("sel.last")]
+
+
 def perform(widget, operation: str):
-    """Dispatch through native Tk edit events (preserves undo where supported)."""
+    """Edit the focused widget directly, without re-entering Tk key bindings.
+
+    A nested <<Copy>>/<<Paste>> from an actual Ctrl keypress can be swallowed
+    by widget/class bindings on Windows. Direct clipboard and widget operations
+    also work when the user chooses a menu item instead of a key shortcut.
+    """
     if not is_text_control(widget):
         return "break"
     if operation == "select_all":
@@ -58,36 +84,94 @@ def perform(widget, operation: str):
         return "break"
     if operation != "copy" and not can_edit(widget):
         return "break"
+
     try:
         if operation in ("undo", "redo"):
             if widget.winfo_class() == "Text" and bool(widget.cget("undo")):
                 getattr(widget, "edit_" + operation)()
-        elif operation == "copy":
-            if has_selection(widget):
-                widget.event_generate("<<Copy>>")
-        elif operation == "cut":
-            if has_selection(widget):
-                widget.event_generate("<<Cut>>")
+            return "break"
+
+        if operation in ("copy", "cut"):
+            if not has_selection(widget):
+                return "break"
+            selected = _selected_text(widget)
+            widget.clipboard_clear()
+            widget.clipboard_append(selected)
+            if operation == "cut":
+                if widget.winfo_class() == "Text" and bool(widget.cget("undo")):
+                    widget.edit_separator()
+                widget.delete("sel.first", "sel.last")
+                if widget.winfo_class() == "Text" and bool(widget.cget("undo")):
+                    widget.edit_separator()
+            return "break"
+
+        # Paste: insert at the Tk caret, replacing any selection. This is
+        # deliberately not an event_generate('<<Paste>>') call.
+        data = widget.clipboard_get()
+        if not isinstance(data, str):
+            return "break"
+        text_widget = widget.winfo_class() == "Text"
+        undo_enabled = text_widget and bool(widget.cget("undo"))
+        if undo_enabled:
+            widget.edit_separator()
+        if has_selection(widget):
+            widget.delete("sel.first", "sel.last")
+        if text_widget:
+            widget.insert("insert", data.replace("\r\n", "\n"))
         else:
-            widget.event_generate("<<Paste>>")
-    except (tk.TclError, AttributeError):
+            widget.insert("insert", data)
+        if undo_enabled:
+            widget.edit_separator()
+    except (tk.TclError, AttributeError, RuntimeError):
+        # Clipboard can contain non-text payloads, or the widget can be
+        # destroyed while a popup menu closes. Never crash the desktop app.
         pass
     return "break"
 
 
+def _shortcut_operation(event):
+    """Resolve Ctrl accelerators for both Latin and Hebrew Windows layouts."""
+    # AltGr usually synthesizes Ctrl+Alt. It must not trigger edit commands.
+    if event.state & 0x0008:
+        return None
+    if sys.platform == "win32":
+        operation = _WINDOWS_EDIT_KEYS.get(event.keycode)
+        # Do not reinterpret an unrelated key using a translated keysym.
+        if operation is None:
+            return None
+    else:
+        operation = _LATIN_EDIT_KEYS.get(str(event.keysym).lower())
+    if operation == "undo" and event.state & 0x0001:
+        return "redo"   # Ctrl+Shift+Z
+    return operation
+
+
+def handle_shortcut(event):
+    """One per-class handler; returns break only for supported edit commands."""
+    operation = _shortcut_operation(event)
+    if operation is None:
+        return None
+    # Do not eat Ctrl+Z in a Tk Entry that lacks undo, or any disabled field.
+    if operation in ("undo", "redo"):
+        if event.widget.winfo_class() != "Text":
+            return None
+        try:
+            if not bool(event.widget.cget("undo")):
+                return None
+        except tk.TclError:
+            return None
+    return perform(event.widget, operation)
+
+
 def install(root, context_callback, focus_callback):
-    """Install once; preserve all pre-existing widget-specific bindings."""
+    """Install class handlers once; respect specialized widget bindings."""
     for widget_class in EDIT_CLASSES:
-        root.bind_class(widget_class, "<Control-a>",
-                        lambda event: select_all(event.widget))
-        for key, operation in (("c", "copy"), ("x", "cut"), ("v", "paste")):
-            root.bind_class(widget_class, "<Control-" + key + ">",
-                            lambda event, action=operation: perform(event.widget, action))
+        # One handler recognizes all edit shortcuts, including Windows VK
+        # codes when keysym is not Latin. Other Ctrl shortcuts fall through.
+        root.bind_class(widget_class, "<Control-KeyPress>", handle_shortcut, add="+")
 
         def right_click(event):
             widget = event.widget
-            # Existing widget-owned menus are authoritative. In particular,
-            # Notes' RichEdit and picker context menus must remain unchanged.
             if widget.bind("<Button-3>"):
                 return None
             return context_callback(event)
@@ -103,7 +187,7 @@ def install(root, context_callback, focus_callback):
 
 
 def make_menu(root, widget, colors, dispatch):
-    """Create a compact menu for a plain editable/selectable text field."""
+    """Create a compact menu only for inputs without existing context menus."""
     options = dict(tearoff=False, bg=colors["PANEL"], fg=colors["WHITE"],
                    disabledforeground=colors["MUTED"],
                    activebackground=colors["ACCENT_DARK"],
@@ -121,7 +205,7 @@ def make_menu(root, widget, colors, dispatch):
     if widget.winfo_class() == "Text" and bool(widget.cget("undo")) and writable:
         menu.add_command(label="Undo", accelerator="Ctrl+Z",
                          command=lambda: dispatch("undo"))
-        menu.add_command(label="Redo", accelerator="Ctrl+Y",
+        menu.add_command(label="Redo", accelerator="Ctrl+Y / Ctrl+Shift+Z",
                          command=lambda: dispatch("redo"))
         menu.add_separator()
 

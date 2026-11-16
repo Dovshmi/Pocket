@@ -255,6 +255,62 @@ def _tools(parent, app, c, *, compact=False, wide=False):
                 compact=compact)
 
 
+
+def _convert_mode_picker(parent, app, c, *, compact=False):
+    """One horizontal, keyboard-focusable Clipboard / Mark mode selector."""
+    section = tk.Frame(parent, bg=c["PANEL"])
+    section.pack(fill="x", padx=13, pady=(9, 12))
+    _label(section, "Shortcut behavior", c, size=9, bold=True,
+           anchor="w").pack(fill="x", pady=(0, 4))
+    _label(section, "Clipboard: correct copied text. Mark: replace selected text.",
+           c, muted=True, size=8, anchor="w", justify="left",
+           wraplength=190 if compact else 350).pack(fill="x", pady=(0, 8))
+    bar = tk.Frame(section, bg=c["CARD"])
+    bar.pack(fill="x")
+    buttons = {}
+
+    def paint():
+        selected = app.settings["convert_mode"]
+        for mode, button in buttons.items():
+            current = mode == selected
+            button.configure(
+                text=("● " if current else "") + mode.title(),
+                bg=c["ACCENT_DARK"] if current else c["CARD"],
+                fg=c["WHITE"] if current else c["SECONDARY"],
+                highlightbackground=c["ACCENT"] if current else c["BORDER"])
+
+    def choose(mode):
+        app._set_convert_mode(mode)
+        paint()
+
+    for mode in ("clipboard", "mark"):
+        button = _button(bar, mode.title(),
+                         lambda chosen=mode: choose(chosen), c,
+                         compact=compact)
+        button.pack(side="left", fill="x", expand=True,
+                    padx=(0, 3) if mode == "clipboard" else (3, 0))
+        buttons[mode] = button
+        _register(app, "convert_mode_" + mode, button)
+    paint()
+
+
+def _network_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Network connection",
+                    "Choose how requested DashDash and IEEE HTTPS traffic connects.",
+                    compact=compact, wide=wide)
+    _toggle(card, app, c, "use_windows_proxy", "Use Windows Proxy",
+            "ON: existing Windows PAC/WinINet route. OFF: direct HTTPS.",
+            app.settings["use_windows_proxy"], app._set_windows_proxy,
+            compact=compact)
+    _divider(card, c)
+    _label(card,
+           "Default ON for workplace networks. Local checks stay offline. "
+           "Changes affect the next request, not an in-progress check.",
+           c, size=8, muted=True, justify="left", anchor="w",
+           wraplength=200 if compact else 350).pack(
+               fill="x", padx=13, pady=(10, 13))
+
+
 def _shortcuts(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Keyboard & quick search",
                     "Stay productive without opening another window.",
@@ -266,6 +322,7 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
     _action(card, app, c, "change_convert_hotkey",
             "Fix EN / HE keyboard layout", app._convert_hotkey_hint(),
             "Edit", app._open_convert_hotkey_picker, compact=compact)
+    _convert_mode_picker(card, app, c, compact=compact)
     _divider(card, c)
     _action(card, app, c, "quick_search",
             "Quick Search", "Ctrl+K · Search all enabled tools locally.",
@@ -385,6 +442,7 @@ def build_settings(app, parent, *, wide=False):
     _shortcuts(left, app, c, wide=wide, compact=compact)
     _launcher(left, app, c, wide=wide, compact=compact)
     _tools(right, app, c, wide=wide, compact=compact)
+    _network_preferences(right, app, c, wide=wide, compact=compact)
     _privacy(right, app, c, wide=wide, compact=compact)
 
     # The footer is the last element of the scrollable Settings body in all

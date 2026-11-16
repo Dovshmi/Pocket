@@ -6,7 +6,6 @@ No MACs are uploaded when using Local mode.
 from __future__ import annotations
 
 import json
-import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 from .windows_proxy_urlopen import urlopen
@@ -20,25 +19,8 @@ MAX_RESPONSE_BYTES = 65536
 
 
 def parse_remote_macs(text: str) -> list[str]:
-    """Normalize unique, explicitly provided MAC addresses for the API."""
-    if not isinstance(text, str) or len(text) > 10000:
-        raise ValueError("Paste up to 100 MAC addresses.")
-    tokens = [token for token in re.split(r"[,;\s]+", text.strip()) if token]
-    if not tokens:
-        raise ValueError("Paste at least one MAC address.")
-    if len(tokens) > REMOTE_MAX_MACS:
-        raise ValueError("DashDash accepts up to 100 MAC addresses per request.")
-    normalized = set()
-    result = []
-    for token in tokens:
-        try:
-            mac = net.normalize_mac(token)
-        except ValueError as exc:
-            raise ValueError(f"Invalid MAC address: {token[:32]}") from exc
-        if mac not in normalized:
-            normalized.add(mac)
-            result.append(":".join(mac[i:i+2] for i in range(0, 12, 2)))
-    return result
+    """Share the offline CLI extractor; send only unique valid EUI-48 MACs."""
+    return net.parse_mac_input(text, limit=REMOTE_MAX_MACS)["macs"]
 
 
 def lookup_remote_macs(macs: list[str]) -> list[dict]:

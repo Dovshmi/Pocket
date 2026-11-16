@@ -31,12 +31,29 @@ class DashDashMacTests(unittest.TestCase):
             ["00:11:22:33:44:55", "AA:BB:CC:DD:EE:FF"],
         )
 
+    def test_filters_cli_text_before_remote_request(self):
+        raw = ("VLAN MAC Address Type Interface\n"
+               "20 0011.2233.4455 dynamic 1/1/12\n"
+               "192.168.2.1 tcp 443\n"
+               "30 AA:BB:CC:DD:EE:FF dynamic 1/1/7\n"
+               "31 00:11:22:33:44:GG invalid 1/1/8\n"
+               "40 00:11:22:33:44:55 dynamic 1/1/9")
+        self.assertEqual(mac.parse_remote_macs(raw),
+                         ["00:11:22:33:44:55", "AA:BB:CC:DD:EE:FF"])
+
     def test_reject_invalid_and_oversized_input_before_connecting(self):
         for raw in ("", "hello", "00:11:22", "00:11:22:33:44:GG",
-                    "001122334455 00:11:22:33:44:5G",
-                    "00:11:22:33:44:55\n" * 101):
+                    "192.168.1.1 1/1/12"):
             with self.subTest(value=raw[:40]), self.assertRaises(ValueError):
                 mac.parse_remote_macs(raw)
+        too_many = " ".join(f"00:11:22:{i >> 8:02X}:{i & 255:02X}:01"
+                            for i in range(101))
+        with self.assertRaisesRegex(ValueError, "more than 100"):
+            mac.parse_remote_macs(too_many)
+        self.assertEqual(mac.parse_remote_macs("00:11:22:33:44:55\n" * 101),
+                         ["00:11:22:33:44:55"])
+        self.assertEqual(mac.parse_remote_macs("001122334455 00:11:22:33:44:5G"),
+                         ["00:11:22:33:44:55"])
 
     def test_posts_one_https_request_and_reorders_validated_results(self):
         def request_handler(request, timeout):

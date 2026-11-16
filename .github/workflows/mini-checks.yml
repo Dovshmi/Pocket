@@ -69,12 +69,12 @@ jobs:
       - name: Exercise real input editing (Linux virtual display)
         if: runner.os == 'Linux'
         run: xvfb-run -a python tests/integration/smoke_text_edit.py
-      - name: Exercise typeahead in posted Tk dropdowns (Windows)
+      - name: Exercise normal dropdown selection and highlight (Windows)
         if: runner.os == 'Windows'
-        run: python tests/integration/smoke_picker_typeahead.py
-      - name: Exercise typeahead in posted Tk dropdowns (Linux)
+        run: python tests/integration/smoke_picker_selection.py
+      - name: Exercise normal dropdown selection and highlight (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run -a python tests/integration/smoke_picker_typeahead.py
+        run: xvfb-run -a python tests/integration/smoke_picker_selection.py
       # A one-time, opt-in documentation refresh. Ordinary test runs do not
       # mutate tracked images or cause screenshot-only commit noise.
       - name: Publish selected real Windows screenshots for README

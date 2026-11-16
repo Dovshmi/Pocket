@@ -129,9 +129,13 @@ def run():
             mac.bind("<Control-Return>", lambda _ev: copied.append(True))
             mac._native_pending_ctrl_return = True
             import time
-            time.sleep(0.07)
-            root.update()
-            require(copied == [True], "Native Ctrl+Enter must reach command action")
+            for _ in range(8):
+                root.update()
+                if copied:
+                    break
+                time.sleep(0.04)
+            require(copied == [True],
+                    f"Native Ctrl+Enter must reach command action (got {copied})")
             mac.tag_add("sel", "1.0", "end-1c")
             start, end = ctypes.c_uint32(), ctypes.c_uint32()
             mac._send(native_inputs.EM_GETSEL,

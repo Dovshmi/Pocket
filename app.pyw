@@ -433,7 +433,7 @@ class PocketDesk:
         self.hotkey = hk.normalize_hotkey(self.data.get("hotkey"))
         self.convert_hotkey = hk.normalize_convert_hotkey(
             self.data.get("convert_hotkey"), popup=self.hotkey)
-        self.convert_hotkey_available = True
+        self.convert_hotkey_available = self.settings["convert_enabled"]
         self.hotkey_available = True
         self.tray = None
         self._save_job = None
@@ -1792,6 +1792,8 @@ class PocketDesk:
         if self.settings["convert_enabled"] == enabled:
             return
         self.settings["convert_enabled"] = enabled
+        if not enabled:
+            self.convert_hotkey_available = False
         if self.tray and not self.tray.error:
             self.tray.set_convert_enabled(enabled)
         self.schedule_save()
@@ -5449,9 +5451,10 @@ class WindowsTray:
     WM_HOTKEY_CHANGE = 0x8000 + 39
     WM_NOTIFICATION = 0x8000 + 40
     WM_CONVERT_HOTKEY_CHANGE = 0x8000 + 41
+    WM_CONVERT_ENABLE_CHANGE = 0x8000 + 42
     NIF_INFO = 0x10
 
-    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None):
+    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *, convert_enabled=True):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -5464,6 +5467,8 @@ class WindowsTray:
         self.hotkey = hk.normalize_hotkey(hotkey)
         self.convert_hotkey = hk.normalize_convert_hotkey(
             convert_hotkey, popup=self.hotkey)
+        self.convert_enabled = bool(convert_enabled)
+        self._pending_convert_enabled = None
         self._pending_hotkey = None
         self._pending_convert_hotkey = None
         self._pending_notification = None
@@ -5488,6 +5493,12 @@ class WindowsTray:
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(
                 self.hwnd, self.WM_CONVERT_HOTKEY_CHANGE, 0, 0)
+
+    def set_convert_enabled(self, enabled):
+        self._pending_convert_enabled = bool(enabled)
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(
+                self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
@@ -5666,6 +5677,30 @@ class WindowsTray:
                         self.events.put(("hotkey_conflict", None))
                 self._pending_hotkey = None
                 return 0
+            if msg == self.WM_CONVERT_ENABLE_CHANGE:
+                requested = self._pending_convert_enabled
+                self._pending_convert_enabled = None
+                if requested is None or bool(requested) == self.convert_enabled:
+                    return 0
+                if not requested:
+                    for hotkey_id in tuple(self.convert_hotkey_ids):
+                        user.UnregisterHotKey(hwnd, hotkey_id)
+                    self.convert_hotkey_ids.clear()
+                    self.convert_enabled = False
+                    self.events.put(("convert_hotkey_disabled", None))
+                else:
+                    registered = set()
+                    for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
+                        if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                            registered.add(hotkey_id)
+                    if registered:
+                        self.convert_hotkey_ids = registered
+                        self.convert_enabled = True
+                        self.events.put(("convert_hotkey_enabled", None))
+                    else:
+                        self.convert_enabled = False
+                        self.events.put(("convert_hotkey_error", None))
+                return 0
             if msg == self.WM_CONVERT_HOTKEY_CHANGE:
                 candidate = self._pending_convert_hotkey
                 if candidate and hk.collides(candidate, self.hotkey):
@@ -5745,14 +5780,15 @@ class WindowsTray:
             if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                 self.hotkey_ids.add(hotkey_id)
         self.convert_hotkey_ids = set()
-        for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
-            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
-                self.convert_hotkey_ids.add(hotkey_id)
+        if self.convert_enabled:
+            for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
+                if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                    self.convert_hotkey_ids.add(hotkey_id)
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:
             self.events.put(("hotkey_error", None))
-        if not self.convert_hotkey_ids:
+        if self.convert_enabled and not self.convert_hotkey_ids:
             self.events.put(("convert_hotkey_error", None))
         if not shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):
             user.DestroyWindow(hwnd)  # also unregisters the hotkeys

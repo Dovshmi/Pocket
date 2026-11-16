@@ -271,5 +271,16 @@ class ClipboardDatabase:
             folder.rmdir()
 
     def clear_images(self, day):
-        for item in self.load_images(day):
-            self.delete_image(day, item)
+        folder = self._day_folder(day)
+        if folder.is_symlink():
+            raise ValueError("Unsafe screenshot directory")
+        if not folder.is_dir():
+            return
+        # Include corrupt/unreadable Pocket-named PNGs so Clear truly clears
+        # the selected date without touching unrelated user-created files.
+        for file in folder.iterdir():
+            if (file.is_file() and not file.is_symlink()
+                    and _IMAGE_FILE.fullmatch(file.name)):
+                file.unlink()
+        if not any(folder.iterdir()):
+            folder.rmdir()

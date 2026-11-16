@@ -90,7 +90,7 @@ def _windows_ieee_get(request, timeout=25, *, use_windows_proxy=True):
     def checked(value, stage):
         if not value:
             code = ctypes.get_last_error()
-            if code in (12037, 12038, 12045, 12175):
+            if code in (12037, 12038, 12045, 12055, 12056, 12057, 12169, 12170, 12175):
                 # Never disable certificate checks or ignore invalid CA names.
                 raise URLError(
                     f"Windows certificate validation failed (WinINet {code}) "

@@ -415,10 +415,22 @@ class PocketDesk:
         self.clipboard_database = clipdb.ClipboardDatabase(self.path.parent)
         self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
         self._clipboard_capture_day = clipdb.today()
+        self._clipboard_error_pending = None
         if self.settings["clipboard_storage"] == "database":
-            self.clipboard_database.prune(self.settings["clipboard_days"])
-            self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
-            self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
+            try:
+                self.clipboard_database.update_retention(self.settings["clipboard_days"])
+                self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
+                self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
+            except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                # An unavailable/corrupted optional history must not prevent
+                # the Notes, Commands or network tools from launching.
+                self.settings["clipboard_storage"] = "ram"
+                self.clipboard_items = self._ram_text_items
+                self.clipboard_images = self._ram_images
+                self._clipboard_error_pending = (
+                    "Clipboard Database could not be read. Pocket started in "
+                    "RAM mode without overwriting your stored history. "
+                    f"Reason: {type(exc).__name__}.")
         self.clipboard_page = "text"
         self._clipboard_selected_image_id = None
         self._clipboard_sequence = None
@@ -562,6 +574,10 @@ class PocketDesk:
         self.tasks.every("reminders", 1500, self._reminder_poll, initial_ms=2500)
         self.tasks.every("notepad", 1200, self._notepad_poll)
         self.tasks.every("notes-editor", 350, self._bidi_poll)
+        if self._clipboard_error_pending:
+            notice = self._clipboard_error_pending
+            self.root.after_idle(lambda text=notice: messagebox.showwarning(
+                "Pocket Clipboard", text, parent=self.root))
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
@@ -2005,6 +2021,8 @@ class PocketDesk:
                 self._clipboard_report_io_error(exc)
                 return
             self._refresh_clipboard()
+            if self._clipboard_store_is_disk():
+                clipboard_gallery.refresh_history_selector(self)
 
     def _clipboard_delete_image(self, item):
         if self._clipboard_store_is_disk():

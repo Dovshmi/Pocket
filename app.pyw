@@ -3326,12 +3326,7 @@ class PocketDesk:
         # A vertical sash reserves room for results and allows resizing.
         command_panes = tk.PanedWindow(self.body, orient=tk.VERTICAL, bg=BG,
                                        bd=0, relief="flat", sashwidth=7,
-                                       showhandle=False, opaqueresize=True,
-                                       # Python 3.11/Tk on Windows can request
-                                       # fewer pixels than 4 Treeview rows need.
-                                       # The outer canvas scrolls naturally if
-                                       # the screen cannot show both panes.
-                                       height=500 if self.display_mode == "normal" else 440)
+                                       showhandle=False, opaqueresize=True)
         command_panes.pack(fill="both", expand=True, pady=(6, 0))
         results_panel = tk.Frame(command_panes, bg=BG)
         details = tk.Frame(command_panes, bg=PANEL, highlightbackground=BORDER,
@@ -3339,9 +3334,7 @@ class PocketDesk:
         # Reserve enough physical height for the column heading and at least
         # four *fully visible* command rows on high-DPI Windows screens.
         # The previous 150px pane clipped the fourth row even with rows=4.
-        command_panes.add(results_panel,
-                          minsize=275 if self.display_mode == "normal" else 215,
-                          stretch="always")
+        command_panes.add(results_panel, minsize=215, stretch="always")
         command_panes.add(details, minsize=195, stretch="never")
         self.command_panes = command_panes
         line = tk.Frame(details, bg=PANEL)
@@ -3390,8 +3383,8 @@ class PocketDesk:
         self.command_tree = self._tree(results_panel, ('Command', 'Purpose / Description'),
                                        (540, 335) if self.display_mode == "dashboard" else (230, 185),
                                        rows=5, aligns=('w', 'e'))
-        # Four actual rows must remain fully visible on both Python 3.11 and
-        # 3.13 (including different native Windows font metrics). The
+        # Five requested rows with a 215px result pane make at least four
+        # fully visible at normal Windows DPI. The
         # Treeview can scroll through the remaining matches independently.
         self.command_tree.bind('<<TreeviewSelect>>', self._select_command)
         self.command_tree.bind('<Double-1>', lambda _event: self._focus_command_editor())

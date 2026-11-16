@@ -169,6 +169,14 @@ def install(root, context_callback, focus_callback):
         # One handler recognizes all edit shortcuts, including Windows VK
         # codes when keysym is not Latin. Other Ctrl shortcuts fall through.
         root.bind_class(widget_class, "<Control-KeyPress>", handle_shortcut, add="+")
+        # Exact keys take priority over Tcl virtual <<Copy>>/<<Paste>>
+        # mappings. The generic binding above catches non-Latin keysyms
+        # using Win32 VK codes, e.g. under a Hebrew keyboard layout.
+        for key in "acvxyz":
+            root.bind_class(widget_class, f"<Control-KeyPress-{key}>",
+                            handle_shortcut)
+        root.bind_class(widget_class, "<Control-Shift-KeyPress-Z>",
+                        handle_shortcut)
 
         def right_click(event):
             widget = event.widget

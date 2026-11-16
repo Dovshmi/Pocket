@@ -156,5 +156,143 @@ class NotepadWorkingFileTests(unittest.TestCase):
             self.assertFalse((Path(folder) / "notepad" / "Network.txt").exists())
 
 
+class TitleFileSyncTests(unittest.TestCase):
+    @staticmethod
+    def make_app(directory, notes, index=0):
+        path = Path(directory) / "data.json"
+        data = {"notes": notes, "active_note": notes[index]["id"]}
+        events = []
+        app = SimpleNamespace(
+            data=data, path=path, root=None, current_tab="background",
+            _title_job=None, _title_job_note_id=None,
+            _notepad_sessions={}, _loading_note=False,
+            _flush_current_note=lambda: events.append("flush"),
+            schedule_save=lambda: events.append("save"),
+            refresh_note_list=lambda: events.append("refresh"),
+            _load_selected_note=lambda: events.append("load"),
+            title_entry=_Entry())
+        app._unique_note_path = lambda note, title: PocketDesk._unique_note_path(app, note, title)
+        app._commit_note_title = lambda note_id=None: PocketDesk._commit_note_title(app, note_id)
+        app.active_note = lambda: next(
+            n for n in data["notes"] if n["id"] == data["active_note"])
+        return app, events
+
+    def test_new_note_titles_number_before_any_notepad_file_exists(self):
+        with tempfile.TemporaryDirectory() as folder:
+            notes = [new_note("Untitled note"), new_note("Untitled note (1)")]
+            app, _events = self.make_app(folder, notes)
+            app.current_tab = "notes"
+            PocketDesk.add_note(app)
+            self.assertEqual(notes[-1]["title"], "Untitled note (2)")
+            self.assertEqual(app.data["active_note"], notes[-1]["id"])
+            self.assertEqual(sorted(Path(folder).glob("notepad/*.txt")), [])
+
+    def test_duplicate_note_uses_numbered_title_not_copy(self):
+        with tempfile.TemporaryDirectory() as folder:
+            original = new_note("Router", "show version")
+            app, _events = self.make_app(folder, [original])
+            PocketDesk._duplicate_note(app, original["id"])
+            self.assertEqual(app.data["notes"][1]["title"], "Router (1)")
+            self.assertEqual(app.data["notes"][1]["body"], "show version")
+            PocketDesk._duplicate_note(app, original["id"])
+            self.assertEqual(app.data["notes"][1]["title"], "Router (2)")
+
+    def test_rename_title_moves_file_and_updates_session(self):
+        with tempfile.TemporaryDirectory() as folder:
+            note = new_note("Router", "initial")
+            app, _events = self.make_app(folder, [note])
+            with patch.object(api["sys"], "platform", "win32"), \
+                 patch.object(api["subprocess"], "Popen"):
+                PocketDesk.open_notepad(app)
+                original = Path(folder) / "notepad" / "Router.txt"
+                self.assertTrue(original.is_file())
+                note["title"] = "Switch"
+                app._commit_note_title()
+                target = original.with_name("Switch.txt")
+                self.assertFalse(original.exists())
+                self.assertEqual(note["title"], "Switch")
+                self.assertEqual(note["notepad_filename"], "Switch.txt")
+                self.assertEqual(app._notepad_sessions[note["id"]]["path"], target)
+                self.assertEqual(note_sync.read_text(target), "initial")
+                PocketDesk.open_notepad(app)
+                self.assertEqual(app._notepad_sessions[note["id"]]["path"], target)
+                self.assertEqual(len(list(target.parent.glob("*.txt"))), 1)
+
+    def test_collision_existing_note_and_disk_is_numbered_in_both(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base, other = new_note("Router"), new_note("Switch", "content")
+            app, _events = self.make_app(folder, [base, other], index=1)
+            occupied = Path(folder) / "notepad" / "Router (1).txt"
+            note_sync.create_text(occupied, "not related")
+            with patch.object(api["sys"], "platform", "win32"), \
+                 patch.object(api["subprocess"], "Popen"):
+                PocketDesk.open_notepad(app)
+                source = Path(folder) / "notepad" / "Switch.txt"
+                other["title"] = "router"
+                app._commit_note_title()
+                self.assertEqual(other["title"], "router (2)")
+                self.assertEqual(other["notepad_filename"], "router (2).txt")
+                self.assertFalse(source.exists())
+                self.assertEqual(note_sync.read_text(
+                    Path(folder) / "notepad" / "router (2).txt"), "content")
+                self.assertEqual(note_sync.read_text(occupied), "not related")
+                self.assertEqual(base["title"], "Router")
+
+    def test_title_sanitization_reuses_same_name_as_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            note = new_note("Original")
+            app, _events = self.make_app(folder, [note])
+            note["title"] = "Report: / status.txt"
+            app._commit_note_title()
+            self.assertEqual(note["title"], "Report_ _ status")
+            with patch.object(api["sys"], "platform", "win32"), \
+                 patch.object(api["subprocess"], "Popen"):
+                PocketDesk.open_notepad(app)
+            self.assertEqual(note["notepad_filename"], "Report_ _ status.txt")
+
+    def test_case_only_rename_changes_filename_without_data_loss(self):
+        with tempfile.TemporaryDirectory() as folder:
+            note = new_note("Router", "data")
+            app, _events = self.make_app(folder, [note])
+            with patch.object(api["sys"], "platform", "win32"), \
+                 patch.object(api["subprocess"], "Popen"):
+                PocketDesk.open_notepad(app)
+                note["title"] = "ROUTER"
+                app._commit_note_title()
+            self.assertEqual(note["title"], "ROUTER")
+            self.assertEqual(note["notepad_filename"], "ROUTER.txt")
+            self.assertEqual(note_sync.read_text(
+                Path(folder) / "notepad" / "ROUTER.txt"), "data")
+
+    def test_locked_file_rolls_title_back_instead_of_diverging(self):
+        with tempfile.TemporaryDirectory() as folder:
+            note = new_note("Router", "data")
+            app, _events = self.make_app(folder, [note])
+            with patch.object(api["sys"], "platform", "win32"), \
+                 patch.object(api["subprocess"], "Popen"):
+                PocketDesk.open_notepad(app)
+            note["title"] = "Switch"
+            with patch.object(note_sync, "rename_text_file", side_effect=PermissionError("locked")), \
+                 patch.object(api["messagebox"], "showwarning") as warning:
+                app._commit_note_title()
+            self.assertEqual(note["title"], "Router")
+            self.assertEqual(note["notepad_filename"], "Router.txt")
+            self.assertTrue((Path(folder) / "notepad" / "Router.txt").exists())
+            warning.assert_called_once()
+
+    def test_title_name_stays_numbered_after_restart(self):
+        with tempfile.TemporaryDirectory() as folder:
+            notes = [new_note("Router"), new_note("Router")]
+            app, _events = self.make_app(folder, notes, index=1)
+            app._commit_note_title()
+            self.assertEqual(notes[1]["title"], "Router (1)")
+            api["save_data"](app.path, {**api["default_data"](),
+                                        "notes": notes,
+                                        "active_note": notes[1]["id"]})
+            recovered = api["load_data"](app.path)
+            self.assertEqual(recovered["notes"][1]["title"], "Router (1)")
+
+
+
 if __name__ == "__main__":
     unittest.main()

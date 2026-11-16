@@ -222,6 +222,16 @@ def _windows_urlopen(request, timeout):
             close(handle)
 
 
+def direct_urlopen(request, timeout=12):
+    """Explicit DIRECT HTTPS route, without system/environment proxy discovery.
+
+    Do not use urllib.urlopen here: on Windows it can automatically load the
+    corporate proxy configuration even when the user selects direct mode.
+    """
+    from urllib.request import ProxyHandler, build_opener
+    return build_opener(ProxyHandler({})).open(request, timeout=timeout)
+
+
 def urlopen(request, timeout=12):
     """urlopen replacement: uses corporate PAC only on Windows, on demand."""
     if os.name != "nt":

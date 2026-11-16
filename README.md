@@ -26,6 +26,17 @@ Pocket runs from the Windows system tray and opens on demand. It brings seven pr
 > [!NOTE]
 > **Version 1.36 (v1.36.0):** Native Windows input controls with standard editing shortcuts, better CLI/MAC scrolling and parsing, clearer Mini filters, and pinned Clipboard text at the top. Dropdowns retain their familiar click-to-select behavior—no typing-based filter. All existing offline tools and saved settings remain supported. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
 
+## Development updates — pending release
+
+The [feature/pocket-next-updates](https://github.com/Dovshmi/Pocket/tree/feature/pocket-next-updates) branch contains improvements that are **not yet part of stable v1.36.0**:
+
+- **Notes + Notepad:** New notes appear at the end of the list; the Note Title and its working TXT filename stay aligned. Renaming a note renames the corresponding file; duplicate names receive Windows-style numbered Titles and filenames such as *Router (1)* / *Router (1).txt*. Existing Notepad content is preserved on migration and conflicts.
+- **Configurable Windows Proxy:** Under **Settings → Network connection**, *Use Windows Proxy* defaults to ON. DashDash MAC and TCP requests keep the existing working native Windows PAC/WinINet route when ON. OFF selects explicit direct HTTPS for DashDash. No global Windows proxy settings change.
+- **IEEE MAC vendors:** **Update IEEE DB** uses a separate, size-limited native Windows proxy HTTPS GET transport when ON; OFF performs direct HTTPS GET. Manual IEEE CSV import stays available and incomplete downloads never replace the local vendor database.
+- **Keyboard layout shortcut:** The default is now **Ctrl+Alt+V** (previous factory Ctrl+Alt+F9 profiles migrate). **Clipboard** mode retains the original copy-and-convert behavior. New **Mark** mode reads freshly selected text, fixes the EN/HE physical-key layout, replaces the selection in its original app, and attempts to restore the original clipboard. Mark requires Windows and a foreground app that supports Ctrl+C / Ctrl+V; unsupported apps may reject the operation.
+
+These changes remain local-first. Mark does not use an online translator or require a persistent keyboard hook. [Windows proxy details](docs/WINDOWS_PROXY.md) · [Pending release notes](RELEASE_NOTES.md). Test before deploying at work, as a corporate PAC server and third-party app selection/paste behavior cannot be reproduced fully in CI.
+
 ## Screenshots
 
 These are **real Pocket screenshots from Windows GUI tests** (not mockups). The images were captured in **v1.30.0**; later releases refined some layouts. See the [latest UI-test artifacts](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) for additional captures.

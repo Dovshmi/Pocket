@@ -96,6 +96,27 @@ def run():
             require(native_clip in mac.get("1.0", "end-1c"),
                     "Real RichEdit must handle native clipboard paste")
 
+            # Commands retains its own Ctrl+Enter callback via the Tk loop,
+            # while native RichEdit handles all ordinary editor accelerators.
+            copied = []
+            mac.bind("<Control-Return>", lambda _ev: copied.append(True))
+            mac._native_pending_ctrl_return = True
+            import time
+            time.sleep(0.07)
+            root.update()
+            require(copied == [True], "Native Ctrl+Enter must reach command action")
+            mac.tag_add("sel", "1.0", "end-1c")
+            start, end = ctypes.c_uint32(), ctypes.c_uint32()
+            mac._send(native_inputs.EM_GETSEL,
+                      ctypes.addressof(start), ctypes.addressof(end))
+            require(end.value > start.value,
+                    "Tk select-all action must select the real RichEdit contents")
+            mac.mark_set("insert", "end-1c")
+            mac._send(native_inputs.EM_GETSEL,
+                      ctypes.addressof(start), ctypes.addressof(end))
+            require(end.value == start.value,
+                    "Tk command caret move must update the real native editor")
+
             phone.focus_force()
             root.update()
             require(phone.has_native_focus() and not mac.has_native_focus(),

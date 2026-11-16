@@ -139,16 +139,16 @@ def download_ieee_database(path: Path, on_progress=None, *, use_windows_proxy=No
 
     Only fixed HTTPS IEEE origins are used. Never transmit MAC addresses.
     """
-    # None preserves the original library default for existing script callers.
-    # App Settings pass an explicit bool to select native PAC or direct HTTPS.
-    if use_windows_proxy is None:
-        opener = urlopen
-    elif use_windows_proxy:
+    # Restore IEEE's original urllib transport when Windows Proxy is OFF.
+    # The explicit ProxyHandler({}) route broke certificate validation on
+    # some managed workstations where the previous urllib opener worked.
+    # urllib may use its normal OS/environment proxy discovery; this is
+    # intentional compatibility behavior for IEEE only. Never disable TLS.
+    if use_windows_proxy is True:
         from .ieee_https import open_ieee
         opener = open_ieee
     else:
-        from .windows_proxy_urlopen import direct_urlopen
-        opener = direct_urlopen
+        opener = urlopen
     merged = {}
     for registry, url, nibbles in IEEE_LISTS:
         if on_progress:

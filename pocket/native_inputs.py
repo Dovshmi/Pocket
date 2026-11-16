@@ -89,6 +89,7 @@ class _NativeMixin:
         self._native_multiline = multiline
         self._native_pending_ctrl_return = False
         self._native_skip_ctrl_return_char = False
+        self._native_ctrl_return_callback = None
         self._native_var = textvariable if isinstance(textvariable, tk.Variable) else None
         self._native_trace = None
         self._native_busy = False
@@ -325,6 +326,10 @@ class _NativeMixin:
         fmt.crTextColor = self._native_fg
         self._send(EM_SETCHARFORMAT, SCF_ALL, ctypes.addressof(fmt))
 
+    def set_native_ctrl_return_callback(self, callback):
+        """Dispatch Ctrl+Enter from native RichEdit on the normal Tk timer."""
+        self._native_ctrl_return_callback = callback
+
     def set_native_placeholder(self, text, on_focus=None):
         """Track an existing search hint and its real Windows focus callback.
 
@@ -511,8 +516,13 @@ class _NativeMixin:
                 pass
         if self._native_pending_ctrl_return:
             self._native_pending_ctrl_return = False
-            # Never enter Tk from the native window subclass callback.
-            self.event_generate("<Control-Return>")
+            # Dispatch from Tcl's timer, never inside the Win32 subclass.
+            # Key events directed at a hidden Tk Text backing widget can be
+            # dropped when its native RichEdit child owns Windows focus.
+            if self._native_ctrl_return_callback is not None:
+                self._native_ctrl_return_callback()
+            else:
+                self.event_generate("<Control-Return>")
         if self._native_menu_requested:
             self._native_menu_requested = False
             point, self._native_context_point = self._native_context_point, None

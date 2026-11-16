@@ -7,6 +7,7 @@ builders and all shared command actions remain unchanged.
 from __future__ import annotations
 
 import tkinter as tk
+from . import native_inputs
 from tkinter import ttk
 
 from . import command_helper as ch
@@ -174,7 +175,7 @@ def build(app):
     tk.Label(details, text="EDIT BEFORE COPYING  ·  CHANGES ARE TEMPORARY",
              bg=panel, fg=muted, font=(FONT, 8), anchor="w").pack(
                  fill="x", padx=12, pady=(0, 5))
-    app.command_code = tk.Text(
+    app.command_code = native_inputs.Text(
         details, wrap="word", undo=True, height=10, font=("Consolas", 10),
         bg=input_bg, fg="#D3E4FF", insertbackground=accent, bd=0,
         padx=10, pady=9, highlightthickness=1, highlightbackground=border)

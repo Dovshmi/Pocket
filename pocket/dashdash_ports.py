@@ -9,7 +9,7 @@ import ipaddress
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
-from .windows_proxy_urlopen import urlopen
+from .windows_proxy_urlopen import urlopen, direct_urlopen
 
 DASHDASH_PORT_CHECK_URL = "https://dashdash-tau.vercel.app/api/port-check"
 REMOTE_MAX_PORTS = 16
@@ -49,7 +49,7 @@ def _error_detail(body: bytes) -> str:
         return ""
 
 
-def check_remote_ports(ip: str, ports: list[int]) -> list[dict]:
+def check_remote_ports(ip: str, ports: list[int], *, use_windows_proxy: bool = True) -> list[dict]:
     """Request a server-side TCP connect scan and validate the returned results.
 
     This does not discover hosts or start background scans. Call from a worker
@@ -63,7 +63,8 @@ def check_remote_ports(ip: str, ports: list[int]) -> list[dict]:
                  "User-Agent": "PocketDesk/1.32 (manual DashDash check)"},
     )
     try:
-        with urlopen(request, timeout=REMOTE_TIMEOUT_SECONDS) as response:
+        opener = urlopen if use_windows_proxy else direct_urlopen
+        with opener(request, timeout=REMOTE_TIMEOUT_SECONDS) as response:
             if response.status != 200:
                 raise ValueError(f"DashDash returned HTTP {response.status}.")
             body = response.read(MAX_RESPONSE_BYTES + 1)
@@ -73,7 +74,8 @@ def check_remote_ports(ip: str, ports: list[int]) -> list[dict]:
             raise ValueError("DashDash is limiting requests. Try again later.") from exc
         raise ValueError(f"DashDash HTTP {exc.code}" + (f": {detail}" if detail else ".")) from exc
     except (URLError, TimeoutError, OSError) as exc:
-        raise ValueError(f"Could not contact DashDash via Windows proxy/PAC: {exc}. Try Local or ask IT.") from exc
+        via = "Windows proxy/PAC" if use_windows_proxy else "direct HTTPS"
+        raise ValueError(f"Could not contact DashDash via {via}: {exc}. Try Local or ask IT.") from exc
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("DashDash returned an unexpectedly large response.")
     try:

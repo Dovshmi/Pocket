@@ -101,6 +101,7 @@ from pocket import picker_selection
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
+from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
 from pocket import keyboard_layout
 from pocket import marked_layout
@@ -200,7 +201,9 @@ def default_data() -> dict:
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
                      "clipboard_image_limit": clipboard_images.MAX_IMAGES,
-                     "use_windows_proxy": True, "convert_mode": "clipboard"},
+                     "use_windows_proxy": True, "convert_mode": "mark",
+                     "convert_enabled": True, "clipboard_storage": "ram",
+                     "clipboard_days": 1},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -234,7 +237,10 @@ def normalize_settings(raw):
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "use_windows_proxy": raw.get("use_windows_proxy") is not False,
             "convert_mode": (raw.get("convert_mode") if raw.get("convert_mode") in ("clipboard", "mark")
-                             else "clipboard"),
+                             else "mark"),
+            "convert_enabled": raw.get("convert_enabled") is not False,
+            "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
+            "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
             "clipboard_image_limit": clipboard_images.normalize_limit(
@@ -402,8 +408,17 @@ class PocketDesk:
         self.display_mode = self.settings["display_mode"]
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
-        self.clipboard_items = []  # Session-only text, never written to disk.
-        self.clipboard_images = []  # Session-only PNG images, configurable count.
+        self._ram_text_items = []  # Intentionally never written to disk.
+        self._ram_images = []      # Session-only screenshots.
+        self.clipboard_items = self._ram_text_items
+        self.clipboard_images = self._ram_images
+        self.clipboard_database = clipdb.ClipboardDatabase(self.path.parent)
+        self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
+        self._clipboard_capture_day = clipdb.today()
+        if self.settings["clipboard_storage"] == "database":
+            self.clipboard_database.prune(self.settings["clipboard_days"])
+            self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
+            self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
         self.clipboard_page = "text"
         self._clipboard_selected_image_id = None
         self._clipboard_sequence = None
@@ -550,7 +565,8 @@ class PocketDesk:
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
-                                    self.hotkey, self.convert_hotkey)
+                                    self.hotkey, self.convert_hotkey,
+                                    convert_enabled=self.settings["convert_enabled"])
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -636,6 +652,8 @@ class PocketDesk:
         label = hk.hotkey_label(self.convert_hotkey)
         # The adjacent two-way selector displays the active mode. Keep the
         # shortcut label mode-neutral so it never becomes stale after a toggle.
+        if not self.settings["convert_enabled"]:
+            return label + "  ·  Disabled"
         return label + ("  ·  Fix keyboard layout"
                         if self.convert_hotkey_available else "  ·  Unavailable")
 
@@ -827,7 +845,7 @@ class PocketDesk:
             if candidate == current:
                 close()
                 return
-            if self.tray and not self.tray.error:
+            if self.tray and not self.tray.error and (not is_convert or self.settings["convert_enabled"]):
                 # Windows registration is validated before replacing the old key.
                 if is_convert:
                     self.tray.set_convert_hotkey(candidate)
@@ -1626,6 +1644,15 @@ class PocketDesk:
     def _set_windows_proxy(self, enabled):
         """Change only the transport used by future user-initiated requests."""
         self.settings["use_windows_proxy"] = bool(enabled)
+        self.schedule_save()
+
+    def _set_convert_enabled(self, enabled):
+        enabled = bool(enabled)
+        if self.settings["convert_enabled"] == enabled:
+            return
+        self.settings["convert_enabled"] = enabled
+        if self.tray and not self.tray.error:
+            self.tray.set_convert_enabled(enabled)
         self.schedule_save()
 
     def _set_convert_mode(self, mode):
@@ -5024,6 +5051,8 @@ class PocketDesk:
                 if name == "toggle":
                     self.toggle(xy)
                 elif name == "convert_clipboard":
+                    if not self.settings["convert_enabled"]:
+                        continue
                     if self.settings["convert_mode"] == "mark":
                         self._start_mark_conversion(xy)
                     else:
@@ -5054,6 +5083,10 @@ class PocketDesk:
                     self.schedule_save()
                     if self.current_tab == "settings":
                         self.show_tab("settings")
+                elif name == "convert_hotkey_disabled":
+                    self.convert_hotkey_available = False
+                elif name == "convert_hotkey_enabled":
+                    self.convert_hotkey_available = True
                 elif name == "convert_hotkey_conflict":
                     self._warning("Keyboard shortcut unavailable",
                                   "This shortcut is in use. The previous keyboard-fix shortcut remains active.")

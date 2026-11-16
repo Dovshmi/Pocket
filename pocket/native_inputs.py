@@ -13,6 +13,10 @@ import ctypes
 import sys
 import tkinter as tk
 import weakref
+from tkinter import font as tkfont
+from types import SimpleNamespace
+
+from .native_bidi import CHARFORMATW
 
 _NATIVE_WIDGETS = weakref.WeakSet()
 IS_WINDOWS = sys.platform == "win32"
@@ -24,6 +28,8 @@ ES_AUTOVSCROLL, ES_WANTRETURN, ES_NOHIDESEL = 0x0040, 0x1000, 0x0100
 WM_SETTEXT, WM_GETTEXT, WM_GETTEXTLENGTH, WM_SETFONT = 0x000C, 0x000D, 0x000E, 0x0030
 WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC = 0x0133, 0x0138
 WM_KEYDOWN, WM_CHAR, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0102, 0x0104, 0x0007
+WM_CONTEXTMENU, WM_KILLFOCUS, WM_MOUSEWHEEL = 0x007B, 0x0008, 0x020A
+EM_SETCHARFORMAT, CFM_COLOR, SCF_ALL = 0x0444, 0x40000000, 0x0004
 WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
 EM_GETSEL, EM_SETSEL, EM_REDO, EM_SETREADONLY = 0x00B0, 0x00B1, 0x0454, 0x00CF
 EM_SETBKGNDCOLOR = 0x0443
@@ -87,6 +93,9 @@ class _NativeMixin:
         self._native_child_proc = None
         self._native_parent_subclassed = False
         self._native_child_subclassed = False
+        self._native_context_point = None
+        self._native_font_key = None
+        self._native_pending_focus = None
 
         if not IS_WINDOWS:
             return
@@ -129,15 +138,7 @@ class _NativeMixin:
                 raise ctypes.WinError(ctypes.get_last_error())
             self._native_child_subclassed = True
 
-            font_spec = self.cget("font")
-            try:
-                from tkinter import font as tkfont
-                font = tkfont.Font(font=font_spec)
-                face = font.actual("family")
-                pixels = max(12, font.metrics("linespace"))
-                weight = 700 if font.actual("weight") == "bold" else 400
-            except (ValueError, tk.TclError, TypeError):
-                face, pixels, weight = "Segoe UI", 16, 400
+            face, pixels, weight = self._native_font_metrics()
             self._native_font = self._g.CreateFontW(
                 -pixels, 0, 0, 0, weight, 0, 0, 0, 1,
                 0, 0, 0, 0, face)
@@ -148,6 +149,7 @@ class _NativeMixin:
                 # Default RichEdit limits can truncate pasted switch MAC tables.
                 self._send(EM_EXLIMITTEXT, 0, 2_000_000)
                 self._send(EM_SETBKGNDCOLOR, 0, self._native_bg)
+                self._native_set_rich_foreground()
             self._native_last_text = self._tk_value()
             self._write_native(self._native_last_text)
             self._native_active = True
@@ -250,6 +252,35 @@ class _NativeMixin:
         self._send(WM_SETTEXT, 0, ctypes.addressof(buffer))
         self._native_last_text = value
 
+    def _native_font_metrics(self):
+        """CreateFontW needs character height, not Tk's taller line spacing.
+
+        Tk's positive font sizes are points; negative sizes are pixels.
+        Matching the actual Tk pixel size preserves the original compact UI.
+        """
+        try:
+            ft = tkfont.Font(root=self, font=self.cget("font"))
+            size = int(ft.actual("size"))
+            pixels = (round(size * self.winfo_fpixels("1p"))
+                      if size > 0 else abs(size))
+            return (ft.actual("family"), max(9, pixels),
+                    700 if ft.actual("weight") == "bold" else 400)
+        except (ValueError, tk.TclError, TypeError):
+            return ("Segoe UI", 13, 400)
+
+    def _native_set_rich_foreground(self):
+        """RichEdit does not honor WM_CTLCOLOREDIT's text color.
+
+        Use CHARFORMATW for the entire document, as Pocket's note editor does.
+        """
+        if not self._native_multiline or not self._native_hwnd:
+            return
+        fmt = CHARFORMATW()
+        fmt.cbSize = ctypes.sizeof(fmt)
+        fmt.dwMask = CFM_COLOR
+        fmt.crTextColor = self._native_fg
+        self._send(EM_SETCHARFORMAT, SCF_ALL, ctypes.addressof(fmt))
+
     def _native_refresh_style(self):
         """Honor runtime theme, font and read-only changes on the Win32 HWND."""
         if not self._native_active or not self._native_hwnd:
@@ -263,15 +294,12 @@ class _NativeMixin:
             self._native_brush = self._g.CreateSolidBrush(bg)
             if self._native_multiline:
                 self._send(EM_SETBKGNDCOLOR, 0, bg)
+                self._native_set_rich_foreground()
             self._u.InvalidateRect(ctypes.c_void_p(self._native_hwnd), None, True)
         new_font_key = str(self.cget("font"))
         if new_font_key != self._native_font_key:
             try:
-                from tkinter import font as tkfont
-                font = tkfont.Font(font=self.cget("font"))
-                face = font.actual("family")
-                pixels = max(12, font.metrics("linespace"))
-                weight = 700 if font.actual("weight") == "bold" else 400
+                face, pixels, weight = self._native_font_metrics()
                 new_font = self._g.CreateFontW(
                     -pixels, 0, 0, 0, weight, 0, 0, 0, 1,
                     0, 0, 0, 0, face)
@@ -314,10 +342,17 @@ class _NativeMixin:
         if not self._native_active or not self._native_hwnd:
             return
         inset = max(0, int(self.cget("highlightthickness")))
-        width = max(1, self.winfo_width() - inset * 2)
-        height = max(1, self.winfo_height() - inset * 2)
+        # Tk Text uses padx/pady *inside* its border; the Win32 child needs
+        # the same inset instead of covering the padding and labels.
+        if self._native_multiline:
+            px, py = int(self.cget("padx")), int(self.cget("pady"))
+        else:
+            px, py = 0, 0
+        x, y = inset + px, inset + py
+        width = max(1, self.winfo_width() - 2 * x)
+        height = max(1, self.winfo_height() - 2 * y)
         self._u.MoveWindow(
-            ctypes.c_void_p(self._native_hwnd), inset, inset,
+            ctypes.c_void_p(self._native_hwnd), x, y,
             width, height, True)
 
     def sync_native(self):

@@ -15,7 +15,8 @@ class CommandsLayoutRegression(unittest.TestCase):
         self.assertIn('if self.display_mode == "mini":', block)
         self.assertIn('return self._build_mini_commands()', block)
         self.assertIn('orient=tk.VERTICAL', block)
-        self.assertIn('command_panes.add(results_panel, minsize=215', block)
+        self.assertIn('height=500 if self.display_mode == "normal" else 440', block)
+        self.assertIn('minsize=275 if self.display_mode == "normal" else 215', block)
         self.assertIn("self.command_tree = self._tree(results_panel,", block)
         self.assertIn('(540, 335) if self.display_mode == "dashboard" else (230, 185)', block)
         self.assertNotIn('action_label(heading, "Backup ▾"', block)
@@ -50,7 +51,7 @@ class CommandsLayoutRegression(unittest.TestCase):
                       self.source[header_start:header_end])
         # Dashboard is separate; preserve existing Normal vertical panes and
         # Mini's single-card arrow navigation without proportional changes.
-        self.assertIn('command_panes.add(results_panel, minsize=215', self.source)
+        self.assertIn('minsize=275 if self.display_mode == "normal" else 215', self.source)
         self.assertIn('return self._build_mini_commands()', self.source)
 
     def test_mini_remains_single_card_without_visible_table(self):

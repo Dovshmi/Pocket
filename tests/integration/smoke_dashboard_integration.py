@@ -252,6 +252,95 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Mini TCP input must reflect factory ports")
                     check(app.port_source.get() == "local",
                           "Default port source must remain local")
+                if mode == "mini" and page == "notes":
+                    # Keyboard type-to-jump must navigate to a note, not turn
+                    # the picker into a filter or remove other note choices.
+                    from types import SimpleNamespace
+                    picker = app.mini_note_picker
+                    options = tuple(picker["values"])
+                    original_id = app.data["active_note"]
+                    target_index = next((i for i, title in enumerate(options)
+                                         if "Network shift notes" in title), -1)
+                    check(target_index >= 0, "Mini test note is missing")
+                    for char in "network":
+                        picker._pocket_typeahead(SimpleNamespace(
+                            char=char, keysym=char, state=0))
+                    app.root.update()
+                    check(picker.current() == target_index and
+                          app.data["active_note"] == app._note_rows[target_index]["id"],
+                          "Mini note typeahead must navigate to the selected note")
+                    check(tuple(picker["values"]) == options,
+                          "Mini note typeahead must retain every dropdown option")
+                    previous = next(i for i, note in enumerate(app._note_rows)
+                                    if note["id"] == original_id)
+                    picker.current(previous)
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                if mode == "mini" and page == "commands":
+                    # No new picker/search widgets: equal-width category LEFT
+                    # and machine RIGHT, with the existing full-width search
+                    # directly beneath their row.
+                    category, machine = app.command_category_picker, app.machine_picker
+                    search = app.command_search_entry
+                    check(category.winfo_rootx() < machine.winfo_rootx(),
+                          "Mini CLI category must be left of machine")
+                    check(abs(category.winfo_width() - machine.winfo_width()) <= 6,
+                          "Mini CLI pickers must share the width equally")
+                    check(search.winfo_rooty() >=
+                          machine.winfo_rooty() + machine.winfo_height(),
+                          "Mini CLI search must appear below both dropdowns")
+                    check(search.winfo_width() >=
+                          category.winfo_width() + machine.winfo_width() - 12,
+                          "Mini CLI search must span the full filter width")
+                    machine_options = tuple(machine["values"])
+                    category_options = tuple(category["values"])
+                    check(str(machine.cget("state")) == "readonly" and
+                          str(category.cget("state")) == "readonly",
+                          "Mini CLI dropdowns must stay readonly")
+                    import types
+                    from pocket import command_helper as ch
+                    target_machine = next((item for item in reversed(machine_options)
+                                           if item != ch.ALL_MACHINES), None)
+                    check(target_machine is not None, "Mini CLI machine list empty")
+                    for char in target_machine:
+                        machine._pocket_typeahead(types.SimpleNamespace(
+                            char=char, keysym=char, state=0))
+                    app.root.update()
+                    check(app.machine_var.get() == target_machine,
+                          "Mini CLI typing must select a real machine")
+                    check(tuple(machine["values"]) == machine_options,
+                          "Mini CLI typeahead must not filter machine options")
+                    current_categories = tuple(category["values"])
+                    if len(current_categories) > 1:
+                        target_cat = current_categories[-1]
+                        for char in target_cat:
+                            category._pocket_typeahead(types.SimpleNamespace(
+                                char=char, keysym=char, state=0))
+                        app.root.update()
+                        check(app.command_category_var.get() == target_cat,
+                              "Mini CLI typing must select a real category")
+                        check(tuple(category["values"]) == current_categories,
+                              "Mini CLI typeahead must not filter categories")
+                    machine.current(0)
+                    machine.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                if page == "clipboard" and app.clipboard_page == "text":
+                    selected_history = app.clipboard_items[-1]
+                    old_pin = selected_history["pinned"]
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    old_index = next(i for i, entry in enumerate(app._clipboard_filtered)
+                                     if entry["id"] == selected_history["id"])
+                    app.clipboard_list.selection_set(old_index)
+                    app._pin_clipboard_item()
+                    app.root.update()
+                    check(app._clipboard_filtered[0]["id"] == selected_history["id"],
+                          f"{mode}: pinned clipboard item must be displayed first")
+                    check(app._selected_clipboard_item()["id"] == selected_history["id"],
+                          f"{mode}: clipboard selected item must survive pin reorder")
+                    app._pin_clipboard_item()
+                    app.root.update()
+                    check(selected_history["pinned"] == old_pin,
+                          f"{mode}: clipboard unpin did not restore item")
                 if page == "commands" and sys.platform == "win32":
                     # The old Win32 overlay left the placeholder inside the
                     # actual edit control even after focus. Test in Pocket,

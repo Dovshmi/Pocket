@@ -47,10 +47,17 @@ def _validate(request):
     return uri
 
 
-def _windows_ieee_get(request, timeout=25):
-    """Windows WinINet HTTPS GET; keeps the DashDash POST implementation intact."""
+def _windows_ieee_get(request, timeout=25, *, use_windows_proxy=True):
+    """WinINet HTTPS GET. Direct mode uses Windows TLS without PAC/WPAD."""
     uri = _validate(request)
-    access, proxy, bypass = corporate._resolve_user_proxy(request.full_url)
+    if use_windows_proxy:
+        # Keep the already-working corporate PAC resolver unchanged.
+        access, proxy, bypass = corporate._resolve_user_proxy(request.full_url)
+    else:
+        # INTERNET_OPEN_TYPE_DIRECT = 1. Crucially, this is not PRECONFIG (0)
+        # and does not resolve or silently fall back to a Windows proxy.
+        # WinINet still performs TLS validation against Windows' trust store.
+        access, proxy, bypass = 1, None, None
     wininet = ctypes.WinDLL("wininet", use_last_error=True)
     winfunc = corporate._winfunc
     open_root = winfunc(wininet, "InternetOpenW", ctypes.c_void_p,
@@ -82,8 +89,15 @@ def _windows_ieee_get(request, timeout=25):
 
     def checked(value, stage):
         if not value:
-            raise URLError(f"Windows IEEE HTTPS {stage} failed "
-                           f"(WinINet {ctypes.get_last_error()})")
+            code = ctypes.get_last_error()
+            if code in (12037, 12038, 12045, 12175):
+                # Never disable certificate checks or ignore invalid CA names.
+                raise URLError(
+                    f"Windows certificate validation failed (WinINet {code}) "
+                    "while downloading IEEE. The certificate may be replaced "
+                    "by workplace HTTPS inspection. Ask IT to verify the "
+                    "trusted root certificate; TLS checks were not bypassed.")
+            raise URLError(f"Windows IEEE HTTPS {stage} failed (WinINet {code})")
         return value
 
     try:
@@ -140,9 +154,16 @@ def _windows_ieee_get(request, timeout=25):
             close(handle)
 
 
-def open_ieee(request, timeout=25):
-    """Use native Windows proxy resolution, or direct on other platforms."""
+def open_ieee(request, timeout=25, *, use_windows_proxy=True):
+    """Trusted native Windows HTTPS with explicit proxy selection for IEEE.
+
+    On non-Windows, use urllib for development; Windows alone has WinINet's
+    OS-backed certificate validation and InternetOpenW direct-access flag.
+    """
     _validate(request)
     if os.name != "nt":
+        if use_windows_proxy:
+            return corporate._stdlib_urlopen(request, timeout=timeout)
         return corporate.direct_urlopen(request, timeout=timeout)
-    return _windows_ieee_get(request, timeout=timeout)
+    return _windows_ieee_get(
+        request, timeout=timeout, use_windows_proxy=use_windows_proxy)

@@ -384,6 +384,10 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        # Distinguish an unchanged legacy duplicate from an actual title rename.
+        # This lets the oldest existing Note keep its original unsuffixed title.
+        self._committed_note_titles = {
+            note["id"]: note["title"] for note in self.data["notes"]}
         # Migrate old flat shortcuts without touching their saved IDs/targets.
         self.data["shortcut_folders"] = shortcut_folders.normalize(
             self.data.get("shortcut_folders"), self.data["links"])
@@ -2314,10 +2318,22 @@ class PocketDesk:
     def _unique_note_path(self, note, title):
         """Reserve other Notes' titles and working files, even before export."""
         reserved = set()
-        for other in self.data["notes"]:
+        prior = getattr(self, "_committed_note_titles", {}).get(note["id"])
+        unchanged_legacy = (prior is None or
+                            note_sync._safe_title_stem(prior).casefold() ==
+                            note_sync._safe_title_stem(title).casefold())
+        my_index = next((i for i, item in enumerate(self.data["notes"])
+                         if item["id"] == note["id"]), -1)
+        for index, other in enumerate(self.data["notes"]):
             if other["id"] == note["id"]:
                 continue
-            reserved.add(note_sync._safe_title_stem(other.get("title", "")) + ".txt")
+            other_stem = note_sync._safe_title_stem(other.get("title", ""))
+            same_legacy_name = other_stem.casefold() == note_sync._safe_title_stem(title).casefold()
+            # Legacy data can already contain duplicate titles. Preserve the
+            # first existing Note's title; number the later ones on first use.
+            # For a *new* rename, every other Note takes precedence.
+            if not (unchanged_legacy and same_legacy_name and index > my_index):
+                reserved.add(other_stem + ".txt")
             filename = other.get("notepad_filename")
             if note_sync._valid_saved_filename(filename):
                 reserved.add(filename)
@@ -2373,13 +2389,16 @@ class PocketDesk:
                 return
         previous_title = note["title"]
         note["title"] = target.stem
+        if hasattr(self, "_committed_note_titles"):
+            self._committed_note_titles[note_id] = note["title"]
         if old_path is not None:
             # A file can be temporarily missing if moved externally. Retain
             # the logical filename association for its next open.
             note["notepad_filename"] = target.name
         if session is not None:
             session["path"] = target
-        if self.current_tab == "notes" and self.data["active_note"] == note_id:
+        if (self.current_tab == "notes" and self.data["active_note"] == note_id
+                and hasattr(self, "title_var")):
             if self.title_var.get() != note["title"]:
                 self._loading_note = True
                 try:
@@ -4681,19 +4700,9 @@ class PocketDesk:
                 # Never rename an open working file or overwrite unsaved Notepad edits.
                 path = session["path"]
             else:
-                # A title-based filename belongs to its original note even if the
-                # file is moved/deleted. Reserve the persisted names of other notes.
-                other_names = set()
-                for item in self.data["notes"]:
-                    if item["id"] == note["id"]:
-                        continue
-                    other_names.add(note_sync._safe_title_stem(item["title"]) + ".txt")
-                    if note_sync._valid_saved_filename(item.get("notepad_filename")):
-                        other_names.add(item["notepad_filename"])
-                path = note_sync.named_note_path(
-                    folder, note["title"],
-                    saved_filename=note.get("notepad_filename"),
-                    reserved_names=other_names)
+                # Reuse the same allocation rules as Title editing, including
+                # first-in-list priority for old notes with duplicate titles.
+                path = self._unique_note_path(note, note["title"])
                 # Migrate older note_<uuid>.txt working files non-destructively:
                 # read old edits, then write a new readable filename. Keep the
                 # original on disk as a fallback; it is never silently discarded.

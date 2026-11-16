@@ -1,7 +1,8 @@
 """Responsive Text / Images pages for Pocket's existing Clipboard tool.
 
 The Text page keeps the original searchable Listbox. The Images page uses a
-width-aware thumbnail gallery with no search field. All state stays in RAM.
+width-aware thumbnail gallery. Optional Database mode persists daily local
+history; RAM mode remains fully ephemeral.
 """
 from __future__ import annotations
 
@@ -54,12 +55,57 @@ def _action(parent, title, callback, colors):
 
 def build(app):
     c = themes.palette(app.theme)
-    header = app._section_title(app.body, "Clipboard history",
-                                "RAM only · Never saved to disk",
-                                "Clear text", app._clear_clipboard)
+    stored = app.settings.get("clipboard_storage") == "database"
+    header = app._section_title(
+        app.body, "Clipboard history",
+        "LOCAL DATABASE · Saved on this PC" if stored else "RAM only · Never saved to disk",
+        "Clear text", app._clear_clipboard)
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
         None)
+    # Deliberately styled as a compact segmented RAM / DATABASE control.
+    mode_row = tk.Frame(app.body, bg=c["BG"])
+    mode_row.pack(fill="x", pady=(2, 8))
+    app.clipboard_storage_buttons = {}
+
+    def storage(mode):
+        app._clipboard_use_storage(mode)
+
+    for mode, label in (("ram", "RAM"), ("database", "DATABASE")):
+        active = app.settings.get("clipboard_storage") == mode
+        button = tk.Button(
+            mode_row, text=("●  " if active else "") + label,
+            command=lambda chosen=mode: storage(chosen),
+            bg=c["ACCENT_DARK"] if active else c["CARD"],
+            fg=c["WHITE"] if active else c["MUTED"],
+            activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
+            relief="flat", bd=0, highlightthickness=1,
+            highlightbackground=c["ACCENT"] if active else c["BORDER"],
+            cursor="hand2", takefocus=True, font=("Segoe UI", 8, "bold"),
+            padx=10, pady=5)
+        button.pack(side="left", padx=(0, 5))
+        app.clipboard_storage_buttons[mode] = button
+
+    # One date selector for both types; it follows the active Text/Images page.
+    app.clipboard_history_row = tk.Frame(app.body, bg=c["BG"])
+    tk.Label(app.clipboard_history_row, text="History date",
+             bg=c["BG"], fg=c["SECONDARY"],
+             font=("Segoe UI", 8)).pack(side="left", padx=(0, 8))
+    app.clipboard_day_select = ttk.Combobox(
+        app.clipboard_history_row, style="Pocket.TCombobox",
+        state="readonly", width=19, takefocus=True)
+    app.clipboard_day_select.pack(side="left", fill="x", expand=False)
+
+    def selected_day(_event=None):
+        picked = app.clipboard_day_select.get()
+        day = picked[-10:]
+        app._clipboard_choose_day(day)
+        return "break"
+
+    app.clipboard_day_select.bind("<<ComboboxSelected>>", selected_day)
+    if stored:
+        app.clipboard_history_row.pack(fill="x", pady=(0, 8))
+
     privacy = tk.Frame(app.body, bg=c["BG"])
     privacy.pack(fill="x", pady=(0, 6))
     app.clipboard_pause_button = design.button(
@@ -112,6 +158,7 @@ def build(app):
     _build_text_page(app, c)
     _build_images_page(app, c)
     show_page(app, getattr(app, "clipboard_page", "text"))
+    refresh_history_selector(app)
 
 
 def _build_text_page(app, c):
@@ -314,9 +361,37 @@ def _build_images_page(app, c):
         widget.bind("<Button-5>", lambda e: _wheel(app, e))
 
 
+def refresh_history_selector(app):
+    """Refresh available saved dates without recursively changing the view."""
+    if not hasattr(app, "clipboard_day_select"):
+        return
+    if app.settings.get("clipboard_storage") != "database":
+        return
+    page = getattr(app, "clipboard_page", "text")
+    from . import clipboard_database as db
+    today = db.today()
+    dates = app.clipboard_database.days(
+        page, days=app.settings["clipboard_days"])
+    if today not in dates:
+        dates.insert(0, today)
+    values = [("Today · " + date if date == today else date) for date in dates]
+    selector = app.clipboard_day_select
+    selector["values"] = values
+    selected = app._clipboard_view_days.get(page, today)
+    if selected not in dates:
+        selected = today
+        app._clipboard_view_days[page] = today
+        app._clipboard_load_day(page, today)
+    selector.set("Today · " + selected if selected == today else selected)
+    if hasattr(app, "clipboard_clear_button") and app.clipboard_clear_button:
+        app.clipboard_clear_button.configure(
+            text="Clear day images" if page == "images" else "Clear day text")
+
+
 def show_page(app, page):
     page = page if page in ("text", "images") else "text"
     app.clipboard_page = page  # Remember across menu/layout switches in session.
+    refresh_history_selector(app)
     if app.clipboard_clear_button is not None:
         app.clipboard_clear_button.configure(
             text="Clear images" if page == "images" else "Clear text")
@@ -379,14 +454,19 @@ def _update_status(app):
         return
     count = len(app.clipboard_images)
     maximum = app.settings["clipboard_image_limit"]
+    stored = app.settings.get("clipboard_storage") == "database"
     capture = "PAUSED" if app.settings["clipboard_paused"] else "Capture ON"
     if app.display_mode == "mini":
         index = _selection_index(app)
         label.configure(text=(
             f"{index + 1 if index >= 0 else 0} / {count} selected · "
+            f"{count} saved · {capture}" if stored else
+            f"{index + 1 if index >= 0 else 0} / {count} selected · "
             f"{count}/{maximum} images · {capture}"))
     else:
-        label.configure(text=f"{count}/{maximum} images · RAM only · {capture}")
+        label.configure(
+            text=f"{count} images · DATABASE · {capture}" if stored else
+                 f"{count}/{maximum} images · RAM only · {capture}")
 
 
 def _ensure_selected_visible(app):
@@ -612,6 +692,9 @@ def delete_selected(app):
     if item is None:
         return
     previous_index = _selection_index(app)
+    if (app.settings.get("clipboard_storage") == "database"
+            and not app._clipboard_delete_image(item)):
+        return
     app.clipboard_images[:] = [
         entry for entry in app.clipboard_images if entry["id"] != item["id"]]
     app._clipboard_selected_image_id = (
@@ -621,6 +704,9 @@ def delete_selected(app):
 
 
 def clear_images(app):
+    if (app.settings.get("clipboard_storage") == "database"
+            and not app._clipboard_clear_images()):
+        return
     app.clipboard_images.clear()
     app._clipboard_selected_image_id = None
     refresh_images(app, force=True)

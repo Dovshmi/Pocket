@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
-from .windows_proxy_urlopen import urlopen
+from .windows_proxy_urlopen import urlopen, direct_urlopen
 
 from . import network_tools as net
 
@@ -23,7 +23,7 @@ def parse_remote_macs(text: str) -> list[str]:
     return net.parse_mac_input(text, limit=REMOTE_MAX_MACS)["macs"]
 
 
-def lookup_remote_macs(macs: list[str]) -> list[dict]:
+def lookup_remote_macs(macs: list[str], *, use_windows_proxy: bool = True) -> list[dict]:
     """Perform one HTTPS POST and validate every returned MAC/vendor record."""
     if not isinstance(macs, list) or not 1 <= len(macs) <= REMOTE_MAX_MACS:
         raise ValueError("DashDash accepts 1–100 MAC addresses per request.")
@@ -42,7 +42,8 @@ def lookup_remote_macs(macs: list[str]) -> list[dict]:
                  "User-Agent": "PocketDesk (manual MAC lookup)"},
     )
     try:
-        with urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+        opener = urlopen if use_windows_proxy else direct_urlopen
+        with opener(request, timeout=REQUEST_TIMEOUT) as response:
             if response.status != 200:
                 raise ValueError(f"DashDash returned HTTP {response.status}.")
             body = response.read(MAX_RESPONSE_BYTES + 1)
@@ -51,7 +52,8 @@ def lookup_remote_macs(macs: list[str]) -> list[dict]:
             raise ValueError("DashDash is limiting requests. Try again later.") from exc
         raise ValueError(f"DashDash MAC lookup returned HTTP {exc.code}.") from exc
     except (URLError, TimeoutError, OSError) as exc:
-        raise ValueError(f"Cannot reach DashDash via Windows proxy/PAC: {exc}. Switch to Local or ask IT.") from exc
+        via = "Windows proxy/PAC" if use_windows_proxy else "direct HTTPS"
+        raise ValueError(f"Cannot reach DashDash via {via}: {exc}. Switch to Local or ask IT.") from exc
     if len(body) > MAX_RESPONSE_BYTES:
         raise ValueError("DashDash returned an unexpectedly large MAC response.")
     try:

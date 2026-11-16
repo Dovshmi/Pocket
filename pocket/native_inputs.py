@@ -31,6 +31,8 @@ WM_KEYDOWN, WM_CHAR, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0102, 0x0104, 0x0007
 WM_CONTEXTMENU, WM_KILLFOCUS, WM_MOUSEWHEEL = 0x007B, 0x0008, 0x020A
 EM_SETCHARFORMAT, CFM_COLOR, SCF_ALL = 0x0444, 0x40000000, 0x0004
 WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
+WM_CLEAR = 0x0303
+EM_CANUNDO, EM_CANREDO = 0x00C6, 0x0455
 EM_GETSEL, EM_SETSEL, EM_REDO, EM_SETREADONLY = 0x00B0, 0x00B1, 0x0454, 0x00CF
 EM_SETBKGNDCOLOR = 0x0443
 EM_EXLIMITTEXT = 0x0435  # WM_USER + 53; match Pocket's large-note editor
@@ -96,6 +98,7 @@ class _NativeMixin:
         self._native_context_point = None
         self._native_font_key = None
         self._native_pending_focus = None
+        self._native_menu_requested = False
 
         if not IS_WINDOWS:
             return
@@ -215,7 +218,19 @@ class _NativeMixin:
         return self._cc.DefSubclassProc(hwnd, msg, wp, lp)
 
     def _child_message(self, hwnd, msg, wp, lp, sid, ref):
-        """Win32 Ctrl+A is explicit; all other shortcuts remain OS-native."""
+        """Native callback: marshal context requests; never enter Tk here."""
+        if msg == WM_CONTEXTMENU:
+            # No Windows default menu: Pocket's compact Tk menu is shown from
+            # _native_tick, outside the Win32 subclass callback.
+            x = ctypes.c_short(lp & 0xFFFF).value
+            y = ctypes.c_short((lp >> 16) & 0xFFFF).value
+            self._native_context_point = (x, y)
+            self._native_menu_requested = True
+            return 0
+        if msg == WM_SETFOCUS:
+            self._native_pending_focus = True
+        elif msg == WM_KILLFOCUS:
+            self._native_pending_focus = False
         if msg == WM_KEYDOWN and self._u.GetKeyState(VK_CONTROL) & 0x8000:
             if wp == ord("A"):
                 self._u.SendMessageW(hwnd, EM_SETSEL, 0, -1)
@@ -280,6 +295,38 @@ class _NativeMixin:
         fmt.dwMask = CFM_COLOR
         fmt.crTextColor = self._native_fg
         self._send(EM_SETCHARFORMAT, SCF_ALL, ctypes.addressof(fmt))
+
+    def native_has_selection(self):
+        if not self._native_active:
+            return False
+        first, last = ctypes.c_uint32(), ctypes.c_uint32()
+        self._send(EM_GETSEL, ctypes.addressof(first), ctypes.addressof(last))
+        return first.value != last.value
+
+    def native_can_undo(self):
+        return bool(self._native_active and self._send(EM_CANUNDO))
+
+    def native_can_redo(self):
+        return bool(self._native_active and self._native_multiline
+                    and self._send(EM_CANREDO))
+
+    def native_action(self, operation):
+        """Edit through the real Win32 control, not the hidden Tk backing field."""
+        if not self._native_active:
+            return False
+        commands = {"copy": WM_COPY, "cut": WM_CUT, "paste": WM_PASTE,
+                    "undo": WM_UNDO, "redo": EM_REDO, "delete": WM_CLEAR}
+        if operation == "select_all":
+            self._send(EM_SETSEL, 0, -1)
+            return True
+        if operation not in commands:
+            return False
+        if operation not in ("copy",) and str(self.cget("state")) in ("disabled", "readonly"):
+            return False
+        self._send(commands[operation])
+        if operation in ("cut", "paste", "undo", "redo", "delete"):
+            self.sync_native()
+        return True
 
     def _native_refresh_style(self):
         """Honor runtime theme, font and read-only changes on the Win32 HWND."""
@@ -392,8 +439,22 @@ class _NativeMixin:
             self._native_pending_ctrl_return = False
             # Never enter Tk from the native window subclass callback.
             self.event_generate("<Control-Return>")
+        if self._native_menu_requested:
+            self._native_menu_requested = False
+            point, self._native_context_point = self._native_context_point, None
+            if point is not None:
+                x, y = point
+                if x == -1 and y == -1:
+                    x, y = self.winfo_rootx() + 16, self.winfo_rooty() + 12
+                try:
+                    self.event_generate(
+                        "<Button-3>", x=x - self.winfo_rootx(),
+                        y=y - self.winfo_rooty(),
+                        rootx=x, rooty=y, when="tail")
+                except tk.TclError:
+                    pass
         if self._native_active and self.winfo_exists():
-            self._native_after = self.after(45, self._native_tick)
+            self._native_after = self.after(35, self._native_tick)
 
     def _native_cleanup(self):
         self._native_active = False

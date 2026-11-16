@@ -25,6 +25,24 @@ This upcoming update groups the requested improvements together. It is not a pub
 - Mark mode reads a *freshly copied selection* from the active Windows application and applies the same offline EN/HE physical-keyboard mapping before automatically pasting over the selection.
 - The Mark workflow checks focus/clipboard sequence changes, does not paste old clipboard text when nothing is selected, and attempts to restore all original clipboard formats using Windows OLE clipboard preservation. Mark does not work in every application; test in your editors before using on important unsaved text. No text is transmitted to the network.
 
+### Clipboard RAM / local DATABASE (new in 1.37)
+
+- **Storage selector:** Clipboard now has a compact **RAM | DATABASE** control. RAM remains the default and behaves as before, with session-only text and 10–30 configurable screenshot slots. DATABASE is opt-in and local; it preserves copied content across restarts.
+- **Daily text files:** One UTF-8 TXT file per date, named with its creation timestamp and expiration date, containing structured readable JSON-line records. All accepted text clips from the day, including pins, remain accessible.
+- **Daily screenshot folders:** `ClipboardDatabase/ClipboardScreenshots/YYYY-MM-DD/` holds separate PNG files for all accepted screenshots captured on that date, not limited by the RAM-only 20-image default.
+- **One date selector per page:** Browse prior days in Text or Images. The next clipboard copy returns the corresponding page to Today, even for a repeated copy, while other dates remain available.
+- **Configurable retention:** Under **Clipboard & privacy**, keep 1–5 local calendar days (default 1); Pocket removes expired files and reflects the intended expiry in daily TXT filenames.
+- **Safe defaults:** Database history is never exported to DashDash or included in the app's release ZIP. RAM and DATABASE stores remain separate when changing modes. The local Database is **plaintext**, and sensitive-text filtering cannot guarantee secrets/screenshots are excluded; enable it only if permitted by local/workplace policy.
+
+### Translate keyboard repair preferences
+
+- All controls are now grouped under **Settings → Clipboard & privacy**, beside image capacity and retention.
+- **Enable Translate shortcut** is ON by default but can be toggled OFF, unregistering the global Windows hotkey without changing Pocket's popup shortcut.
+- The default for a new profile is **Mark** mode with `Ctrl+Alt+V`. Clipboard mode remains selectable and works as before. Existing manually saved mode preferences are retained.
+- Mark requires text selection in the original foreground application; it does not use the internet.
+
+See [Clipboard Database documentation](docs/CLIPBOARD_DATABASE.md) for folder structure, retention semantics, and the privacy warning.
+
 ### Verification and availability
 
 GitHub Actions exercises the unit suite, GUI smoke tests on Windows/Linux, the release-Python GUI smoke check, and a Windows portable build test. Live corporate PAC/IEEE authentication and actual third-party foreground text replacement must also be verified on the target Windows machine.

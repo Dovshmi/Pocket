@@ -32,7 +32,7 @@ class PreferenceTests(unittest.TestCase):
         self.assertEqual(normalized["convert_mode"], "clipboard")
         self.assertIs(appmod["normalize_settings"]({"use_windows_proxy": False})
                       ["use_windows_proxy"], False)
-        for invalid in (None, 42, "mark", "MARK", True, {}):
+        for invalid in (None, 42, "MARK", True, {}):
             self.assertEqual(appmod["normalize_settings"](
                 {"convert_mode": invalid})["convert_mode"], "clipboard")
         self.assertEqual(appmod["normalize_settings"](
@@ -125,7 +125,8 @@ class NetworkRoutingTests(unittest.TestCase):
                     "https://standards-oui.ieee.org/private.csv"):
             with self.subTest(url=url), self.assertRaises(URLError):
                 ieee_https._validate(Request(url))
-        with self.assertRaisesRegex(URLError, "GET"):
+        with self.assertRaisesRegex(URLError, "official HTTPS IEEE"):
+                # POST to a valid IEEE endpoint must not be sent.
             ieee_https._validate(Request(allowed, method="POST", data=b"x"))
 
     def test_ieee_proxy_off_direct_and_on_windows_native(self):

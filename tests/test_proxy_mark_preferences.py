@@ -151,12 +151,16 @@ class NetworkRoutingTests(unittest.TestCase):
                         cache, use_windows_proxy=True)
                 native.assert_called_once()
                 direct.assert_not_called()
-            with patch.object(transport, "direct_urlopen",
-                              side_effect=URLError("offline")) as direct:
+            # Regression: Proxy OFF must use the original IEEE urllib opener,
+            # not ProxyHandler({}) which broke TLS trust at some workplaces.
+            with patch.object(network_tools, "urlopen",
+                              side_effect=URLError("offline")) as legacy, \
+                 patch.object(transport, "direct_urlopen") as direct:
                 with self.assertRaisesRegex(ValueError, "IEEE MA-L download failed"):
                     network_tools.download_ieee_database(
                         cache, use_windows_proxy=False)
-                direct.assert_called_once()
+                legacy.assert_called_once()
+                direct.assert_not_called()
             self.assertFalse(cache.exists())
 
 

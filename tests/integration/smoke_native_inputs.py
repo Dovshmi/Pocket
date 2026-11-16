@@ -157,13 +157,14 @@ def run():
             # while native RichEdit handles all ordinary editor accelerators.
             copied = []
             mac.bind("<Control-Return>", lambda _ev: copied.append(True))
+            # Run a deterministic native polling turn, rather than racing
+            # the timer against a heavily loaded Windows CI virtual desktop.
+            if mac._native_after is not None:
+                mac.after_cancel(mac._native_after)
+                mac._native_after = None
             mac._native_pending_ctrl_return = True
-            import time
-            for _ in range(8):
-                root.update()
-                if copied:
-                    break
-                time.sleep(0.04)
+            mac._native_tick()
+            root.update()
             require(copied == [True],
                     f"Native Ctrl+Enter must reach command action (got {copied})")
             mac.tag_add("sel", "1.0", "end-1c")

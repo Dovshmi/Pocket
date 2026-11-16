@@ -113,7 +113,8 @@ class NotepadWorkingFileTests(unittest.TestCase):
                 self.assertEqual(note_sync.read_text(
                     Path(folder) / "notepad" / "Network (1).txt"), "b")
                 self.assertEqual(popen.call_count, 3)
-                self.assertEqual(len(saves), 2)
+                # Second note also persists its newly numbered Title.
+                self.assertEqual(len(saves), 3)
             # The note-to-file mapping survives a full data.json round trip.
             api["save_data"](app.path, {**api["default_data"](),
                                         "notes": notes,

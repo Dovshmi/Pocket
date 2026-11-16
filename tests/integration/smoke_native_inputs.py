@@ -50,6 +50,36 @@ def run():
                 require(buffer.value.lower() == klass.lower(),
                         f"Expected Windows {klass}, got {buffer.value}")
 
+            # The original Pocket layout uses Tk's compact field height and
+            # additional ipady. Win32 EDIT must sit in the vertical center,
+            # rather than rendering the text at the top of the whole widget.
+            from ctypes import wintypes
+            user32.GetWindowRect.argtypes = (
+                ctypes.c_void_p, ctypes.POINTER(wintypes.RECT))
+            user32.GetWindowRect.restype = ctypes.c_int
+
+            def native_edit_gaps(widget):
+                host_rect, child_rect = wintypes.RECT(), wintypes.RECT()
+                require(user32.GetWindowRect(
+                    ctypes.c_void_p(widget.winfo_id()),
+                    ctypes.byref(host_rect)) != 0, "Tk field bounds are readable")
+                require(user32.GetWindowRect(
+                    ctypes.c_void_p(widget.native_hwnd),
+                    ctypes.byref(child_rect)) != 0, "Win32 edit bounds are readable")
+                return (child_rect.top - host_rect.top,
+                        host_rect.bottom - child_rect.bottom,
+                        host_rect.bottom - host_rect.top,
+                        child_rect.bottom - child_rect.top)
+
+            for widget in (title, phone):
+                above, below, outer_height, inner_height = native_edit_gaps(widget)
+                require(abs(above - below) <= 2,
+                        "Single-line Win32 text must be vertically centered")
+                require(inner_height <= outer_height,
+                        "Native edit must fit inside the original Tk input field")
+            require(native_edit_gaps(title)[3] < native_edit_gaps(title)[2] - 6,
+                    "Extra Tk ipady must surround text, not enlarge native text row")
+
             title.focus_force()
             root.update()
             require(title.has_native_focus(), "Native Entry must get real Win32 focus")

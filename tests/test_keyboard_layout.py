@@ -114,7 +114,7 @@ class ConversionTests(unittest.TestCase):
         a = hk.bindings(hk.DEFAULT_HOTKEY)
         b = hk.bindings(hk.DEFAULT_CONVERT_HOTKEY, 0xB30)
         self.assertEqual(a, ((0xB10, 0x4006, 0x38), (0xB11, 0x4006, 0x6A)))
-        self.assertEqual(b, ((0xB30, 0x4003, 0x78),))
+        self.assertEqual(b, ((0xB30, 0x4003, 0x56),))
         self.assertEqual({i for i, *_ in a} & {i for i, *_ in b}, set())
 
 

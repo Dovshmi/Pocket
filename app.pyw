@@ -97,6 +97,7 @@ from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import text_editing
+from pocket import picker_typeahead
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
@@ -1649,10 +1650,23 @@ class PocketDesk:
         if not hasattr(self, "clipboard_list") or not self.clipboard_list.winfo_exists():
             return
         query = self.clipboard_query.get().casefold()
-        self._clipboard_filtered = [item for item in self.clipboard_items if query in item["text"].casefold()]
+        # Keep the selected item after pinning/unpinning moves its row, rather
+        # than accidentally applying Copy/Delete to a different clipboard item.
+        selected = self._selected_clipboard_item()
+        selected_id = selected["id"] if selected else None
+        matches = [item for item in self.clipboard_items
+                   if query in item["text"].casefold()]
+        self._clipboard_filtered = clipboard_gallery.pinned_first(matches)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
+        if selected_id:
+            for index, item in enumerate(self._clipboard_filtered):
+                if item["id"] == selected_id:
+                    self.clipboard_list.selection_set(index)
+                    self.clipboard_list.activate(index)
+                    self.clipboard_list.see(index)
+                    break
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
                                      ("PAUSED" if self.settings["clipboard_paused"] else
                                       "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
@@ -1755,6 +1769,7 @@ class PocketDesk:
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        picker_typeahead.install(self.mini_note_picker)
         self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
         self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
@@ -3109,11 +3124,31 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         chosen = prefs.get("machine")
         self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
-                                            state="readonly", font=(FONT, 9))
-        self.machine_picker.pack(fill="x", pady=(0, 7))
+        # Keep the original readonly dropdowns and their full option lists.
+        # Category fills the left half, machine the right half; no new row is
+        # added to Mini and the search stays a full-width field below them.
+        pickers = tk.Frame(self.body, bg=BG)
+        pickers.pack(fill="x", pady=(0, 7))
+        pickers.columnconfigure(0, weight=1, uniform="mini_cli_filters")
+        pickers.columnconfigure(1, weight=1, uniform="mini_cli_filters")
+        self.machine_picker = ttk.Combobox(
+            pickers, style="Pocket.TCombobox", values=names,
+            textvariable=self.machine_var, state="readonly", font=(FONT, 9), width=12)
+        self.machine_picker.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        picker_typeahead.install(self.machine_picker)
         self._protect_command_picker(self.machine_picker)
+        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
+        self.command_category_picker = ttk.Combobox(
+            pickers, style="Pocket.TCombobox", textvariable=self.command_category_var,
+            state="readonly", values=[ch.ALL_CATEGORIES] +
+            ch.categories_for(self.command_library, self.machine_var.get()),
+            font=(FONT, 9), width=12)
+        self.command_category_picker.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        self.command_category_picker.bind("<<ComboboxSelected>>",
+                                          lambda _e: self._refresh_command_results())
+        picker_typeahead.install(self.command_category_picker)
+        self._protect_command_picker(self.command_category_picker)
         self.command_query = tk.StringVar()
         self.command_search_entry = self._entry(self.body, self.command_query)
         self.command_search_entry.config(font=(FONT, 9), fg=MUTED)
@@ -3127,15 +3162,6 @@ class PocketDesk:
         self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
         self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
         self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
-        row = tk.Frame(self.body, bg=BG)
-        row.pack(fill="x", pady=(0, 4))
-        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(row, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly",
-            values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
-            font=(FONT, 8))
-        self.command_category_picker.pack(side="left", fill="x", expand=True)
-        self.command_category_picker.bind("<<ComboboxSelected>>", lambda _e: self._refresh_command_results())
-        self._protect_command_picker(self.command_category_picker)
         self.command_modes = {}
         modebar = tk.Frame(self.body, bg=BG)
         modebar.pack(fill="x", pady=(0, 6))

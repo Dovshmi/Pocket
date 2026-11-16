@@ -100,6 +100,7 @@ class _NativeMixin:
         self._native_pending_focus = None
         self._native_menu_requested = False
         self._native_placeholder = None
+        self._native_focus_callback = None
 
         if not IS_WINDOWS:
             return
@@ -302,9 +303,21 @@ class _NativeMixin:
         fmt.crTextColor = self._native_fg
         self._send(EM_SETCHARFORMAT, SCF_ALL, ctypes.addressof(fmt))
 
-    def set_native_placeholder(self, text):
-        """Register an app-provided search hint for immediate native clearing."""
+    def set_native_placeholder(self, text, on_focus=None):
+        """Track an existing search hint and its real Windows focus callback.
+
+        Win32 child focus does not reliably appear in Tk's focus_get(); the
+        callback is invoked from the Tcl timer, never the Win32 subclass.
+        """
         self._native_placeholder = str(text) if text is not None else None
+        self._native_focus_callback = on_focus
+
+    def _native_clear_placeholder_on_focus(self):
+        if (self._native_focus_callback is not None
+                and self._native_var is not None
+                and self._native_placeholder is not None
+                and self._native_var.get() == self._native_placeholder):
+            self._native_focus_callback()
 
     def native_has_selection(self):
         if not self._native_active:
@@ -437,6 +450,8 @@ class _NativeMixin:
         if not self._native_active or not self.winfo_exists():
             return
         focused = self.has_native_focus()
+        if focused:
+            self._native_clear_placeholder_on_focus()
         if focused or self._native_last_focus:
             self.sync_native()
         if focused != self._native_last_focus:
@@ -516,11 +531,13 @@ class _NativeMixin:
         tk.Misc.focus_set(self)
         if self._native_active:
             self._u.SetFocus(ctypes.c_void_p(self._native_hwnd))
+            self._native_clear_placeholder_on_focus()
 
     def focus_force(self):
         tk.Misc.focus_force(self)
         if self._native_active:
             self._u.SetFocus(ctypes.c_void_p(self._native_hwnd))
+            self._native_clear_placeholder_on_focus()
 
 
 class NativeEntry(_NativeMixin, tk.Entry):

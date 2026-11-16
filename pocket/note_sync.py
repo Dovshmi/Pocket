@@ -87,6 +87,68 @@ def named_note_path(folder: Path, title: str, *, saved_filename=None,
         number += 1
 
 
+def unique_note_path(folder: Path, title: str, *, reserved_names=(),
+                     own_filename=None) -> Path:
+    """Resolve a Pocket Title and a .txt name together, Windows-style.
+
+    reserved_names includes other notes' titles (even if not exported),
+    plus their assigned filenames. The current note's own filename may be
+    reused or renamed without falsely detecting a collision with itself.
+    """
+    folder = Path(folder)
+    reserved = {name.casefold() for name in reserved_names if isinstance(name, str)}
+    existing = set()
+    if folder.exists():
+        existing = {item.name.casefold() for item in folder.iterdir()}
+    if _valid_saved_filename(own_filename) and own_filename.casefold() not in reserved:
+        existing.discard(own_filename.casefold())
+    occupied = reserved | existing
+    original = _safe_title_stem(title)
+    base = original
+    next_number = 1
+    # If someone explicitly types "Router (1)" and it is already used,
+    # propose "Router (2)" rather than "Router (1) (1)".
+    match = re.fullmatch(r"(.+?) \(([1-9]\d*)\)", original)
+    if match:
+        base = match.group(1)
+        next_number = int(match.group(2)) + 1
+    candidate = original
+    while f"{candidate}.txt".casefold() in occupied:
+        suffix = f" ({next_number})"
+        candidate = base[:96 - len(suffix)].rstrip(" .") + suffix
+        next_number += 1
+    return folder / f"{candidate}.txt"
+
+
+def rename_text_file(source: Path, target: Path) -> None:
+    """Rename the original working file; never copy over an unrelated file.
+
+    A case-only rename needs a two-step move on some Windows file systems.
+    If that second move fails, restore the old path before reporting failure.
+    """
+    source, target = Path(source), Path(target)
+    if source == target:
+        return
+    if source.is_symlink() or source.is_dir():
+        raise OSError("Cannot rename a link or directory used as a note")
+    if target.is_symlink() or target.is_dir():
+        raise FileExistsError(f"Notepad destination is occupied: {target.name}")
+    if source.name.casefold() != target.name.casefold():
+        if target.exists():
+            raise FileExistsError(f"Notepad destination already exists: {target.name}")
+        source.rename(target)
+        return
+    # Windows is case-insensitive. Intermediate name avoids an OS-dependent
+    # no-op when the user only changes the capitalization of the Title.
+    intermediate = source.with_name(f".pocket-rename-{uuid.uuid4().hex}.tmp")
+    source.rename(intermediate)
+    try:
+        intermediate.rename(target)
+    except OSError:
+        intermediate.rename(source)
+        raise
+
+
 def create_text(path: Path, body: str) -> None:
     """Create a new text file exclusively; never replace a name that just appeared."""
     path.parent.mkdir(parents=True, exist_ok=True)

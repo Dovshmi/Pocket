@@ -289,29 +289,26 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     import time
                     px, py = field.winfo_rootx() + 10, field.winfo_rooty() + 9
                     lp = ((py & 0xffff) << 16) | (px & 0xffff)
+                    # Windows' TrackPopupMenu blocks a headless GUI test.
+                    # Intercept only *posting*, not the actual native HWND
+                    # routing or Pocket's menu construction and callbacks.
+                    from unittest.mock import patch
                     observed = []
-                    def inspect_menu():
-                        custom = getattr(app, "_input_context_menu", None)
-                        if custom is not None and custom.winfo_exists():
-                            observed.append(menu_labels(custom))
-                            capture(app, output, mode + "_native_input_menu")
-                        else:
-                            observed.append([])
-                        # tk_popup can run a native modal Windows menu loop.
-                        # Close from within Tcl's scheduled callback to avoid
-                        # leaving the automated UI smoke waiting for a click.
+                    def inspect_menu(menu, x, y, *args, **kwargs):
+                        observed.append((menu_labels(menu), x, y))
+                    try:
+                        with patch.object(tk.Menu, "tk_popup", inspect_menu):
+                            field._send(0x007B, field.native_hwnd, lp)
+                            for _ in range(15):
+                                app.root.update()
+                                if observed:
+                                    break
+                                time.sleep(.035)
+                    finally:
                         app._dismiss_input_context_menu()
-                    app.root.after(300, inspect_menu)
-                    field._send(0x007B, field.native_hwnd, lp)
-                    app.root.update()
-                    for _ in range(15):
-                        if observed:
-                            break
-                        time.sleep(.035)
-                        app.root.update()
-                    check(observed and all(v in observed[0] for v in (
+                    check(observed and all(v in observed[0][0] for v in (
                         "Undo", "Redo", "Cut", "Copy", "Paste", "Select all")),
-                        f"{mode}: native right click did not show Pocket menu: {observed}")
+                        f"{mode}: native right click did not construct Pocket menu: {observed}")
                 if page == "notes":
                     # Windows RichEdit is an HWND distinct from Tk's Entry
                     # controls. Explicitly exercise the reported Mini failure:

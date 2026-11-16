@@ -1,3 +1,38 @@
+# Pocket — upcoming development update (unreleased)
+
+**Branch:** feature/pocket-next-updates · **Stable release remains v1.36.0**.
+
+This upcoming update groups the requested improvements together. It is not a published Windows release or a change to main.
+
+### Notes and Notepad sync
+
+- Newly created Notes are appended and selected at the last position in the Notes picker.
+- A Note's Title matches the TXT working filename (without its .txt extension), including Windows-style numbered duplicates: Router, Router (1), Router (2).
+- Renaming the Title also renames its TXT file after typing settles; locks and conflicts are handled without silently overwriting a neighboring note.
+- Previous opaque Notepad files are migrated non-destructively.
+
+### Two explicit internet connection modes
+
+- **Use Windows Proxy: ON by default** under Settings. DashDash MAC and TCP requests continue using the existing native Windows WinHTTP PAC resolution and WinINet HTTPS POST stack, unchanged.
+- **OFF:** DashDash requests use direct HTTPS with proxy discovery explicitly disabled for those requests.
+- **Update IEEE DB:** uses a separate native WinINet HTTPS GET through the existing Windows PAC resolver when ON; direct HTTPS when OFF. Fixed official HTTPS IEEE URLs, strict response-size limits, validation, and atomic local cache replacement remain enforced.
+- No automatic fallback between corporate and direct modes; local checks continue to work offline. The setting is persisted per Pocket profile.
+
+### Keyboard layout conversion
+
+- Factory keyboard repair hotkey changes from **Ctrl+Alt+F9** to **Ctrl+Alt+V**; unchanged former factory profiles are migrated.
+- Settings now offers a horizontal **Clipboard | Mark** selector. Clipboard mode (default) preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
+- Mark mode reads a *freshly copied selection* from the active Windows application and applies the same offline EN/HE physical-keyboard mapping before automatically pasting over the selection.
+- The Mark workflow checks focus/clipboard sequence changes, does not paste old clipboard text when nothing is selected, and attempts to restore all original clipboard formats using Windows OLE clipboard preservation. Mark does not work in every application; test in your editors before using on important unsaved text. No text is transmitted to the network.
+
+### Verification and availability
+
+GitHub Actions exercises the unit suite, GUI smoke tests on Windows/Linux, the release-Python GUI smoke check, and a Windows portable build test. Live corporate PAC/IEEE authentication and actual third-party foreground text replacement must also be verified on the target Windows machine.
+
+Development snapshots are available from the branch CI artifacts. Do not substitute them for the published v1.36.0 release until tested.
+
+---
+
 # Pocket v1.36.0 — Native Windows Inputs & Mini Improvements
 
 **Stable Version 1.36 · Windows 10/11 · Portable ZIP + standalone EXE**

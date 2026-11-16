@@ -62,10 +62,30 @@ def run():
                 user32.GetFocus.argtypes = ()
                 user32.GetFocus.restype = ctypes.c_void_p
                 native_focused_hwnd = user32.GetFocus()
-                require(native_focused_hwnd == bridge._child.value,
-                        f"{label}: physical Windows keyboard focus must belong "
-                        f"to dropdown HWND (focus={native_focused_hwnd}, "
-                        f"listbox={bridge._child.value})")
+                if native_focused_hwnd != bridge._child.value:
+                    user32.GetClassNameW.argtypes = (
+                        ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int)
+                    user32.GetClassNameW.restype = ctypes.c_int
+                    user32.GetParent.argtypes = (ctypes.c_void_p,)
+                    user32.GetParent.restype = ctypes.c_void_p
+                    user32.SetFocus.argtypes = (ctypes.c_void_p,)
+                    user32.SetFocus.restype = ctypes.c_void_p
+
+                    def window_info(hwnd):
+                        buf = ctypes.create_unicode_buffer(120)
+                        user32.GetClassNameW(ctypes.c_void_p(hwnd), buf, 120)
+                        parent = user32.GetParent(ctypes.c_void_p(hwnd))
+                        return (hwnd, buf.value, parent)
+
+                    old = user32.SetFocus(bridge._child)
+                    new_focus = user32.GetFocus()
+                    raise AssertionError(
+                        f"{label}: OS focus mismatch; current="
+                        f"{window_info(native_focused_hwnd)}, "
+                        f"listbox={window_info(bridge._child.value)}, "
+                        f"root={window_info(root.winfo_id())}, "
+                        f"combobox={window_info(widget.winfo_id())}, "
+                        f"afterSetFocus={window_info(new_focus)}, old={old}")
             for char in phrase:
                 if sys.platform == "win32":
                     user32.SendMessageW(bridge._child, bridge.WM_CHAR, ord(char), 0)

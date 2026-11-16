@@ -1,4 +1,4 @@
-# Pocket — upcoming development update (unreleased)
+# Pocket v1.37.0 — Clipboard Database & Translate Controls (unreleased development)
 
 **Branch:** feature/pocket-next-updates · **Stable release remains v1.36.0**.
 
@@ -21,7 +21,7 @@ This upcoming update groups the requested improvements together. It is not a pub
 ### Keyboard layout conversion
 
 - Factory keyboard repair hotkey changes from **Ctrl+Alt+F9** to **Ctrl+Alt+V**; unchanged former factory profiles are migrated.
-- Settings now offers a horizontal **Clipboard | Mark** selector. Clipboard mode (default) preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
+- Settings now offers a horizontal **Clipboard | Mark** selector, **Mark by default** for new profiles. Clipboard mode preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
 - Mark mode reads a *freshly copied selection* from the active Windows application and applies the same offline EN/HE physical-keyboard mapping before automatically pasting over the selection.
 - The Mark workflow checks focus/clipboard sequence changes, does not paste old clipboard text when nothing is selected, and attempts to restore all original clipboard formats using Windows OLE clipboard preservation. Mark does not work in every application; test in your editors before using on important unsaved text. No text is transmitted to the network.
 

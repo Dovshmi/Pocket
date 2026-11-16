@@ -150,8 +150,8 @@ class NetworkRoutingTests(unittest.TestCase):
         request = Request(network_tools.IEEE_LISTS[0][1])
         with patch.object(ieee_https.corporate, "_resolve_user_proxy",
                           side_effect=AssertionError("PAC must not be called")) as pac, \
-             patch.object(ieee_https.ctypes, "WinDLL",
-                          side_effect=RuntimeError("WinINet init")),
+             patch.object(ieee_https.ctypes, "WinDLL", create=True,
+                          side_effect=RuntimeError("WinINet init")), \
              self.assertRaisesRegex(RuntimeError, "WinINet init"):
             ieee_https._windows_ieee_get(
                 request, timeout=25, use_windows_proxy=False)

@@ -139,16 +139,18 @@ def download_ieee_database(path: Path, on_progress=None, *, use_windows_proxy=No
 
     Only fixed HTTPS IEEE origins are used. Never transmit MAC addresses.
     """
-    # Restore IEEE's original urllib transport when Windows Proxy is OFF.
-    # The explicit ProxyHandler({}) route broke certificate validation on
-    # some managed workstations where the previous urllib opener worked.
-    # urllib may use its normal OS/environment proxy discovery; this is
-    # intentional compatibility behavior for IEEE only. Never disable TLS.
-    if use_windows_proxy is True:
-        from .ieee_https import open_ieee
-        opener = open_ieee
-    else:
+    # The no-proxy IEEE path must use WinINet's Windows trust store.
+    # urllib/OpenSSL may reject workplace-inspected HTTPS as self-signed,
+    # even when Windows' own HTTPS client accepts the trusted chain.
+    # Existing library callers (None) retain their original urllib behavior.
+    if use_windows_proxy is None:
         opener = urlopen
+    else:
+        from .ieee_https import open_ieee
+        def opener(request, timeout):
+            return open_ieee(
+                request, timeout=timeout,
+                use_windows_proxy=use_windows_proxy)
     merged = {}
     for registry, url, nibbles in IEEE_LISTS:
         if on_progress:

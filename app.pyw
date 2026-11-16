@@ -434,6 +434,7 @@ class PocketDesk:
         self.mac_results = []
         self.mac_lookup_running = False
         self.mac_lookup_token = 0
+        self.mac_parse_summary = {"duplicates": 0, "invalid": 0}
         self.mac_draft = "00:00:0C:12:34:56\n00-1B-63-12-34-56\nAABB.CCDD.EEFF"
         self.port_results = []
         self.last_scan_ports = []  # Session only; not saved to data.json.
@@ -3875,7 +3876,7 @@ class PocketDesk:
         self.scan_info.pack(fill="x", pady=(9, 1))
         self.port_tree = self._tree(self.body, ("Port", "Service", "TCP status", "Time"),
                                     (72, 115, 117, 73))
-        for result in sorted(self.port_results, key=lambda item: item["port"]):
+        for result in sorted(self.port_results, key=net.port_result_sort_key):
             self._add_port_result(result)
         if self.scanning:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
@@ -4054,16 +4055,28 @@ class PocketDesk:
                 self.scan_info.config(text="Stopping scan…", fg=SECONDARY)
 
     def _add_port_result(self, item):
-        port = item["port"]
-        self.port_tree.insert("", "end", values=(port, item["service"], item["status"],
-                                                   f"{item['ms']} ms"))
+        """Keep OPEN above CLOSED and TIMEOUT regardless of result arrival order.
+
+        Insert into the existing Treeview rather than rebuilding it, so the
+        current selection survives asynchronous updates.
+        """
+        key = net.port_result_sort_key(item)
+        index = 0
+        for iid in self.port_tree.get_children():
+            existing = {"port": self.port_tree.set(iid, "Port"),
+                        "status": self.port_tree.set(iid, "TCP status")}
+            if net.port_result_sort_key(existing) > key:
+                break
+            index += 1
+        self.port_tree.insert("", index, values=(
+            item["port"], item["service"], item["status"], f"{item['ms']} ms"))
 
     def _export_ports(self):
         if not self.port_results:
             self._warning("Export ports", "Run a TCP check first.")
             return
         self._export_results("pocketdesk-ports.csv", ["port", "service", "status", "ms"],
-                             sorted(self.port_results, key=lambda item: item["port"]))
+                             sorted(self.port_results, key=net.port_result_sort_key))
 
     # ---- Offline IPv4 subnet calculator -----------------------------------
 
@@ -4233,18 +4246,19 @@ class PocketDesk:
                      bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         mac_heading = tk.Frame(self.body, bg=BG)
         mac_heading.pack(fill="x", pady=(0, 6))
-        tk.Label(mac_heading, text="MAC ADDRESSES", bg=BG, fg=MUTED,
+        tk.Label(mac_heading, text="MAC ADDRESSES / DEVICE CLI OUTPUT", bg=BG, fg=MUTED,
                  font=(FONT, 8, "bold")).pack(side="left")
         source_toggle.make_source_toggle(
             mac_heading, self.mac_source, self._mac_source_changed, self.theme,
-            hint="Local: offline IEEE database, up to 5,000 MACs.\n"
-                 "DashDash: up to 100 MACs queried on the server.\n"
-                 "Selected MAC addresses are sent to DashDash only when you click Check vendors."
+            hint="Paste individual MACs or a complete switch MAC-learning table.\n"
+                 "Local: up to 5,000 unique MACs, fully offline.\n"
+                 "DashDash: up to 100 unique valid MACs; only MACs, not CLI output, are sent on Check."
         ).pack(side="right")
         self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
-                                 font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
+                                 font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8,
+                                 undo=True, maxundo=60)
         self.mac_input.pack(fill="x", pady=(0, 7 if self.display_mode == "normal" else 10))
         if self.display_mode == "normal":
             self.mac_input.config(height=4)
@@ -4352,8 +4366,10 @@ class PocketDesk:
             self.mac_tree.delete(item)
         for item in self.mac_results[:500]:
             self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
-        valid = sum(result["vendor"] != "Invalid MAC" for result in self.mac_results)
-        message = f"{valid}/{len(self.mac_results)} valid • {len(self.mac_results)} rows • {source}"
+        summary = self.mac_parse_summary
+        message = (f"{len(self.mac_results)} valid unique MACs • "
+                   f"{summary['duplicates']} duplicates skipped • "
+                   f"{summary['invalid']} malformed skipped • {source}")
         if len(self.mac_results) > 500:
             message += " • Showing first 500; exports contain all"
         self.mac_info.config(text=message, fg=ACCENT)
@@ -4362,12 +4378,18 @@ class PocketDesk:
         if self.mac_lookup_running:
             return
         self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if self.mac_source.get() == "dashdash":
-            try:
-                macs = remote_mac.parse_remote_macs(self.mac_draft)
-            except ValueError as exc:
-                self._warning("MAC lookup", str(exc))
-                return
+        source = self.mac_source.get()
+        try:
+            parsed = net.parse_mac_input(
+                self.mac_draft,
+                limit=remote_mac.REMOTE_MAX_MACS if source == "dashdash"
+                else net.MAX_MAC_BATCH)
+        except ValueError as exc:
+            self._warning("MAC lookup", str(exc))
+            return
+        self.mac_parse_summary = parsed
+        macs = parsed["macs"]
+        if source == "dashdash":
             self.mac_lookup_token += 1
             token = self.mac_lookup_token
             self.mac_lookup_running = True
@@ -4387,13 +4409,9 @@ class PocketDesk:
             threading.Thread(target=worker, name="PocketDeskDashDashMac",
                              daemon=True).start()
             return
-        # The default path remains wholly offline.
+        # Local remains fully offline and shares the DashDash input extractor.
         self.mac_lookup_token += 1
-        try:
-            self.mac_results = net.batch_lookup(self.mac_draft, self.vendors)
-        except ValueError as exc:
-            self._warning("MAC lookup", str(exc))
-            return
+        self.mac_results = [net.mac_lookup(mac, self.vendors) for mac in macs]
         self._show_mac_results("Local")
 
     def _copy_mac_results(self):
@@ -4797,6 +4815,7 @@ class PocketDesk:
                     token, result = xy
                     if token == self.scan_token and not self.scan_cancel.is_set():
                         self.port_results.append(result)
+                        self.port_results.sort(key=net.port_result_sort_key)
                         if self.current_tab == "ports":
                             self._add_port_result(result)
                             self.scan_info.config(text=f"Checked {len(self.port_results)} port(s)…", fg=ACCENT)

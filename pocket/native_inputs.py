@@ -413,18 +413,39 @@ class _NativeMixin:
         return self._native_hwnd if self._native_active else None
 
     def _native_resize(self, _event=None):
+        """Match Pocket's original Tk field proportions and text alignment.
+
+        A single-line Win32 EDIT paints its glyphs near the top of the child
+        HWND. Stretching that HWND across a Tk Entry's additional ipady left
+        the text stuck at the top of a seemingly oversized box. Keep the Tk
+        border/geometry unchanged and center a font-sized EDIT inside it.
+        RichEdit remains full height with the existing Tk Text padding.
+        """
         if not self._native_active or not self._native_hwnd:
             return
         inset = max(0, int(self.cget("highlightthickness")))
-        # Tk Text uses padx/pady *inside* its border; the Win32 child needs
-        # the same inset instead of covering the padding and labels.
+        host_width = max(1, self.winfo_width())
+        host_height = max(1, self.winfo_height())
         if self._native_multiline:
-            px, py = int(self.cget("padx")), int(self.cget("pady"))
+            px = max(0, int(self.cget("padx")))
+            py = max(0, int(self.cget("pady")))
+            x, y = inset + px, inset + py
+            width = max(1, host_width - 2 * x)
+            height = max(1, host_height - 2 * y)
         else:
-            px, py = 0, 0
-        x, y = inset + px, inset + py
-        width = max(1, self.winfo_width() - 2 * x)
-        height = max(1, self.winfo_height() - 2 * y)
+            # Account for both the visible font and the edit control's
+            # small internal top/bottom margins. Tk's ipady is retained
+            # around the native child rather than added inside the text line.
+            try:
+                font = tkfont.Font(root=self, font=self.cget("font"))
+                text_height = max(1, int(font.metrics("linespace")))
+            except (ValueError, TypeError, tk.TclError):
+                text_height = self._native_font_metrics()[1]
+            available_height = max(1, host_height - 2 * inset)
+            height = min(available_height, max(text_height + 4, 18))
+            x = inset
+            y = (host_height - height) // 2
+            width = max(1, host_width - 2 * inset)
         self._u.MoveWindow(
             ctypes.c_void_p(self._native_hwnd), x, y,
             width, height, True)

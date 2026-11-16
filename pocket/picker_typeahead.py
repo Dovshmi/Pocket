@@ -71,6 +71,7 @@ class _Win32PopupKeys:
         self.pending = []
         self.installed = False
         self._after = None
+        self._posted = False
         self._child = None
         self._proc = None
         self._tag = id(self) & 0xFFFFFFFF
@@ -83,6 +84,8 @@ class _Win32PopupKeys:
             self._u.GetKeyState.argtypes = (ctypes.c_int,)
             self._u.GetKeyState.restype = ctypes.c_short
             self._u.GetFocus.restype = ctypes.c_void_p
+            self._u.SetFocus.argtypes = (ctypes.c_void_p,)
+            self._u.SetFocus.restype = ctypes.c_void_p
             proc_type = ctypes.WINFUNCTYPE(
                 ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint32,
                 ctypes.c_size_t, ctypes.c_ssize_t, ctypes.c_size_t,
@@ -108,6 +111,27 @@ class _Win32PopupKeys:
         except (ValueError, RuntimeError, AttributeError, OSError, tk.TclError):
             self.installed = False
 
+    def _popup_visible(self):
+        try:
+            return bool(int(self.widget.tk.call(
+                "winfo", "ismapped", self.listing)))
+        except (RuntimeError, tk.TclError, ValueError):
+            return False
+
+    def _ensure_keyboard_focus(self):
+        # Tcl's focus command can succeed while Windows GetFocus still
+        # points to the previous Win32 RichEdit child. Real keyboard input
+        # then never arrives at the popup even though the dropdown is visible.
+        # SetFocus must run in the window-owning Tk/UI thread, never from the
+        # Windows subclass procedure.
+        if self.installed and self._popup_visible():
+            if self._u.GetFocus() != self._child.value:
+                self._u.SetFocus(self._child)
+
+    def on_map(self, _event=None):
+        if self.installed:
+            self.widget.after_idle(self._ensure_keyboard_focus)
+
     def _window_proc(self, hwnd, msg, wp, lp, sid, ref):
         if msg == self.WM_CHAR:
             # Do not swallow shortcut chords or nonprintable control chars.
@@ -131,6 +155,10 @@ class _Win32PopupKeys:
         try:
             if not self.widget.winfo_exists():
                 return
+            posted = self._popup_visible()
+            if posted and not self._posted:
+                self._ensure_keyboard_focus()
+            self._posted = posted
             todo, self.pending = self.pending, []
             for char in todo:
                 if char == "\b":
@@ -289,6 +317,9 @@ def install(widget, *, time_source=time.monotonic):
                 return on_key(event)
 
             widget._bind(("bind", listing), "<KeyPress>", popup_key, add="+")
+            # The Tcl Listbox <Map> class binding sets Tk focus but may leave
+            # the actual OS keyboard focus on an embedded native edit HWND.
+            widget._bind(("bind", listing), "<Map>", bridge.on_map, add="+")
 
             def cleanup(event):
                 if event.widget is widget:

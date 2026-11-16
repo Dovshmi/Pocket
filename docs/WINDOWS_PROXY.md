@@ -6,7 +6,7 @@ Pocket is offline-first. In **Settings → Network connection → Use Windows Pr
 | --- | --- | --- |
 | DashDash MAC Lookup | Existing user PAC/WPAD + native WinINet HTTPS POST | Explicit direct HTTPS POST |
 | DashDash remote TCP checks | Existing user PAC/WPAD + native WinINet HTTPS POST | Explicit direct HTTPS POST |
-| Update IEEE DB | Windows PAC + WinINet HTTPS GET | Original standard urllib HTTPS downloader (system/env proxy discovery permitted) |
+| Update IEEE DB | Windows PAC + WinINet HTTPS GET | **Direct native WinINet HTTPS GET**, Windows trust store, no PAC |
 | Local MAC/TCP checks | Offline / local | Offline / local |
 | EN/HE keyboard correction | Offline | Offline |
 
@@ -14,7 +14,7 @@ Pocket is offline-first. In **Settings → Network connection → Use Windows Pr
 
 The Windows DashDash POST transport remains as before in pocket/windows_proxy_urlopen.py. It reads the signed-in user's proxy settings through WinHttpGetIEProxyConfigForCurrentUser, resolves PAC/WPAD for the destination with WinHttpGetProxyForUrl and sends WinINet HTTPS using the Windows trust store and user authentication. It does not edit Windows proxy settings, evaluate PAC JavaScript locally, disable TLS verification, or silently fall back to direct access after PAC failure.
 
-In Proxy OFF mode, **DashDash** uses an explicit direct urllib opener with ProxyHandler({}), avoiding Windows/environment proxy discovery. **IEEE downloads are deliberately different:** they use the same standard urllib.request.urlopen behavior that worked before this update. Standard urllib may honor system or environment proxy settings. The explicit no-proxy handler caused SSL certificate validation failures on some managed Windows machines, so it is no longer applied to IEEE downloads. No global proxy configuration or TLS certificate validation is changed.
+In Proxy OFF mode, **DashDash** uses its explicit direct urllib opener with ProxyHandler({}), avoiding Windows/environment proxy discovery. **IEEE downloads now use a separate direct native WinINet HTTPS GET**, selecting INTERNET_OPEN_TYPE_DIRECT instead of resolving PAC/WPAD. This uses Windows certificate trust rather than Python's SSL verification path. No global proxy settings are changed, and neither route disables certificate validation.
 
 ## IEEE MAC vendor database
 
@@ -27,7 +27,7 @@ The **Update IEEE DB** button downloads only these four official HTTPS registrie
 
 IEEE downloads use a new, dedicated WinINet **GET** transport rather than the small-response, POST-only DashDash transport. Each CSV is size-limited and validated; the local vendor database is atomically replaced only after all downloads and parsing succeed. Previous local data stays intact on failures. No MAC input values are sent to IEEE by this operation.
 
-When Proxy is OFF, IEEE downloads use the original urllib HTTPS behavior; this is a compatibility choice, **not a guarantee of proxy-free network routing**. HTTPS certificates are still validated. The existing manual **Import CSV** action stays available. IEEE may still reject automated requests (HTTP 403 or 429) regardless of the selected route.
+When Proxy is OFF on Windows, IEEE downloads use WinINet's explicit **direct** connection mode and Windows TLS validation. This is intended to resolve Python's `CERTIFICATE_VERIFY_FAILED` on PCs with a Windows-trusted HTTPS inspection certificate. If the certificate is not trusted by Windows either, download will still fail safely with a WinINet certificate error; ask IT to verify the root certificate. We do not accept self-signed certificates or disable verification automatically. The existing manual **Import CSV** action stays available. IEEE may still reject automated requests (HTTP 403 or 429) regardless of the selected route.
 
 ## Troubleshooting
 

@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import time
 import tkinter as tk
+import sys
+import ctypes
+from types import SimpleNamespace
 
 TYPEAHEAD_TIMEOUT = 1.15
 
@@ -42,6 +45,114 @@ def _character(event):
     if len(char) != 1 or not char.isprintable() or char in "\r\n\t":
         return ""
     return char
+
+
+class _Win32PopupKeys:
+    """Capture real WM_CHAR on Tk's private dropdown Listbox HWND.
+
+    Tcl synthetic <KeyPress> tests do not exercise Windows' real keyboard
+    messages. A Native Win32 RichEdit child can leave actual Windows keyboard
+    routing different from Tk focus; the listbox HWND needs a direct handler.
+
+    Never call Tk inside a Windows subclass procedure. Capture only Unicode
+    characters and deliver them from the regular Tk event loop.
+    """
+
+    WM_CHAR = 0x0102
+    WM_KEYDOWN = 0x0100
+    VK_BACK = 0x08
+    VK_CONTROL = 0x11
+    VK_MENU = 0x12
+
+    def __init__(self, widget, listing, callback):
+        self.widget = widget
+        self.listing = listing
+        self.callback = callback
+        self.pending = []
+        self.installed = False
+        self._after = None
+        self._child = None
+        self._proc = None
+        self._tag = id(self) & 0xFFFFFFFF
+
+        if sys.platform != "win32":
+            return
+        try:
+            self._u = ctypes.WinDLL("user32", use_last_error=True)
+            self._cc = ctypes.WinDLL("comctl32", use_last_error=True)
+            self._u.GetKeyState.argtypes = (ctypes.c_int,)
+            self._u.GetKeyState.restype = ctypes.c_short
+            self._u.GetFocus.restype = ctypes.c_void_p
+            proc_type = ctypes.WINFUNCTYPE(
+                ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint32,
+                ctypes.c_size_t, ctypes.c_ssize_t, ctypes.c_size_t,
+                ctypes.c_size_t)
+            self._PROC = proc_type
+            self._cc.SetWindowSubclass.argtypes = (
+                ctypes.c_void_p, proc_type, ctypes.c_size_t, ctypes.c_size_t)
+            self._cc.SetWindowSubclass.restype = ctypes.c_int
+            self._cc.RemoveWindowSubclass.argtypes = (
+                ctypes.c_void_p, proc_type, ctypes.c_size_t)
+            self._cc.DefSubclassProc.argtypes = (
+                ctypes.c_void_p, ctypes.c_uint32, ctypes.c_size_t,
+                ctypes.c_ssize_t)
+            self._cc.DefSubclassProc.restype = ctypes.c_ssize_t
+            self._child = ctypes.c_void_p(
+                int(str(widget.tk.call("winfo", "id", listing)), 0))
+            self._proc = proc_type(self._window_proc)
+            if not self._cc.SetWindowSubclass(self._child, self._proc,
+                                              self._tag, 0):
+                return
+            self.installed = True
+            self._after = widget.after(25, self._poll)
+        except (ValueError, RuntimeError, AttributeError, OSError, tk.TclError):
+            self.installed = False
+
+    def _window_proc(self, hwnd, msg, wp, lp, sid, ref):
+        if msg == self.WM_CHAR:
+            # Do not swallow shortcut chords or nonprintable control chars.
+            control = bool(self._u.GetKeyState(self.VK_CONTROL) & 0x8000)
+            alt = bool(self._u.GetKeyState(self.VK_MENU) & 0x8000)
+            if (not control or alt) and wp >= 32 and wp != 127:
+                try:
+                    self.pending.append(chr(wp))
+                    # Prevent Tcl's Listbox keyboard binding from acting on
+                    # the same character a second time.
+                    return 0
+                except (ValueError, OverflowError):
+                    pass
+        elif msg == self.WM_KEYDOWN and wp == self.VK_BACK:
+            self.pending.append("\b")
+            return 0
+        return self._cc.DefSubclassProc(hwnd, msg, wp, lp)
+
+    def _poll(self):
+        self._after = None
+        try:
+            if not self.widget.winfo_exists():
+                return
+            todo, self.pending = self.pending, []
+            for char in todo:
+                if char == "\b":
+                    self.callback(SimpleNamespace(char="", keysym="BackSpace",
+                                                  state=0))
+                else:
+                    self.callback(SimpleNamespace(char=char, keysym=char,
+                                                  state=0))
+            self._after = self.widget.after(25, self._poll)
+        except (RuntimeError, tk.TclError):
+            return
+
+    def close(self):
+        if self._after is not None:
+            try:
+                self.widget.after_cancel(self._after)
+            except (RuntimeError, tk.TclError):
+                pass
+            self._after = None
+        if self.installed:
+            self._cc.RemoveWindowSubclass(self._child, self._proc, self._tag)
+            self.installed = False
 
 
 def install(widget, *, time_source=time.monotonic):
@@ -160,12 +271,30 @@ def install(widget, *, time_source=time.monotonic):
     # The main widget receives keys while the dropdown is closed.
     widget.bind("<KeyPress>", on_key, add="+")
     if listing:
-        # When posted, keyboard focus belongs to the Tcl Listbox. Bind to its
-        # widget tag, first in its native bindtags; Return/click continue to
-        # execute the original ComboboxListbox class selection binding.
         try:
-            widget._bind(("bind", listing), "<KeyPress>", on_key, add="+")
+            # This is a real Tcl Listbox owned by ttk; also listen to Windows
+            # character messages from its HWND, not only synthetic Tk events.
+            bridge = _Win32PopupKeys(widget, listing, on_key)
+            widget._pocket_typeahead_win32 = bridge
             widget._pocket_typeahead_popdown = listing
+
+            def popup_key(event):
+                if bridge.installed:
+                    # Actual Windows printable characters are delivered by
+                    # WM_CHAR. Keep Tcl keyboard events for other keys.
+                    if _character(event):
+                        return "break"
+                    if str(getattr(event, "keysym", "")) == "BackSpace":
+                        return "break"
+                return on_key(event)
+
+            widget._bind(("bind", listing), "<KeyPress>", popup_key, add="+")
+
+            def cleanup(event):
+                if event.widget is widget:
+                    bridge.close()
+
+            widget.bind("<Destroy>", cleanup, add="+")
         except (AttributeError, RuntimeError, tk.TclError):
             pass
 

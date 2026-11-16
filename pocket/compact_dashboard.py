@@ -6,6 +6,7 @@ Opening a tool restores that layout, and search remains entirely local.
 from __future__ import annotations
 
 import tkinter as tk
+from . import native_inputs
 from . import menu_style
 
 from . import command_helper as ch
@@ -341,7 +342,7 @@ def build_shell(app, colors):
     tool_icons.label(search, "commands", c["SECONDARY"], c["INPUT"], size=18).pack(
         side="left", padx=(7, 4))
     app.compact_query = tk.StringVar()
-    entry = tk.Entry(search, textvariable=app.compact_query, font=("Segoe UI", 8),
+    entry = native_inputs.Entry(search, textvariable=app.compact_query, font=("Segoe UI", 8),
                      bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["WHITE"],
                      relief="flat", bd=0, highlightthickness=0)
     entry.pack(side="left", fill="both", expand=True)

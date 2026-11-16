@@ -706,6 +706,7 @@ def delete_selected(app):
     refresh_images(app, force=True)
     if app.settings.get("clipboard_storage") == "database":
         refresh_history_selector(app)
+        refresh_images(app, force=True)
 
 
 def clear_images(app):
@@ -717,3 +718,4 @@ def clear_images(app):
     refresh_images(app, force=True)
     if app.settings.get("clipboard_storage") == "database":
         refresh_history_selector(app)
+        refresh_images(app, force=True)

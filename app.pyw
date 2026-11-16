@@ -3200,6 +3200,8 @@ class PocketDesk:
         self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
         self.command_code.bind("<Control-a>", self._command_select_all)
         self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        if hasattr(self.command_code, "set_native_ctrl_return_callback"):
+            self.command_code.set_native_ctrl_return_callback(self._copy_command)
         self._build_template_actions(details, mini=True)
         actions = tk.Frame(details, bg=PANEL)
         actions.pack(fill="x", padx=7, pady=(0, 3))
@@ -3355,6 +3357,8 @@ class PocketDesk:
         self.command_code.pack(fill='x', padx=11)
         self.command_code.bind('<Control-a>', self._command_select_all)
         self.command_code.bind('<Control-Return>', lambda _e: (self._copy_command(), 'break')[1])
+        if hasattr(self.command_code, "set_native_ctrl_return_callback"):
+            self.command_code.set_native_ctrl_return_callback(self._copy_command)
         self._build_template_actions(details, mini=False)
         bottom = tk.Frame(details, bg=PANEL)
         bottom.pack(fill='x', padx=8, pady=(4, 6))

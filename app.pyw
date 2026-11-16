@@ -2031,6 +2031,7 @@ class PocketDesk:
             self._refresh_clipboard()
             if self._clipboard_store_is_disk():
                 clipboard_gallery.refresh_history_selector(self)
+                self._refresh_clipboard()
 
     def _clipboard_delete_image(self, item):
         if self._clipboard_store_is_disk():

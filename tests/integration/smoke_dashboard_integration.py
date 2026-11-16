@@ -1501,6 +1501,50 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               app.settings["extra_mini_tiles"], "tile slots not persisted")
         print("PASS: note, subnet, CLI entry, clipboard privacy and reload")
 
+
+        # v1.37: exercise the actual RAM / DATABASE controls on the GUI.
+        # The whole test runs against a disposable APPDATA directory.
+        from PIL import Image as _DbImage
+        from pocket import clipboard_database as _dbmod
+        app.show_tab("clipboard")
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "ram",
+              "Clipboard should default to RAM")
+        check(app.clipboard_storage_buttons["ram"].winfo_exists() and
+              app.clipboard_storage_buttons["database"].winfo_exists(),
+              "Clipboard RAM / DATABASE selector is missing")
+        app.clipboard_storage_buttons["database"].invoke()
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "database" and
+              app.clipboard_history_row.winfo_ismapped(),
+              "Database mode did not expose its date picker")
+        check(_dbmod.today() in app.clipboard_day_select.get(),
+              "Database date picker did not select today")
+        app._clipboard_on_new_text("SYNTHETIC DB TEST HISTORY")
+        app._clipboard_on_new_image(_DbImage.new("RGB", (21, 19), "#234567"))
+        app.root.update()
+        check(app.clipboard_database.load_text(_dbmod.today())[0]["text"] ==
+              "SYNTHETIC DB TEST HISTORY",
+              "Database text was not written to its daily file")
+        app.clipboard_page_buttons["images"].invoke()
+        app.root.update()
+        check(len(app.clipboard_database.load_images(_dbmod.today())) == 1,
+              "Database screenshot was not saved in its daily folder")
+        check("DATABASE" in app.clipboard_images_status.cget("text"),
+              "Gallery still reported RAM while Database mode is active")
+        app.clipboard_storage_buttons["ram"].invoke()
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "ram",
+              "Switching back to RAM failed")
+        check(not app.clipboard_history_row.winfo_ismapped(),
+              "Database date picker is visible in RAM mode")
+        check("SYNTHETIC DB TEST HISTORY" not in
+              [record["text"] for record in app.clipboard_items],
+              "Database history incorrectly migrated into RAM")
+        app._write_now()
+        check("SYNTHETIC DB TEST HISTORY" not in app.path.read_text(encoding="utf-8"),
+              "Clipboard history leaked into data.json")
+        print("PASS: Clipboard v1.37 RAM / Database switch, date picker, local text/PNG and privacy")
         check(not errors, "Tk callback errors:\n" + "\n".join(errors))
         print("GUI AUDIT PASS — all active UI interactions and settings smoke-tested")
     finally:

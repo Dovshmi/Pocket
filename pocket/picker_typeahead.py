@@ -6,6 +6,7 @@ Typing selects an existing item instead of filtering or replacing the list.
 from __future__ import annotations
 
 import time
+import tkinter as tk
 
 TYPEAHEAD_TIMEOUT = 1.15
 
@@ -113,7 +114,7 @@ def install(widget, *, time_source=time.monotonic):
 
         widget._bind(("bind", listing), "<KeyPress>", on_popup_key, add="+")
         widget._pocket_typeahead_popdown = listing
-    except (AttributeError, RuntimeError):
+    except (AttributeError, RuntimeError, tk.TclError):
         pass  # Fake widgets and unusual Tk builds retain closed-picker search.
     # Keeping a reference also allows deterministic integration checks.
     widget._pocket_typeahead = on_key

@@ -89,7 +89,11 @@ class ClipboardDatabase:
             folder = self.image_dir
             if folder.is_dir() and not folder.is_symlink():
                 for child in folder.iterdir():
-                    if child.is_dir() and not child.is_symlink() and valid_day(child.name):
+                    if (child.is_dir() and not child.is_symlink()
+                            and valid_day(child.name) and any(
+                                file.is_file() and not file.is_symlink()
+                                and _IMAGE_FILE.fullmatch(file.name)
+                                for file in child.iterdir())):
                         matches.add(child.name)
         else:
             raise ValueError("Invalid history type")
@@ -120,6 +124,27 @@ class ClipboardDatabase:
                 # Retain any unexpected files rather than deleting user data.
                 if not any(folder.iterdir()):
                     folder.rmdir()
+
+    def update_retention(self, days=1, *, on=None):
+        """Re-label retained daily text filenames to their new expiry dates."""
+        self.prune(days, on=on)
+        if not self.text_dir.is_dir() or self.text_dir.is_symlink():
+            return
+        now = date.fromisoformat(on or today())
+        cutoff = now - timedelta(days=normalize_days(days) - 1)
+        for file in tuple(self.text_dir.iterdir()):
+            matched = _TEXT_FILE.fullmatch(file.name)
+            if not matched or file.is_symlink() or not file.is_file():
+                continue
+            day = matched.group("day")
+            if not valid_day(day) or not cutoff <= date.fromisoformat(day) <= now:
+                continue
+            wanted = self.text_dir / (
+                f"{day}_{matched.group('created')}_to_{expire_date(day, days)}.txt")
+            if wanted != file:
+                if wanted.exists() or wanted.is_symlink():
+                    raise FileExistsError("A clipboard history filename is already in use")
+                file.rename(wanted)
 
     def load_text(self, day):
         file = self._text_file(day)
@@ -241,6 +266,9 @@ class ClipboardDatabase:
         if file.is_symlink():
             raise ValueError("Unsafe screenshot path")
         file.unlink(missing_ok=True)
+        folder = file.parent
+        if not any(folder.iterdir()):
+            folder.rmdir()
 
     def clear_images(self, day):
         for item in self.load_images(day):

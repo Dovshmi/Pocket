@@ -1085,7 +1085,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     fourth = app.command_tree.bbox(results[3])
                     check(bool(fourth) and
                           fourth[1] + fourth[3] <= app.command_tree.winfo_height(),
-                          "Normal Command Helper must display four FULL rows")
+                          f"Normal Command Helper must display four FULL rows "
+                          f"(fourth={fourth!r}, tree_height={app.command_tree.winfo_height()}, "
+                          f"results_pane={app.command_panes.panes()[0] if app.command_panes.panes() else 'none'}, "
+                          f"pane_height={app.command_panes.winfo_height()}, root_height={app.root.winfo_height()})")
                 if page == "commands":
                     check(hasattr(app, "smart_template_edit") and
                           app.smart_template_edit.winfo_exists(),

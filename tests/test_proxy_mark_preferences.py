@@ -129,39 +129,62 @@ class NetworkRoutingTests(unittest.TestCase):
                 # POST to a valid IEEE endpoint must not be sent.
             ieee_https._validate(Request(allowed, method="POST", data=b"x"))
 
-    def test_ieee_proxy_off_direct_and_on_windows_native(self):
+    def test_ieee_both_modes_use_wininet_windows_trust_for_get(self):
         request = Request(network_tools.IEEE_LISTS[0][1])
         with patch.object(ieee_https.os, "name", "nt"), \
              patch.object(ieee_https, "_windows_ieee_get",
                           return_value="native") as native, \
              patch.object(ieee_https.corporate, "direct_urlopen",
-                          return_value="direct") as direct:
+                          side_effect=AssertionError("Python TLS is not used")) as direct:
             self.assertEqual(ieee_https.open_ieee(request), "native")
-            self.assertEqual(native.call_count, 1)
+            native.assert_called_once_with(
+                request, timeout=25, use_windows_proxy=True)
+            native.reset_mock()
+            self.assertEqual(
+                ieee_https.open_ieee(request, use_windows_proxy=False), "native")
+            native.assert_called_once_with(
+                request, timeout=25, use_windows_proxy=False)
             direct.assert_not_called()
+
+    def test_ieee_windows_direct_never_resolves_proxy_policy(self):
+        request = Request(network_tools.IEEE_LISTS[0][1])
+        with patch.object(ieee_https.corporate, "_resolve_user_proxy",
+                          side_effect=AssertionError("PAC must not be called")) as pac, \
+             patch.object(ieee_https.ctypes, "WinDLL",
+                          side_effect=RuntimeError("WinINet init")),
+             self.assertRaisesRegex(RuntimeError, "WinINet init"):
+            ieee_https._windows_ieee_get(
+                request, timeout=25, use_windows_proxy=False)
+        pac.assert_not_called()
 
     def test_ieee_download_transport_routed_without_network(self):
         with tempfile.TemporaryDirectory() as folder:
             cache = Path(folder) / "vendors.json"
-            with patch.object(ieee_https, "open_ieee",
-                              side_effect=URLError("PAC")) as native, \
-                 patch.object(transport, "direct_urlopen") as direct:
-                with self.assertRaisesRegex(ValueError, "IEEE MA-L download failed"):
-                    network_tools.download_ieee_database(
-                        cache, use_windows_proxy=True)
-                native.assert_called_once()
-                direct.assert_not_called()
-            # Regression: Proxy OFF must use the original IEEE urllib opener,
-            # not ProxyHandler({}) which broke TLS trust at some workplaces.
-            with patch.object(network_tools, "urlopen",
-                              side_effect=URLError("offline")) as legacy, \
-                 patch.object(transport, "direct_urlopen") as direct:
-                with self.assertRaisesRegex(ValueError, "IEEE MA-L download failed"):
-                    network_tools.download_ieee_database(
-                        cache, use_windows_proxy=False)
-                legacy.assert_called_once()
-                direct.assert_not_called()
+            for enabled in (True, False):
+                with self.subTest(windows_proxy=enabled), \
+                     patch.object(ieee_https, "open_ieee",
+                                  side_effect=URLError("offline")) as native, \
+                     patch.object(network_tools, "urlopen") as old, \
+                     patch.object(transport, "direct_urlopen") as direct:
+                    with self.assertRaisesRegex(ValueError, "IEEE MA-L download failed"):
+                        network_tools.download_ieee_database(
+                            cache, use_windows_proxy=enabled)
+                    native.assert_called_once()
+                    self.assertIs(native.call_args.kwargs["use_windows_proxy"], enabled)
+                    old.assert_not_called()
+                    direct.assert_not_called()
             self.assertFalse(cache.exists())
+
+    def test_ieee_legacy_library_caller_retains_urllib(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cache = Path(folder) / "vendors.json"
+            with patch.object(network_tools, "urlopen",
+                              side_effect=URLError("offline")) as old, \
+                 patch.object(ieee_https, "open_ieee") as native:
+                with self.assertRaisesRegex(ValueError, "IEEE MA-L download failed"):
+                    network_tools.download_ieee_database(cache)
+                old.assert_called_once()
+                native.assert_not_called()
 
 
 class FakeMarkBackend:

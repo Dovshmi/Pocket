@@ -134,11 +134,21 @@ def parse_ieee_csv(content: bytes, expected_registry: str, prefix_size: int) -> 
         raise ValueError(f"IEEE {expected_registry} returned invalid UTF-8") from exc
 
 
-def download_ieee_database(path: Path, on_progress=None) -> int:
+def download_ieee_database(path: Path, on_progress=None, *, use_windows_proxy=None) -> int:
     """Download complete registries to a temporary set before atomically replacing cache.
 
     Only fixed HTTPS IEEE origins are used. Never transmit MAC addresses.
     """
+    # None preserves the original library default for existing script callers.
+    # App Settings pass an explicit bool to select native PAC or direct HTTPS.
+    if use_windows_proxy is None:
+        opener = urlopen
+    elif use_windows_proxy:
+        from .ieee_https import open_ieee
+        opener = open_ieee
+    else:
+        from .windows_proxy_urlopen import direct_urlopen
+        opener = direct_urlopen
     merged = {}
     for registry, url, nibbles in IEEE_LISTS:
         if on_progress:
@@ -146,7 +156,7 @@ def download_ieee_database(path: Path, on_progress=None) -> int:
         request = Request(url, headers={"User-Agent": "Mozilla/5.0 PocketDesk/1.1 (local OUI cache)",
                                         "Accept": "text/csv,*/*;q=0.7"})
         try:
-            with urlopen(request, timeout=25) as response:
+            with opener(request, timeout=25) as response:
                 # Read with an upper bound; a full registry is several MB.
                 content = response.read(30_000_001)
                 headers = getattr(response, "headers", {})

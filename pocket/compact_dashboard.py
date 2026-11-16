@@ -362,6 +362,8 @@ def build_shell(app, colors):
             entry.insert(0, app.compact_placeholder)
     entry.bind("<FocusIn>", enter_focus)
     entry.bind("<FocusOut>", leave_focus)
+    if hasattr(entry, "set_native_placeholder"):
+        entry.set_native_placeholder(app.compact_placeholder, on_focus=enter_focus)
     hint = _label(search, "Ctrl+K", bg=c["CARD"], fg=c["MUTED"],
                   size=7, padx=4, pady=2, cursor="hand2")
     hint.pack(side="right", padx=(3, 5))

@@ -95,6 +95,7 @@ from pocket import settings_ui
 from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
+from pocket import text_editing
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
@@ -424,6 +425,8 @@ class PocketDesk:
         self._drag_moved = False
         self._drag_origin = None
         self._header_context_menu = None
+        self._input_context_menu = None
+        self._input_context_menu_was_modal = False
         self.edit_link_id = None
         self._scroll_canvas = None
         self.vendor_file = self.path.parent / "vendors.json"
@@ -499,6 +502,8 @@ class PocketDesk:
             pass
         design.configure_ttk(self.root, self.theme)
         self._build_shell()
+        text_editing.install(self.root, self._show_input_context_menu,
+                             self._repair_input_focus)
         self.show_tab(self.current_tab)
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
@@ -512,6 +517,7 @@ class PocketDesk:
         self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
         # Tk labels/frames do not automatically take keyboard focus. Keep
         # Mini's command paging separate from the shared Notes focus bridge.
+        self.root.bind("<Button-1>", self._dismiss_input_context_menu, add="+")
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
         self.root.bind("<Button-1>", self._note_click_focus, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
@@ -997,6 +1003,76 @@ class PocketDesk:
         for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             widget.bind(sequence, self._command_picker_on_wheel)
         return widget
+
+    def _repair_input_focus(self, event):
+        """Transfer native RichEdit focus before using other Tk input controls."""
+        widget = event.widget
+        if self.current_tab != "notes" or not self._bidi_active():
+            return
+        if widget in (getattr(self, "title_entry", None),
+                      getattr(self, "phone_entry", None)):
+            # These fields have a dedicated Win32 focus handoff already.
+            return
+        self._dismiss_note_menus_for_click()
+        if self._modal:
+            return
+        self._flush_current_note()
+        self.bidi_editor.release_focus_to(widget)
+        widget.focus_force()
+
+    def _dismiss_input_context_menu(self, _event=None):
+        """Release the context popup and temporary focus guard exactly once."""
+        menu = getattr(self, "_input_context_menu", None)
+        if menu is None:
+            return
+        self._input_context_menu = None
+        self._modal = self._input_context_menu_was_modal
+        try:
+            if menu.winfo_exists():
+                menu.unpost()
+                menu.destroy()
+        except tk.TclError:
+            pass
+
+    def _show_input_context_menu(self, event):
+        """Offer editing commands only where a widget has no existing menu."""
+        widget = event.widget
+        if (not text_editing.is_text_control(widget)
+                or widget.bind("<Button-3>")):
+            return None
+        if widget.winfo_class() == "TCombobox" and not text_editing.can_edit(widget):
+            return None
+        self._dismiss_input_context_menu()
+        self._repair_input_focus(event)
+        if self._modal:
+            return "break"
+        widget.focus_force()
+
+        def dispatch(operation):
+            try:
+                if widget.winfo_exists():
+                    text_editing.perform(widget, operation)
+            finally:
+                self._dismiss_input_context_menu()
+
+        menu = text_editing.make_menu(
+            self.root, widget,
+            {"PANEL": PANEL, "WHITE": WHITE, "MUTED": MUTED,
+             "ACCENT_DARK": ACCENT_DARK},
+            dispatch)
+        self._input_context_menu = menu
+        self._input_context_menu_was_modal = self._modal
+        self._modal = True
+        menu.bind("<Unmap>", lambda _event: self._dismiss_input_context_menu())
+        menu.bind("<Destroy>", lambda ev: self._dismiss_input_context_menu()
+                  if ev.widget is menu else None)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._dismiss_input_context_menu()
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _mini_click_outside_editor(self, event):
         """Retain Mini Commands' click-away behavior and arrow navigation.

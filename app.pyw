@@ -1940,9 +1940,12 @@ class PocketDesk:
                     self.clipboard_list.activate(index)
                     self.clipboard_list.see(index)
                     break
-        self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
-                                     ("PAUSED" if self.settings["clipboard_paused"] else
-                                      "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
+        scope = (f"{self._clipboard_view_days['text']} · DATABASE · "
+                 if self._clipboard_store_is_disk() else "")
+        self.clipboard_status.config(
+            text=f"{len(self._clipboard_filtered)} entries · " + scope + "capture " +
+                 ("PAUSED" if self.settings["clipboard_paused"] else
+                  "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):
@@ -2065,6 +2068,8 @@ class PocketDesk:
             self._refresh_clipboard()
         if self._clipboard_store_is_disk():
             clipboard_gallery.refresh_history_selector(self)
+            if self.clipboard_page == "text":
+                self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         """Shared presentation across Pocket tools; preserve original callbacks."""

@@ -57,6 +57,12 @@ jobs:
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
+      - name: Exercise real input editing (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_text_edit.py
+      - name: Exercise real input editing (Linux virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python tests/integration/smoke_text_edit.py
       # A one-time, opt-in documentation refresh. Ordinary test runs do not
       # mutate tracked images or cause screenshot-only commit noise.
       - name: Publish selected real Windows screenshots for README

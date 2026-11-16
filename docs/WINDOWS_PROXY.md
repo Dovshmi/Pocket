@@ -1,24 +1,41 @@
-# Windows corporate proxy and PAC support (Pocket v1.33.1)
+# Windows proxy, direct HTTPS and IEEE updates (Pocket development)
 
-Pocket normally works offline. The only DashDash connections are explicit HTTPS POST requests made when the user selects **DashDash** in MAC Lookup or TCP Port Check and presses the action button.
+Pocket is offline-first. In **Settings → Network connection → Use Windows Proxy**, choose the transport for explicitly requested online checks. **ON is the default** for both new and upgraded profiles. The setting is stored locally and applies to the next request.
 
-## How it works
+| Operation | Proxy ON | Proxy OFF |
+| --- | --- | --- |
+| DashDash MAC Lookup | Existing user PAC/WPAD + native WinINet HTTPS POST | Explicit direct HTTPS POST |
+| DashDash remote TCP checks | Existing user PAC/WPAD + native WinINet HTTPS POST | Explicit direct HTTPS POST |
+| Update IEEE DB | Windows PAC + WinINet HTTPS GET | Explicit direct HTTPS GET |
+| Local MAC/TCP checks | Offline / local | Offline / local |
+| EN/HE keyboard correction | Offline | Offline |
 
-On Windows, Pocket reads the signed-in user's Internet proxy configuration using `WinHttpGetIEProxyConfigForCurrentUser`. If an automatic proxy script (PAC) or WPAD is configured, Windows resolves the route for the **specific DashDash HTTPS URL** using `WinHttpGetProxyForUrl`. Pocket then sends the request using the Windows WinINet HTTPS stack and Windows certificate store. If no proxy is configured, the Windows configuration determines direct access.
+## The successful DashDash corporate proxy transport is unchanged
 
-Pocket does **not** modify system proxy settings, write credentials, evaluate PAC JavaScript itself, disable certificate validation, ignore HTTP redirects, or fall back to a direct connection when PAC resolution fails. Requests do not run in the background, at startup, or merely when switching Local/DashDash.
+The Windows DashDash POST transport remains as before in pocket/windows_proxy_urlopen.py. It reads the signed-in user's proxy settings through WinHttpGetIEProxyConfigForCurrentUser, resolves PAC/WPAD for the destination with WinHttpGetProxyForUrl and sends WinINet HTTPS using the Windows trust store and user authentication. It does not edit Windows proxy settings, evaluate PAC JavaScript locally, disable TLS verification, or silently fall back to direct access after PAC failure.
 
-This is **not a bypass** of corporate security; organizational policy and endpoint controls still apply. A browser working does not guarantee that Pocket will be allowed.
+In Proxy OFF mode, only Pocket's corresponding HTTP request uses a direct urllib opener with ProxyHandler({}), explicitly avoiding implicit Windows or environment proxy discovery. No global proxy configuration is changed. Corporate networking policy may still disallow direct traffic.
 
-## Troubleshooting (read-only)
+## IEEE MAC vendor database
 
-- Open the DashDash URL in an approved browser.
-- Test your own approved DashDash MAC lookup with a public sample address (`00:1A:2B:3C:4D:5E`).
-- If Pocket fails, capture the exact **WinHTTP** or **WinINet** error code and ask IT to review approved proxy/application controls.
-- `Test-NetConnection <hostname> -Port 443` tests **direct** TCP/443 and can fail even when browser HTTPS via a proxy succeeds.
+The **Update IEEE DB** button downloads only these four official HTTPS registries:
 
-Use **Local** for tests of internal networks and when offline. DashDash remote TCP checks originate from Vercel and accept only a *public IPv4* address; the DashDash API is public. Do not send customer or sensitive target information without authorization.
+- https://standards-oui.ieee.org/oui/oui.csv
+- https://standards-oui.ieee.org/oui28/mam.csv
+- https://standards-oui.ieee.org/oui36/oui36.csv
+- https://standards-oui.ieee.org/iab/iab.csv
 
-## Packaging
+IEEE downloads use a new, dedicated WinINet **GET** transport rather than the small-response, POST-only DashDash transport. Each CSV is size-limited and validated; the local vendor database is atomically replaced only after all downloads and parsing succeed. Previous local data stays intact on failures. No MAC input values are sent to IEEE by this operation.
 
-The stable release includes a Portable ZIP with `PocketDesk.exe` and an `_internal` folder, plus a separate standalone Windows EXE. Extract the whole ZIP before starting it and back up your personal `data` directory when upgrading. Windows application-control approval may be required for unsigned executables.
+When Proxy is OFF, downloads use explicit direct HTTPS. The existing manual **Import CSV** action stays available. IEEE may still reject automated requests (HTTP 403 or 429) regardless of the selected route.
+
+## Troubleshooting
+
+- Enable **Use Windows Proxy** when operating on a managed Windows computer with corporate PAC/WPAD.
+- Verify the approved website in your browser; browser success does not guarantee that the app is approved.
+- Capture WinHTTP/WinINet errors without sharing customer data or credentials.
+- A failing direct TCP/443 test does not prove an HTTPS proxy path is unavailable.
+- Local TCP checks run on your computer; DashDash TCP checks run remotely on Vercel, support public IPv4 only, and should be used on authorized targets.
+- Switching the setting does not initiate network traffic.
+
+These features are currently on the development branch; v1.36.0 remains the last published stable release until a separate release is approved.

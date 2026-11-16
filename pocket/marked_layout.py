@@ -73,6 +73,7 @@ class WindowsMarkBackend:
         user.OpenClipboard.argtypes = [ctypes.c_void_p]
         user.OpenClipboard.restype = wintypes.BOOL
         user.CloseClipboard.restype = wintypes.BOOL
+        user.CountClipboardFormats.restype = ctypes.c_int
         user.EmptyClipboard.restype = wintypes.BOOL
         user.GetClipboardData.argtypes = [wintypes.UINT]
         user.GetClipboardData.restype = ctypes.c_void_p
@@ -117,8 +118,22 @@ class WindowsMarkBackend:
             raise MarkError("Windows could not initialize clipboard preservation.")
         original = ctypes.c_void_p()
         try:
-            if self.ole.OleGetClipboard(ctypes.byref(original)) != 0 or not original.value:
-                raise MarkError("The current clipboard cannot be preserved safely.")
+            try:
+                snapshot_status = self.ole.OleGetClipboard(ctypes.byref(original))
+            except OSError:
+                snapshot_status = -1
+            if snapshot_status != 0 or not original.value:
+                # A genuinely empty clipboard needs no OLE data object. Mark
+                # should still work on a machine without previous copied text.
+                if self.user.CountClipboardFormats() != 0:
+                    raise MarkError("The current clipboard cannot be preserved safely.")
+
+                def clear_empty_clipboard():
+                    with self._opened(owner=True):
+                        if not self.user.EmptyClipboard():
+                            raise MarkError("Could not restore an empty clipboard.")
+                yield clear_empty_clipboard
+                return
             try:
                 def restore():
                     if self.ole.OleSetClipboard(original) != 0:

@@ -97,7 +97,7 @@ from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import text_editing
-from pocket import picker_typeahead
+from pocket import picker_selection
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
@@ -1769,7 +1769,7 @@ class PocketDesk:
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
-        picker_typeahead.install(self.mini_note_picker)
+        picker_selection.install(self.mini_note_picker)
         self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
         self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
@@ -3136,7 +3136,7 @@ class PocketDesk:
             textvariable=self.machine_var, state="readonly", font=(FONT, 9), width=12)
         self.machine_picker.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
-        picker_typeahead.install(self.machine_picker)
+        picker_selection.install(self.machine_picker)
         self._protect_command_picker(self.machine_picker)
         self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
         self.command_category_picker = ttk.Combobox(
@@ -3147,7 +3147,7 @@ class PocketDesk:
         self.command_category_picker.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         self.command_category_picker.bind("<<ComboboxSelected>>",
                                           lambda _e: self._refresh_command_results())
-        picker_typeahead.install(self.command_category_picker)
+        picker_selection.install(self.command_category_picker)
         self._protect_command_picker(self.command_category_picker)
         self.command_query = tk.StringVar()
         self.command_search_entry = self._entry(self.body, self.command_query)

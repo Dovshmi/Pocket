@@ -134,6 +134,12 @@ def run():
             require(end.value == start.value,
                     "Tk command caret move must update the real native editor")
 
+            long_table = "100 00:11:22:33:44:55 dynamic bridging 1/1/4\n" * 2500
+            mac.delete("1.0", tk.END)
+            mac.insert("1.0", long_table)
+            require(mac.get("1.0", "end-1c") == long_table,
+                    "Native RichEdit must not truncate full CLI tables over 64 KiB")
+
             phone.focus_force()
             root.update()
             require(phone.has_native_focus() and not mac.has_native_focus(),

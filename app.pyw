@@ -422,6 +422,7 @@ class PocketDesk:
         self._clipboard_error_pending = None
         if self.settings["clipboard_storage"] == "database":
             try:
+                self.clipboard_database.ensure_folders()
                 self.clipboard_database.update_retention(self.settings["clipboard_days"])
                 self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
                 self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
@@ -1678,6 +1679,7 @@ class PocketDesk:
             self.clipboard_images = self._ram_images
         else:
             try:
+                self.clipboard_database.ensure_folders()
                 self.clipboard_database.prune(self.settings["clipboard_days"])
                 self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
                 self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
@@ -1776,9 +1778,8 @@ class PocketDesk:
                     clipboard_gallery.refresh_images(self, force=True)
 
     def _clipboard_poll(self):
-        if (self._mark_active or "clipboard" not in self.settings["visible_tabs"]
-                or self.settings["clipboard_paused"]):
-            return
+        # Expiry maintenance must continue while clipboard capture is paused,
+        # or when the menu is hidden. It only does disk I/O at day rollover.
         # A date rollover expires old files even if no new copy arrives.
         if self._clipboard_store_is_disk() and clipdb.today() != self._clipboard_capture_day:
             self._clipboard_capture_day = clipdb.today()
@@ -1796,6 +1797,9 @@ class PocketDesk:
                     clipboard_gallery.refresh_images(self, force=True)
             except (OSError, ValueError) as exc:
                 self._clipboard_report_io_error(exc)
+        if (self._mark_active or "clipboard" not in self.settings["visible_tabs"]
+                or self.settings["clipboard_paused"]):
+            return
         # On Windows the sequence counter avoids decoding the same image every
         # 600 ms; Linux GUI test mode retains the original text-only behavior.
         sequence = clipboard_images.sequence_number()

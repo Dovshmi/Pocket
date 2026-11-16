@@ -92,6 +92,10 @@ class NotepadBridgeTests(unittest.TestCase):
             self.assertEqual(note_sync.named_note_path(folder, "My note: / test").name,
                              "My note_ _ test.txt")
             self.assertEqual(note_sync.named_note_path(folder, "CON").name, "_CON.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "Readme.txt").name,
+                             "Readme.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "COM¹").name,
+                             "_COM¹.txt")
             self.assertEqual(note_sync.named_note_path(folder, "LPT1.log").name,
                              "_LPT1.log.txt")
             self.assertEqual(note_sync.named_note_path(folder, "..").name,

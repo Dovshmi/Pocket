@@ -103,6 +103,7 @@ from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_gallery
 from pocket import keyboard_layout
+from pocket import marked_layout
 from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
@@ -198,7 +199,8 @@ def default_data() -> dict:
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
-                     "clipboard_image_limit": clipboard_images.MAX_IMAGES},
+                     "clipboard_image_limit": clipboard_images.MAX_IMAGES,
+                     "use_windows_proxy": True, "convert_mode": "clipboard"},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -230,6 +232,9 @@ def normalize_settings(raw):
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
+            "use_windows_proxy": raw.get("use_windows_proxy") is not False,
+            "convert_mode": (raw.get("convert_mode") if raw.get("convert_mode") in ("clipboard", "mark")
+                             else "clipboard"),
             "clipboard_paused": raw.get("clipboard_paused") is True,
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
             "clipboard_image_limit": clipboard_images.normalize_limit(
@@ -403,6 +408,7 @@ class PocketDesk:
         self._clipboard_selected_image_id = None
         self._clipboard_sequence = None
         self._clipboard_last = None
+        self._mark_active = False
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
@@ -628,8 +634,8 @@ class PocketDesk:
 
     def _convert_hotkey_hint(self):
         label = hk.hotkey_label(self.convert_hotkey)
-        return label + ("  ·  Fix keyboard layout"
-                        if self.convert_hotkey_available else "  ·  Unavailable")
+        mode = "Mark: replace selection" if self.settings["convert_mode"] == "mark" else "Clipboard: copy corrected text"
+        return label + ("  ·  " + mode if self.convert_hotkey_available else "  ·  Unavailable")
 
     def _handle_find_shortcut(self, event=None):
         """Keep Ctrl+F in Commands locally scoped; search globally elsewhere."""
@@ -1577,7 +1583,7 @@ class PocketDesk:
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
     def _clipboard_poll(self):
-        if ("clipboard" not in self.settings["visible_tabs"]
+        if (self._mark_active or "clipboard" not in self.settings["visible_tabs"]
                 or self.settings["clipboard_paused"]):
             return
         # On Windows the sequence counter avoids decoding the same image every
@@ -1614,6 +1620,44 @@ class PocketDesk:
             if self.current_tab == "clipboard" and len(self.clipboard_items) != before:
                 self._refresh_clipboard()
         self._clipboard_sequence = sequence
+
+    def _set_windows_proxy(self, enabled):
+        """Change only the transport used by future user-initiated requests."""
+        self.settings["use_windows_proxy"] = bool(enabled)
+        self.schedule_save()
+
+    def _set_convert_mode(self, mode):
+        if mode not in ("clipboard", "mark"):
+            return
+        self.settings["convert_mode"] = mode
+        self.schedule_save()
+
+    def _start_mark_conversion(self, target_hwnd):
+        """One-shot, native selection conversion; never poll the keyboard."""
+        if self._mark_active:
+            return
+        if os.name != "nt":
+            self._notify("Pocket · Keyboard layout", "Mark mode requires Windows.")
+            return
+        if not target_hwnd:
+            self._notify("Pocket · Keyboard layout", "Select text in an application first.")
+            return
+        self._mark_active = True
+        owner = self.root.winfo_id()
+
+        def worker():
+            try:
+                result = marked_layout.convert_selection(
+                    keyboard_layout.convert, target_hwnd=target_hwnd,
+                    owner_hwnd=owner)
+                self.events.put(("mark_result", result.message))
+            except (marked_layout.MarkError, OSError, RuntimeError) as exc:
+                self.events.put(("mark_result", str(exc)))
+            except Exception:
+                # Do not leak copied text or clipboard contents into debug logs.
+                self.events.put(("mark_result", "Could not correct the selection."))
+        threading.Thread(target=worker, name="PocketDeskMarkConversion",
+                         daemon=True).start()
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
@@ -4186,11 +4230,14 @@ class PocketDesk:
         self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip} {location}…",
                               fg=ACCENT)
 
+        use_windows_proxy = self.settings["use_windows_proxy"]
+
         def worker():
             try:
                 if source == "dashdash":
                     # One HTTPS request; no local TCP connections in remote mode.
-                    results = remote_ports.check_remote_ports(ip, ports)
+                    results = remote_ports.check_remote_ports(
+                        ip, ports, use_windows_proxy=use_windows_proxy)
                 else:
                     results = net.scan_tcp_ports(ip, ports, cancel=self.scan_cancel)
                 for result in results:
@@ -4470,10 +4517,12 @@ class PocketDesk:
         self.updating_vendors = True
         if self.current_tab == "mac":
             self.vendor_info.config(text="Downloading registries from IEEE…", fg=ACCENT)
+        use_windows_proxy = self.settings["use_windows_proxy"]
         def worker():
             try:
                 count = net.download_ieee_database(
-                    self.vendor_file, lambda note: self.events.put(("vendor_progress", note)))
+                    self.vendor_file, lambda note: self.events.put(("vendor_progress", note)),
+                    use_windows_proxy=use_windows_proxy)
                 self.events.put(("vendor_done", count))
             except Exception as exc:
                 self.events.put(("vendor_error", str(exc)))
@@ -4554,9 +4603,12 @@ class PocketDesk:
             self.mac_check_button.config(state="disabled")
             self.mac_info.config(text=f"Checking {len(macs)} MAC(s) via DashDash…", fg=ACCENT)
 
+            use_windows_proxy = self.settings["use_windows_proxy"]
+
             def worker():
                 try:
-                    rows = remote_mac.lookup_remote_macs(macs)
+                    rows = remote_mac.lookup_remote_macs(
+                        macs, use_windows_proxy=use_windows_proxy)
                     self.events.put(("mac_remote_result", (token, rows)))
                 except Exception as exc:
                     self.events.put(("mac_remote_error", (token, str(exc))))
@@ -4970,7 +5022,15 @@ class PocketDesk:
                 if name == "toggle":
                     self.toggle(xy)
                 elif name == "convert_clipboard":
-                    self._convert_clipboard_text()
+                    if self.settings["convert_mode"] == "mark":
+                        self._start_mark_conversion(xy)
+                    else:
+                        self._convert_clipboard_text()
+                elif name == "mark_result":
+                    self._mark_active = False
+                    # Prevent the history monitor from recording transient Mark data.
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    self._notify("Pocket · Keyboard layout", xy)
                 elif name == "show":
                     self.show(xy)
                 elif name == "hotkey_error":
@@ -5415,7 +5475,7 @@ class WindowsTray:
                 if int(wp) in self.hotkey_ids:
                     self.events.put(("toggle", None))
                 elif int(wp) in self.convert_hotkey_ids:
-                    self.events.put(("convert_clipboard", None))
+                    self.events.put(("convert_clipboard", user.GetForegroundWindow()))
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF

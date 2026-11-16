@@ -23,7 +23,7 @@ ES_AUTOHSCROLL, ES_MULTILINE = 0x0080, 0x0004
 ES_AUTOVSCROLL, ES_WANTRETURN, ES_NOHIDESEL = 0x0040, 0x1000, 0x0100
 WM_SETTEXT, WM_GETTEXT, WM_GETTEXTLENGTH, WM_SETFONT = 0x000C, 0x000D, 0x000E, 0x0030
 WM_CTLCOLOREDIT, WM_CTLCOLORSTATIC = 0x0133, 0x0138
-WM_KEYDOWN, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0104, 0x0007
+WM_KEYDOWN, WM_CHAR, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0102, 0x0104, 0x0007
 WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
 EM_GETSEL, EM_SETSEL, EM_REDO, EM_SETREADONLY = 0x00B0, 0x00B1, 0x0454, 0x00CF
 EM_SETBKGNDCOLOR = 0x0443
@@ -75,6 +75,8 @@ class _NativeMixin:
         self._native_last_focus = False
         self._native_last_text = ""
         self._native_multiline = multiline
+        self._native_pending_ctrl_return = False
+        self._native_skip_ctrl_return_char = False
         self._native_var = textvariable if isinstance(textvariable, tk.Variable) else None
         self._native_trace = None
         self._native_busy = False
@@ -208,9 +210,18 @@ class _NativeMixin:
 
     def _child_message(self, hwnd, msg, wp, lp, sid, ref):
         """Win32 Ctrl+A is explicit; all other shortcuts remain OS-native."""
-        if msg == WM_KEYDOWN and wp == ord("A"):
-            if self._u.GetKeyState(VK_CONTROL) & 0x8000:
+        if msg == WM_KEYDOWN and self._u.GetKeyState(VK_CONTROL) & 0x8000:
+            if wp == ord("A"):
                 self._u.SendMessageW(hwnd, EM_SETSEL, 0, -1)
+                return 0
+            if wp == 0x0D and self._native_multiline:
+                # Command editor Ctrl+Enter: marshal to the Tk event loop.
+                self._native_pending_ctrl_return = True
+                self._native_skip_ctrl_return_char = True
+                return 0
+        if msg == WM_CHAR and self._native_skip_ctrl_return_char:
+            self._native_skip_ctrl_return_char = False
+            if wp in (10, 13):
                 return 0
         return self._cc.DefSubclassProc(hwnd, msg, wp, lp)
 
@@ -300,7 +311,12 @@ class _NativeMixin:
                     self.event_generate("<FocusOut>")
             except tk.TclError:
                 pass
-        self._native_after = self.after(45, self._native_tick)
+        if self._native_pending_ctrl_return:
+            self._native_pending_ctrl_return = False
+            # Never enter Tk from the native window subclass callback.
+            self.event_generate("<Control-Return>")
+        if self._native_active and self.winfo_exists():
+            self._native_after = self.after(45, self._native_tick)
 
     def _native_cleanup(self):
         self._native_active = False
@@ -435,6 +451,19 @@ class NativeText(_NativeMixin, tk.Text):
     def delete(self, index1, index2=None):
         result = tk.Text.delete(self, index1, index2)
         self._sync_native_from_tk()
+        return result
+
+    def tag_add(self, tag_name, index1, *indices):
+        result = tk.Text.tag_add(self, tag_name, index1, *indices)
+        if (self._native_active and tag_name == "sel" and
+                index1 == "1.0" and indices and indices[0] in ("end-1c", tk.END)):
+            self._send(EM_SETSEL, 0, -1)
+        return result
+
+    def mark_set(self, mark_name, index):
+        result = tk.Text.mark_set(self, mark_name, index)
+        if self._native_active and mark_name == "insert" and index in ("end-1c", tk.END):
+            self._send(EM_SETSEL, -1, -1)
         return result
 
     def configure(self, cnf=None, **kwargs):

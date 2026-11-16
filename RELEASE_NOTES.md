@@ -15,7 +15,7 @@ This upcoming update groups the requested improvements together. It is not a pub
 
 - **Use Windows Proxy: ON by default** under Settings. DashDash MAC and TCP requests continue using the existing native Windows WinHTTP PAC resolution and WinINet HTTPS POST stack, unchanged.
 - **OFF:** DashDash requests use direct HTTPS with proxy discovery explicitly disabled for those requests.
-- **Update IEEE DB:** uses a separate native WinINet HTTPS GET through the existing Windows PAC resolver when ON. With the preference OFF, IEEE downloads now use the **original standard urllib HTTPS downloader**, restoring the previous network/certificate compatibility; urllib may still honor system/environment proxy settings. The earlier forced-direct handler produced SSL verification failures on some machines. Certificate validation, fixed official IEEE URLs, size limits, validation and atomic local cache replacement remain enforced.
+- **Update IEEE DB:** uses native WinINet HTTPS GET in both modes. With Windows Proxy ON, it resolves the existing Windows PAC settings; with OFF, it uses WinINet's explicit **direct** mode and the Windows certificate trust store instead of Python TLS. This addresses Python's `CERTIFICATE_VERIFY_FAILED` on machines where Windows trusts the issuer. Untrusted certificates still fail; no TLS checks are disabled. Official IEEE URL restrictions, size limits, validation and atomic cache replacement remain enforced.
 - No automatic fallback between corporate and direct modes; local checks continue to work offline. The setting is persisted per Pocket profile.
 
 ### Keyboard layout conversion

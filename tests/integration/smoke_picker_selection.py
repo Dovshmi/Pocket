@@ -47,9 +47,10 @@ def run():
             root.tk.call(listing, "activate", target)
             root.tk.call(listing, "see", target)
             root.update()
-            selection = root.tk.splitlist(root.tk.call(listing, "curselection"))
-            require(selection == (str(target),),
-                    f"{label}: opened dropdown must highlight selected row")
+            selection = tuple(int(i) for i in root.tk.splitlist(
+                root.tk.call(listing, "curselection")))
+            require(selection == (target,),
+                    f"{label}: opened dropdown must highlight selected row: {selection}")
             root.tk.call("event", "generate", listing, "<Return>", "-when", "tail")
             root.update()
             require(picker.current() == target and chosen and chosen[-1] == options[target],

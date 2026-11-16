@@ -10,7 +10,7 @@ import time
 TYPEAHEAD_TIMEOUT = 1.15
 
 
-def find_match(values, query, *, selected=-1):
+def find_match(values, query, *, selected=-1, cycle=False):
     """Prefer case-insensitive prefix matches, then substring matches.
 
     Notes use the existing visible pinned-star marker. It is ignored for
@@ -24,7 +24,7 @@ def find_match(values, query, *, selected=-1):
                       lambda label: needle in label):
         indices = [i for i, label in enumerate(labels) if predicate(label)]
         if indices:
-            if len(needle) == 1 and selected in indices and len(indices) > 1:
+            if cycle and len(needle) == 1 and selected in indices and len(indices) > 1:
                 return indices[(indices.index(selected) + 1) % len(indices)]
             return indices[0]
     return -1
@@ -65,14 +65,18 @@ def install(widget, *, time_source=time.monotonic):
         if now - last_at > TYPEAHEAD_TIMEOUT:
             typed = ""
             last_key = None
-        values = list(widget.cget("values"))
+        values = widget["values"]
+        if isinstance(values, str):
+            values = widget.tk.splitlist(values)
         selected = widget.current()
         tentative = typed + char
         # Repeating a character steps through other values beginning with
         # that character rather than searching for "jjj".
-        if typed == char and char == last_key:
+        repeated = typed == char and char == last_key
+        if repeated:
             tentative = char
-        candidate = find_match(values, tentative, selected=selected)
+        candidate = find_match(
+            values, tentative, selected=selected, cycle=repeated)
         if candidate < 0:
             tentative = char
             candidate = find_match(values, tentative, selected=selected)

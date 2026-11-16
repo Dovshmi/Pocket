@@ -58,7 +58,24 @@ def run():
             require(title.get() == "שלום Windows 123",
                     "StringVar -> Win32 must support mixed Unicode")
 
-            title._send(native_inputs.EM_SETSEL, 0, -1)
+            # Exercise the real VK_A handler with a Ctrl-down keyboard state,
+            # not a simulated Tk <Control-a> event (the old false positive).
+            state = (ctypes.c_ubyte * 256)()
+            require(user32.GetKeyboardState(state) != 0, "Read Windows keyboard state")
+            ctrl_state = (ctypes.c_ubyte * 256)(*state)
+            ctrl_state[native_inputs.VK_CONTROL] |= 0x80
+            try:
+                require(user32.SetKeyboardState(ctrl_state) != 0,
+                        "Set keyboard state for native Ctrl+A")
+                title._send(native_inputs.EM_SETSEL, 0, 0)
+                title._send(native_inputs.WM_KEYDOWN, ord("A"), 0)
+                first, last = ctypes.c_uint32(), ctypes.c_uint32()
+                title._send(native_inputs.EM_GETSEL,
+                            ctypes.addressof(first), ctypes.addressof(last))
+                require(first.value == 0 and last.value >= len("שלום Windows 123"),
+                        "Native Ctrl+A must select the real Windows Edit content")
+            finally:
+                user32.SetKeyboardState(state)
             title._send(native_inputs.WM_COPY)
             require(root.clipboard_get() == "שלום Windows 123",
                     "Native Ctrl+C/WM_COPY must use Windows clipboard")

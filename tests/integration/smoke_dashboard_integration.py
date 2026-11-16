@@ -282,8 +282,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # directly beneath their row.
                     category, machine = app.command_category_picker, app.machine_picker
                     search = app.command_search_entry
-                    check(category.winfo_rootx() < machine.winfo_rootx(),
-                          "Mini CLI category must be left of machine")
+                    check(machine.winfo_rootx() < category.winfo_rootx(),
+                          "Mini CLI machine must be left of category")
                     check(abs(category.winfo_width() - machine.winfo_width()) <= 6,
                           "Mini CLI pickers must share the width equally")
                     check(search.winfo_rooty() >=

@@ -71,6 +71,22 @@ class ClipboardDatabaseTests(unittest.TestCase):
             db.save_text("2026-11-17", [], days=5, on=now)
             self.assertEqual(db.load_text("2026-11-17"), [])
 
+    def test_retention_change_updates_existing_text_filename(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db = clipdb.ClipboardDatabase(folder)
+            db.ensure_folders()
+            self.assertTrue(db.text_dir.is_dir())
+            self.assertTrue(db.image_dir.is_dir())
+            db.save_text("2026-11-17",
+                         [{"id": "a"*32, "text":"hello", "time":"20:30:00"}],
+                         on=datetime(2026, 11, 17, 20, 30), days=1)
+            db.update_retention(5, on="2026-11-17")
+            self.assertEqual(next(db.text_dir.glob("*.txt")).name,
+                             "2026-11-17_20-30-00_to_2026-11-22.txt")
+            self.assertEqual(db.load_text("2026-11-17")[0]["text"], "hello")
+            db.update_retention(1, on="2026-11-18")
+            self.assertEqual(db.load_text("2026-11-17"), [])
+
     def test_screenshots_stored_by_day_without_ram_capacity_limit(self):
         with tempfile.TemporaryDirectory() as folder:
             db = clipdb.ClipboardDatabase(folder)
@@ -190,6 +206,28 @@ class ClipboardIntegrationTests(unittest.TestCase):
             self.assertEqual(app._clipboard_view_days["text"], today)
             self.assertEqual(app.clipboard_items[0]["text"], "a new capture")
             self.assertEqual(db.load_text(old)[0]["text"], "old text")
+
+    def test_duplicate_copy_returns_to_today_without_creating_extra_rows(self):
+        with tempfile.TemporaryDirectory() as folder:
+            app, events = self._desk(folder)
+            db = app.clipboard_database
+            day = clipdb.today()
+            old = (datetime.fromisoformat(day) -
+                   __import__("datetime").timedelta(days=1)).date().isoformat()
+            db.save_text(old, [{"id":"d"*32, "text":"old", "time":"01:02:03"}], days=2)
+            Desk._clipboard_use_storage(app, "database")
+            app._clipboard_on_new_text("copied")
+            Desk._clipboard_choose_day(app, old)
+            self.assertEqual(app._clipboard_view_days["text"], old)
+            app._clipboard_on_new_text("copied")
+            self.assertEqual(app._clipboard_view_days["text"], day)
+            self.assertEqual(len(db.load_text(day)), 1)
+            image = Image.new("RGB", (9, 10), (13, 22, 40))
+            app._clipboard_on_new_image(image)
+            app._clipboard_view_days["images"] = old
+            app._clipboard_on_new_image(image)
+            self.assertEqual(app._clipboard_view_days["images"], day)
+            self.assertEqual(len(db.load_images(day)), 1)
 
     def test_translate_off_prevents_hotkey_handling(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -3120,6 +3120,8 @@ class PocketDesk:
         self._command_placeholder = "Search CLI / חיפוש פקודה"
         self._command_placeholder_active = True
         self.command_search_entry.insert(0, self._command_placeholder)
+        if hasattr(self.command_search_entry, "set_native_placeholder"):
+            self.command_search_entry.set_native_placeholder(self._command_placeholder)
         self.command_search_entry.bind("<FocusIn>", self._command_focus_in)
         self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
         self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
@@ -3259,6 +3261,8 @@ class PocketDesk:
         self._command_placeholder = "Search command or purpose  (e.g. ping, ניתוב)"
         self._command_placeholder_active = True
         self.command_search_entry.insert(0, self._command_placeholder)
+        if hasattr(self.command_search_entry, "set_native_placeholder"):
+            self.command_search_entry.set_native_placeholder(self._command_placeholder)
         self.command_search_entry.bind('<FocusIn>', self._command_focus_in)
         self.command_search_entry.bind('<FocusOut>', self._command_focus_out)
         self.command_search_entry.pack(fill="x", expand=True, ipady=9)

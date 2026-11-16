@@ -4246,7 +4246,7 @@ class PocketDesk:
                      bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         mac_heading = tk.Frame(self.body, bg=BG)
         mac_heading.pack(fill="x", pady=(0, 6))
-        tk.Label(mac_heading, text="MAC ADDRESSES / DEVICE CLI OUTPUT", bg=BG, fg=MUTED,
+        tk.Label(mac_heading, text="MAC ADDRESSES", bg=BG, fg=MUTED,
                  font=(FONT, 8, "bold")).pack(side="left")
         source_toggle.make_source_toggle(
             mac_heading, self.mac_source, self._mac_source_changed, self.theme,

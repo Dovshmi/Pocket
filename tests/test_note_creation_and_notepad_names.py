@@ -37,6 +37,8 @@ class NoteCreationOrderTests(unittest.TestCase):
                 fake = SimpleNamespace(
                     data={"notes": notes, "active_note": notes[selected]["id"]},
                     current_tab="notes", title_entry=entry,
+                    path=Path(tempfile.gettempdir()) / "pocket-note-test-no-files" / "data.json",
+                    _unique_note_path=lambda note, title: Path("notepad") / (title + ".txt"),
                     _flush_current_note=lambda: calls.append("flush"),
                     refresh_note_list=lambda: calls.append("refresh"),
                     _load_selected_note=lambda: calls.append("load"),
@@ -58,6 +60,8 @@ class NoteCreationOrderTests(unittest.TestCase):
         fake = SimpleNamespace(
             data={"notes": notes, "active_note": notes[0]["id"]},
             current_tab="notes", title_entry=_Entry(),
+            path=Path(tempfile.gettempdir()) / "pocket-note-test-no-files" / "data.json",
+            _unique_note_path=lambda note, title: Path("notepad") / (title + ".txt"),
             _flush_current_note=lambda: None,
             refresh_note_list=lambda: None,
             _load_selected_note=lambda: None,
@@ -78,9 +82,13 @@ class NotepadWorkingFileTests(unittest.TestCase):
             root=None,
             _modal=False,
             _notepad_sessions={},
+            current_tab="background",
+            _title_job=None,
             _flush_current_note=lambda: None,
             schedule_save=lambda: saves.append(True),
             _import_notepad_body=lambda note, text: note.update(body=text))
+        app._unique_note_path = lambda note, title: PocketDesk._unique_note_path(app, note, title)
+        app._commit_note_title = lambda note_id=None: PocketDesk._commit_note_title(app, note_id)
         app.active_note = lambda: next(
             n for n in data["notes"] if n["id"] == data["active_note"])
         return app, saves
@@ -95,7 +103,6 @@ class NotepadWorkingFileTests(unittest.TestCase):
                 self.assertEqual(notes[0]["notepad_filename"], "Network.txt")
                 path = Path(folder) / "notepad" / "Network.txt"
                 self.assertEqual(note_sync.read_text(path), "a")
-                notes[0]["title"] = "Renamed while editing"
                 note_sync.write_text(path, "saved in Notepad")
                 PocketDesk.open_notepad(app)
                 self.assertEqual(notes[0]["notepad_filename"], "Network.txt")

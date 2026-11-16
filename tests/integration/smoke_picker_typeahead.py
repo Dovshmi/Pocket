@@ -59,6 +59,13 @@ def run():
                     ctypes.c_void_p, ctypes.c_uint32,
                     ctypes.c_size_t, ctypes.c_ssize_t)
                 user32.SendMessageW.restype = ctypes.c_ssize_t
+                user32.GetFocus.argtypes = ()
+                user32.GetFocus.restype = ctypes.c_void_p
+                native_focused_hwnd = user32.GetFocus()
+                require(native_focused_hwnd == bridge._child.value,
+                        f"{label}: physical Windows keyboard focus must belong "
+                        f"to dropdown HWND (focus={native_focused_hwnd}, "
+                        f"listbox={bridge._child.value})")
             for char in phrase:
                 if sys.platform == "win32":
                     user32.SendMessageW(bridge._child, bridge.WM_CHAR, ord(char), 0)

@@ -299,7 +299,7 @@ def _network_preferences(parent, app, c, *, compact=False, wide=False):
                     "Choose how requested DashDash and IEEE HTTPS traffic connects.",
                     compact=compact, wide=wide)
     _toggle(card, app, c, "use_windows_proxy", "Use Windows Proxy",
-            "ON: existing Windows PAC/WinINet route. OFF: direct HTTPS.",
+            "ON: native Windows PAC. OFF: direct DashDash; legacy IEEE HTTPS.",
             app.settings["use_windows_proxy"], app._set_windows_proxy,
             compact=compact)
     _divider(card, c)

@@ -83,6 +83,7 @@ from pocket import icon_themes as themes
 from pocket import hotkey_settings as hk
 from pocket import note_sync
 from pocket import native_bidi
+from pocket import native_inputs
 from pocket import mini_layout as mini
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
@@ -95,6 +96,8 @@ from pocket import settings_ui
 from pocket import app_info
 from pocket import pocket_design as design
 from pocket import menu_style
+from pocket import text_editing
+from pocket import picker_selection
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
@@ -424,6 +427,8 @@ class PocketDesk:
         self._drag_moved = False
         self._drag_origin = None
         self._header_context_menu = None
+        self._input_context_menu = None
+        self._input_context_menu_was_modal = False
         self.edit_link_id = None
         self._scroll_canvas = None
         self.vendor_file = self.path.parent / "vendors.json"
@@ -431,6 +436,7 @@ class PocketDesk:
         self.mac_results = []
         self.mac_lookup_running = False
         self.mac_lookup_token = 0
+        self.mac_parse_summary = {"duplicates": 0, "invalid": 0}
         self.mac_draft = "00:00:0C:12:34:56\n00-1B-63-12-34-56\nAABB.CCDD.EEFF"
         self.port_results = []
         self.last_scan_ports = []  # Session only; not saved to data.json.
@@ -499,6 +505,8 @@ class PocketDesk:
             pass
         design.configure_ttk(self.root, self.theme)
         self._build_shell()
+        text_editing.install(self.root, self._show_input_context_menu,
+                             self._repair_input_focus)
         self.show_tab(self.current_tab)
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
@@ -512,6 +520,9 @@ class PocketDesk:
         self.root.bind("<Button-5>", self._scroll_tool_on_wheel, add="+")
         # Tk labels/frames do not automatically take keyboard focus. Keep
         # Mini's command paging separate from the shared Notes focus bridge.
+        self.root.bind("<Button-1>", self._dismiss_input_context_menu, add="+")
+        # Flush native edits before Tk button commands (e.g. Check vendors).
+        self.root.bind("<ButtonPress-1>", lambda _e: native_inputs.sync_all_native(), add="+")
         self.root.bind("<Button-1>", self._mini_click_outside_editor, add="+")
         self.root.bind("<Button-1>", self._note_click_focus, add="+")
         for key, step in (("Left", -1), ("Right", 1), ("Up", -1), ("Down", 1)):
@@ -997,6 +1008,76 @@ class PocketDesk:
         for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             widget.bind(sequence, self._command_picker_on_wheel)
         return widget
+
+    def _repair_input_focus(self, event):
+        """Transfer native RichEdit focus before using other Tk input controls."""
+        widget = event.widget
+        if self.current_tab != "notes" or not self._bidi_active():
+            return
+        if widget in (getattr(self, "title_entry", None),
+                      getattr(self, "phone_entry", None)):
+            # These fields have a dedicated Win32 focus handoff already.
+            return
+        self._dismiss_note_menus_for_click()
+        if self._modal:
+            return
+        self._flush_current_note()
+        self.bidi_editor.release_focus_to(widget)
+        widget.focus_force()
+
+    def _dismiss_input_context_menu(self, _event=None):
+        """Release the context popup and temporary focus guard exactly once."""
+        menu = getattr(self, "_input_context_menu", None)
+        if menu is None:
+            return
+        self._input_context_menu = None
+        self._modal = self._input_context_menu_was_modal
+        try:
+            if menu.winfo_exists():
+                menu.unpost()
+                menu.destroy()
+        except tk.TclError:
+            pass
+
+    def _show_input_context_menu(self, event):
+        """Offer editing commands only where a widget has no existing menu."""
+        widget = event.widget
+        if (not text_editing.is_text_control(widget)
+                or widget.bind("<Button-3>")):
+            return None
+        if widget.winfo_class() == "TCombobox" and not text_editing.can_edit(widget):
+            return None
+        self._dismiss_input_context_menu()
+        self._repair_input_focus(event)
+        if self._modal:
+            return "break"
+        widget.focus_force()
+
+        def dispatch(operation):
+            try:
+                if widget.winfo_exists():
+                    text_editing.perform(widget, operation)
+            finally:
+                self._dismiss_input_context_menu()
+
+        menu = text_editing.make_menu(
+            self.root, widget,
+            {"PANEL": PANEL, "WHITE": WHITE, "MUTED": MUTED,
+             "ACCENT_DARK": ACCENT_DARK},
+            dispatch)
+        self._input_context_menu = menu
+        self._input_context_menu_was_modal = self._modal
+        self._modal = True
+        menu.bind("<Unmap>", lambda _event: self._dismiss_input_context_menu())
+        menu.bind("<Destroy>", lambda ev: self._dismiss_input_context_menu()
+                  if ev.widget is menu else None)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            self._dismiss_input_context_menu()
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _mini_click_outside_editor(self, event):
         """Retain Mini Commands' click-away behavior and arrow navigation.
@@ -1569,10 +1650,23 @@ class PocketDesk:
         if not hasattr(self, "clipboard_list") or not self.clipboard_list.winfo_exists():
             return
         query = self.clipboard_query.get().casefold()
-        self._clipboard_filtered = [item for item in self.clipboard_items if query in item["text"].casefold()]
+        # Keep the selected item after pinning/unpinning moves its row, rather
+        # than accidentally applying Copy/Delete to a different clipboard item.
+        selected = self._selected_clipboard_item()
+        selected_id = selected["id"] if selected else None
+        matches = [item for item in self.clipboard_items
+                   if query in item["text"].casefold()]
+        self._clipboard_filtered = clipboard_gallery.pinned_first(matches)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
+        if selected_id:
+            for index, item in enumerate(self._clipboard_filtered):
+                if item["id"] == selected_id:
+                    self.clipboard_list.selection_set(index)
+                    self.clipboard_list.activate(index)
+                    self.clipboard_list.see(index)
+                    break
         self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
                                      ("PAUSED" if self.settings["clipboard_paused"] else
                                       "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
@@ -1675,6 +1769,7 @@ class PocketDesk:
                                              values=[], height=14)
         self.mini_note_picker.pack(side="left", fill="x", expand=True)
         self.mini_note_picker.bind("<<ComboboxSelected>>", self._select_from_mini_note_picker)
+        picker_selection.install(self.mini_note_picker)
         self.mini_note_picker.bind("<ButtonPress-1>", self._note_focus_field, add="+")
         self.mini_note_picker.bind("<Button-3>", self._show_mini_note_menu)
         self.mini_note_picker.bind("<Control-Button-1>", self._show_mini_note_menu)
@@ -1688,7 +1783,7 @@ class PocketDesk:
         self.created_label = tk.Label(details, text="", fg=MUTED, bg=PANEL, font=(FONT, 7))
         self.created_label.pack(anchor="w", padx=8, pady=(5, 0))
         self.title_var = tk.StringVar()
-        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+        self.title_entry = native_inputs.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
@@ -1699,7 +1794,7 @@ class PocketDesk:
         tk.Label(phone_row, text="Phone", bg=PANEL, fg=MUTED,
                  font=(FONT, 8)).pack(side="left", padx=(0, 4))
         self.phone_var = tk.StringVar()
-        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+        self.phone_entry = native_inputs.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, bd=0, relief="flat", font=(FONT, 9))
         self.phone_entry.pack(side="left", fill="x", expand=True, ipady=4)
         self.phone_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
@@ -1820,7 +1915,7 @@ class PocketDesk:
                                       bg=PANEL, anchor="e")
         self.created_label.pack(side="right")
         self.title_var = tk.StringVar()
-        self.title_entry = tk.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
+        self.title_entry = native_inputs.Entry(details, textvariable=self.title_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 11, "bold"))
@@ -1833,7 +1928,7 @@ class PocketDesk:
         tk.Label(phone_row, text="PHONE", font=(FONT, 8, "bold"), fg=MUTED,
                  bg=PANEL).pack(side="left", padx=(0, 7))
         self.phone_var = tk.StringVar()
-        self.phone_entry = tk.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
+        self.phone_entry = native_inputs.Entry(phone_row, textvariable=self.phone_var, bg=INPUT, fg=WHITE,
                                     insertbackground=WHITE, highlightthickness=1,
                                     highlightbackground=BORDER, highlightcolor=ACCENT,
                                     relief="flat", font=(FONT, 9), width=8)
@@ -2987,7 +3082,7 @@ class PocketDesk:
 
     @staticmethod
     def _entry(parent, value, *, width=None):
-        e = tk.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
+        e = native_inputs.Entry(parent, textvariable=value, bg=INPUT, fg=WHITE,
                      insertbackground=WHITE, selectbackground=ACCENT_DARK,
                      highlightthickness=1, highlightbackground=BORDER,
                      highlightcolor=ACCENT, relief="flat", font=(FONT, 10),
@@ -3029,30 +3124,44 @@ class PocketDesk:
         names = [ch.ALL_MACHINES] + ch.machines_for(self.command_library, self.machine_catalog)
         chosen = prefs.get("machine")
         self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
-        self.machine_picker = ttk.Combobox(self.body, style="Pocket.TCombobox", values=names, textvariable=self.machine_var,
-                                            state="readonly", font=(FONT, 9))
-        self.machine_picker.pack(fill="x", pady=(0, 7))
+        # Keep the original readonly dropdowns and their full option lists.
+        # Machine fills the left half, category the right half; no new row is
+        # added to Mini and the search stays a full-width field below them.
+        pickers = tk.Frame(self.body, bg=BG)
+        pickers.pack(fill="x", pady=(0, 7))
+        pickers.columnconfigure(0, weight=1, uniform="mini_cli_filters")
+        pickers.columnconfigure(1, weight=1, uniform="mini_cli_filters")
+        self.machine_picker = ttk.Combobox(
+            pickers, style="Pocket.TCombobox", values=names,
+            textvariable=self.machine_var, state="readonly", font=(FONT, 9), width=12)
+        self.machine_picker.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
+        picker_selection.install(self.machine_picker)
         self._protect_command_picker(self.machine_picker)
+        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
+        self.command_category_picker = ttk.Combobox(
+            pickers, style="Pocket.TCombobox", textvariable=self.command_category_var,
+            state="readonly", values=[ch.ALL_CATEGORIES] +
+            ch.categories_for(self.command_library, self.machine_var.get()),
+            font=(FONT, 9), width=12)
+        self.command_category_picker.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        self.command_category_picker.bind("<<ComboboxSelected>>",
+                                          lambda _e: self._refresh_command_results())
+        picker_selection.install(self.command_category_picker)
+        self._protect_command_picker(self.command_category_picker)
         self.command_query = tk.StringVar()
         self.command_search_entry = self._entry(self.body, self.command_query)
         self.command_search_entry.config(font=(FONT, 9), fg=MUTED)
         self._command_placeholder = "Search CLI / חיפוש פקודה"
         self._command_placeholder_active = True
         self.command_search_entry.insert(0, self._command_placeholder)
+        if hasattr(self.command_search_entry, "set_native_placeholder"):
+            self.command_search_entry.set_native_placeholder(
+                self._command_placeholder, on_focus=self._command_focus_in)
         self.command_search_entry.bind("<FocusIn>", self._command_focus_in)
         self.command_search_entry.bind("<FocusOut>", self._command_focus_out)
         self.command_search_entry.pack(fill="x", ipady=6, pady=(0, 7))
         self.command_query.trace_add("write", lambda *_: self._refresh_command_results())
-        row = tk.Frame(self.body, bg=BG)
-        row.pack(fill="x", pady=(0, 4))
-        self.command_category_var = tk.StringVar(value=ch.ALL_CATEGORIES)
-        self.command_category_picker = ttk.Combobox(row, style="Pocket.TCombobox", textvariable=self.command_category_var, state="readonly",
-            values=[ch.ALL_CATEGORIES] + ch.categories_for(self.command_library, self.machine_var.get()),
-            font=(FONT, 8))
-        self.command_category_picker.pack(side="left", fill="x", expand=True)
-        self.command_category_picker.bind("<<ComboboxSelected>>", lambda _e: self._refresh_command_results())
-        self._protect_command_picker(self.command_category_picker)
         self.command_modes = {}
         modebar = tk.Frame(self.body, bg=BG)
         modebar.pack(fill="x", pady=(0, 6))
@@ -3084,13 +3193,15 @@ class PocketDesk:
                                                    font=(FONT, 9), anchor="w",
                                                    justify="left", wraplength=286)
         self.command_description_label.pack(fill="x", padx=9, pady=(2, 5))
-        self.command_code = tk.Text(details, wrap="word", height=4, font=("Consolas", 9),
+        self.command_code = native_inputs.Text(details, wrap="word", height=4, font=("Consolas", 9),
                                      bg=INPUT, fg="#D3E4FF", insertbackground=ACCENT,
                                      highlightthickness=1, highlightbackground=BORDER,
                                      bd=0, padx=6, pady=6, undo=True)
         self.command_code.pack(fill="both", expand=True, padx=9, pady=(0, 4))
         self.command_code.bind("<Control-a>", self._command_select_all)
         self.command_code.bind("<Control-Return>", lambda _e: (self._copy_command(), "break")[1])
+        if hasattr(self.command_code, "set_native_ctrl_return_callback"):
+            self.command_code.set_native_ctrl_return_callback(self._copy_command)
         self._build_template_actions(details, mini=True)
         actions = tk.Frame(details, bg=PANEL)
         actions.pack(fill="x", padx=7, pady=(0, 3))
@@ -3179,6 +3290,9 @@ class PocketDesk:
         self._command_placeholder = "Search command or purpose  (e.g. ping, ניתוב)"
         self._command_placeholder_active = True
         self.command_search_entry.insert(0, self._command_placeholder)
+        if hasattr(self.command_search_entry, "set_native_placeholder"):
+            self.command_search_entry.set_native_placeholder(
+                self._command_placeholder, on_focus=self._command_focus_in)
         self.command_search_entry.bind('<FocusIn>', self._command_focus_in)
         self.command_search_entry.bind('<FocusOut>', self._command_focus_out)
         self.command_search_entry.pack(fill="x", expand=True, ipady=9)
@@ -3237,12 +3351,14 @@ class PocketDesk:
         self.command_description_label.pack(fill='x', padx=11, pady=(2, 4))
         tk.Label(details, text='EDIT BEFORE COPYING  ·  CHANGES HERE ARE TEMPORARY',
                  fg=MUTED, bg=PANEL, font=(FONT, 7, 'bold'), anchor='w').pack(fill='x', padx=11, pady=(1, 4))
-        self.command_code = tk.Text(details, height=6, wrap='word', undo=True, bg=INPUT, fg='#D3E4FF',
+        self.command_code = native_inputs.Text(details, height=6, wrap='word', undo=True, bg=INPUT, fg='#D3E4FF',
                                     font=('Consolas', 9), bd=0, padx=9, pady=5,
                                     highlightthickness=1, highlightbackground=BORDER)
         self.command_code.pack(fill='x', padx=11)
         self.command_code.bind('<Control-a>', self._command_select_all)
         self.command_code.bind('<Control-Return>', lambda _e: (self._copy_command(), 'break')[1])
+        if hasattr(self.command_code, "set_native_ctrl_return_callback"):
+            self.command_code.set_native_ctrl_return_callback(self._copy_command)
         self._build_template_actions(details, mini=False)
         bottom = tk.Frame(details, bg=PANEL)
         bottom.pack(fill='x', padx=8, pady=(4, 6))
@@ -3684,7 +3800,7 @@ class PocketDesk:
                                        values=ch.categories_for(self.command_library, device.get()) or ['Custom'])
         category_picker.pack(fill='x', ipady=3)
         labelled('COMMAND  (multiline allowed)')
-        command_box = tk.Text(pane, wrap='word', height=4, undo=True, bg=INPUT, fg=WHITE,
+        command_box = native_inputs.Text(pane, wrap='word', height=4, undo=True, bg=INPUT, fg=WHITE,
                               font=('Consolas', 10), insertbackground=ACCENT, bd=0,
                               highlightbackground=BORDER, highlightthickness=1, padx=8, pady=7)
         command_box.pack(fill='both', expand=True)
@@ -3799,7 +3915,7 @@ class PocketDesk:
         self.scan_info.pack(fill="x", pady=(9, 1))
         self.port_tree = self._tree(self.body, ("Port", "Service", "TCP status", "Time"),
                                     (72, 115, 117, 73))
-        for result in sorted(self.port_results, key=lambda item: item["port"]):
+        for result in sorted(self.port_results, key=net.port_result_sort_key):
             self._add_port_result(result)
         if self.scanning:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
@@ -3978,16 +4094,28 @@ class PocketDesk:
                 self.scan_info.config(text="Stopping scan…", fg=SECONDARY)
 
     def _add_port_result(self, item):
-        port = item["port"]
-        self.port_tree.insert("", "end", values=(port, item["service"], item["status"],
-                                                   f"{item['ms']} ms"))
+        """Keep OPEN above CLOSED and TIMEOUT regardless of result arrival order.
+
+        Insert into the existing Treeview rather than rebuilding it, so the
+        current selection survives asynchronous updates.
+        """
+        key = net.port_result_sort_key(item)
+        index = 0
+        for iid in self.port_tree.get_children():
+            existing = {"port": self.port_tree.set(iid, "Port"),
+                        "status": self.port_tree.set(iid, "TCP status")}
+            if net.port_result_sort_key(existing) > key:
+                break
+            index += 1
+        self.port_tree.insert("", index, values=(
+            item["port"], item["service"], item["status"], f"{item['ms']} ms"))
 
     def _export_ports(self):
         if not self.port_results:
             self._warning("Export ports", "Run a TCP check first.")
             return
         self._export_results("pocketdesk-ports.csv", ["port", "service", "status", "ms"],
-                             sorted(self.port_results, key=lambda item: item["port"]))
+                             sorted(self.port_results, key=net.port_result_sort_key))
 
     # ---- Offline IPv4 subnet calculator -----------------------------------
 
@@ -4161,14 +4289,15 @@ class PocketDesk:
                  font=(FONT, 8, "bold")).pack(side="left")
         source_toggle.make_source_toggle(
             mac_heading, self.mac_source, self._mac_source_changed, self.theme,
-            hint="Local: offline IEEE database, up to 5,000 MACs.\n"
-                 "DashDash: up to 100 MACs queried on the server.\n"
-                 "Selected MAC addresses are sent to DashDash only when you click Check vendors."
+            hint="Paste individual MACs or a complete switch MAC-learning table.\n"
+                 "Local: up to 5,000 unique MACs, fully offline.\n"
+                 "DashDash: up to 100 unique valid MACs; only MACs, not CLI output, are sent on Check."
         ).pack(side="right")
-        self.mac_input = tk.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
+        self.mac_input = native_inputs.Text(self.body, bg=INPUT, fg=WHITE, insertbackground=ACCENT,
                                  relief="flat", highlightthickness=1,
                                  highlightbackground=BORDER, highlightcolor=ACCENT,
-                                 font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8)
+                                 font=("Consolas", 10), wrap="none", height=6, padx=9, pady=8,
+                                 undo=True, maxundo=60)
         self.mac_input.pack(fill="x", pady=(0, 7 if self.display_mode == "normal" else 10))
         if self.display_mode == "normal":
             self.mac_input.config(height=4)
@@ -4276,8 +4405,10 @@ class PocketDesk:
             self.mac_tree.delete(item)
         for item in self.mac_results[:500]:
             self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
-        valid = sum(result["vendor"] != "Invalid MAC" for result in self.mac_results)
-        message = f"{valid}/{len(self.mac_results)} valid • {len(self.mac_results)} rows • {source}"
+        summary = self.mac_parse_summary
+        message = (f"{len(self.mac_results)} valid unique MACs • "
+                   f"{summary['duplicates']} duplicates skipped • "
+                   f"{summary['invalid']} malformed skipped • {source}")
         if len(self.mac_results) > 500:
             message += " • Showing first 500; exports contain all"
         self.mac_info.config(text=message, fg=ACCENT)
@@ -4286,12 +4417,18 @@ class PocketDesk:
         if self.mac_lookup_running:
             return
         self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if self.mac_source.get() == "dashdash":
-            try:
-                macs = remote_mac.parse_remote_macs(self.mac_draft)
-            except ValueError as exc:
-                self._warning("MAC lookup", str(exc))
-                return
+        source = self.mac_source.get()
+        try:
+            parsed = net.parse_mac_input(
+                self.mac_draft,
+                limit=remote_mac.REMOTE_MAX_MACS if source == "dashdash"
+                else net.MAX_MAC_BATCH)
+        except ValueError as exc:
+            self._warning("MAC lookup", str(exc))
+            return
+        self.mac_parse_summary = parsed
+        macs = parsed["macs"]
+        if source == "dashdash":
             self.mac_lookup_token += 1
             token = self.mac_lookup_token
             self.mac_lookup_running = True
@@ -4311,13 +4448,9 @@ class PocketDesk:
             threading.Thread(target=worker, name="PocketDeskDashDashMac",
                              daemon=True).start()
             return
-        # The default path remains wholly offline.
+        # Local remains fully offline and shares the DashDash input extractor.
         self.mac_lookup_token += 1
-        try:
-            self.mac_results = net.batch_lookup(self.mac_draft, self.vendors)
-        except ValueError as exc:
-            self._warning("MAC lookup", str(exc))
-            return
+        self.mac_results = [net.mac_lookup(mac, self.vendors) for mac in macs]
         self._show_mac_results("Local")
 
     def _copy_mac_results(self):
@@ -4532,6 +4665,8 @@ class PocketDesk:
         if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
                 and self.bidi_editor.has_focus()):
             return
+        if native_inputs.has_native_focus():
+            return
         if self.root.state() == "normal" and self.root.focus_displayof() is None:
             self.hide()
 
@@ -4721,6 +4856,7 @@ class PocketDesk:
                     token, result = xy
                     if token == self.scan_token and not self.scan_cancel.is_set():
                         self.port_results.append(result)
+                        self.port_results.sort(key=net.port_result_sort_key)
                         if self.current_tab == "ports":
                             self._add_port_result(result)
                             self.scan_info.config(text=f"Checked {len(self.port_results)} port(s)…", fg=ACCENT)

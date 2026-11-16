@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sys
 import tkinter as tk
+from . import native_inputs
 from tkinter import ttk
 
 from . import native_bidi
@@ -93,7 +94,7 @@ def build(app):
     tk.Label(title_group, text="TITLE", bg=panel, fg=muted,
              font=(FONT, 8, "bold"), anchor="w").pack(fill="x", pady=(0, 3))
     app.title_var = tk.StringVar()
-    app.title_entry = tk.Entry(
+    app.title_entry = native_inputs.Entry(
         title_group, textvariable=app.title_var, bg=input_bg, fg=white,
         insertbackground=white, selectbackground=c["ACCENT_DARK"],
         relief="flat", highlightthickness=1, highlightbackground=border,
@@ -109,7 +110,7 @@ def build(app):
     phone_line = tk.Frame(phone_group, bg=panel)
     phone_line.pack(fill="x")
     app.phone_var = tk.StringVar()
-    app.phone_entry = tk.Entry(
+    app.phone_entry = native_inputs.Entry(
         phone_line, textvariable=app.phone_var, bg=input_bg, fg=white,
         insertbackground=white, selectbackground=c["ACCENT_DARK"],
         relief="flat", highlightthickness=1, highlightbackground=border,

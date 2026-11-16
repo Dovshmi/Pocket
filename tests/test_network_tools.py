@@ -52,10 +52,47 @@ class NetworkTests(unittest.TestCase):
 
     def test_batch(self):
         rows = net.batch_lookup("00:11:22:33:44:55, 02-AB-CD-EE-00-01\ninvalid", {})
-        self.assertEqual(len(rows), 3)
-        self.assertEqual(rows[2]["vendor"], "Invalid MAC")
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([r["mac"] for r in rows],
+                         ["00:11:22:33:44:55", "02:AB:CD:EE:00:01"])
         with self.assertRaises(ValueError):
-            net.batch_lookup("00:11:22:33:44:55 " * 5001, {})
+            net.batch_lookup(" ".join(f"00:11:{i >> 16 & 255:02x}:{i >> 8 & 255:02x}:{i & 255:02x}:01"
+                                      for i in range(5001)), {})
+
+    def test_alcatel_full_mac_learning_output(self):
+        output = (
+            "show mac-learning\nVLAN MAC Address Type Operation Interface\n"
+            "100 00:11:22:33:44:55 dynamic bridging 1/1/12\n"
+            "200 AA-BB-CC-DD-EE-FF dynamic bridging 1/1/8\n"
+            "300 0011.2233.4455 dynamic bridging 1/1/14\n"
+            "400 *02:11:22:33:44:55 dynamic bridging 1/1/2\n"
+            "192.168.1.10 port 443 2001:db8::1\n"
+            "500 00:11:22:33:44:GG dynamic bridging 1/1/4\n"
+        )
+        parsed = net.parse_mac_input(output)
+        self.assertEqual(parsed["macs"], ["00:11:22:33:44:55",
+                                         "AA:BB:CC:DD:EE:FF",
+                                         "02:11:22:33:44:55"])
+        self.assertEqual(parsed["duplicates"], 1)
+        self.assertEqual(parsed["invalid"], 1)
+        self.assertEqual(len(net.batch_lookup(output, {})), 3)
+
+    def test_mac_extract_rejects_partial_and_embedded_addresses(self):
+        with self.assertRaisesRegex(ValueError, "No valid MAC"):
+            net.parse_mac_input("192.168.1.1\n1/1/12\nbad 00:11:22:33:44\n"
+                                "fe80::00:11:22:33:44:55")
+        with self.assertRaisesRegex(ValueError, "too large"):
+            net.parse_mac_input("x" * (net.MAX_MAC_INPUT_CHARS + 1))
+        with self.assertRaisesRegex(ValueError, "more than 1"):
+            net.parse_mac_input("00:11:22:33:44:55\nAA:BB:CC:DD:EE:FF", limit=1)
+
+    def test_port_sorting_prioritizes_open_on_every_update(self):
+        results = [{"port": 80, "status": "TIMEOUT"},
+                   {"port": 443, "status": "OPEN"},
+                   {"port": 22, "status": "CLOSED"},
+                   {"port": 53, "status": "OPEN"}]
+        self.assertEqual([row["port"] for row in sorted(results, key=net.port_result_sort_key)],
+                         [53, 443, 22, 80])
 
     def test_parse_ieee_csv(self):
         sample = b'Registry,Assignment,Organization Name,Organization Address\nMA-L,001122,"A, Inc.",USA\nMA-L,012345,Example Corp,UK\n'

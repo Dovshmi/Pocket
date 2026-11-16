@@ -252,6 +252,135 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Mini TCP input must reflect factory ports")
                     check(app.port_source.get() == "local",
                           "Default port source must remain local")
+                if mode == "mini" and page == "notes":
+                    picker = app.mini_note_picker
+                    options = tuple(picker["values"])
+                    check(str(picker.cget("state")) == "readonly",
+                          "Mini Notes must preserve the normal readonly dropdown")
+                    check(not hasattr(picker, "_pocket_typeahead"),
+                          "Mini Notes must not install the removed typing search")
+                    # The chosen value must remain visible, but any text
+                    # selection highlight should disappear after the popup.
+                    picker.selection_range(0, tk.END)
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    import time
+                    time.sleep(.07)
+                    app.root.update()
+                    check(not picker.selection_present(),
+                          "Mini Notes must clear closed dropdown text highlighting")
+                    check(tuple(picker["values"]) == options,
+                          "Mini Notes dropdown options changed unexpectedly")
+                if mode == "mini" and page == "commands":
+                    # Machine LEFT, category RIGHT, search full width beneath.
+                    category, machine = app.command_category_picker, app.machine_picker
+                    search = app.command_search_entry
+                    check(machine.winfo_rootx() < category.winfo_rootx(),
+                          "Mini CLI machine must be left of category")
+                    check(abs(category.winfo_width() - machine.winfo_width()) <= 6,
+                          "Mini CLI pickers must share the width equally")
+                    check(search.winfo_rooty() >=
+                          machine.winfo_rooty() + machine.winfo_height(),
+                          "Mini CLI search must appear below both dropdowns")
+                    check(search.winfo_width() >=
+                          category.winfo_width() + machine.winfo_width() - 12,
+                          "Mini CLI search must span the full filter width")
+                    for picker in (machine, category):
+                        check(str(picker.cget("state")) == "readonly",
+                              "Mini CLI dropdowns must remain readonly")
+                        check(not hasattr(picker, "_pocket_typeahead"),
+                              "Mini CLI dropdown search must be removed")
+                        selected_before = picker.get()
+                        choices_before = tuple(picker["values"])
+                        picker.selection_range(0, tk.END)
+                        picker.event_generate("<<ComboboxSelected>>")
+                        app.root.update()
+                        import time
+                        time.sleep(.07)
+                        app.root.update()
+                        check(not picker.selection_present(),
+                              "Mini CLI must clear closed dropdown highlighting")
+                        check(picker.get() == selected_before,
+                              "Clearing CLI text highlight must preserve chosen option")
+                        check(tuple(picker["values"]) == choices_before,
+                              "Mini CLI must retain its normal dropdown options")
+                if page == "clipboard" and app.clipboard_page == "text":
+                    selected_history = app.clipboard_items[-1]
+                    old_pin = selected_history["pinned"]
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    old_index = next(i for i, entry in enumerate(app._clipboard_filtered)
+                                     if entry["id"] == selected_history["id"])
+                    app.clipboard_list.selection_set(old_index)
+                    app._pin_clipboard_item()
+                    app.root.update()
+                    check(app._clipboard_filtered[0]["id"] == selected_history["id"],
+                          f"{mode}: pinned clipboard item must be displayed first")
+                    check(app._selected_clipboard_item()["id"] == selected_history["id"],
+                          f"{mode}: clipboard selected item must survive pin reorder")
+                    app._pin_clipboard_item()
+                    app.root.update()
+                    check(selected_history["pinned"] == old_pin,
+                          f"{mode}: clipboard unpin did not restore item")
+                if page == "commands" and sys.platform == "win32":
+                    # The old Win32 overlay left the placeholder inside the
+                    # actual edit control even after focus. Test in Pocket,
+                    # not only in a standalone Tk host window.
+                    search = app.command_search_entry
+                    check(bool(getattr(search, "native_hwnd", None)),
+                          f"{mode}: CLI search has no native Windows edit")
+                    search.focus_force()
+                    import time
+                    for _ in range(12):
+                        app.root.update()
+                        if (not app._command_placeholder_active and
+                                search.get() == ""):
+                            break
+                        time.sleep(.035)
+                    check(not app._command_placeholder_active and search.get() == "",
+                          f"{mode}: CLI search placeholder was not cleared on focus "
+                          f"(flag={app._command_placeholder_active}, var={app.command_query.get()!r}, "
+                          f"native={search.get()!r}, focused={search.has_native_focus()}, "
+                          f"tk_focus={app.root.focus_get()!s})")
+                    for char in "ping":
+                        search._send(0x0102, ord(char), 1)  # WM_CHAR from native keyboard
+                    for _ in range(12):
+                        app.root.update()
+                        if app.command_query.get() == "ping":
+                            break
+                        time.sleep(.035)
+                    check(app.command_query.get() == "ping",
+                          f"{mode}: typed native CLI search not synchronized")
+                    search.delete(0, tk.END)
+                    app._command_focus_out()
+                if page == "notes" and sys.platform == "win32":
+                    # A Win32 child posts WM_CONTEXTMENU. Confirm the real
+                    # Pocket popup (not Windows' long white default) appears.
+                    field = app.title_entry
+                    check(bool(getattr(field, "native_hwnd", None)),
+                          f"{mode}: Notes title is not backed by Windows Edit")
+                    import time
+                    px, py = field.winfo_rootx() + 10, field.winfo_rooty() + 9
+                    lp = ((py & 0xffff) << 16) | (px & 0xffff)
+                    # Windows' TrackPopupMenu blocks a headless GUI test.
+                    # Intercept only *posting*, not the actual native HWND
+                    # routing or Pocket's menu construction and callbacks.
+                    from unittest.mock import patch
+                    observed = []
+                    def inspect_menu(menu, x, y, *args, **kwargs):
+                        observed.append((menu_labels(menu), x, y))
+                    try:
+                        with patch.object(tk.Menu, "tk_popup", inspect_menu):
+                            field._send(0x007B, field.native_hwnd, lp)
+                            for _ in range(15):
+                                app.root.update()
+                                if observed:
+                                    break
+                                time.sleep(.035)
+                    finally:
+                        app._dismiss_input_context_menu()
+                    check(observed and all(v in observed[0][0] for v in (
+                        "Undo", "Redo", "Cut", "Copy", "Paste", "Select all")),
+                        f"{mode}: native right click did not construct Pocket menu: {observed}")
                 if page == "notes":
                     # Windows RichEdit is an HWND distinct from Tk's Entry
                     # controls. Explicitly exercise the reported Mini failure:
@@ -294,8 +423,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                             app.root.update()
                             field.event_generate("<ButtonPress-1>", x=6, y=6)
                             app.root.update()
-                            check(app.root.focus_get() is field,
-                                  f"{mode}: click did not move Tk focus to {title}")
+                            check(
+                                (field.has_native_focus() if getattr(field, "native_hwnd", None)
+                                 else app.root.focus_get() is field),
+                                f"{mode}: click did not move keyboard focus to {title}")
                             check(not app.bidi_editor.has_focus(),
                                   f"{mode}: RichEdit still owns typing after {title} click")
                         # A native popup may be dismissed without <Unmap>;
@@ -310,9 +441,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         app.root.update()
                         check(not app._modal and app._note_context_menu is None,
                               f"{mode}: dismissed Notes popup trapped modal state")
-                        check(app.root.focus_get() is app.phone_entry and
-                              not app.bidi_editor.has_focus(),
-                              f"{mode}: Phone remains trapped after popup dismiss")
+                        check(
+                            (app.phone_entry.has_native_focus()
+                             if getattr(app.phone_entry, "native_hwnd", None)
+                             else app.root.focus_get() is app.phone_entry)
+                            and not app.bidi_editor.has_focus(),
+                            f"{mode}: Phone remains trapped after popup dismiss")
                         stale.destroy()
                     # Compact native submenus explain editor actions and
                     # which Pocket tools require a selected text fragment.

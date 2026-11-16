@@ -7,6 +7,7 @@ No generated CLI is executed, transmitted, or persisted.
 from __future__ import annotations
 
 import tkinter as tk
+from . import native_inputs
 from tkinter import ttk, messagebox
 from . import pocket_design as design
 from . import smart_templates as smart
@@ -132,7 +133,7 @@ def open_editor(app, row, *, on_changed):
 
     form = _scroll_form(shell, c)
     _text(form, "ORIGINAL COMMAND", c, size=8, bold=True)
-    original_box = tk.Text(form, bg=c["PANEL"], fg=c["SECONDARY"],
+    original_box = native_inputs.Text(form, bg=c["PANEL"], fg=c["SECONDARY"],
                            wrap="word", height=min(4, max(2, row["command"].count("\n") + 2)),
                            font=PREVIEW_FONT, bd=0, padx=10, pady=8,
                            takefocus=False)
@@ -141,7 +142,7 @@ def open_editor(app, row, *, on_changed):
     original_box.pack(fill="x", pady=(0, 11))
 
     _text(form, "TEMPLATE FORMAT", c, size=9, bold=True)
-    fmt = tk.Text(form, bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["ACCENT"],
+    fmt = native_inputs.Text(form, bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["ACCENT"],
                   selectbackground=c["ACCENT_DARK"], wrap="word", height=4,
                   font=PREVIEW_FONT, bd=0, padx=10, pady=8, undo=True,
                   highlightthickness=1, highlightbackground=c["BORDER"],
@@ -352,7 +353,7 @@ def open_filler(app, row, *, on_copy):
             first_widget = widget
 
     _text(form, "COMMAND PREVIEW", c, size=8, bold=True)
-    preview = tk.Text(form, height=4, bg=c["PANEL"], fg=c["WHITE"],
+    preview = native_inputs.Text(form, height=4, bg=c["PANEL"], fg=c["WHITE"],
                       selectbackground=c["ACCENT_DARK"], font=PREVIEW_FONT,
                       wrap="word", bd=0, padx=10, pady=9, takefocus=False)
     preview.pack(fill="x", pady=(0, 10))

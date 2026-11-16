@@ -4,7 +4,7 @@ Use the ready-to-run release ZIP from [GitHub Releases](https://github.com/Dovsh
 It already contains the application, Python runtime, Tk/Tcl, Pillow, and native
 Windows extensions. **Do not install Python on the target computer.**
 
-1. Download `Pocket-Portable-v1.32.2.zip` from the GitHub Release.
+1. Download `Pocket-Portable-v1.36.0.zip` from the GitHub Release.
 2. Extract the WHOLE ZIP to a *new local writable folder* (e.g. Documents).
 3. Run `PocketDesk.exe`. Keep `_internal` alongside it.
 4. To upgrade, close Pocket (including tray), back up the `data` folder,

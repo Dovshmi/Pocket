@@ -6,6 +6,7 @@ controls only; it never changes storage, launches a shortcut or runs commands.
 from __future__ import annotations
 
 import tkinter as tk
+from . import native_inputs
 from tkinter import ttk
 
 from . import icon_themes as themes
@@ -108,7 +109,7 @@ def button(parent, title, action, theme, *, primary=False, destructive=False,
 
 def entry(parent, variable, theme, *, compact=False, **kwargs):
     c = colors(theme)
-    return tk.Entry(parent, textvariable=variable, bg=c["INPUT"], fg=c["WHITE"],
+    return native_inputs.Entry(parent, textvariable=variable, bg=c["INPUT"], fg=c["WHITE"],
                     insertbackground=c["WHITE"], selectbackground=c["ACCENT_DARK"],
                     relief="flat", bd=0, highlightthickness=1,
                     highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],

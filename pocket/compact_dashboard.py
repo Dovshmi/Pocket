@@ -6,6 +6,7 @@ Opening a tool restores that layout, and search remains entirely local.
 from __future__ import annotations
 
 import tkinter as tk
+from . import native_inputs
 from . import menu_style
 
 from . import command_helper as ch
@@ -341,13 +342,15 @@ def build_shell(app, colors):
     tool_icons.label(search, "commands", c["SECONDARY"], c["INPUT"], size=18).pack(
         side="left", padx=(7, 4))
     app.compact_query = tk.StringVar()
-    entry = tk.Entry(search, textvariable=app.compact_query, font=("Segoe UI", 8),
+    entry = native_inputs.Entry(search, textvariable=app.compact_query, font=("Segoe UI", 8),
                      bg=c["INPUT"], fg=c["WHITE"], insertbackground=c["WHITE"],
                      relief="flat", bd=0, highlightthickness=0)
     entry.pack(side="left", fill="both", expand=True)
     app.compact_search_entry = entry
     app.compact_placeholder = "Search tools, notes, commands..."
     entry.insert(0, app.compact_placeholder)
+    if hasattr(entry, "set_native_placeholder"):
+        entry.set_native_placeholder(app.compact_placeholder)
     app.compact_placeholder_active = True
     def enter_focus(_event=None):
         if app.compact_placeholder_active:
@@ -359,6 +362,8 @@ def build_shell(app, colors):
             entry.insert(0, app.compact_placeholder)
     entry.bind("<FocusIn>", enter_focus)
     entry.bind("<FocusOut>", leave_focus)
+    if hasattr(entry, "set_native_placeholder"):
+        entry.set_native_placeholder(app.compact_placeholder, on_focus=enter_focus)
     hint = _label(search, "Ctrl+K", bg=c["CARD"], fg=c["MUTED"],
                   size=7, padx=4, pady=2, cursor="hand2")
     hint.pack(side="right", padx=(3, 5))

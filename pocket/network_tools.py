@@ -255,6 +255,60 @@ def normalize_mac(text: str) -> str:
     raise ValueError("Invalid EUI-48 MAC address")
 
 
+
+# Match complete MAC-shaped tokens, not arbitrary words from CLI output.
+# The stricter normalizer below still rejects mixed separators/non-hex data.
+_MAC_CANDIDATE = re.compile(
+    r"(?<![A-Za-z0-9:._/-])"
+    r"((?:[A-Za-z0-9]{2}[:-]){5}[A-Za-z0-9]{2}|"
+    r"(?:[A-Za-z0-9]{4}\.){2}[A-Za-z0-9]{4}|"
+    r"[0-9A-Fa-f]{12})"
+    r"(?![A-Za-z0-9:._/-])"
+)
+MAX_MAC_INPUT_CHARS = 2_000_000
+
+
+def parse_mac_input(raw_text: str, *, limit: int = MAX_MAC_BATCH) -> dict:
+    """Extract only complete EUI-48 addresses from pasted MACs or CLI tables.
+
+    Ignore headers, VLANs, interface names, IPv4/IPv6 addresses, port numbers
+    and other output. Deduplicate in first-seen order. Invalid *MAC-shaped*
+    tokens are counted but never looked up or uploaded. Limit applies to
+    unique valid MACs, not unrelated pasted words or repeated MACs.
+    """
+    if not isinstance(raw_text, str):
+        raise ValueError("Paste MAC addresses or a device MAC table.")
+    if len(raw_text) > MAX_MAC_INPUT_CHARS:
+        raise ValueError("MAC table output is too large; paste a smaller selection.")
+    if not isinstance(limit, int) or limit < 1:
+        raise ValueError("MAC batch limit must be positive.")
+    seen, macs = set(), []
+    duplicates = invalid = 0
+    for match in _MAC_CANDIDATE.finditer(raw_text):
+        token = match.group(1)
+        try:
+            key = normalize_mac(token)
+        except ValueError:
+            invalid += 1
+            continue
+        if key in seen:
+            duplicates += 1
+            continue
+        if len(macs) >= limit:
+            raise ValueError(f"Found more than {limit:,} unique MAC addresses; narrow the input.")
+        seen.add(key)
+        macs.append(":".join(key[i:i + 2] for i in range(0, 12, 2)))
+    if not macs:
+        raise ValueError("No valid MAC addresses found. IP addresses, port numbers and CLI text are ignored.")
+    return {"macs": macs, "duplicates": duplicates, "invalid": invalid}
+
+
+def port_result_sort_key(row: dict) -> tuple[int, int]:
+    """Keep OPEN at the top, followed by CLOSED then TIMEOUT, by port number."""
+    rank = {"OPEN": 0, "CLOSED": 1, "TIMEOUT": 2}
+    return (rank.get(row.get("status"), 3), int(row.get("port", 0)))
+
+
 def mac_lookup(raw: str, vendors: dict) -> dict:
     try:
         normalized = normalize_mac(raw)
@@ -276,12 +330,9 @@ def mac_lookup(raw: str, vendors: dict) -> dict:
 
 
 def batch_lookup(raw_text: str, vendors: dict, limit=MAX_MAC_BATCH):
-    candidates = [x.strip() for x in re.split(r"[,;\s]+", raw_text.strip()) if x.strip()]
-    if not candidates:
-        raise ValueError("Paste at least one MAC address.")
-    if len(candidates) > limit:
-        raise ValueError(f"Paste at most {limit:,} MAC addresses per batch.")
-    return [mac_lookup(candidate, vendors) for candidate in candidates]
+    """Lookup complete, unique MACs only; never treat CLI column text as MACs."""
+    parsed = parse_mac_input(raw_text, limit=limit)
+    return [mac_lookup(mac, vendors) for mac in parsed["macs"]]
 
 
 def export_csv(path: Path, columns: list[str], results: list[dict]):

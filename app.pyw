@@ -3164,7 +3164,7 @@ class PocketDesk:
                                                    font=(FONT, 9), anchor="w",
                                                    justify="left", wraplength=286)
         self.command_description_label.pack(fill="x", padx=9, pady=(2, 5))
-        self.command_code = tk.Text(details, wrap="word", height=4, font=("Consolas", 9),
+        self.command_code = native_inputs.Text(details, wrap="word", height=4, font=("Consolas", 9),
                                      bg=INPUT, fg="#D3E4FF", insertbackground=ACCENT,
                                      highlightthickness=1, highlightbackground=BORDER,
                                      bd=0, padx=6, pady=6, undo=True)
@@ -3317,7 +3317,7 @@ class PocketDesk:
         self.command_description_label.pack(fill='x', padx=11, pady=(2, 4))
         tk.Label(details, text='EDIT BEFORE COPYING  ·  CHANGES HERE ARE TEMPORARY',
                  fg=MUTED, bg=PANEL, font=(FONT, 7, 'bold'), anchor='w').pack(fill='x', padx=11, pady=(1, 4))
-        self.command_code = tk.Text(details, height=6, wrap='word', undo=True, bg=INPUT, fg='#D3E4FF',
+        self.command_code = native_inputs.Text(details, height=6, wrap='word', undo=True, bg=INPUT, fg='#D3E4FF',
                                     font=('Consolas', 9), bd=0, padx=9, pady=5,
                                     highlightthickness=1, highlightbackground=BORDER)
         self.command_code.pack(fill='x', padx=11)
@@ -3764,7 +3764,7 @@ class PocketDesk:
                                        values=ch.categories_for(self.command_library, device.get()) or ['Custom'])
         category_picker.pack(fill='x', ipady=3)
         labelled('COMMAND  (multiline allowed)')
-        command_box = tk.Text(pane, wrap='word', height=4, undo=True, bg=INPUT, fg=WHITE,
+        command_box = native_inputs.Text(pane, wrap='word', height=4, undo=True, bg=INPUT, fg=WHITE,
                               font=('Consolas', 10), insertbackground=ACCENT, bd=0,
                               highlightbackground=BORDER, highlightthickness=1, padx=8, pady=7)
         command_box.pack(fill='both', expand=True)

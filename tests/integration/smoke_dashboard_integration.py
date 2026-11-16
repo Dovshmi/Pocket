@@ -829,7 +829,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.root.update()
                     check(not app.scanning, f"{mode}: favorites started a scan")
                 if page == "settings":
-                    check(app._convert_hotkey_hint().startswith("Ctrl+Alt+F9"),
+                    check(app._convert_hotkey_hint().startswith("Ctrl+Alt+V"),
                           f"{mode}: converter shortcut was not restored")
                     labels = [str(widget.cget("text")) for widget in widgets(app.body)
                               if isinstance(widget, tk.Label) and "text" in widget.keys()]

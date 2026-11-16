@@ -27,15 +27,15 @@ class PreferenceTests(unittest.TestCase):
     def test_default_proxy_on_and_clipboard_mode(self):
         defaults = appmod["default_data"]()["settings"]
         self.assertIs(defaults["use_windows_proxy"], True)
-        self.assertEqual(defaults["convert_mode"], "clipboard")
+        self.assertEqual(defaults["convert_mode"], "mark")
         normalized = appmod["normalize_settings"]({})
         self.assertIs(normalized["use_windows_proxy"], True)
-        self.assertEqual(normalized["convert_mode"], "clipboard")
+        self.assertEqual(normalized["convert_mode"], "mark")
         self.assertIs(appmod["normalize_settings"]({"use_windows_proxy": False})
                       ["use_windows_proxy"], False)
         for invalid in (None, 42, "MARK", True, {}):
             self.assertEqual(appmod["normalize_settings"](
-                {"convert_mode": invalid})["convert_mode"], "clipboard")
+                {"convert_mode": invalid})["convert_mode"], "mark")
         self.assertEqual(appmod["normalize_settings"](
             {"convert_mode": "mark"})["convert_mode"], "mark")
 

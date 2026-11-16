@@ -268,7 +268,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                             break
                         time.sleep(.035)
                     check(not app._command_placeholder_active and search.get() == "",
-                          f"{mode}: CLI search placeholder was not cleared on focus")
+                          f"{mode}: CLI search placeholder was not cleared on focus "
+                          f"(flag={app._command_placeholder_active}, var={app.command_query.get()!r}, "
+                          f"native={search.get()!r}, focused={search.has_native_focus()}, "
+                          f"tk_focus={app.root.focus_get()!s})")
                     for char in "ping":
                         search._send(0x0102, ord(char), 1)  # WM_CHAR from native keyboard
                     for _ in range(12):

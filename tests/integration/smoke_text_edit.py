@@ -49,6 +49,23 @@ def main():
         trigger(root, editor, "<Control-c>")
         check(root.clipboard_get() == "Two lines\nOf editable notes",
               "Text Control+C must copy multiline data")
+        trigger(root, editor, "<Control-x>")
+        check(editor.get("1.0", "end-1c") == "", "Text Control+X must cut")
+        trigger(root, editor, "<Control-z>")
+        check(editor.get("1.0", "end-1c") == "Two lines\nOf editable notes",
+              "Text Control+Z must undo cut")
+        trigger(root, editor, "<Control-Shift-Z>")
+        check(editor.get("1.0", "end-1c") == "",
+              "Text Ctrl+Shift+Z must redo cut")
+        trigger(root, editor, "<Control-v>")
+        check(editor.get("1.0", "end-1c") == "Two lines\nOf editable notes",
+              "Text Control+V must paste")
+        trigger(root, editor, "<Control-z>")
+        check(editor.get("1.0", "end-1c") == "",
+              "Text Control+Z must undo paste")
+        trigger(root, editor, "<Control-y>")
+        check(editor.get("1.0", "end-1c") == "Two lines\nOf editable notes",
+              "Text Control+Y must redo paste")
 
         entry.event_generate("<Button-3>", x=8, y=8, when="tail")
         root.update()
@@ -65,7 +82,7 @@ def main():
         editor.event_generate("<Button-3>", x=8, y=8, when="tail")
         root.update()
         check(len(menus) == before, "Existing Text right-click menu must be preserved")
-        print("PASS: Tk Entry and Text Ctrl+A/C/X/V, menu and existing context bindings")
+        print("PASS: real Tk Ctrl+A/C/X/V/Z/Y/Shift+Z, menu and widget binding precedence")
     finally:
         root.destroy()
 

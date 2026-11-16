@@ -349,6 +349,8 @@ def build_shell(app, colors):
     app.compact_search_entry = entry
     app.compact_placeholder = "Search tools, notes, commands..."
     entry.insert(0, app.compact_placeholder)
+    if hasattr(entry, "set_native_placeholder"):
+        entry.set_native_placeholder(app.compact_placeholder)
     app.compact_placeholder_active = True
     def enter_focus(_event=None):
         if app.compact_placeholder_active:

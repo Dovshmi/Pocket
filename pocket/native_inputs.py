@@ -82,6 +82,8 @@ class _NativeMixin:
         self._native_font = None
         self._native_parent_proc = None
         self._native_child_proc = None
+        self._native_parent_subclassed = False
+        self._native_child_subclassed = False
 
         if not IS_WINDOWS:
             return
@@ -111,8 +113,8 @@ class _NativeMixin:
             if not self._native_hwnd:
                 raise ctypes.WinError(ctypes.get_last_error())
 
-            self._native_parent_proc = CALLBACK_TYPE(self._parent_message)
-            self._native_child_proc = CALLBACK_TYPE(self._child_message)
+            self._native_parent_proc = self._PROC(self._parent_message)
+            self._native_child_proc = self._PROC(self._child_message)
             if not self._cc.SetWindowSubclass(
                     ctypes.c_void_p(self.winfo_id()),
                     self._native_parent_proc, 202, 0):

@@ -186,6 +186,8 @@ def build(app):
     app.command_code.bind("<Control-a>", app._command_select_all)
     app.command_code.bind("<Control-Return>",
                           lambda _event: (app._copy_command(), "break")[1])
+    if hasattr(app.command_code, "set_native_ctrl_return_callback"):
+        app.command_code.set_native_ctrl_return_callback(app._copy_command)
 
     app._build_template_actions(details, mini=False)
 

@@ -90,6 +90,8 @@ class WindowsMarkBackend:
         self.ole.OleGetClipboard.restype = ctypes.c_long
         self.ole.OleSetClipboard.argtypes = [ctypes.c_void_p]
         self.ole.OleSetClipboard.restype = ctypes.c_long
+        self.ole.OleFlushClipboard.argtypes = []
+        self.ole.OleFlushClipboard.restype = ctypes.c_long
 
     def foreground(self):
         return self.user.GetForegroundWindow()
@@ -121,6 +123,10 @@ class WindowsMarkBackend:
                 def restore():
                     if self.ole.OleSetClipboard(original) != 0:
                         raise MarkError("Could not restore the original clipboard.")
+                    # Make the restored multi-format data independent of this
+                    # worker's short-lived COM apartment before it exits.
+                    if self.ole.OleFlushClipboard() != 0:
+                        raise MarkError("Windows could not finalize clipboard restoration.")
                 yield restore
             finally:
                 # Release the IDataObject reference returned by OleGetClipboard.

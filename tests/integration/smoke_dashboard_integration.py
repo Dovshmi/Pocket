@@ -252,6 +252,34 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Mini TCP input must reflect factory ports")
                     check(app.port_source.get() == "local",
                           "Default port source must remain local")
+                if page == "commands" and sys.platform == "win32":
+                    # The old Win32 overlay left the placeholder inside the
+                    # actual edit control even after focus. Test in Pocket,
+                    # not only in a standalone Tk host window.
+                    search = app.command_search_entry
+                    check(bool(getattr(search, "native_hwnd", None)),
+                          f"{mode}: CLI search has no native Windows edit")
+                    search.focus_force()
+                    import time
+                    for _ in range(12):
+                        app.root.update()
+                        if (not app._command_placeholder_active and
+                                search.get() == ""):
+                            break
+                        time.sleep(.035)
+                    check(not app._command_placeholder_active and search.get() == "",
+                          f"{mode}: CLI search placeholder was not cleared on focus")
+                    for char in "ping":
+                        search._send(0x0102, ord(char), 1)  # WM_CHAR from native keyboard
+                    for _ in range(12):
+                        app.root.update()
+                        if app.command_query.get() == "ping":
+                            break
+                        time.sleep(.035)
+                    check(app.command_query.get() == "ping",
+                          f"{mode}: typed native CLI search not synchronized")
+                    search.delete(0, tk.END)
+                    app._command_focus_out()
                 if page == "notes" and sys.platform == "win32":
                     # A Win32 child posts WM_CONTEXTMENU. Confirm the real
                     # Pocket popup (not Windows' long white default) appears.

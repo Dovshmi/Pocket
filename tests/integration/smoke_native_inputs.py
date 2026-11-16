@@ -101,6 +101,16 @@ def run():
             root.update()
             require(mac.get("1.0", "end-1c") == payload,
                     "Tk Text insert must update Win32 RichEdit")
+            # RichEdit requires a CHARFORMAT color; WM_CTLCOLOREDIT alone
+            # produces the black-on-dark text regression reported in Pocket.
+            from pocket.native_bidi import CHARFORMATW
+            fmt = CHARFORMATW()
+            fmt.cbSize = ctypes.sizeof(fmt)
+            mac._send(0x043A, 0, ctypes.addressof(fmt))  # EM_GETCHARFORMAT
+            require(fmt.crTextColor == mac._native_fg,
+                    "Native RichEdit must display Pocket's configured text color")
+            face, px, weight = title._native_font_metrics()
+            require(px <= 18 and face, "Native font must remain compact at 100% DPI")
             native_clip = "200 AA:BB:CC:DD:EE:FF 1/1/5"
             root.clipboard_clear()
             root.clipboard_append(native_clip)
@@ -140,6 +150,46 @@ def run():
             require(mac.get("1.0", "end-1c") == long_table,
                     "Native RichEdit must not truncate full CLI tables over 64 KiB")
 
+            # A Windows child must never use its stock white popup menu.
+            # WM_CONTEXTMENU is marshalled to the Tk widget's Pocket handler.
+            posted = []
+            phone.bind("<Button-3>", lambda event: posted.append(
+                (event.x_root, event.y_root)))
+            px, py = phone.winfo_rootx() + 9, phone.winfo_rooty() + 8
+            lp = ((py & 0xffff) << 16) | (px & 0xffff)
+            phone._send(native_inputs.WM_CONTEXTMENU, phone.native_hwnd, lp)
+            import time
+            time.sleep(0.08)
+            root.update()
+            require(bool(posted), "Native right-click must invoke Pocket menu event")
+            require(abs(posted[0][0] - px) <= 2,
+                    "Context menu must preserve screen position")
+            root.clipboard_clear()
+            root.clipboard_append("111")
+            phone.native_action("paste")
+            require(phone.get() == "111", "Pocket Paste must edit native field")
+            phone.native_action("select_all")
+            require(phone.native_has_selection(), "Pocket Select All must use HWND")
+            phone.native_action("copy")
+            require(root.clipboard_get() == "111", "Pocket Copy must use HWND")
+            phone.native_action("cut")
+            require(phone.get() == "", "Pocket Cut must use HWND")
+            phone.native_action("undo")
+            require(phone.get() == "111", "Pocket Undo must use HWND")
+
+            hint = tk.StringVar(value="Search CLI / חיפוש פקודה")
+            search = native_inputs.Entry(root, textvariable=hint,
+                                         bg="#161923", fg="#737C90",
+                                         font=("Segoe UI", 9))
+            search.pack(fill="x")
+            search.set_native_placeholder("Search CLI / חיפוש פקודה")
+            search.bind("<FocusIn>", lambda _ev: hint.set(""))
+            root.update()
+            search.focus_force()
+            time.sleep(0.08)
+            root.update()
+            require(hint.get() == "" and search.get() == "",
+                    "Search hint must vanish on native keyboard focus")
             phone.focus_force()
             root.update()
             require(phone.has_native_focus() and not mac.has_native_focus(),

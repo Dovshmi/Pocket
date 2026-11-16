@@ -289,22 +289,29 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     import time
                     px, py = field.winfo_rootx() + 10, field.winfo_rooty() + 9
                     lp = ((py & 0xffff) << 16) | (px & 0xffff)
+                    observed = []
+                    def inspect_menu():
+                        custom = getattr(app, "_input_context_menu", None)
+                        if custom is not None and custom.winfo_exists():
+                            observed.append(menu_labels(custom))
+                            capture(app, output, mode + "_native_input_menu")
+                        else:
+                            observed.append([])
+                        # tk_popup can run a native modal Windows menu loop.
+                        # Close from within Tcl's scheduled callback to avoid
+                        # leaving the automated UI smoke waiting for a click.
+                        app._dismiss_input_context_menu()
+                    app.root.after(300, inspect_menu)
                     field._send(0x007B, field.native_hwnd, lp)
-                    for _ in range(10):
-                        app.root.update()
-                        if getattr(app, "_input_context_menu", None) is not None:
+                    app.root.update()
+                    for _ in range(15):
+                        if observed:
                             break
                         time.sleep(.035)
-                    custom_menu = getattr(app, "_input_context_menu", None)
-                    check(custom_menu is not None and custom_menu.winfo_exists(),
-                          f"{mode}: Windows right click failed to open Pocket context menu")
-                    labels = menu_labels(custom_menu)
-                    check(all(v in labels for v in (
+                        app.root.update()
+                    check(observed and all(v in observed[0] for v in (
                         "Undo", "Redo", "Cut", "Copy", "Paste", "Select all")),
-                        f"{mode}: Pocket input context actions missing: {labels}")
-                    capture(app, output, mode + "_native_input_menu")
-                    app._dismiss_input_context_menu()
-                    app.root.update()
+                        f"{mode}: native right click did not show Pocket menu: {observed}")
                 if page == "notes":
                     # Windows RichEdit is an HWND distinct from Tk's Entry
                     # controls. Explicitly exercise the reported Mini failure:

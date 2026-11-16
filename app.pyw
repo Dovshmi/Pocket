@@ -3125,7 +3125,7 @@ class PocketDesk:
         chosen = prefs.get("machine")
         self.machine_var = tk.StringVar(value=chosen if chosen in names else ch.ALL_MACHINES)
         # Keep the original readonly dropdowns and their full option lists.
-        # Category fills the left half, machine the right half; no new row is
+        # Machine fills the left half, category the right half; no new row is
         # added to Mini and the search stays a full-width field below them.
         pickers = tk.Frame(self.body, bg=BG)
         pickers.pack(fill="x", pady=(0, 7))
@@ -3134,7 +3134,7 @@ class PocketDesk:
         self.machine_picker = ttk.Combobox(
             pickers, style="Pocket.TCombobox", values=names,
             textvariable=self.machine_var, state="readonly", font=(FONT, 9), width=12)
-        self.machine_picker.grid(row=0, column=1, sticky="ew", padx=(4, 0))
+        self.machine_picker.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.machine_picker.bind("<<ComboboxSelected>>", self._change_machine)
         picker_typeahead.install(self.machine_picker)
         self._protect_command_picker(self.machine_picker)
@@ -3144,7 +3144,7 @@ class PocketDesk:
             state="readonly", values=[ch.ALL_CATEGORIES] +
             ch.categories_for(self.command_library, self.machine_var.get()),
             font=(FONT, 9), width=12)
-        self.command_category_picker.grid(row=0, column=0, sticky="ew", padx=(0, 4))
+        self.command_category_picker.grid(row=0, column=1, sticky="ew", padx=(4, 0))
         self.command_category_picker.bind("<<ComboboxSelected>>",
                                           lambda _e: self._refresh_command_results())
         picker_typeahead.install(self.command_category_picker)

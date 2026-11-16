@@ -99,6 +99,7 @@ class _NativeMixin:
         self._native_font_key = None
         self._native_pending_focus = None
         self._native_menu_requested = False
+        self._native_placeholder = None
 
         if not IS_WINDOWS:
             return
@@ -229,6 +230,11 @@ class _NativeMixin:
             return 0
         if msg == WM_SETFOCUS:
             self._native_pending_focus = True
+            # Clear placeholder inside the native control before the first
+            # keystroke. The deferred Tk FocusIn callback may come too late.
+            if (self._native_placeholder is not None
+                    and self._read_native() == self._native_placeholder):
+                self._write_native("")
         elif msg == WM_KILLFOCUS:
             self._native_pending_focus = False
         if msg == WM_KEYDOWN and self._u.GetKeyState(VK_CONTROL) & 0x8000:
@@ -295,6 +301,10 @@ class _NativeMixin:
         fmt.dwMask = CFM_COLOR
         fmt.crTextColor = self._native_fg
         self._send(EM_SETCHARFORMAT, SCF_ALL, ctypes.addressof(fmt))
+
+    def set_native_placeholder(self, text):
+        """Register an app-provided search hint for immediate native clearing."""
+        self._native_placeholder = str(text) if text is not None else None
 
     def native_has_selection(self):
         if not self._native_active:

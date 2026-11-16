@@ -833,8 +833,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: converter shortcut was not restored")
                     labels = [str(widget.cget("text")) for widget in widgets(app.body)
                               if isinstance(widget, tk.Label) and "text" in widget.keys()]
-                    check(any("Fix EN / HE keyboard layout" in t or
-                              "FIX KEYBOARD LAYOUT" in t for t in labels),
+                    check(any("Enable Translate shortcut" in t or
+                              "Translate keyboard shortcut" in t for t in labels),
                           f"{mode}: converter hotkey is missing from Settings")
                     # All working modes share the modern selection, palette
                     # and keyboard-accessible switch components.
@@ -842,12 +842,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     required = {"mode_normal", "mode_mini", "mode_dashboard",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
-                                "quick_search", "clipboard_paused",
-                                "sensitive_filter"}
+                                "convert_enabled", "convert_mode_mark",
+                                "convert_mode_clipboard", "quick_search",
+                                "clipboard_paused", "sensitive_filter"}
                     required.update("tool_" + key
                                     for key, _ in app.VISIBLE_TABS_REFERENCE)
                     required.update("image_limit_" + str(value)
                                     for value in (10, 15, 20, 25, 30))
+                    required.update("clipboard_days_" + str(value)
+                                    for value in (1, 2, 3, 4, 5))
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
                     check(all(isinstance(common[key], tk.Checkbutton) and

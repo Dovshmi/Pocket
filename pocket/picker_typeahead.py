@@ -89,7 +89,32 @@ def install(widget, *, time_source=time.monotonic):
         return "break"
 
     widget.bind("<KeyPress>", on_key, add="+")
-    # Keeping a reference also allows integration tests to exercise a precise
-    # keyboard sequence without relying on the native focus manager.
+    # A posted ttk Combobox moves keyboard focus to the *internal Listbox*,
+    # not to the Combobox. Bind that exact listbox too so typing works with
+    # the dropdown open. This does not replace the popup or filter its items.
+    try:
+        popdown = widget.tk.call("ttk::combobox::PopdownWindow", str(widget))
+        listing = str(popdown) + ".f.l"
+
+        def on_popup_key(event):
+            outcome = on_key(event)
+            if outcome == "break":
+                try:
+                    index = widget.current()
+                    if index >= 0:
+                        widget.tk.call(listing, "selection", "clear", 0, "end")
+                        widget.tk.call(listing, "selection", "set", index)
+                        widget.tk.call(listing, "activate", index)
+                        widget.tk.call(listing, "see", index)
+                except Exception:
+                    # The popup may have been closed by the selection handler.
+                    pass
+            return outcome
+
+        widget._bind(("bind", listing), "<KeyPress>", on_popup_key, add="+")
+        widget._pocket_typeahead_popdown = listing
+    except (AttributeError, RuntimeError):
+        pass  # Fake widgets and unusual Tk builds retain closed-picker search.
+    # Keeping a reference also allows deterministic integration checks.
     widget._pocket_typeahead = on_key
     return widget

@@ -65,6 +65,9 @@ def build(app):
     app._command_placeholder = "Search command, purpose, interface, IP..."
     app._command_placeholder_active = True
     app.command_search_entry.insert(0, app._command_placeholder)
+    if hasattr(app.command_search_entry, "set_native_placeholder"):
+        app.command_search_entry.set_native_placeholder(
+            app._command_placeholder, on_focus=app._command_focus_in)
     app.command_search_entry.bind("<FocusIn>", app._command_focus_in)
     app.command_search_entry.bind("<FocusOut>", app._command_focus_out)
     app.command_search_entry.grid(row=1, column=0, sticky="ew", ipady=8, padx=(0, 10))

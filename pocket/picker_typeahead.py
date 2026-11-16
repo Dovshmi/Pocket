@@ -1,7 +1,9 @@
-"""Incremental keyboard navigation for Pocket's existing read-only dropdowns.
+"""Incremental keyboard navigation for Pocket's existing readonly dropdowns.
 
-No changes to the Combobox state, popup, values, or visual appearance.
-Typing selects an existing item instead of filtering or replacing the list.
+Do not filter or replace their option lists. A posted ttk Combobox moves
+keyboard focus into an internal Listbox: only *highlight* the matching row
+while the popup is open. The stock Enter/click binding commits the choice,
+keeping the list open and the user's multi-letter typing uninterrupted.
 """
 from __future__ import annotations
 
@@ -14,8 +16,7 @@ TYPEAHEAD_TIMEOUT = 1.15
 def find_match(values, query, *, selected=-1, cycle=False):
     """Prefer case-insensitive prefix matches, then substring matches.
 
-    Notes use the existing visible pinned-star marker. It is ignored for
-    searching, but remains visible in the normal dropdown.
+    Notes keep their visual pinned-star marker; it is ignored for searching.
     """
     needle = str(query).strip().casefold()
     if not needle:
@@ -31,35 +32,100 @@ def find_match(values, query, *, selected=-1, cycle=False):
     return -1
 
 
-def install(widget, *, time_source=time.monotonic):
-    """Add type-to-jump to a ttk.Combobox, leaving readonly/dropdown intact.
+def _character(event):
+    """Allow native Tk Unicode events and simple keysym-only fallbacks."""
+    char = getattr(event, "char", "")
+    if not char:
+        key = str(getattr(event, "keysym", ""))
+        if len(key) == 1:
+            char = key
+    if len(char) != 1 or not char.isprintable() or char in "\r\n\t":
+        return ""
+    return char
 
-    Does not create a search field and does not change available options.
-    Existing <<ComboboxSelected>> handlers perform the normal selection flow.
+
+def install(widget, *, time_source=time.monotonic):
+    """Add non-destructive type-to-jump to a ttk.Combobox.
+
+    The entry remains readonly and its full options remain intact. When the
+    dropdown is open, typeahead moves only the visible Listbox highlight and
+    scrolls to it. Enter or clicking an item uses Tk's existing selection
+    bindings and triggers Pocket's usual <<ComboboxSelected>> handler.
     """
     typed = ""
     last_key = None
     last_at = -float("inf")
+    listing = None
+
+    # The Tcl popdown is created on demand; ensure it exists at install time.
+    # On non-Aqua systems its listbox path is the same on Windows and Linux.
+    try:
+        popdown = widget.tk.call("ttk::combobox::PopdownWindow", str(widget))
+        candidate = str(popdown) + ".f.l"
+        if widget.tk.call("winfo", "exists", candidate):
+            listing = candidate
+    except (AttributeError, RuntimeError, tk.TclError):
+        pass
+
+    def popup_open():
+        if not listing:
+            return False
+        try:
+            return bool(int(widget.tk.call("winfo", "ismapped", listing)))
+        except (ValueError, RuntimeError, tk.TclError):
+            return False
+
+    def popup_selection():
+        if not listing:
+            return widget.current()
+        try:
+            indices = widget.tk.splitlist(widget.tk.call(listing, "curselection"))
+            return int(indices[0]) if indices else widget.current()
+        except (ValueError, RuntimeError, tk.TclError):
+            return widget.current()
+
+    def highlight(index):
+        if not listing:
+            return False
+        try:
+            widget.tk.call(listing, "selection", "clear", 0, "end")
+            widget.tk.call(listing, "selection", "set", index)
+            widget.tk.call(listing, "activate", index)
+            widget.tk.call(listing, "see", index)
+        except (ValueError, RuntimeError, tk.TclError):
+            return False
+        return True
 
     def on_key(event):
         nonlocal typed, last_key, last_at
-        # Ctrl+letters and AltGr remain available to the system, and normal
-        # combobox arrows, Return, Tab and Escape retain their default behavior.
+        # AltGr sends Ctrl+Alt on Windows. Do not commandeer accelerators.
         if getattr(event, "state", 0) & 0x000C:
             return None
-        key = getattr(event, "keysym", "")
-        if key == "Escape":
-            typed = ""
-            last_key = None
+        key = str(getattr(event, "keysym", ""))
+        if key in ("Escape", "Return", "Tab", "Up", "Down", "Left", "Right"):
+            if key == "Escape":
+                typed = ""
+                last_key = None
             return None
         if key == "BackSpace":
             if typed:
                 typed = typed[:-1]
                 last_at = time_source()
+                if typed:
+                    values = widget["values"]
+                    if isinstance(values, str):
+                        values = widget.tk.splitlist(values)
+                    match = find_match(values, typed)
+                    if match >= 0:
+                        if popup_open():
+                            highlight(match)
+                        elif match != widget.current():
+                            widget.current(match)
+                            widget.event_generate("<<ComboboxSelected>>")
                 return "break"
             return None
-        char = getattr(event, "char", "")
-        if not char or not char.isprintable() or char in "\r\n\t":
+        char = _character(event)
+        if not char:
             return None
 
         now = time_source()
@@ -69,53 +135,39 @@ def install(widget, *, time_source=time.monotonic):
         values = widget["values"]
         if isinstance(values, str):
             values = widget.tk.splitlist(values)
-        selected = widget.current()
-        tentative = typed + char
-        # Repeating a character steps through other values beginning with
-        # that character rather than searching for "jjj".
+        opened = popup_open()
+        selected = popup_selection() if opened else widget.current()
         repeated = typed == char and char == last_key
-        if repeated:
+        tentative = char if repeated else typed + char
+        match = find_match(values, tentative, selected=selected, cycle=repeated)
+        if match < 0:
             tentative = char
-        candidate = find_match(
-            values, tentative, selected=selected, cycle=repeated)
-        if candidate < 0:
-            tentative = char
-            candidate = find_match(values, tentative, selected=selected)
+            match = find_match(values, tentative, selected=selected)
         typed = tentative
         last_key = char
         last_at = now
-        if candidate >= 0 and candidate != selected:
-            widget.current(candidate)
-            widget.event_generate("<<ComboboxSelected>>")
+        if match >= 0:
+            if opened:
+                # Crucial: never call current() or generate ComboboxSelected
+                # while the popdown is posted. Doing so changes Notes/Commands
+                # and steals popup focus before the rest of the name is typed.
+                highlight(match)
+            elif match != selected:
+                widget.current(match)
+                widget.event_generate("<<ComboboxSelected>>")
         return "break"
 
+    # The main widget receives keys while the dropdown is closed.
     widget.bind("<KeyPress>", on_key, add="+")
-    # A posted ttk Combobox moves keyboard focus to the *internal Listbox*,
-    # not to the Combobox. Bind that exact listbox too so typing works with
-    # the dropdown open. This does not replace the popup or filter its items.
-    try:
-        popdown = widget.tk.call("ttk::combobox::PopdownWindow", str(widget))
-        listing = str(popdown) + ".f.l"
+    if listing:
+        # When posted, keyboard focus belongs to the Tcl Listbox. Bind to its
+        # widget tag, first in its native bindtags; Return/click continue to
+        # execute the original ComboboxListbox class selection binding.
+        try:
+            widget._bind(("bind", listing), "<KeyPress>", on_key, add="+")
+            widget._pocket_typeahead_popdown = listing
+        except (AttributeError, RuntimeError, tk.TclError):
+            pass
 
-        def on_popup_key(event):
-            outcome = on_key(event)
-            if outcome == "break":
-                try:
-                    index = widget.current()
-                    if index >= 0:
-                        widget.tk.call(listing, "selection", "clear", 0, "end")
-                        widget.tk.call(listing, "selection", "set", index)
-                        widget.tk.call(listing, "activate", index)
-                        widget.tk.call(listing, "see", index)
-                except Exception:
-                    # The popup may have been closed by the selection handler.
-                    pass
-            return outcome
-
-        widget._bind(("bind", listing), "<KeyPress>", on_popup_key, add="+")
-        widget._pocket_typeahead_popdown = listing
-    except (AttributeError, RuntimeError, tk.TclError):
-        pass  # Fake widgets and unusual Tk builds retain closed-picker search.
-    # Keeping a reference also allows deterministic integration checks.
     widget._pocket_typeahead = on_key
     return widget

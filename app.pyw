@@ -413,6 +413,8 @@ class PocketDesk:
         self.tray = None
         self._save_job = None
         self._loading_note = False
+        self._title_job = None  # Debounce Title/file renames while typing.
+        self._title_job_note_id = None
         self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
         self._bidi_editor_active = False
         self._note_focus_pending = None
@@ -1788,6 +1790,7 @@ class PocketDesk:
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
         self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
+        self.title_entry.bind("<FocusOut>", lambda _event: self._commit_note_title(), add="+")
         self.title_var.trace_add("write", self._change_note_title)
         phone_row = tk.Frame(details, bg=PANEL)
         phone_row.pack(fill="x", padx=8, pady=(0, 4))
@@ -1921,6 +1924,7 @@ class PocketDesk:
                                     relief="flat", font=(FONT, 11, "bold"))
         self.title_entry.pack(fill="x", padx=12, ipady=6 if self.display_mode == "normal" else 9)
         self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
+        self.title_entry.bind("<FocusOut>", lambda _event: self._commit_note_title(), add="+")
         self.title_var.trace_add("write", self._change_note_title)
 
         phone_row = tk.Frame(details, bg=PANEL)
@@ -1991,6 +1995,7 @@ class PocketDesk:
         """
         if self._loading_note or self.current_tab != "notes":
             return
+        self._commit_note_title()
         note = self.active_note()
         if note is None or not hasattr(self, "note_body") or not self.note_body.winfo_exists():
             return
@@ -2278,6 +2283,7 @@ class PocketDesk:
             if note["id"] == note_id:
                 copy = duplicate_note(note)
                 self.data["notes"].insert(index + 1, copy)
+                copy["title"] = self._unique_note_path(copy, copy["title"]).stem
                 self.data["active_note"] = copy["id"]
                 self.refresh_note_list()
                 self._load_selected_note()
@@ -2305,6 +2311,86 @@ class PocketDesk:
         self._load_selected_note()
         self.schedule_save()
 
+    def _unique_note_path(self, note, title):
+        """Reserve other Notes' titles and working files, even before export."""
+        reserved = set()
+        for other in self.data["notes"]:
+            if other["id"] == note["id"]:
+                continue
+            reserved.add(note_sync._safe_title_stem(other.get("title", "")) + ".txt")
+            filename = other.get("notepad_filename")
+            if note_sync._valid_saved_filename(filename):
+                reserved.add(filename)
+        folder = self.path.parent / "notepad"
+        session = self._notepad_sessions.get(note["id"])
+        owned = (session["path"].name if session is not None else
+                 note.get("notepad_filename"))
+        return note_sync.unique_note_path(
+            folder, title, reserved_names=reserved, own_filename=owned)
+
+    def _commit_note_title(self, note_id=None):
+        """Finalize a Title edit and rename its existing Notepad file together.
+
+        Called after typing settles, on focus loss and before switching Notes.
+        Never rename on each keystroke or silently overwrite a neighboring Note.
+        """
+        note_id = note_id or self.data["active_note"]
+        if getattr(self, "_title_job", None) is not None and (
+                getattr(self, "_title_job_note_id", None) == note_id):
+            self.root.after_cancel(self._title_job)
+            self._title_job = None
+            self._title_job_note_id = None
+        note = next((item for item in self.data["notes"]
+                     if item["id"] == note_id), None)
+        if note is None:
+            return
+        session = self._notepad_sessions.get(note_id)
+        folder = self.path.parent / "notepad"
+        old_name = (session["path"].name if session is not None else
+                    note.get("notepad_filename"))
+        old_path = (folder / old_name if note_sync._valid_saved_filename(old_name)
+                    else None)
+        target = self._unique_note_path(note, note["title"])
+        if old_path is not None and old_path != target and old_path.is_file():
+            try:
+                note_sync.rename_text_file(old_path, target)
+            except OSError as exc:
+                # A running Notepad may lock its file. Keep the original name
+                # and Title aligned instead of pretending the rename succeeded.
+                note["title"] = old_path.stem
+                if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                    self._loading_note = True
+                    try:
+                        self.title_var.set(note["title"])
+                    finally:
+                        self._loading_note = False
+                    self.refresh_note_list()
+                messagebox.showwarning(
+                    "Rename note", f"The Notepad file could not be renamed.\n"
+                    f"Close the file in Notepad and try again.\n\n{exc}",
+                    parent=self.root)
+                self.schedule_save()
+                return
+        previous_title = note["title"]
+        note["title"] = target.stem
+        if old_path is not None:
+            # A file can be temporarily missing if moved externally. Retain
+            # the logical filename association for its next open.
+            note["notepad_filename"] = target.name
+        if session is not None:
+            session["path"] = target
+        if self.current_tab == "notes" and self.data["active_note"] == note_id:
+            if self.title_var.get() != note["title"]:
+                self._loading_note = True
+                try:
+                    self.title_var.set(note["title"])
+                finally:
+                    self._loading_note = False
+            if previous_title != note["title"] or (old_path is not None and old_path != target):
+                self.refresh_note_list()
+        if previous_title != note["title"] or (old_path is not None and old_path != target):
+            self.schedule_save()
+
     def _change_note_title(self, *_args):
         if self._loading_note or self.current_tab != "notes":
             return
@@ -2313,6 +2399,13 @@ class PocketDesk:
             note["title"] = self.title_var.get()
             self.refresh_note_list()
             self._edit_dirty()
+            # File names and Windows collision numbering are committed only
+            # after editing pauses, rather than renaming on every keystroke.
+            if self._title_job is not None:
+                self.root.after_cancel(self._title_job)
+            self._title_job_note_id = note["id"]
+            self._title_job = self.root.after(
+                450, lambda ident=note["id"]: self._commit_note_title(ident))
 
     def _change_note_phone(self, *_args):
         if self._loading_note or self.current_tab != "notes":
@@ -2626,6 +2719,7 @@ class PocketDesk:
         # ordered_notes() still keeps pinned notes at the top of every picker.
         created = new_note()
         self.data["notes"].append(created)
+        created["title"] = self._unique_note_path(created, created["title"]).stem
         self.data["active_note"] = created["id"]
         if self.current_tab != "notes":
             self.show_tab("notes")
@@ -4577,6 +4671,9 @@ class PocketDesk:
         if not note:
             return
         self._flush_current_note()
+        # A Title edited before opening Notepad must already own the final
+        # Windows-safe name, including any (1), (2), ... suffix.
+        self._commit_note_title(note["id"])
         folder = self.path.parent / "notepad"
         try:
             session = self._notepad_sessions.get(note["id"])
@@ -4586,12 +4683,13 @@ class PocketDesk:
             else:
                 # A title-based filename belongs to its original note even if the
                 # file is moved/deleted. Reserve the persisted names of other notes.
-                other_names = {
-                    item.get("notepad_filename")
-                    for item in self.data["notes"]
-                    if item["id"] != note["id"] and
-                    isinstance(item.get("notepad_filename"), str)
-                }
+                other_names = set()
+                for item in self.data["notes"]:
+                    if item["id"] == note["id"]:
+                        continue
+                    other_names.add(note_sync._safe_title_stem(item["title"]) + ".txt")
+                    if note_sync._valid_saved_filename(item.get("notepad_filename")):
+                        other_names.add(item["notepad_filename"])
                 path = note_sync.named_note_path(
                     folder, note["title"],
                     saved_filename=note.get("notepad_filename"),
@@ -4634,8 +4732,16 @@ class PocketDesk:
                     "path": path, "baseline": note["body"]}
                 # Save only the filename, not a path or a new ID. This survives a
                 # Pocket restart and prevents duplicate copies on repeat opens.
-                if note.get("notepad_filename") != path.name:
+                if note.get("notepad_filename") != path.name or note["title"] != path.stem:
                     note["notepad_filename"] = path.name
+                    note["title"] = path.stem
+                    if self.current_tab == "notes":
+                        self._loading_note = True
+                        try:
+                            self.title_var.set(note["title"])
+                        finally:
+                            self._loading_note = False
+                        self.refresh_note_list()
                     self.schedule_save()
         except (OSError, ValueError, UnicodeError) as exc:
             messagebox.showerror("Notepad", str(exc), parent=self.root)

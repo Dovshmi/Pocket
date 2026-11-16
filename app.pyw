@@ -236,8 +236,12 @@ def normalize_settings(raw):
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "use_windows_proxy": raw.get("use_windows_proxy") is not False,
-            "convert_mode": (raw.get("convert_mode") if raw.get("convert_mode") in ("clipboard", "mark")
-                             else "mark"),
+            # v1.36 stored "clipboard" as a factory preference. When first
+            # migrating to 1.37 (no enable flag), select the new Mark default.
+            "convert_mode": ("mark" if "convert_enabled" not in raw and
+                             raw.get("convert_mode") == "clipboard" else
+                             raw.get("convert_mode") if raw.get("convert_mode") in
+                             ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
@@ -1680,6 +1684,8 @@ class PocketDesk:
                 self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
             except (OSError, ValueError, TypeError) as exc:
                 self.settings["clipboard_storage"] = previous
+                self.clipboard_items = self._ram_text_items
+                self.clipboard_images = self._ram_images
                 self._clipboard_report_io_error(exc)
                 return
         self._clipboard_selected_image_id = None
@@ -1836,6 +1842,8 @@ class PocketDesk:
             self.convert_hotkey_available = False
         if self.tray and not self.tray.error:
             self.tray.set_convert_enabled(enabled)
+        else:
+            self.convert_hotkey_available = enabled
         self.schedule_save()
 
     def _set_convert_mode(self, mode):

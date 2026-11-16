@@ -27,6 +27,7 @@ WM_KEYDOWN, WM_CHAR, WM_SYSKEYDOWN, WM_SETFOCUS = 0x0100, 0x0102, 0x0104, 0x0007
 WM_COPY, WM_CUT, WM_PASTE, WM_UNDO = 0x0301, 0x0300, 0x0302, 0x0304
 EM_GETSEL, EM_SETSEL, EM_REDO, EM_SETREADONLY = 0x00B0, 0x00B1, 0x0454, 0x00CF
 EM_SETBKGNDCOLOR = 0x0443
+EM_EXLIMITTEXT = 0x0435  # WM_USER + 53; match Pocket's large-note editor
 VK_CONTROL, VK_SHIFT = 0x11, 0x10
 CALLBACK_TYPE = (ctypes.WINFUNCTYPE if IS_WINDOWS else None)
 
@@ -144,6 +145,8 @@ class _NativeMixin:
             if self._native_font:
                 self._send(WM_SETFONT, self._native_font, 1)
             if multiline:
+                # Default RichEdit limits can truncate pasted switch MAC tables.
+                self._send(EM_EXLIMITTEXT, 0, 2_000_000)
                 self._send(EM_SETBKGNDCOLOR, 0, self._native_bg)
             self._native_last_text = self._tk_value()
             self._write_native(self._native_last_text)

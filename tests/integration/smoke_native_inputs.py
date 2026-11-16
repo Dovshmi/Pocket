@@ -184,6 +184,55 @@ def run():
             require(mac.get("1.0", "end-1c") == long_table,
                     "Native RichEdit must not truncate full CLI tables over 64 KiB")
 
+            # MAC output and Commands both embed native RichEdit without
+            # a visible WS_VSCROLL. Verify the actual wheel event scrolls
+            # overflowing content and leaves short content stationary.
+            user32.GetWindowLongW.argtypes = (ctypes.c_void_p, ctypes.c_int)
+            user32.GetWindowLongW.restype = ctypes.c_long
+            command = native_inputs.Text(
+                root, height=3, undo=True, wrap="word", bg="#161923",
+                fg="#F3F4FA", font=("Consolas", 9), padx=6, pady=6)
+            command.pack(fill="x", padx=12)
+            command.insert("1.0", "show running-config\n" * 90)
+            root.update()
+            require(command.native_hwnd, "Command viewer must use native RichEdit")
+
+            def visible_line(widget):
+                return widget._send(native_inputs.EM_GETFIRSTVISIBLELINE)
+
+            def wheel(widget, delta):
+                # WM_MOUSEWHEEL's signed delta is carried in HIWORD(wParam).
+                widget._send(native_inputs.WM_MOUSEWHEEL,
+                             (delta & 0xFFFF) << 16)
+                root.update()  # Process the queued native EM_LINESCROLL.
+
+            for widget, label in ((mac, "MAC"), (command, "Commands")):
+                style = user32.GetWindowLongW(ctypes.c_void_p(widget.native_hwnd), -16)
+                require(not (style & 0x00200000),
+                        f"{label} must not display a vertical scrollbar")
+                widget._send(native_inputs.EM_LINESCROLL, 0, -32767)
+                root.update()
+                require(visible_line(widget) == 0,
+                        f"{label} could not reset scroll to the top")
+                wheel(widget, -60)
+                require(visible_line(widget) == 0,
+                        f"{label} must accumulate sub-notch wheel deltas")
+                wheel(widget, -60)
+                down = visible_line(widget)
+                require(down > 0,
+                        f"{label} must scroll down without a visible scrollbar")
+                wheel(widget, 120)
+                require(visible_line(widget) < down,
+                        f"{label} must scroll up without a visible scrollbar")
+
+            command.delete("1.0", tk.END)
+            command.insert("1.0", "show interfaces terse")
+            command._send(native_inputs.EM_LINESCROLL, 0, -32767)
+            root.update()
+            wheel(command, -120)
+            require(visible_line(command) == 0,
+                    "Short commands must not scroll when already fully visible")
+
             # A Windows child must never use its stock white popup menu.
             # WM_CONTEXTMENU is marshalled to the Tk widget's Pocket handler.
             posted = []

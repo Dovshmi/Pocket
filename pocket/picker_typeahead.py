@@ -48,11 +48,12 @@ def _character(event):
 
 
 class _Win32PopupKeys:
-    """Capture real WM_CHAR on Tk's private dropdown Listbox HWND.
+    """Capture WM_CHAR from the actual OS-focused Tk popup window.
 
-    Tcl synthetic <KeyPress> tests do not exercise Windows' real keyboard
-    messages. A Native Win32 RichEdit child can leave actual Windows keyboard
-    routing different from Tk focus; the listbox HWND needs a direct handler.
+    On Windows Tk uses a *virtual* keyboard focus inside the Listbox. Actual
+    GetFocus() identifies the popup's TkTopLevel HWND, not the Listbox HWND!
+    Subclassing the Listbox therefore passes synthetic tests but receives
+    zero physical keystrokes. Hook the focused popup HWND instead.
 
     Never call Tk inside a Windows subclass procedure. Capture only Unicode
     characters and deliver them from the regular Tk event loop.
@@ -73,6 +74,7 @@ class _Win32PopupKeys:
         self._after = None
         self._posted = False
         self._child = None
+        self._host = None
         self._proc = None
         self._tag = id(self) & 0xFFFFFFFF
 
@@ -84,8 +86,6 @@ class _Win32PopupKeys:
             self._u.GetKeyState.argtypes = (ctypes.c_int,)
             self._u.GetKeyState.restype = ctypes.c_short
             self._u.GetFocus.restype = ctypes.c_void_p
-            self._u.SetFocus.argtypes = (ctypes.c_void_p,)
-            self._u.SetFocus.restype = ctypes.c_void_p
             proc_type = ctypes.WINFUNCTYPE(
                 ctypes.c_ssize_t, ctypes.c_void_p, ctypes.c_uint32,
                 ctypes.c_size_t, ctypes.c_ssize_t, ctypes.c_size_t,
@@ -103,10 +103,8 @@ class _Win32PopupKeys:
             self._child = ctypes.c_void_p(
                 int(str(widget.tk.call("winfo", "id", listing)), 0))
             self._proc = proc_type(self._window_proc)
-            if not self._cc.SetWindowSubclass(self._child, self._proc,
-                                              self._tag, 0):
-                return
-            self.installed = True
+            # The popup isn't mapped yet; its actual OS-focused TkTopLevel
+            # HWND will be discovered on <Map> / the first event-loop tick.
             self._after = widget.after(25, self._poll)
         except (ValueError, RuntimeError, AttributeError, OSError, tk.TclError):
             self.installed = False
@@ -118,19 +116,32 @@ class _Win32PopupKeys:
         except (RuntimeError, tk.TclError, ValueError):
             return False
 
-    def _ensure_keyboard_focus(self):
-        # Tcl's focus command can succeed while Windows GetFocus still
-        # points to the previous Win32 RichEdit child. Real keyboard input
-        # then never arrives at the popup even though the dropdown is visible.
-        # SetFocus must run in the window-owning Tk/UI thread, never from the
-        # Windows subclass procedure.
-        if self.installed and self._popup_visible():
-            if self._u.GetFocus() != self._child.value:
-                self._u.SetFocus(self._child)
+    def _attach_popup_keyboard(self):
+        # Tk's logical focus is the Listbox, but the OS-owned keyboard HWND
+        # is the popdown TkTopLevel wrapper. Do not force focus to TkChild:
+        # Win32 SetFocus rejects that and physical typing remains broken.
+        if not self._popup_visible() or self._proc is None:
+            return
+        try:
+            if str(self.widget.tk.call("focus")) != self.listing:
+                return
+        except (RuntimeError, tk.TclError):
+            return
+        focused = self._u.GetFocus()
+        if not focused or (self._host and focused == self._host.value):
+            return
+        # Remove the previous hook only while running in the Tk UI thread.
+        if self.installed and self._host:
+            self._cc.RemoveWindowSubclass(self._host, self._proc, self._tag)
+            self.installed = False
+        target = ctypes.c_void_p(focused)
+        if self._cc.SetWindowSubclass(target, self._proc, self._tag, 0):
+            self._host = target
+            self.installed = True
 
     def on_map(self, _event=None):
-        if self.installed:
-            self.widget.after_idle(self._ensure_keyboard_focus)
+        if self._proc is not None:
+            self.widget.after_idle(self._attach_popup_keyboard)
 
     def _window_proc(self, hwnd, msg, wp, lp, sid, ref):
         if msg == self.WM_CHAR:
@@ -157,7 +168,7 @@ class _Win32PopupKeys:
                 return
             posted = self._popup_visible()
             if posted and not self._posted:
-                self._ensure_keyboard_focus()
+                self._attach_popup_keyboard()
             self._posted = posted
             todo, self.pending = self.pending, []
             for char in todo:
@@ -178,9 +189,10 @@ class _Win32PopupKeys:
             except (RuntimeError, tk.TclError):
                 pass
             self._after = None
-        if self.installed:
-            self._cc.RemoveWindowSubclass(self._child, self._proc, self._tag)
+        if self.installed and self._host:
+            self._cc.RemoveWindowSubclass(self._host, self._proc, self._tag)
             self.installed = False
+            self._host = None
 
 
 def install(widget, *, time_source=time.monotonic):
@@ -300,8 +312,8 @@ def install(widget, *, time_source=time.monotonic):
     widget.bind("<KeyPress>", on_key, add="+")
     if listing:
         try:
-            # This is a real Tcl Listbox owned by ttk; also listen to Windows
-            # character messages from its HWND, not only synthetic Tk events.
+            # Windows sends actual keyboard messages to the popup's focused
+            # TkTopLevel HWND, not the virtual-focus Tcl Listbox.
             bridge = _Win32PopupKeys(widget, listing, on_key)
             widget._pocket_typeahead_win32 = bridge
             widget._pocket_typeahead_popdown = listing
@@ -317,8 +329,8 @@ def install(widget, *, time_source=time.monotonic):
                 return on_key(event)
 
             widget._bind(("bind", listing), "<KeyPress>", popup_key, add="+")
-            # The Tcl Listbox <Map> class binding sets Tk focus but may leave
-            # the actual OS keyboard focus on an embedded native edit HWND.
+            # The Tcl Listbox <Map> binding establishes virtual Tk focus.
+            # After mapping, hook the real OS-focused popup top-level HWND.
             widget._bind(("bind", listing), "<Map>", bridge.on_map, add="+")
 
             def cleanup(event):

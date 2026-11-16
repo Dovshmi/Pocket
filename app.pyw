@@ -1681,7 +1681,7 @@ class PocketDesk:
         self.settings["clipboard_days"] = days
         if self._clipboard_store_is_disk():
             try:
-                self.clipboard_database.prune(days)
+                self.clipboard_database.update_retention(days)
                 for page in ("text", "images"):
                     known = set(self.clipboard_database.days(page, days=days))
                     if self._clipboard_view_days[page] not in known:
@@ -1702,10 +1702,12 @@ class PocketDesk:
                 self.clipboard_database.prune(self.settings["clipboard_days"])
                 self._clipboard_capture_day = day
             items = self.clipboard_database.load_text(day)
-            if items and items[0]["text"] == value:
-                return
-            clipboard_add(items, value, maximum=1_000_000_000)
-            self.clipboard_database.save_text(day, items, days=self.settings["clipboard_days"])
+            is_duplicate = bool(items and items[0]["text"] == value)
+            if not is_duplicate:
+                clipboard_add(items, value, maximum=1_000_000_000)
+                self.clipboard_database.save_text(
+                    day, items, days=self.settings["clipboard_days"])
+            # Even copying a duplicate while browsing history returns to Today.
             self._clipboard_view_days["text"] = day
             self.clipboard_items = items
             if self.current_tab == "clipboard":
@@ -1730,12 +1732,16 @@ class PocketDesk:
             if not clipboard_images.add_image(candidate, image):
                 return
             record = candidate[0]
-            if any(item["digest"] == record["digest"] for item in latest):
-                return
-            self.clipboard_database.save_image(day, record)
+            match = next((item for item in latest
+                          if item["digest"] == record["digest"]), None)
+            if match is None:
+                self.clipboard_database.save_image(day, record)
+                latest.insert(0, record)
+                match = record
+            # Duplicates still navigate back to the present day.
             self._clipboard_view_days["images"] = day
-            self.clipboard_images = [record] + latest
-            self._clipboard_selected_image_id = record["id"]
+            self.clipboard_images = latest
+            self._clipboard_selected_image_id = match["id"]
             if self.current_tab == "clipboard":
                 clipboard_gallery.refresh_history_selector(self)
                 if self.clipboard_page == "images":
@@ -1751,6 +1757,23 @@ class PocketDesk:
         if (self._mark_active or "clipboard" not in self.settings["visible_tabs"]
                 or self.settings["clipboard_paused"]):
             return
+        # A date rollover expires old files even if no new copy arrives.
+        if self._clipboard_store_is_disk() and clipdb.today() != self._clipboard_capture_day:
+            self._clipboard_capture_day = clipdb.today()
+            try:
+                self.clipboard_database.update_retention(self.settings["clipboard_days"])
+                for page in ("text", "images"):
+                    available = set(self.clipboard_database.days(
+                        page, days=self.settings["clipboard_days"]))
+                    if self._clipboard_view_days[page] not in available:
+                        self._clipboard_view_days[page] = clipdb.today()
+                        self._clipboard_load_day(page)
+                if self.current_tab == "clipboard":
+                    clipboard_gallery.refresh_history_selector(self)
+                    self._refresh_clipboard()
+                    clipboard_gallery.refresh_images(self, force=True)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
         # On Windows the sequence counter avoids decoding the same image every
         # 600 ms; Linux GUI test mode retains the original text-only behavior.
         sequence = clipboard_images.sequence_number()
@@ -1775,7 +1798,8 @@ class PocketDesk:
         try:
             if image is not None:
                 self._clipboard_on_new_image(image)
-            elif allowed_text and value != self._clipboard_last:
+            elif allowed_text and (
+                    value != self._clipboard_last or self._clipboard_store_is_disk()):
                 self._clipboard_on_new_text(value)
                 self._clipboard_last = value
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:

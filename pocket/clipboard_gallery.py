@@ -393,8 +393,11 @@ def show_page(app, page):
     app.clipboard_page = page  # Remember across menu/layout switches in session.
     refresh_history_selector(app)
     if app.clipboard_clear_button is not None:
+        on_disk = app.settings.get("clipboard_storage") == "database"
         app.clipboard_clear_button.configure(
-            text="Clear images" if page == "images" else "Clear text")
+            text=("Clear day images" if page == "images" else "Clear day text")
+            if on_disk else
+            ("Clear images" if page == "images" else "Clear text"))
     c = themes.palette(app.theme)
     for key, btn in app.clipboard_page_buttons.items():
         selected = key == page
@@ -701,6 +704,8 @@ def delete_selected(app):
         app.clipboard_images[min(previous_index, len(app.clipboard_images) - 1)]["id"]
         if app.clipboard_images else None)
     refresh_images(app, force=True)
+    if app.settings.get("clipboard_storage") == "database":
+        refresh_history_selector(app)
 
 
 def clear_images(app):
@@ -710,3 +715,5 @@ def clear_images(app):
     app.clipboard_images.clear()
     app._clipboard_selected_image_id = None
     refresh_images(app, force=True)
+    if app.settings.get("clipboard_storage") == "database":
+        refresh_history_selector(app)

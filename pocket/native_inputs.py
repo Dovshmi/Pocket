@@ -236,8 +236,12 @@ class _NativeMixin:
         self._native_last_text = value
 
     def _native_from_variable(self, *_):
-        if not self._native_busy:
-            self._sync_native_from_tk()
+        # Tcl variable traces may run before the underlying Tk Entry's own
+        # trace. Read StringVar directly: tk.Entry.get() can still be stale.
+        if not self._native_busy and self._native_active and self._native_var is not None:
+            value = self._native_var.get()
+            if value != self._read_native():
+                self._write_native(value)
 
     def _sync_native_from_tk(self):
         if self._native_active and not self._native_busy:

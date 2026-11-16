@@ -6,6 +6,7 @@ keystrokes to a real user window or contact the internet.
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
+import ctypes
 import runpy
 import tempfile
 import unittest
@@ -156,6 +157,54 @@ class NetworkRoutingTests(unittest.TestCase):
             ieee_https._windows_ieee_get(
                 request, timeout=25, use_windows_proxy=False)
         pac.assert_not_called()
+
+    def test_native_windows_direct_get_uses_no_proxy_and_validates_tls(self):
+        # Simulate WinINet calls without any real socket or certificate access.
+        # This catches regressions where DIRECT accidentally becomes PRECONFIG.
+        request = Request(network_tools.IEEE_LISTS[0][1])
+        sent = b"Registry,Assignment,Organization Name\nMA-L,001122,Example\n"
+        read_count = [0]
+
+        def query(_handle, level, buffer, _length, _unused):
+            if level != (19 | 0x20000000):
+                return 0  # Content-Encoding absent
+            ptr = ctypes.cast(buffer, ctypes.POINTER(ieee_https.wintypes.DWORD))
+            ptr.contents.value = 200
+            return 1
+
+        def read(_handle, buffer, _size, received):
+            amount = len(sent) if read_count[0] == 0 else 0
+            if amount:
+                ctypes.memmove(buffer, sent, amount)
+            ctypes.cast(received, ctypes.POINTER(
+                ieee_https.wintypes.DWORD)).contents.value = amount
+            read_count[0] += 1
+            return 1
+
+        dll = SimpleNamespace(
+            InternetOpenW=Mock(return_value=101),
+            InternetConnectW=Mock(return_value=102),
+            HttpOpenRequestW=Mock(return_value=103),
+            HttpSendRequestW=Mock(return_value=1),
+            HttpQueryInfoW=Mock(side_effect=query),
+            InternetReadFile=Mock(side_effect=read),
+            InternetSetOptionW=Mock(return_value=1),
+            InternetCloseHandle=Mock(return_value=1),
+        )
+        with patch.object(ieee_https.ctypes, "WinDLL", create=True,
+                          return_value=dll), \
+             patch.object(ieee_https.corporate, "_resolve_user_proxy",
+                          side_effect=AssertionError("no PAC in direct mode")):
+            with ieee_https._windows_ieee_get(
+                    request, use_windows_proxy=False) as response:
+                self.assertEqual(response.read(), sent)
+            self.assertEqual(dll.InternetOpenW.call_args.args[1:4],
+                             (1, None, None))
+            self.assertEqual(dll.HttpOpenRequestW.call_args.args[1], "GET")
+            flags = dll.HttpOpenRequestW.call_args.args[6]
+            self.assertTrue(flags & 0x00800000)  # TLS required
+            self.assertEqual(flags & (0x00001000 | 0x00002000), 0)
+            self.assertEqual(dll.InternetCloseHandle.call_count, 3)
 
     def test_ieee_download_transport_routed_without_network(self):
         with tempfile.TemporaryDirectory() as folder:

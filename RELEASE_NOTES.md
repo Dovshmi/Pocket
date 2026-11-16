@@ -1,38 +1,36 @@
-# Pocket v1.35.1 — Clipboard Alignment & Consistent Layout
+# Pocket v1.36.0 — Native Windows Inputs & Mini Improvements
 
-**Stable Windows patch release · Windows 10/11 · Portable ZIP + standalone EXE**
+**Stable Version 1.36 · Windows 10/11 · Portable ZIP + standalone EXE**
 
-This patch is built from the updated `main` branch, including the fixes merged in [PR #22](https://github.com/Dovshmi/Pocket/pull/22). It contains all v1.35.0 features.
+This release combines the changes developed and verified in the Pocket `fix/input-editing-smart-mac-port-order` branch. All previous v1.35.1 tools, layouts and local data formats remain supported.
 
-## Fixed
+## What's new
 
-- **Clipboard text alignment:** Removed an artificial three-space prefix from unpinned history entries. Clipboard rows now start at the normal Listbox text inset; pinned entries still show their star.
-- **Clipboard border:** Replaced the Windows-native, thick bright focus border with the same subtle **1px themed border** used elsewhere in Pocket, including a themed focus highlight.
-- **Dashboard navigation:** Restores the original tool-content parent when switching between scrollable and non-scrollable menus. This prevents progressively nested scroll frames and unintended horizontal offset or shrinkage.
-- **Consistent menus:** Added automated GUI checks for the horizontal content gutter and correct scroll-parent ownership across **Normal, Mini and Dashboard**, visiting every menu.
+- **Native Windows editing:** Single-line fields and selected multiline editors use Win32 EDIT/RichEdit with normal Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V, Ctrl+Z shortcuts, Pocket's compact editing menu, corrected text colors and compact field alignment. The specialist Notes editor keeps its own rich-text behavior.
+- **MAC Lookup improvements:** Recognizes MAC addresses in pasted switch/CLI tables. Large MAC and CLI command text fields can scroll using the mouse wheel without adding visible scrollbars.
+- **Port Checker:** Reachable/open ports are listed before closed or timed-out entries to make results easier to scan.
+- **Mini Commands:** Machine selection on the left and category on the right, on one row; the CLI search fills the row below.
+- **Mini Notes & CLI dropdowns:** Normal click-to-select lists are retained. Experimental type-to-search was deliberately removed; text selection highlighting clears once the dropdown closes, while the chosen value remains visible.
+- **Clipboard Manager:** Pinned text history appears at the top of the list, with original order preserved within pinned/unpinned groups.
+- **Local-first:** Editor and clipboard improvements are fully local. DashDash checks still run only when explicitly requested.
 
-## Unchanged from v1.35.0
+## Verification
 
-- Modern Settings, Mini default for new profiles, Ushpelo starter shortcuts, and saved last-active menu.
-- Clipboard image history capacity **10, 15, 20, 25, 30** (20 by default), kept only in RAM.
-- Offline EN/HE keyboard-layout conversion, fixed Notes editor focus and hidden editor scrollbar, Extra Mini control, improved Command Helper and author/version credits.
-- Local-first behavior. Network checks occur only when initiated by the user. Existing user settings, notes, shortcuts and clipboard privacy rules are unchanged.
+Windows and Linux unit tests and GUI integration tests cover Notes, MAC Lookup, Commands, editing shortcuts, clipboard pin order, Mini layout and dropdown selection. The Windows release workflow additionally compiles and tests a self-contained portable package and standalone executable, validates the extracted native dependencies, checks ZIP integrity and SHA-256 checksums, and exercises packaged startup.
 
-## Verified release contents
+## Release downloads
 
-The publishing workflow runs Windows unit and full GUI checks, builds both packages, verifies the extracted ZIP's dependencies and internal manifest, tests the standalone EXE startup, and creates SHA-256 checksums before publishing.
+- **Pocket-Portable-v1.36.0.zip** — recommended for work PCs. Contains `Pocket-Portable/PocketDesk.exe`, `_internal/`, integrity manifest and `Verify-Pocket.ps1`.
+- **Pocket-v1.36.0.exe** — standalone Windows executable, with the same features.
+- **SHA256SUMS.txt** — hashes of both release assets.
 
-- **Pocket-Portable-v1.35.1.zip** — extracted portable Windows app, with `PocketDesk.exe`, `_internal/`, integrity manifest and verification script.
-- **Pocket-v1.35.1.exe** — standalone Windows executable.
-- **SHA256SUMS.txt** — SHA-256 checksums for the ZIP and EXE.
+Public packages exclude personal notes, profiles, backups, credentials, clipboard history and private `commands.json` files. Release executables are **not code-signed**.
 
-Public packages exclude user profiles, private `commands.json`, saved notes, credentials, and clipboard history. Binaries are not code-signed.
+## Upgrade safely
 
-## Upgrade without losing your data
+1. Exit Pocket completely, including its system-tray process.
+2. Back up your data. Portable installations store settings and notes under `Pocket-Portable/data/`; the standalone executable uses `%APPDATA%\\PocketDesk\\`.
+3. Extract v1.36.0 into a **new folder** and do not combine old/new `_internal/` runtime files. Move only your existing `data/` folder into the new portable installation when ready.
+4. Launch Pocket and verify your saved Notes, Commands, Clipboard preferences, theme and Mini/Normal/Dashboard mode.
 
-1. Exit Pocket completely from the Windows system tray.
-2. Back up your current user data: portable installations keep it under `Pocket-Portable/data/`; standalone uses `%APPDATA%\\PocketDesk/`.
-3. For Portable, extract v1.35.1 into a **new folder** and copy your previous `data/` folder into it. Do **not** combine old and new `_internal/` directories.
-4. Open Pocket again. Your selected mode, theme, notes, last-used tool, TCP preferences and shortcut folders are preserved.
-
-The previous [v1.35.0 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.35.0) remains available separately.
+The previous [v1.35.1 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.35.1) remains available.

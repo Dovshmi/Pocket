@@ -5,8 +5,9 @@ Keep validation independent of Tk/Win32 so the mapping can be unit tested.
 from __future__ import annotations
 
 DEFAULT_HOTKEY = {"ctrl": True, "shift": True, "alt": False, "win": False, "key": "*"}
-# Rarely used by regular Windows apps; configurable in Pocket Settings.
-DEFAULT_CONVERT_HOTKEY = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "F9"}
+# Keyboard-layout conversion is configurable in Pocket Settings.
+DEFAULT_CONVERT_HOTKEY = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "V"}
+_LEGACY_CONVERT_DEFAULT = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "F9"}
 KEYS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + tuple("0123456789") + ("*",) + tuple(f"F{i}" for i in range(1, 13))
 MOD_ALT, MOD_CTRL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
 HOTKEY_ID = 0xB10
@@ -69,6 +70,10 @@ def normalize_convert_hotkey(value, *, popup=None) -> dict:
             and any(value[k] for k in ("ctrl", "alt", "win"))):
         candidate = normalize_hotkey(value)
     else:
+        candidate = DEFAULT_CONVERT_HOTKEY.copy()
+    # Old profiles stored Ctrl+Alt+F9 even when the user never customized it.
+    # Upgrade that former factory combination to the new default.
+    if candidate == _LEGACY_CONVERT_DEFAULT:
         candidate = DEFAULT_CONVERT_HOTKEY.copy()
     other = normalize_hotkey(popup)
     if collides(candidate, other):

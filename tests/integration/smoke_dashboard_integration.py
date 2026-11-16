@@ -1080,12 +1080,22 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     results = app.command_tree.get_children()
                     check(len(results) >= 4,
                           "Normal Command Helper has too few test commands")
-                    # Treeview(height=5) alone does not guarantee visibility:
-                    # the PanedWindow used to clip the fourth actual row.
+                    # A previously selected later command may have scrolled
+                    # the table away from its first four rows. First return
+                    # to the top; then verify that four *entire* rows fit.
+                    # This checks clipping rather than the prior scroll offset.
+                    prior_scroll = app.command_tree.yview()
+                    app.command_tree.see(results[0])
+                    app.root.update_idletasks()
                     fourth = app.command_tree.bbox(results[3])
                     check(bool(fourth) and
                           fourth[1] + fourth[3] <= app.command_tree.winfo_height(),
-                          "Normal Command Helper must display four FULL rows")
+                          f"Normal Command Helper must display four FULL rows "
+                          f"(fourth={fourth!r}, scroll_before={prior_scroll!r}, "
+                          f"scroll_after={app.command_tree.yview()!r}, "
+                          f"tree_height={app.command_tree.winfo_height()}, "
+                          f"results_pane={app.command_panes.panes()[0] if app.command_panes.panes() else 'none'}, "
+                          f"pane_height={app.command_panes.winfo_height()}, root_height={app.root.winfo_height()})")
                 if page == "commands":
                     check(hasattr(app, "smart_template_edit") and
                           app.smart_template_edit.winfo_exists(),

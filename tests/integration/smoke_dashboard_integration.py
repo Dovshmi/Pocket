@@ -253,33 +253,26 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(app.port_source.get() == "local",
                           "Default port source must remain local")
                 if mode == "mini" and page == "notes":
-                    # Keyboard type-to-jump must navigate to a note, not turn
-                    # the picker into a filter or remove other note choices.
-                    from types import SimpleNamespace
                     picker = app.mini_note_picker
                     options = tuple(picker["values"])
-                    original_id = app.data["active_note"]
-                    target_index = next((i for i, title in enumerate(options)
-                                         if "Network shift notes" in title), -1)
-                    check(target_index >= 0, "Mini test note is missing")
-                    for char in "network":
-                        picker._pocket_typeahead(SimpleNamespace(
-                            char=char, keysym=char, state=0))
-                    app.root.update()
-                    check(picker.current() == target_index and
-                          app.data["active_note"] == app._note_rows[target_index]["id"],
-                          "Mini note typeahead must navigate to the selected note")
-                    check(tuple(picker["values"]) == options,
-                          "Mini note typeahead must retain every dropdown option")
-                    previous = next(i for i, note in enumerate(app._note_rows)
-                                    if note["id"] == original_id)
-                    picker.current(previous)
+                    check(str(picker.cget("state")) == "readonly",
+                          "Mini Notes must preserve the normal readonly dropdown")
+                    check(not hasattr(picker, "_pocket_typeahead"),
+                          "Mini Notes must not install the removed typing search")
+                    # The chosen value must remain visible, but any text
+                    # selection highlight should disappear after the popup.
+                    picker.selection_range(0, tk.END)
                     picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
+                    import time
+                    time.sleep(.07)
+                    app.root.update()
+                    check(not picker.selection_present(),
+                          "Mini Notes must clear closed dropdown text highlighting")
+                    check(tuple(picker["values"]) == options,
+                          "Mini Notes dropdown options changed unexpectedly")
                 if mode == "mini" and page == "commands":
-                    # No new picker/search widgets: equal-width category LEFT
-                    # and machine RIGHT, with the existing full-width search
-                    # directly beneath their row.
+                    # Machine LEFT, category RIGHT, search full width beneath.
                     category, machine = app.command_category_picker, app.machine_picker
                     search = app.command_search_entry
                     check(machine.winfo_rootx() < category.winfo_rootx(),
@@ -292,38 +285,25 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(search.winfo_width() >=
                           category.winfo_width() + machine.winfo_width() - 12,
                           "Mini CLI search must span the full filter width")
-                    machine_options = tuple(machine["values"])
-                    category_options = tuple(category["values"])
-                    check(str(machine.cget("state")) == "readonly" and
-                          str(category.cget("state")) == "readonly",
-                          "Mini CLI dropdowns must stay readonly")
-                    import types
-                    from pocket import command_helper as ch
-                    target_machine = next((item for item in reversed(machine_options)
-                                           if item != ch.ALL_MACHINES), None)
-                    check(target_machine is not None, "Mini CLI machine list empty")
-                    for char in target_machine:
-                        machine._pocket_typeahead(types.SimpleNamespace(
-                            char=char, keysym=char, state=0))
-                    app.root.update()
-                    check(app.machine_var.get() == target_machine,
-                          "Mini CLI typing must select a real machine")
-                    check(tuple(machine["values"]) == machine_options,
-                          "Mini CLI typeahead must not filter machine options")
-                    current_categories = tuple(category["values"])
-                    if len(current_categories) > 1:
-                        target_cat = current_categories[-1]
-                        for char in target_cat:
-                            category._pocket_typeahead(types.SimpleNamespace(
-                                char=char, keysym=char, state=0))
+                    for picker in (machine, category):
+                        check(str(picker.cget("state")) == "readonly",
+                              "Mini CLI dropdowns must remain readonly")
+                        check(not hasattr(picker, "_pocket_typeahead"),
+                              "Mini CLI dropdown search must be removed")
+                        selected_before = picker.get()
+                        choices_before = tuple(picker["values"])
+                        picker.selection_range(0, tk.END)
+                        picker.event_generate("<<ComboboxSelected>>")
                         app.root.update()
-                        check(app.command_category_var.get() == target_cat,
-                              "Mini CLI typing must select a real category")
-                        check(tuple(category["values"]) == current_categories,
-                              "Mini CLI typeahead must not filter categories")
-                    machine.current(0)
-                    machine.event_generate("<<ComboboxSelected>>")
-                    app.root.update()
+                        import time
+                        time.sleep(.07)
+                        app.root.update()
+                        check(not picker.selection_present(),
+                              "Mini CLI must clear closed dropdown highlighting")
+                        check(picker.get() == selected_before,
+                              "Clearing CLI text highlight must preserve chosen option")
+                        check(tuple(picker["values"]) == choices_before,
+                              "Mini CLI must retain its normal dropdown options")
                 if page == "clipboard" and app.clipboard_page == "text":
                     selected_history = app.clipboard_items[-1]
                     old_pin = selected_history["pinned"]

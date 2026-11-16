@@ -62,33 +62,18 @@ def run():
                 user32.GetFocus.argtypes = ()
                 user32.GetFocus.restype = ctypes.c_void_p
                 native_focused_hwnd = user32.GetFocus()
-                if native_focused_hwnd != bridge._child.value:
-                    user32.GetClassNameW.argtypes = (
-                        ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int)
-                    user32.GetClassNameW.restype = ctypes.c_int
-                    user32.GetParent.argtypes = (ctypes.c_void_p,)
-                    user32.GetParent.restype = ctypes.c_void_p
-                    user32.SetFocus.argtypes = (ctypes.c_void_p,)
-                    user32.SetFocus.restype = ctypes.c_void_p
-
-                    def window_info(hwnd):
-                        buf = ctypes.create_unicode_buffer(120)
-                        user32.GetClassNameW(ctypes.c_void_p(hwnd), buf, 120)
-                        parent = user32.GetParent(ctypes.c_void_p(hwnd))
-                        return (hwnd, buf.value, parent)
-
-                    old = user32.SetFocus(bridge._child)
-                    new_focus = user32.GetFocus()
-                    raise AssertionError(
-                        f"{label}: OS focus mismatch; current="
-                        f"{window_info(native_focused_hwnd)}, "
-                        f"listbox={window_info(bridge._child.value)}, "
-                        f"root={window_info(root.winfo_id())}, "
-                        f"combobox={window_info(widget.winfo_id())}, "
-                        f"afterSetFocus={window_info(new_focus)}, old={old}")
+                require(bridge.installed and bridge._host is not None,
+                        f"{label}: OS-focused popup hook was not installed")
+                require(native_focused_hwnd == bridge._host.value,
+                        f"{label}: actual popup keyboard HWND not hooked "
+                        f"(focused={native_focused_hwnd}, "
+                        f"subclassed={bridge._host.value})")
+                require(native_focused_hwnd != bridge._child.value,
+                        f"{label}: expected Tk virtual-focus Listbox child "
+                        "to differ from physically focused popup HWND")
             for char in phrase:
                 if sys.platform == "win32":
-                    user32.SendMessageW(bridge._child, bridge.WM_CHAR, ord(char), 0)
+                    user32.SendMessageW(bridge._host, bridge.WM_CHAR, ord(char), 0)
                     bridge._poll()
                 else:
                     root.tk.call("event", "generate", focus, f"<KeyPress-{char}>",

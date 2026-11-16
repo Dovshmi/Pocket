@@ -23,7 +23,9 @@ def ordered_notes(notes: list[dict]) -> list[dict]:
 
 def duplicate_note(original: dict) -> dict:
     """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
-    copy = new_note(f"{original.get('title', 'Untitled note')} (copy)",
+    # The UI allocates the next available Windows-style title, e.g. (1).
+    # Do not bake "(copy)" into the user's eventual TXT filename.
+    copy = new_note(original.get('title', 'Untitled note'),
                     original.get('body', ''), original.get('phone', ''))
     copy["direction"] = normalize_note_direction(original.get("direction"))
     return copy

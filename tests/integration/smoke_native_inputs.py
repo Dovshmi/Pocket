@@ -157,6 +157,7 @@ def run():
             # while native RichEdit handles all ordinary editor accelerators.
             copied = []
             mac.bind("<Control-Return>", lambda _ev: copied.append(True))
+            mac.set_native_ctrl_return_callback(lambda: copied.append(True))
             # Run a deterministic native polling turn, rather than racing
             # the timer against a heavily loaded Windows CI virtual desktop.
             if mac._native_after is not None:

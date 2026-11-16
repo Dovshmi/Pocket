@@ -44,7 +44,8 @@ class ReleaseVersionTests(unittest.TestCase):
                       readme)
         self.assertIn("/releases/download/v1.36.0/Pocket-v1.36.0.exe", readme)
         self.assertIn("# Pocket v1.36.0", notes)
-        self.assertIn("10, 15, 20, 25, 30", notes)
+        self.assertIn("Pinned text history appears at the top", notes)
+        self.assertIn("Experimental type-to-search was deliberately removed", notes)
 
 
 if __name__ == "__main__":

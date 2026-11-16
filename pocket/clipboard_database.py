@@ -55,6 +55,13 @@ class ClipboardDatabase:
         self.text_dir = self.root / TEXT_FOLDER
         self.image_dir = self.root / IMAGE_FOLDER
 
+    def ensure_folders(self):
+        """Create the opt-in local archive tree without capturing anything."""
+        for folder in (self.root, self.text_dir, self.image_dir):
+            if folder.is_symlink():
+                raise OSError("Clipboard archive cannot use symbolic link directories")
+            folder.mkdir(parents=True, exist_ok=True)
+
     def _day_folder(self, day):
         if not valid_day(day):
             raise ValueError("Invalid history date")

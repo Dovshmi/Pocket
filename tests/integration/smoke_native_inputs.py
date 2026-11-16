@@ -186,7 +186,8 @@ def run():
                                          bg="#161923", fg="#737C90",
                                          font=("Segoe UI", 9))
             search.pack(fill="x")
-            search.set_native_placeholder("Search CLI / חיפוש פקודה")
+            search.set_native_placeholder(
+                "Search CLI / חיפוש פקודה", on_focus=lambda: hint.set(""))
             search.bind("<FocusIn>", lambda _ev: hint.set(""))
             root.update()
             search.focus_force()

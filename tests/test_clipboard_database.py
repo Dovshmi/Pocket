@@ -30,6 +30,12 @@ class ClipboardDatabaseTests(unittest.TestCase):
         self.assertEqual(APP["normalize_settings"]({
             "clipboard_storage": "DATABASE"})["clipboard_storage"], "ram")
 
+    def test_previous_factory_clipboard_mode_migrates_to_mark_once(self):
+        normalize = APP["normalize_settings"]
+        self.assertEqual(normalize({"convert_mode": "clipboard"})["convert_mode"], "mark")
+        self.assertEqual(normalize({
+            "convert_mode": "clipboard", "convert_enabled": True})["convert_mode"], "clipboard")
+
     def test_daily_text_file_has_creation_time_and_expiry_and_unicode(self):
         with tempfile.TemporaryDirectory() as folder:
             db = clipdb.ClipboardDatabase(folder)

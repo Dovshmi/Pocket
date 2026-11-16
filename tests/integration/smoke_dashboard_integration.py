@@ -252,6 +252,31 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           "Mini TCP input must reflect factory ports")
                     check(app.port_source.get() == "local",
                           "Default port source must remain local")
+                if page == "notes" and sys.platform == "win32":
+                    # A Win32 child posts WM_CONTEXTMENU. Confirm the real
+                    # Pocket popup (not Windows' long white default) appears.
+                    field = app.title_entry
+                    check(bool(getattr(field, "native_hwnd", None)),
+                          f"{mode}: Notes title is not backed by Windows Edit")
+                    import time
+                    px, py = field.winfo_rootx() + 10, field.winfo_rooty() + 9
+                    lp = ((py & 0xffff) << 16) | (px & 0xffff)
+                    field._send(0x007B, field.native_hwnd, lp)
+                    for _ in range(10):
+                        app.root.update()
+                        if getattr(app, "_input_context_menu", None) is not None:
+                            break
+                        time.sleep(.035)
+                    custom_menu = getattr(app, "_input_context_menu", None)
+                    check(custom_menu is not None and custom_menu.winfo_exists(),
+                          f"{mode}: Windows right click failed to open Pocket context menu")
+                    labels = menu_labels(custom_menu)
+                    check(all(v in labels for v in (
+                        "Undo", "Redo", "Cut", "Copy", "Paste", "Select all")),
+                        f"{mode}: Pocket input context actions missing: {labels}")
+                    capture(app, output, mode + "_native_input_menu")
+                    app._dismiss_input_context_menu()
+                    app.root.update()
                 if page == "notes":
                     # Windows RichEdit is an HWND distinct from Tk's Entry
                     # controls. Explicitly exercise the reported Mini failure:

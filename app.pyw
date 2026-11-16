@@ -634,8 +634,10 @@ class PocketDesk:
 
     def _convert_hotkey_hint(self):
         label = hk.hotkey_label(self.convert_hotkey)
-        mode = "Mark: replace selection" if self.settings["convert_mode"] == "mark" else "Clipboard: copy corrected text"
-        return label + ("  ·  " + mode if self.convert_hotkey_available else "  ·  Unavailable")
+        # The adjacent two-way selector displays the active mode. Keep the
+        # shortcut label mode-neutral so it never becomes stale after a toggle.
+        return label + ("  ·  Fix keyboard layout"
+                        if self.convert_hotkey_available else "  ·  Unavailable")
 
     def _handle_find_shortcut(self, event=None):
         """Keep Ctrl+F in Commands locally scoped; search globally elsewhere."""

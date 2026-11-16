@@ -1855,8 +1855,9 @@ class PocketDesk:
             return
         self.settings["clipboard_image_limit"] = limit
         # Capacity applies to RAM snapshots only; DB retains daily screenshots.
-        del self._ram_images[limit:]
-        if not self._clipboard_store_is_disk():
+        ram_images = getattr(self, "_ram_images", self.clipboard_images)
+        del ram_images[limit:]
+        if self.settings.get("clipboard_storage", "ram") != "database":
             if (self._clipboard_selected_image_id is not None and
                     not any(item["id"] == self._clipboard_selected_image_id
                             for item in self.clipboard_images)):
@@ -5495,10 +5496,13 @@ class WindowsTray:
                 self.hwnd, self.WM_CONVERT_HOTKEY_CHANGE, 0, 0)
 
     def set_convert_enabled(self, enabled):
+        if not self.hwnd:
+            # A settings change can precede the tray window registration.
+            self.convert_enabled = bool(enabled)
+            return
         self._pending_convert_enabled = bool(enabled)
-        if self.hwnd:
-            ctypes.windll.user32.PostMessageW(
-                self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
+        ctypes.windll.user32.PostMessageW(
+            self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)

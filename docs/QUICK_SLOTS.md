@@ -47,11 +47,15 @@ Changes apply without restarting Pocket.
 
 1. Highlight text in any foreground Windows application.
 2. Press `Ctrl+Win+NumpadN` (or the configured Save prefix + NumpadN).
-3. Pocket temporarily issues `Ctrl+C` to capture the selection.
+3. Pocket waits for the `Ctrl+Win` shortcut to be released, then issues
+   ordinary `Ctrl+C` to capture the selected text.
 4. If the application has no copyable selection, Pocket falls back to
    **text already in the Windows clipboard before this operation**.
-5. Pocket restores the pre-existing clipboard data, when safe, and saves
-   the chosen value in the numbered Quick Slot. No upload occurs.
+5. The selected text is saved in the numbered Quick Slot **and remains
+   in the Windows clipboard**, just like an ordinary Copy operation.
+   This deliberately avoids an unreliable OLE restore while copying selected
+   text. If there is no selection, the existing clipboard is unchanged.
+   No upload occurs.
 6. Replacing an occupied slot asks for confirmation; displaced automatic
    Favorites are removed rather than accumulating.
 

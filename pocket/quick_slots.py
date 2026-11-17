@@ -7,11 +7,13 @@ from __future__ import annotations
 
 SLOT_NUMBERS = tuple(range(1, 10))
 MAX_TEXT_LENGTH = 20_000
-# A single chord covers Numpad0 (arm) and Numpad1–9 (paste/save).
-# Shift is deliberately absent: Shift changes the virtual key reported by
-# some numeric keypads into a navigation key. Alt-only triggers Windows Alt
-# codes; the selection below avoids it.
-DEFAULT_PREFIX = "ctrl_alt"
+# Each slot has two direct Windows hotkeys with distinct modifiers.
+# Num Lock must be ON; Numpad1–9 are fixed and never customizable.
+# Shift is intentionally excluded because it can remap Numpad digits into
+# navigation key events on Windows.
+DEFAULT_PREFIX = "ctrl_alt"  # Backward compatible name for paste.
+DEFAULT_PASTE_PREFIX = "ctrl_alt"
+DEFAULT_COPY_PREFIX = "ctrl_win"
 PREFIX_CHOICES = (
     ("Ctrl+Alt", "ctrl_alt"),
     ("Ctrl", "ctrl"),
@@ -19,8 +21,8 @@ PREFIX_CHOICES = (
     ("Ctrl+Alt+Win", "ctrl_alt_win"),
 )
 PASTE_HOTKEY_BASE = 0xB60
+SAVE_HOTKEY_BASE = 0xB70
 ALTERNATE_HOTKEY_BASE = 0xB80
-SAVE_MODE_SECONDS = 5
 MOD_ALT = 0x0001
 MOD_CTRL = 0x0002
 MOD_SHIFT = 0x0004
@@ -41,11 +43,10 @@ def normalize_slots(raw):
             if valid_text(raw.get(str(number)))}
 
 
-def normalize_prefix(value):
-    """Reject unsupported combinations (including Shift and Alt-only)."""
-    return (value if isinstance(value, str) and
-            value in {identifier for _, identifier in PREFIX_CHOICES}
-            else DEFAULT_PREFIX)
+def normalize_prefix(value, *, default=DEFAULT_PASTE_PREFIX):
+    """Only the modifier prefix is user-editable, not the numeric keys."""
+    allowed = {identifier for _, identifier in PREFIX_CHOICES}
+    return value if isinstance(value, str) and value in allowed else default
 
 
 def prefix_label(value):
@@ -64,22 +65,33 @@ def modifier_flags(value):
     return mapping[value] | MOD_NOREPEAT
 
 
-def slot_hotkeys(prefix=DEFAULT_PREFIX, *, base=PASTE_HOTKEY_BASE):
-    """Ten registrations: Numpad0 arms Save; Numpad1..9 select the slot.
+def distinct_prefixes(paste_prefix, copy_prefix):
+    """A pair of actions cannot claim the same global chord."""
+    return normalize_prefix(paste_prefix) != normalize_prefix(
+        copy_prefix, default=DEFAULT_COPY_PREFIX)
 
-    Numpad numbers are fixed. Only the modifier prefix is customizable.
-    All bindings have an identical prefix and use VK_NUMPADN, not top-row N.
-    """
-    modifiers = modifier_flags(prefix)
+
+def slot_hotkeys(paste_prefix=DEFAULT_PASTE_PREFIX,
+                 copy_prefix=DEFAULT_COPY_PREFIX, *,
+                 base=PASTE_HOTKEY_BASE):
+    """Register direct Paste and Copy-to-slot keys for Numpad1–9 only."""
+    if not distinct_prefixes(paste_prefix, copy_prefix):
+        raise ValueError("Copy and paste must use different modifier combinations")
     for number in SLOT_NUMBERS:
-        yield (base + number - 1, modifiers, 0x60 + number)
-    yield (base + 9, modifiers, 0x60)  # VK_NUMPAD0: one-shot Save Mode
+        key = 0x60 + number
+        yield (base + number - 1, modifier_flags(paste_prefix), key)
+        yield (base + 0x10 + number - 1, modifier_flags(copy_prefix), key)
 
 
-def register_all(register, unregister, hwnd, prefix, *, base=PASTE_HOTKEY_BASE):
-    """All-or-none registration; never leave an unusable partial keypad."""
+def register_all(register, unregister, hwnd, paste_prefix,
+                 copy_prefix=DEFAULT_COPY_PREFIX, *, base=PASTE_HOTKEY_BASE):
+    """Atomic 18-key registration; undo partial success on a conflict."""
     registered = set()
-    for hotkey_id, modifiers, key in slot_hotkeys(prefix, base=base):
+    try:
+        bindings = tuple(slot_hotkeys(paste_prefix, copy_prefix, base=base))
+    except ValueError:
+        return set()
+    for hotkey_id, modifiers, key in bindings:
         if not register(hwnd, hotkey_id, modifiers, key):
             for earlier in registered:
                 unregister(hwnd, earlier)
@@ -90,18 +102,11 @@ def register_all(register, unregister, hwnd, prefix, *, base=PASTE_HOTKEY_BASE):
 
 def hotkey_action(hotkey_id, *, base=PASTE_HOTKEY_BASE):
     offset = hotkey_id - base
-    if 0 <= offset <= 8:
-        return ("slot", offset + 1)
-    if offset == 9:
-        return ("mode", 0)
+    if 0 <= offset < 9:
+        return ("paste", offset + 1)
+    if 0x10 <= offset < 0x19:
+        return ("save", offset - 0x10 + 1)
     return None
-
-
-def slot_action(number, *, armed_until=0.0, now=0.0):
-    """Decide between save and paste without querying the keyboard."""
-    if number not in SLOT_NUMBERS:
-        return None
-    return "save" if armed_until > now else "paste"
 
 
 def merged_rows(slots, history, query=""):

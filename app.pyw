@@ -5784,6 +5784,7 @@ class WindowsTray:
         self._thread = None
         self.hotkey_ids = set()
         self.convert_hotkey_ids = set()
+        self.quick_slot_hotkey_ids = set()
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
         self.convert_hotkey = hk.normalize_convert_hotkey(
@@ -6061,6 +6062,12 @@ class WindowsTray:
                     self.events.put(("toggle", None))
                 elif int(wp) in self.convert_hotkey_ids:
                     self.events.put(("convert_clipboard", user.GetForegroundWindow()))
+                elif int(wp) in self.quick_slot_hotkey_ids:
+                    assignment = quick_slots.hotkey_action(int(wp))
+                    if assignment is not None:
+                        action, number = assignment
+                        self.events.put(("quick_slot_hotkey", (
+                            action, number, user.GetForegroundWindow())))
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -6076,10 +6083,12 @@ class WindowsTray:
                     popup_menu(hwnd)
                 return 0
             if msg == self.WM_DESTROY:
-                for hotkey_id in tuple(self.hotkey_ids | self.convert_hotkey_ids):
+                for hotkey_id in tuple(self.hotkey_ids | self.convert_hotkey_ids |
+                                       self.quick_slot_hotkey_ids):
                     user.UnregisterHotKey(hwnd, hotkey_id)
                 self.hotkey_ids.clear()
                 self.convert_hotkey_ids.clear()
+                self.quick_slot_hotkey_ids.clear()
                 self.hwnd = None
                 shell.Shell_NotifyIconW(self.NIM_DELETE, ctypes.byref(nid))
                 user.PostQuitMessage(0)
@@ -6108,6 +6117,10 @@ class WindowsTray:
             for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
                 if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                     self.convert_hotkey_ids.add(hotkey_id)
+        self.quick_slot_hotkey_ids = set()
+        for hotkey_id, modifiers, key in quick_slots.slot_hotkeys():
+            if user.RegisterHotKey(hwnd, hotkey_id, modifiers, key):
+                self.quick_slot_hotkey_ids.add(hotkey_id)
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

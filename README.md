@@ -8,14 +8,14 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Main branch](https://img.shields.io/badge/Main-v1.39.0-3569D6?style=for-the-badge)](https://github.com/Dovshmi/Pocket/tree/main)
-[![Latest published release](https://img.shields.io/badge/Latest%20Release-v1.38.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.38.0)
+[![Release](https://img.shields.io/badge/Stable-v1.39.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**Latest published release:** [Portable ZIP v1.38.0](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-Portable-v1.38.0.zip) ·
-[Standalone EXE v1.38.0](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-v1.38.0.exe) ·
+**[Download Portable ZIP v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-Portable-v1.39.0.zip)** ·
+**[Download Standalone EXE v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-v1.39.0.exe)** ·
+[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/SHA256SUMS.txt) ·
 [All Releases](https://github.com/Dovshmi/Pocket/releases)
 
 </div>
@@ -25,14 +25,14 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
-> **Version clarification:** The `main` branch contains **Pocket v1.39.0**, including the latest backup/restore and keyboard updates. The most recent **published release with downloadable EXE/ZIP assets is v1.38.0**. To run the latest `main` source, build it locally or use a verified GitHub Actions preview artifact. Release download buttons above still point to v1.38.0; no v1.39.0 release asset is claimed.
+> **Pocket v1.39.0 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
 > **Offline-first:** Notes, CLI, subnet calculations, clipboard and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
 
-## What's new in `main` — v1.39.0
+## What's new in v1.39.0
 
-Pocket v1.39 adds portable profile transfers, direct numbered clipboard slots, live keyboard-shortcut recording and safer settings management. These changes are **merged into `main`**, not yet part of the published v1.38.0 downloads.
+Pocket v1.39 adds portable profile transfers, direct numbered clipboard slots, live keyboard-shortcut recording and safer settings management. These features are included in the **official v1.39.0 Windows release** and in `main`.
 
 ### Selective Backup & Restore
 
@@ -78,8 +78,8 @@ Saving highlighted text behaves like Windows **Ctrl+C** and also updates the reg
 
 | Version | Main changes |
 | :--- | :--- |
-| **v1.39.0 — current `main`** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
-| **v1.38.0 — latest published release** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
+| **v1.39.0 — latest stable release** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
+| **v1.38.0 — previous release** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
 | **v1.37 — incorporated into v1.38.0** | Optional local Clipboard DATABASE, EN/HE keyboard layout repair and Windows proxy selection |
 | **v1.36.0** | Native Windows text-input improvements, ordered port-check results, Mini Commands improvements |
 | **v1.35.1 / v1.35.0** | Clipboard alignment, Dashboard layout fixes, redesigned Settings and compact launcher |
@@ -195,16 +195,16 @@ Pocket remembers window placement, last active tool and supports **Blue, Dark Bl
 
 ### Portable ZIP — recommended for a work PC
 
-1. Download the latest published **[Pocket-Portable-v1.38.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-Portable-v1.38.0.zip)**.
+1. Download the **[Pocket-Portable-v1.39.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-Portable-v1.39.0.zip)** stable release.
 2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
 3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
 4. Choose a window layout and theme in Settings.
 
-No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract the new release into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. To use the newest `main` features before an official release, build from source or use a tested development artifact; do not expect them in the v1.38.0 downloads.
+No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.0 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
 
 ### Standalone EXE
 
-Download the latest published **[Pocket-v1.38.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-v1.38.0.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+Download **[Pocket-v1.39.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-v1.39.0.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
 
 > [!IMPORTANT]
 > Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

@@ -95,19 +95,104 @@ class QuickSlotsTests(unittest.TestCase):
         self.assertEqual(len(quick_slots.merged_rows(slots, history, "slot")), 2)
         self.assertEqual(history[2]["pinned"], True)  # View-only merge.
 
-    def test_numlock_hardware_scan_and_no_bare_number_hotkeys(self):
-        bindings = list(quick_slots.slot_hotkeys())
-        self.assertEqual(len(bindings), 18)
-        self.assertEqual(len({ident for ident, _, _ in bindings}), 18)
-        for number in range(1, 10):
-            paste = bindings[(number - 1) * 2]
-            save = bindings[(number - 1) * 2 + 1]
-            self.assertEqual(paste[2], 0x60 + number)
-            self.assertEqual(save[2], paste[2])
-            self.assertEqual(quick_slots.hotkey_action(paste[0]), ("paste", number))
-            self.assertEqual(quick_slots.hotkey_action(save[0]), ("save", number))
-            self.assertTrue(save[1] & quick_slots.MOD_SHIFT)
-            self.assertFalse(paste[1] & quick_slots.MOD_SHIFT)
+    def test_numpad_zero_arms_save_mode_with_configurable_prefix(self):
+        self.assertEqual(quick_slots.normalize_prefix(None), "ctrl_alt")
+        self.assertEqual(quick_slots.normalize_prefix("ctrl_alt_shift"), "ctrl_alt")
+        self.assertEqual(quick_slots.prefix_label("ctrl_alt"), "Ctrl+Alt")
+        for _label, prefix in quick_slots.PREFIX_CHOICES:
+            bindings = list(quick_slots.slot_hotkeys(prefix))
+            self.assertEqual(len(bindings), 10)
+            self.assertEqual(len({identifier for identifier, _, _ in bindings}), 10)
+            expected = quick_slots.modifier_flags(prefix)
+            for number in range(1, 10):
+                hotkey_id, mods, key = bindings[number - 1]
+                self.assertEqual(mods, expected)
+                self.assertEqual(mods & quick_slots.MOD_SHIFT, 0)
+                self.assertEqual(key, 0x60 + number)
+                self.assertEqual(
+                    quick_slots.hotkey_action(hotkey_id), ("slot", number))
+            self.assertEqual(bindings[9][2], 0x60)
+            self.assertEqual(
+                quick_slots.hotkey_action(bindings[9][0]), ("mode", 0))
+            self.assertEqual(
+                quick_slots.hotkey_action(bindings[9][0],
+                                          base=quick_slots.ALTERNATE_HOTKEY_BASE),
+                None)
+            alternate = list(quick_slots.slot_hotkeys(
+                prefix, base=quick_slots.ALTERNATE_HOTKEY_BASE))
+            self.assertEqual(
+                quick_slots.hotkey_action(alternate[9][0],
+                                          base=quick_slots.ALTERNATE_HOTKEY_BASE),
+                ("mode", 0))
+
+    def test_save_mode_one_shot_and_expiry(self):
+        self.assertEqual(quick_slots.slot_action(1, now=10.0, armed_until=15.0),
+                         "save")
+        self.assertEqual(quick_slots.slot_action(1, now=15.0, armed_until=15.0),
+                         "paste")
+        self.assertEqual(quick_slots.slot_action(1, now=16.0, armed_until=15.0),
+                         "paste")
+        self.assertIsNone(quick_slots.slot_action(0, now=10.0, armed_until=15.0))
+
+    def test_register_hotkeys_is_atomic(self):
+        called = []
+        def register(hwnd, ident, mods, key):
+            called.append(ident)
+            return len(called) < 5
+        unregister = Mock()
+        result = quick_slots.register_all(register, unregister, 42, "ctrl_alt")
+        self.assertEqual(result, set())
+        self.assertEqual(set(x.args[1] for x in unregister.call_args_list),
+                         set(called[:4]))
+        unregister.reset_mock()
+        self.assertEqual(len(quick_slots.register_all(
+            lambda *_: True, unregister, 42, "ctrl_alt")), 10)
+        unregister.assert_not_called()
+
+    def test_mode_arming_uses_existing_shortcuts_and_expires(self):
+        desk = object.__new__(Desk)
+        desk.settings = {"quick_slots_enabled": True,
+                         "quick_slots_prefix": "ctrl_alt"}
+        desk.clipboard_slots = {"1": "STORED"}
+        desk._mark_active = False
+        desk._quick_slot_save_until = 0.0
+        desk._quick_slot_save_timer = None
+        desk.root = Mock()
+        desk.root.after.return_value = "timer"
+        desk._notify = Mock()
+        desk.events = Mock()
+        desk._cancel_quick_slot_save_mode = lambda: Desk._cancel_quick_slot_save_mode(desk)
+        desk._arm_quick_slot_save_mode = lambda: Desk._arm_quick_slot_save_mode(desk)
+        with patch.object(APP["time"], "monotonic", return_value=100.0):
+            Desk._quick_slot_hotkey(desk, "mode", 0, 100)
+            self.assertEqual(desk._quick_slot_save_until, 105.0)
+            desk.root.after.assert_called_once()
+            # The second Numpad key must now run SAVE, not PASTE.
+            with patch.object(APP["threading"], "Thread") as thread:
+                Desk._quick_slot_hotkey(desk, "slot", 1, 100)
+                thread.assert_called_once()
+        self.assertEqual(desk._quick_slot_save_until, 0.0)
+        desk.root.after_cancel.assert_called_once_with("timer")
+
+    def test_disable_quick_slots_clears_save_mode_without_deleting_values(self):
+        desk = object.__new__(Desk)
+        desk.settings = {"quick_slots_enabled": True,
+                         "quick_slots_prefix": "ctrl_alt"}
+        desk.clipboard_slots = {"1": "IP VALUE"}
+        desk._quick_slot_save_until = 100.0
+        desk._quick_slot_save_timer = "timer"
+        desk.root = Mock()
+        desk.tray = None
+        desk.current_tab = "notes"
+        desk.schedule_save = Mock()
+        Desk._set_quick_slots_enabled(desk, False)
+        self.assertFalse(desk.settings["quick_slots_enabled"])
+        self.assertEqual(desk._quick_slot_save_until, 0.0)
+        self.assertEqual(desk.clipboard_slots, {"1": "IP VALUE"})
+        desk.root.after_cancel.assert_called_once_with("timer")
+        desk.schedule_save.assert_called_once()
+        Desk._set_quick_slots_prefix(desk, "ctrl_win")
+        self.assertEqual(desk.settings["quick_slots_prefix"], "ctrl_win")
 
     def test_copy_current_selection_restores_previous_clipboard(self):
         fake = FakeSelectionBackend("PREVIOUS", "SELECTED")

@@ -115,8 +115,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Mini must be the saved factory mode")
         # Only the two requested starter links should appear inside אושפלו.
         note = app.data["notes"][0]
-        check(note["title"] == "הבחשט מתקרר" and
-              note["body"] == "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר." and
+        check(note["title"] == "הבאכש מתקרר" and
+              note["body"] == "תקלה באיזור בוכרה, הכל תקין אבל החינקלי כבר קר!!!!!" and
               note["direction"] == "rtl",
               "The Hebrew first-run note is incorrect")
         initial_links = app.data["links"]

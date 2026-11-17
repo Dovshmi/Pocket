@@ -332,8 +332,28 @@ class ClipboardDatabase:
             os.fsync(output.fileno())
 
     def last_text(self, day):
-        entries = self.load_text(day, limit=1)
-        return entries[0] if entries else None
+        """Get the most recent record without scanning a growing daily TXT.
+
+        The new append journal is chronological, so its last JSON line is the
+        newest capture. Legacy newest-first files use their first JSON line.
+        The per-clip 20,000-character cap bounds the tail read to 256 KiB.
+        """
+        file = self._text_file(day)
+        if file is None:
+            return None
+        with file.open("rb") as handle:
+            first = handle.readline()
+            if not first.strip():
+                return None
+            first_row = json.loads(first.decode("utf-8"))
+            if first_row.get("v") != 2:
+                return _check_record(first_row)
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - 262144))
+            tail = handle.read()
+            final = tail.splitlines()[-1]
+            return _check_record(json.loads(final.decode("utf-8")))
 
     def _image_paths(self, day, *, take=None):
         if not valid_day(day):

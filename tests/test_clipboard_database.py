@@ -24,9 +24,15 @@ class ClipboardDatabaseTests(unittest.TestCase):
         self.assertEqual(normalized["clipboard_days"], 1)
         self.assertEqual(normalized["convert_mode"], "mark")
         self.assertTrue(normalized["convert_enabled"])
-        for invalid in (0, 6, "5", True, False, None, -3):
+        for invalid in (0, 31, "5", True, False, None, -3):
             self.assertEqual(clipdb.normalize_days(invalid), 1)
         self.assertEqual(clipdb.normalize_days(5), 5)
+        self.assertEqual(normalized["clipboard_autodelete_days"], 0)
+        self.assertEqual(normalized["clipboard_text_display_limit"], 30)
+        self.assertEqual(normalized["clipboard_db_image_display_limit"], 30)
+        self.assertEqual(clipdb.normalize_autodelete_days(7), 7)
+        self.assertEqual(clipdb.normalize_autodelete_days(30), 30)
+        self.assertEqual(clipdb.normalize_autodelete_days(6), 0)
         self.assertEqual(APP["normalize_settings"]({
             "clipboard_storage": "DATABASE"})["clipboard_storage"], "ram")
 
@@ -96,7 +102,8 @@ class ClipboardDatabaseTests(unittest.TestCase):
                     history, Image.new("RGB", (14, 15), (i, 60, 22))))
                 db.save_image("2026-11-17", history[0])
             self.assertEqual(len(db.load_images("2026-11-17")), 33)
-            self.assertEqual(len(list((db.image_dir / "2026-11-17").glob("*.png"))), 33)
+            self.assertEqual(len(list(db.image_dir.glob("2026-11-17_*.png"))), 33)
+            self.assertFalse((db.image_dir / "2026-11-17").exists())
             self.assertEqual(db.days("images", days=1, on="2026-11-17"),
                              ["2026-11-17"])
             self.assertEqual(db.load_images("2026-11-16"), [])
@@ -120,6 +127,7 @@ class ClipboardDatabaseTests(unittest.TestCase):
             outside = db.text_dir / "keep-me.txt"
             outside.write_text("Do not delete", encoding="utf-8")
             other = db.image_dir / "2026-11-13" / "keep-me.txt"
+            other.parent.mkdir(exist_ok=True)
             other.write_text("Keep", encoding="utf-8")
             db.prune(2, on="2026-11-17")
             self.assertEqual(db.days("text", days=2, on="2026-11-17"),
@@ -128,7 +136,7 @@ class ClipboardDatabaseTests(unittest.TestCase):
                              ["2026-11-17", "2026-11-16"])
             self.assertTrue(outside.is_file())
             self.assertEqual(other.read_text(encoding="utf-8"), "Keep")
-            self.assertFalse(list((db.image_dir / "2026-11-15").glob("*.png")))
+            self.assertFalse(list(db.image_dir.glob("2026-11-15_*.png")))
 
     def test_bad_days_or_names_do_not_escape_profile_folder(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -157,6 +165,7 @@ class ClipboardIntegrationTests(unittest.TestCase):
             _clipboard_selected_image_id=None,
             _clipboard_capture_day=clipdb.today(),
             _clipboard_view_days={"text": clipdb.today(), "images": clipdb.today()},
+            _clipboard_page_index={"text":0,"images":0},
             _clipboard_last=None, _clipboard_sequence=None,
             current_tab="away", clipboard_page="text",
             schedule_save=lambda: events.append("save"),
@@ -166,10 +175,12 @@ class ClipboardIntegrationTests(unittest.TestCase):
         app.clipboard_items = app._ram_text_items
         app.clipboard_images = app._ram_images
         app._clipboard_store_is_disk = lambda: Desk._clipboard_store_is_disk(app)
+        app._clipboard_display_limit = lambda page: Desk._clipboard_display_limit(app, page)
         app._clipboard_load_day = lambda page, day=None: Desk._clipboard_load_day(app, page, day)
         app._clipboard_on_new_text = lambda value: Desk._clipboard_on_new_text(app, value)
         app._clipboard_on_new_image = lambda image: Desk._clipboard_on_new_image(app, image)
         app._clipboard_write_text_view = lambda items: Desk._clipboard_write_text_view(app, items)
+        app._clipboard_turn_page = lambda delta: Desk._clipboard_turn_page(app, delta)
         return app, events
 
     def test_ram_never_creates_database_and_switch_roundtrip_preserves_ram(self):

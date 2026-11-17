@@ -1,7 +1,7 @@
 """Windows image clipboard support, deliberately isolated from the UI.
 
-History is memory-only. Its configurable count limit defaults to twenty
-pictures. Nothing is written to Pocket's profile, disk or any network service.
+RAM history is memory-only and defaults to twenty images.
+Optional local disk history is managed separately by clipboard_database.
 """
 from __future__ import annotations
 
@@ -23,7 +23,13 @@ MAX_PNG_BYTES = 12 * 1024 * 1024
 
 def normalize_limit(value):
     """Constrain persisted count to known choices; reject bool/string/huge values."""
-    return value if type(value) is int and value in IMAGE_LIMIT_CHOICES else MAX_IMAGES
+    if type(value) is int and value in IMAGE_LIMIT_CHOICES:
+        return value
+    # Existing v1.37 profiles may have used 40–100. Keep as much history
+    # as the new 30-image maximum allows, rather than resetting to 20.
+    if type(value) is int and value in range(40, 101, 10):
+        return 30
+    return MAX_IMAGES
 
 
 def sequence_number():

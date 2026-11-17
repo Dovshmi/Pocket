@@ -38,10 +38,11 @@ class NewNotesTests(unittest.TestCase):
         note = m['new_note']('My note: / test', 'עבודה\nSecond line\n🙏')
         with tempfile.TemporaryDirectory() as home:
             first = m['export_note_for_notepad'](note, Path(home))
-            self.assertNotIn(':', first.name)
+            self.assertEqual(first.name, 'My note_ _ test.txt')
             self.assertEqual(first.read_text(encoding='utf-8-sig'), note['body'])
             first.write_text('Changed outside PocketDesk', encoding='utf-8-sig')
             second = m['export_note_for_notepad'](note, Path(home))
+            self.assertEqual(second.name, 'My note_ _ test (1).txt')
             self.assertNotEqual(first, second)
             self.assertEqual(first.read_text(encoding='utf-8-sig'), 'Changed outside PocketDesk')
             self.assertEqual(second.read_text(encoding='utf-8-sig'), note['body'])

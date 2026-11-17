@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "build" / "portable-binaries" / "PocketDesk"
 PACKAGE_DIR = ROOT / "build" / "portable-package" / "Pocket-Portable"
-RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.36.0")
+RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.38.0")
 if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?", RELEASE_VERSION):
     raise ValueError("Invalid release version")
 OUTPUT = ROOT / "dist" / f"Pocket-Portable-{RELEASE_VERSION}.zip"
@@ -77,7 +77,7 @@ def package() -> Path:
     shutil.copytree(APP_DIR, PACKAGE_DIR, ignore=shutil.ignore_patterns(
         "data", "data.json", "data-recovery.json", "data-corrupt-*.json",
         "vendors.json", "commands.json", "notepad", "notepad_exports",
-        "backups", "*.log", ".env", ".env.*"))
+        "backups", "ClipboardDatabase", "*.log", ".env", ".env.*"))
     (PACKAGE_DIR / "portable.flag").write_text(
         "Pocket Portable: user data lives in the adjacent data directory.\n",
         encoding="utf-8")

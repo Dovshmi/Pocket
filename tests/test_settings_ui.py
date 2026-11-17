@@ -43,7 +43,11 @@ class ModernSettingsTests(unittest.TestCase):
         for count in clipboard_images.IMAGE_LIMIT_CHOICES:
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": count})["clipboard_image_limit"], count)
-        for value in (-1, 0, 50, 100, 200, True, "30", 12.5, None):
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 15})["clipboard_image_limit"], 15)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 25})["clipboard_image_limit"], 25)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 40})["clipboard_image_limit"], 30)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 100})["clipboard_image_limit"], 30)
+        for value in (-1, 0, 35, 105, 200, True, "30", 12.5, None):
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
 
@@ -73,10 +77,10 @@ class ModernSettingsTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "data.json"
             data = app["default_data"]()
-            data["settings"]["clipboard_image_limit"] = 25
+            data["settings"]["clipboard_image_limit"] = 30
             app["save_data"](path, data)
             loaded = app["load_data"](path)
-            self.assertEqual(loaded["settings"]["clipboard_image_limit"], 25)
+            self.assertEqual(loaded["settings"]["clipboard_image_limit"], 30)
             self.assertNotIn("clipboard_images", path.read_text(encoding="utf-8"))
 
     def test_empty_slots_survive_json_settings_round_trip(self):

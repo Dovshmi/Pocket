@@ -556,6 +556,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         check(bool(canvas.bind(keystroke)),
                               f"{mode}: image gallery is missing {keystroke}")
                     if mode == "mini":
+                        check(app.clipboard_image_pause_button.winfo_ismapped(),
+                              "Mini: image capture button disappeared after compacting header")
+                        check(app.clipboard_image_pause_button.master is
+                              app.clipboard_images_status.master,
+                              "Mini: image Pause must share the status row")
                         original_images = list(app.clipboard_images)
                         for color in ((32, 91, 162), (11, 149, 85)):
                             check(clipboard_images.add_image(
@@ -656,10 +661,41 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     if mode == "mini":
                         check(actions_y >= list_y + app.clipboard_list.winfo_height(),
                               "Mini: Copy/Pin/Delete must be beneath the text history")
+                        # Mini reclaim: search and Pause share one horizontal row;
+                        # the DB pager shares a row with the Text/Images toggle.
+                        pause = app.clipboard_pause_button
+                        search = app.clipboard_query_entry
+                        check(pause.master is search.master,
+                              "Mini: Pause must be inside the search row")
+                        check(pause.winfo_ismapped(),
+                              "Mini: Pause must remain visible beside search")
+                        check(pause.winfo_rootx() >= search.winfo_rootx() +
+                              search.winfo_width(),
+                              "Mini: Pause overlaps the search field")
+                        check(abs(pause.winfo_rooty() - search.winfo_rooty()) < 12,
+                              "Mini: Pause is not on the search row")
+                        check(not hasattr(app, "clipboard_prev_button") or
+                              not app.clipboard_prev_button.winfo_exists(),
+                              "Mini: redundant pagination buttons should be removed")
+                        check(listbox.winfo_height() >= 130,
+                              "Mini: Clipboard history panel became too short")
                     else:
                         check(actions_y < list_y,
                               f"{mode}: keep text actions above the list")
                     app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.selection_set(0)
+                    app.clipboard_list.event_generate("<<ListboxSelect>>")
+                    app.root.update()
+                    shown = len(app._clipboard_filtered)
+                    check(f"1 / {shown} selected · {shown} entries" in
+                          app.clipboard_status.cget("text"),
+                          f"{mode}: text selection status did not update")
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.event_generate("<<ListboxSelect>>")
+                    app.root.update()
+                    check(f"0 / {shown} selected · {shown} entries" in
+                          app.clipboard_status.cget("text"),
+                          f"{mode}: text selection status did not clear")
                     app.clipboard_list.selection_set(0)
                     expected_text = app._clipboard_filtered[0]["text"]
                     menu_colors = clipboard_gallery.themes.palette(app.theme)
@@ -829,12 +865,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.root.update()
                     check(not app.scanning, f"{mode}: favorites started a scan")
                 if page == "settings":
-                    check(app._convert_hotkey_hint().startswith("Ctrl+Alt+F9"),
+                    check(app._convert_hotkey_hint().startswith("Ctrl+Alt+V"),
                           f"{mode}: converter shortcut was not restored")
                     labels = [str(widget.cget("text")) for widget in widgets(app.body)
                               if isinstance(widget, tk.Label) and "text" in widget.keys()]
-                    check(any("Fix EN / HE keyboard layout" in t or
-                              "FIX KEYBOARD LAYOUT" in t for t in labels),
+                    check(any("Enable Translate shortcut" in t or
+                              "Translate keyboard shortcut" in t for t in labels),
                           f"{mode}: converter hotkey is missing from Settings")
                     # All working modes share the modern selection, palette
                     # and keyboard-accessible switch components.
@@ -842,12 +878,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     required = {"mode_normal", "mode_mini", "mode_dashboard",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
-                                "quick_search", "clipboard_paused",
-                                "sensitive_filter"}
+                                "convert_enabled", "convert_mode_picker",
+                                "ram_image_limit", "db_image_display_limit",
+                                "db_text_display_limit", "clipboard_retention",
+                                "quick_search", "clipboard_paused", "sensitive_filter"}
                     required.update("tool_" + key
                                     for key, _ in app.VISIBLE_TABS_REFERENCE)
-                    required.update("image_limit_" + str(value)
-                                    for value in (10, 15, 20, 25, 30))
+
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
                     check(all(isinstance(common[key], tk.Checkbutton) and
@@ -859,14 +896,44 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
-                    common["image_limit_30"].invoke()
-                    check(app.settings["clipboard_image_limit"] == 30,
-                          f"{mode}: image history capacity did not update")
-                    check("✓" in common["image_limit_30"].cget("text"),
-                          f"{mode}: selected image limit is not highlighted")
-                    common["image_limit_" + str(old_limit)].invoke()
+                    picker = common["ram_image_limit"]
+                    picker.set("25")
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["clipboard_image_limit"] == 25,
+                          f"{mode}: RAM screenshot dropdown failed")
+                    picker.set(str(old_limit))
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
                     check(app.settings["clipboard_image_limit"] == old_limit,
-                          f"{mode}: prior image limit was not restored")
+                          f"{mode}: RAM count was not restored")
+                    check(tuple(common["ram_image_limit"]["values"]) ==
+                          ("10", "15", "20", "25", "30"),
+                          f"{mode}: RAM screenshot options do not match v1.38")
+                    check(tuple(common["db_text_display_limit"]["values"]) ==
+                          ("100", "300", "500", "800", "1000", "1200", "1500"),
+                          f"{mode}: DB text display options do not match v1.38")
+                    check("Off" in common["clipboard_retention"]["values"][0],
+                          f"{mode}: automatic history deletion is not opt-in")
+                    # Only these four Clipboard history selectors intercept
+                    # wheel changes; their other keyboard/dropdown actions work.
+                    history_keys = ("ram_image_limit", "db_image_display_limit",
+                                    "db_text_display_limit", "clipboard_retention")
+                    for key in history_keys:
+                        combo = common[key]
+                        initial = combo.get()
+                        before = dict(app.settings)
+                        combo.event_generate("<MouseWheel>", delta=-120)
+                        app.root.update()
+                        check(combo.get() == initial and app.settings == before,
+                              f"{mode}: mouse wheel changed {key} instead of scrolling Settings")
+                        check(bool(combo.bind("<Button-4>")) and
+                              bool(combo.bind("<Button-5>")),
+                              f"{mode}: Linux wheel is not protected on {key}")
+                    # The Translate dropdown and every unrelated selector
+                    # must remain untouched by this Clipboard-only behavior.
+                    check(not common["convert_mode_picker"].bind("<MouseWheel>"),
+                          f"{mode}: unrelated dropdown was modified")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==
@@ -1498,6 +1565,51 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               app.settings["extra_mini_tiles"], "tile slots not persisted")
         print("PASS: note, subnet, CLI entry, clipboard privacy and reload")
 
+
+        # v1.37: exercise the actual RAM / DATABASE controls on the GUI.
+        # The whole test runs against a disposable APPDATA directory.
+        from PIL import Image as _DbImage
+        from pocket import clipboard_database as _dbmod
+        app.show_tab("clipboard")
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "ram",
+              "Clipboard should default to RAM")
+        check(app.clipboard_storage_select.winfo_exists(),
+              "Clipboard RAM / DATABASE dropdown is missing")
+        app.clipboard_storage_select.set("DATABASE")
+        app.clipboard_storage_select.event_generate("<<ComboboxSelected>>")
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "database" and
+              app.clipboard_history_row.winfo_ismapped(),
+              "Database mode did not expose its date picker")
+        check(_dbmod.today() in app.clipboard_day_select.get(),
+              "Database date picker did not select today")
+        app._clipboard_on_new_text("SYNTHETIC DB TEST HISTORY")
+        app._clipboard_on_new_image(_DbImage.new("RGB", (21, 19), "#234567"))
+        app.root.update()
+        check(app.clipboard_database.load_text(_dbmod.today())[0]["text"] ==
+              "SYNTHETIC DB TEST HISTORY",
+              "Database text was not written to its daily file")
+        app.clipboard_page_buttons["images"].invoke()
+        app.root.update()
+        check(len(app.clipboard_database.load_images(_dbmod.today())) == 1,
+              "Database screenshot was not saved in the flat PNG directory")
+        check("DATABASE" in app.clipboard_images_status.cget("text"),
+              "Gallery still reported RAM while Database mode is active")
+        app.clipboard_storage_select.set("RAM")
+        app.clipboard_storage_select.event_generate("<<ComboboxSelected>>")
+        app.root.update()
+        check(app.settings["clipboard_storage"] == "ram",
+              "Switching back to RAM failed")
+        check(not app.clipboard_history_row.winfo_ismapped(),
+              "Database date picker is visible in RAM mode")
+        check("SYNTHETIC DB TEST HISTORY" not in
+              [record["text"] for record in app.clipboard_items],
+              "Database history incorrectly migrated into RAM")
+        app._write_now()
+        check("SYNTHETIC DB TEST HISTORY" not in app.path.read_text(encoding="utf-8"),
+              "Clipboard history leaked into data.json")
+        print("PASS: Clipboard v1.37 RAM / Database switch, date picker, local text/PNG and privacy")
         check(not errors, "Tk callback errors:\n" + "\n".join(errors))
         print("GUI AUDIT PASS — all active UI interactions and settings smoke-tested")
     finally:

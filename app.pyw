@@ -101,8 +101,10 @@ from pocket import picker_selection
 from pocket import quick_search
 from pocket import clipboard_policy
 from pocket import clipboard_images
+from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
 from pocket import keyboard_layout
+from pocket import marked_layout
 from pocket import single_instance
 from pocket import portable_storage
 from pocket import tool_icons
@@ -198,7 +200,12 @@ def default_data() -> dict:
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
-                     "clipboard_image_limit": clipboard_images.MAX_IMAGES},
+                     "clipboard_image_limit": clipboard_images.MAX_IMAGES,
+                     "use_windows_proxy": True, "convert_mode": "mark",
+                     "convert_enabled": True, "clipboard_storage": "ram",
+                     "clipboard_days": 1, "clipboard_autodelete_days": 0,
+                     "clipboard_text_display_limit": 100,
+                     "clipboard_db_image_display_limit": 30},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -230,6 +237,20 @@ def normalize_settings(raw):
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
+            "use_windows_proxy": raw.get("use_windows_proxy") is not False,
+            # v1.36 stored "clipboard" as a factory preference. When first
+            # migrating to 1.37 (no enable flag), select the new Mark default.
+            "convert_mode": ("mark" if "convert_enabled" not in raw and
+                             raw.get("convert_mode") == "clipboard" else
+                             raw.get("convert_mode") if raw.get("convert_mode") in
+                             ("clipboard", "mark") else "mark"),
+            "convert_enabled": raw.get("convert_enabled") is not False,
+            "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
+            "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
+            # Earlier 1–5-day history is never deleted without opting in now.
+            "clipboard_autodelete_days": clipdb.normalize_autodelete_days(raw.get("clipboard_autodelete_days")),
+            "clipboard_text_display_limit": clipdb.normalize_text_display_limit(raw.get("clipboard_text_display_limit")),
+            "clipboard_db_image_display_limit": clipdb.normalize_display_limit(raw.get("clipboard_db_image_display_limit")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
             "clipboard_image_limit": clipboard_images.normalize_limit(
@@ -384,6 +405,10 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        # Distinguish an unchanged legacy duplicate from an actual title rename.
+        # This lets the oldest existing Note keep its original unsuffixed title.
+        self._committed_note_titles = {
+            note["id"]: note["title"] for note in self.data["notes"]}
         # Migrate old flat shortcuts without touching their saved IDs/targets.
         self.data["shortcut_folders"] = shortcut_folders.normalize(
             self.data.get("shortcut_folders"), self.data["links"])
@@ -393,12 +418,40 @@ class PocketDesk:
         self.display_mode = self.settings["display_mode"]
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
-        self.clipboard_items = []  # Session-only text, never written to disk.
-        self.clipboard_images = []  # Session-only PNG images, configurable count.
+        self._ram_text_items = []  # Intentionally never written to disk.
+        self._ram_images = []      # Session-only screenshots.
+        self.clipboard_items = self._ram_text_items
+        self.clipboard_images = self._ram_images
+        self.clipboard_database = clipdb.ClipboardDatabase(self.path.parent)
+        self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
+        self._clipboard_capture_day = clipdb.today()
+        self._clipboard_page_index = {"text": 0, "images": 0}
+        self._clipboard_error_pending = None
+        if self.settings["clipboard_storage"] == "database":
+            try:
+                self.clipboard_database.ensure_folders()
+                self.clipboard_database.migrate_screenshots()
+                self.clipboard_database.update_retention(self.settings["clipboard_autodelete_days"])
+                self.clipboard_items = self.clipboard_database.load_text(
+                    clipdb.today(), limit=self.settings["clipboard_text_display_limit"])
+                self.clipboard_images = self.clipboard_database.load_images(
+                    clipdb.today(), limit=self.settings["clipboard_db_image_display_limit"],
+                    metadata_only=True)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+                # An unavailable/corrupted optional history must not prevent
+                # the Notes, Commands or network tools from launching.
+                self.settings["clipboard_storage"] = "ram"
+                self.clipboard_items = self._ram_text_items
+                self.clipboard_images = self._ram_images
+                self._clipboard_error_pending = (
+                    "Clipboard Database could not be read. Pocket started in "
+                    "RAM mode without overwriting your stored history. "
+                    f"Reason: {type(exc).__name__}.")
         self.clipboard_page = "text"
         self._clipboard_selected_image_id = None
         self._clipboard_sequence = None
         self._clipboard_last = None
+        self._mark_active = False
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
@@ -408,11 +461,13 @@ class PocketDesk:
         self.hotkey = hk.normalize_hotkey(self.data.get("hotkey"))
         self.convert_hotkey = hk.normalize_convert_hotkey(
             self.data.get("convert_hotkey"), popup=self.hotkey)
-        self.convert_hotkey_available = True
+        self.convert_hotkey_available = self.settings["convert_enabled"]
         self.hotkey_available = True
         self.tray = None
         self._save_job = None
         self._loading_note = False
+        self._title_job = None  # Debounce Title/file renames while typing.
+        self._title_job_note_id = None
         self._notepad_sessions = {}  # Per-note working files; not persisted in data.json.
         self._bidi_editor_active = False
         self._note_focus_pending = None
@@ -535,10 +590,15 @@ class PocketDesk:
         self.tasks.every("reminders", 1500, self._reminder_poll, initial_ms=2500)
         self.tasks.every("notepad", 1200, self._notepad_poll)
         self.tasks.every("notes-editor", 350, self._bidi_poll)
+        if self._clipboard_error_pending:
+            notice = self._clipboard_error_pending
+            self.root.after_idle(lambda text=notice: messagebox.showwarning(
+                "Pocket Clipboard", text, parent=self.root))
         if not preview and sys.platform == "win32":
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
-                                    self.hotkey, self.convert_hotkey)
+                                    self.hotkey, self.convert_hotkey,
+                                    convert_enabled=self.settings["convert_enabled"])
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -622,6 +682,10 @@ class PocketDesk:
 
     def _convert_hotkey_hint(self):
         label = hk.hotkey_label(self.convert_hotkey)
+        # The adjacent two-way selector displays the active mode. Keep the
+        # shortcut label mode-neutral so it never becomes stale after a toggle.
+        if not self.settings["convert_enabled"]:
+            return label + "  ·  Disabled"
         return label + ("  ·  Fix keyboard layout"
                         if self.convert_hotkey_available else "  ·  Unavailable")
 
@@ -813,7 +877,7 @@ class PocketDesk:
             if candidate == current:
                 close()
                 return
-            if self.tray and not self.tray.error:
+            if self.tray and not self.tray.error and (not is_convert or self.settings["convert_enabled"]):
                 # Windows registration is validated before replacing the old key.
                 if is_convert:
                     self.tray.set_convert_hotkey(candidate)
@@ -1570,8 +1634,280 @@ class PocketDesk:
         # Periodic UI callbacks must not disappear silently after an exception.
         print(f"Pocket task {name} failed: {error}", file=sys.stderr)
 
+    def _clipboard_store_is_disk(self):
+        return self.settings["clipboard_storage"] == "database"
+
+    def _clipboard_report_io_error(self, exc):
+        message = f"Local clipboard history could not be saved or opened: {type(exc).__name__}: {exc}"
+        if self.current_tab == "clipboard" and not getattr(self, "_clipboard_error_shown", False):
+            self._clipboard_error_shown = True
+            self._warning("Clipboard Database", message)
+        else:
+            # Do not include copied text in logs.
+            print("Pocket clipboard database I/O error: " + str(type(exc).__name__), file=sys.stderr)
+
+    def _clipboard_display_limit(self, page):
+        return self.settings["clipboard_text_display_limit" if page == "text"
+                             else "clipboard_db_image_display_limit"]
+
+    def _clipboard_load_day(self, page, day=None):
+        """Load only one page; full-resolution PNGs remain on disk."""
+        if not self._clipboard_store_is_disk() or page not in ("text", "images"):
+            return
+        day = day or self._clipboard_view_days[page]
+        try:
+            self._clipboard_view_days[page] = day
+            limit = self._clipboard_display_limit(page)
+            offset = self._clipboard_page_index.get(page, 0)
+            if page == "text":
+                self.clipboard_items = self.clipboard_database.load_text(
+                    day, limit=limit, offset=offset)
+            else:
+                self.clipboard_images = self.clipboard_database.load_images(
+                    day, limit=limit, offset=offset, metadata_only=True)
+                self._clipboard_selected_image_id = (
+                    self.clipboard_images[0]["id"] if self.clipboard_images else None)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
+
+    def _clipboard_choose_day(self, day):
+        page = self.clipboard_page
+        if not self._clipboard_store_is_disk() or not clipdb.valid_day(day):
+            return
+        options = set(self.clipboard_database.days(
+            page, days=self.settings["clipboard_autodelete_days"])) | {clipdb.today()}
+        if day not in options:
+            return
+        self._clipboard_page_index[page] = 0
+        self._clipboard_load_day(page, day)
+        if page == "text":
+            self._refresh_clipboard()
+        else:
+            clipboard_gallery.refresh_images(self, force=True)
+        clipboard_gallery.refresh_history_selector(self)
+
+    def _clipboard_load_more(self, page):
+        """Extend the current day's visible window on demand.
+
+        Text is appended as records; image pages append only metadata. The
+        remaining database stays on disk until scrolling requests more.
+        """
+        if (not self._clipboard_store_is_disk() or
+                self.current_tab != "clipboard" or
+                page != self.clipboard_page or page not in ("text", "images")):
+            return False
+        day = self._clipboard_view_days[page]
+        current = self.clipboard_items if page == "text" else self.clipboard_images
+        offset = len(current)
+        count = self._clipboard_display_limit(page)
+        if count <= 0:
+            return False
+        try:
+            if page == "text":
+                records = self.clipboard_database.load_text(
+                    day, limit=count, offset=offset)
+            else:
+                records = self.clipboard_database.load_images(
+                    day, limit=count, offset=offset, metadata_only=True)
+            if not records:
+                return False
+            existing = {item["id"] for item in current}
+            new_items = [item for item in records if item["id"] not in existing]
+            if not new_items:
+                return False
+            current.extend(new_items)
+            if page == "text":
+                top = (self.clipboard_list.nearest(0)
+                       if self.clipboard_list.winfo_exists() else 0)
+                self._refresh_clipboard()
+                if self.clipboard_list.winfo_exists():
+                    self.clipboard_list.yview(top)
+            else:
+                clipboard_gallery.refresh_images(self, force=True)
+            return True
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
+            return False
+
+    def _clipboard_turn_page(self, delta):
+        page = self.clipboard_page
+        if not self._clipboard_store_is_disk() or delta not in (-1, 1):
+            return
+        limit = self._clipboard_display_limit(page)
+        previous = self._clipboard_page_index[page]
+        proposed = max(0, previous + delta * limit)
+        if proposed == previous:
+            return
+        day = self._clipboard_view_days[page]
+        try:
+            next_row = (self.clipboard_database.load_text(day, limit=1, offset=proposed)
+                        if page == "text" else self.clipboard_database.load_images(
+                            day, limit=1, offset=proposed, metadata_only=True))
+            if not next_row:
+                return
+            self._clipboard_page_index[page] = proposed
+            self._clipboard_load_day(page)
+            if page == "text":
+                self._refresh_clipboard()
+            else:
+                clipboard_gallery.refresh_images(self, force=True)
+            clipboard_gallery.refresh_page_navigation(self)
+        except (OSError, ValueError, TypeError) as exc:
+            self._clipboard_report_io_error(exc)
+
+    def _clipboard_use_storage(self, mode):
+        if mode not in ("ram", "database") or self.settings["clipboard_storage"] == mode:
+            return
+        previous = self.settings["clipboard_storage"]
+        self.settings["clipboard_storage"] = mode
+        if mode == "ram":
+            self.clipboard_items = self._ram_text_items
+            self.clipboard_images = self._ram_images
+        else:
+            try:
+                self.clipboard_database.ensure_folders()
+                self.clipboard_database.migrate_screenshots()
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
+                self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
+                self._clipboard_page_index = {"text": 0, "images": 0}
+                self._clipboard_load_day("text")
+                self._clipboard_load_day("images")
+            except (OSError, ValueError, TypeError) as exc:
+                self.settings["clipboard_storage"] = previous
+                self.clipboard_items = self._ram_text_items
+                self.clipboard_images = self._ram_images
+                self._clipboard_report_io_error(exc)
+                return
+        self._clipboard_selected_image_id = None
+        self._clipboard_last = None
+        self._clipboard_sequence = clipboard_images.sequence_number()
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
+    def _set_clipboard_autodelete_days(self, days):
+        days = clipdb.normalize_autodelete_days(days)
+        if self.settings["clipboard_autodelete_days"] == days:
+            return
+        self.settings["clipboard_autodelete_days"] = days
+        if self._clipboard_store_is_disk():
+            try:
+                self.clipboard_database.migrate_screenshots()
+                self.clipboard_database.update_retention(days)
+                for page in ("text", "images"):
+                    known = set(self.clipboard_database.days(page, days=days))
+                    if self._clipboard_view_days[page] not in known:
+                        self._clipboard_view_days[page] = clipdb.today()
+                        self._clipboard_page_index[page] = 0
+                    self._clipboard_load_day(page)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
+    def _set_clipboard_days(self, days):
+        """Legacy callback; the new auto-delete preference is opt-in."""
+        self._set_clipboard_autodelete_days(days)
+
+    def _set_clipboard_display_limit(self, page, value):
+        if page not in ("text", "images"):
+            return
+        key = "clipboard_text_display_limit" if page == "text" else "clipboard_db_image_display_limit"
+        limit = (clipdb.normalize_text_display_limit(value) if page == "text"
+                 else clipdb.normalize_display_limit(value, self.settings[key]))
+        if self.settings[key] == limit:
+            return
+        self.settings[key] = limit
+        if self._clipboard_store_is_disk():
+            self._clipboard_page_index[page] = 0
+            self._clipboard_load_day(page)
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
+    def _clipboard_on_new_text(self, value):
+        day = clipdb.today()
+        if self._clipboard_store_is_disk():
+            if day != self._clipboard_capture_day:
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
+                self._clipboard_capture_day = day
+            recent = self.clipboard_database.last_text(day)
+            if recent is None or recent["text"] != value:
+                fresh = []
+                clipboard_add(fresh, value)
+                if not fresh:
+                    return
+                self.clipboard_database.append_text(
+                    day, fresh[0], days=self.settings["clipboard_autodelete_days"])
+            self._clipboard_page_index["text"] = 0
+            self._clipboard_load_day("text", day)
+            if self.current_tab == "clipboard":
+                clipboard_gallery.refresh_history_selector(self)
+                if self.clipboard_page == "text":
+                    self._refresh_clipboard()
+        else:
+            before = [(row["id"], row["text"]) for row in self.clipboard_items[:1]]
+            clipboard_add(self.clipboard_items, value)
+            if self.current_tab == "clipboard" and before != [
+                    (row["id"], row["text"]) for row in self.clipboard_items[:1]]:
+                self._refresh_clipboard()
+
+    def _clipboard_on_new_image(self, image):
+        day = clipdb.today()
+        if self._clipboard_store_is_disk():
+            if day != self._clipboard_capture_day:
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
+                self._clipboard_capture_day = day
+            candidate = []
+            if not clipboard_images.add_image(candidate, image):
+                return
+            record = candidate[0]
+            latest = self.clipboard_database.load_images(day, limit=1)
+            duplicated = bool(latest and latest[0]["digest"] == record["digest"])
+            if not duplicated:
+                self.clipboard_database.save_image(day, record)
+            self._clipboard_page_index["images"] = 0
+            self._clipboard_load_day("images", day)
+            self._clipboard_selected_image_id = (
+                latest[0]["id"] if duplicated else record["id"])
+            if self.current_tab == "clipboard":
+                clipboard_gallery.refresh_history_selector(self)
+                if self.clipboard_page == "images":
+                    clipboard_gallery.refresh_images(self, force=True)
+        else:
+            if clipboard_images.add_image(
+                    self.clipboard_images, image,
+                    maximum=self.settings["clipboard_image_limit"]):
+                if self.current_tab == "clipboard":
+                    clipboard_gallery.refresh_images(self, force=True)
+
     def _clipboard_poll(self):
-        if ("clipboard" not in self.settings["visible_tabs"]
+        # Expiry maintenance must continue while clipboard capture is paused,
+        # or when the menu is hidden. It only does disk I/O at day rollover.
+        # A date rollover expires old files even if no new copy arrives.
+        if self._clipboard_store_is_disk() and clipdb.today() != self._clipboard_capture_day:
+            self._clipboard_capture_day = clipdb.today()
+            try:
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
+                for page in ("text", "images"):
+                    available = set(self.clipboard_database.days(
+                        page, days=self.settings["clipboard_autodelete_days"]))
+                    if self._clipboard_view_days[page] not in available:
+                        self._clipboard_view_days[page] = clipdb.today()
+                        self._clipboard_page_index[page] = 0
+                    self._clipboard_load_day(page)
+                if self.current_tab == "clipboard":
+                    clipboard_gallery.refresh_history_selector(self)
+                    self._refresh_clipboard()
+                    clipboard_gallery.refresh_images(self, force=True)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+        if (self._mark_active or "clipboard" not in self.settings["visible_tabs"]
                 or self.settings["clipboard_paused"]):
             return
         # On Windows the sequence counter avoids decoding the same image every
@@ -1595,19 +1931,67 @@ class PocketDesk:
                              and clipboard_policy.should_capture(
                                  value, sensitive_filter=False, max_length=10**9))
         image = None if blocked_sensitive else clipboard_images.read_image()
-        if image is not None:
-            if clipboard_images.add_image(
-                    self.clipboard_images, image,
-                    maximum=self.settings["clipboard_image_limit"]):
-                if self.current_tab == "clipboard":
-                    clipboard_gallery.refresh_images(self, force=True)
-        elif allowed_text and value != self._clipboard_last:
-            self._clipboard_last = value
-            before = len(self.clipboard_items)
-            clipboard_add(self.clipboard_items, value)
-            if self.current_tab == "clipboard" and len(self.clipboard_items) != before:
-                self._refresh_clipboard()
+        try:
+            if image is not None:
+                self._clipboard_on_new_image(image)
+            elif allowed_text and (
+                    value != self._clipboard_last or self._clipboard_store_is_disk()):
+                self._clipboard_on_new_text(value)
+                self._clipboard_last = value
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
         self._clipboard_sequence = sequence
+
+    def _set_windows_proxy(self, enabled):
+        """Change only the transport used by future user-initiated requests."""
+        self.settings["use_windows_proxy"] = bool(enabled)
+        self.schedule_save()
+
+    def _set_convert_enabled(self, enabled):
+        enabled = bool(enabled)
+        if self.settings["convert_enabled"] == enabled:
+            return
+        self.settings["convert_enabled"] = enabled
+        if not enabled:
+            self.convert_hotkey_available = False
+        if self.tray and not self.tray.error:
+            self.tray.set_convert_enabled(enabled)
+        else:
+            self.convert_hotkey_available = enabled
+        self.schedule_save()
+
+    def _set_convert_mode(self, mode):
+        if mode not in ("clipboard", "mark"):
+            return
+        self.settings["convert_mode"] = mode
+        self.schedule_save()
+
+    def _start_mark_conversion(self, target_hwnd):
+        """One-shot, native selection conversion; never poll the keyboard."""
+        if self._mark_active:
+            return
+        if os.name != "nt":
+            self._notify("Pocket · Keyboard layout", "Mark mode requires Windows.")
+            return
+        if not target_hwnd:
+            self._notify("Pocket · Keyboard layout", "Select text in an application first.")
+            return
+        self._mark_active = True
+        owner = self.root.winfo_id()
+
+        def worker():
+            try:
+                result = marked_layout.convert_selection(
+                    keyboard_layout.convert, target_hwnd=target_hwnd,
+                    owner_hwnd=owner)
+                self.events.put(("mark_result", result.message))
+            except (marked_layout.MarkError, OSError, RuntimeError) as exc:
+                self.events.put(("mark_result", str(exc)))
+            except Exception:
+                # Do not leak copied text or clipboard contents into debug logs.
+                self.events.put(("mark_result", "Could not correct the selection."))
+        threading.Thread(target=worker, name="PocketDeskMarkConversion",
+                         daemon=True).start()
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
@@ -1632,12 +2016,15 @@ class PocketDesk:
         if self.settings["clipboard_image_limit"] == limit:
             return
         self.settings["clipboard_image_limit"] = limit
-        del self.clipboard_images[limit:]
-        if (self._clipboard_selected_image_id is not None and
-                not any(item["id"] == self._clipboard_selected_image_id
-                        for item in self.clipboard_images)):
-            self._clipboard_selected_image_id = (
-                self.clipboard_images[0]["id"] if self.clipboard_images else None)
+        # Capacity applies to RAM snapshots only; DB retains daily screenshots.
+        ram_images = getattr(self, "_ram_images", self.clipboard_images)
+        del ram_images[limit:]
+        if self.settings.get("clipboard_storage", "ram") != "database":
+            if (self._clipboard_selected_image_id is not None and
+                    not any(item["id"] == self._clipboard_selected_image_id
+                            for item in self.clipboard_images)):
+                self._clipboard_selected_image_id = (
+                    self.clipboard_images[0]["id"] if self.clipboard_images else None)
         self.schedule_save()
         if (self.current_tab == "clipboard" and
                 getattr(self, "clipboard_page", None) == "images"):
@@ -1667,9 +2054,25 @@ class PocketDesk:
                     self.clipboard_list.activate(index)
                     self.clipboard_list.see(index)
                     break
-        self.clipboard_status.config(text=f"{len(self._clipboard_filtered)} entries · capture " +
-                                     ("PAUSED" if self.settings["clipboard_paused"] else
-                                      "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
+        self._update_clipboard_text_status()
+
+    def _update_clipboard_text_status(self):
+        """Update the existing grey status label, without changing layout."""
+        if not hasattr(self, "clipboard_status") or not self.clipboard_status.winfo_exists():
+            return
+        count = len(getattr(self, "_clipboard_filtered", []))
+        selection = self.clipboard_list.curselection()
+        selected = selection[0] + 1 if selection and selection[0] < count else 0
+        # The Mini header already displays storage and the date selector.
+        # Avoid clipping the status text in the narrow panel.
+        context = (f"{self._clipboard_view_days['text']} · DATABASE · "
+                   if self._clipboard_store_is_disk() and self.display_mode != "mini"
+                   else "")
+        capture = ("PAUSED" if self.settings["clipboard_paused"] else
+                   "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF")
+        self.clipboard_status.config(
+            text=f"{selected} / {count} selected · {count} entries · "
+                 + context + f"capture {capture}")
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):
@@ -1718,30 +2121,88 @@ class PocketDesk:
             converted, paused=self.settings["clipboard_paused"],
             sensitive_filter=self.settings["clipboard_sensitive_filter"]
         ):
-            clipboard_add(self.clipboard_items, converted)
-            if self.current_tab == "clipboard":
-                self._refresh_clipboard()
+            try:
+                self._clipboard_on_new_text(converted)
+            except (OSError, ValueError, TypeError) as exc:
+                self._clipboard_report_io_error(exc)
         self._notify("Pocket · Keyboard layout", "Corrected text copied. Press Ctrl+V to paste.")
         return True
+
+    def _clipboard_write_text_view(self, updated):
+        if self._clipboard_store_is_disk():
+            self.clipboard_database.save_text(
+                self._clipboard_view_days["text"], updated,
+                days=self.settings["clipboard_autodelete_days"])
+            self._clipboard_load_day("text")
+        else:
+            self.clipboard_items[:] = updated
 
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
         if item:
-            item["pinned"] = not item["pinned"]
+            # Never truncate a whole day to the 10–100 visible rows.
+            updated = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
+                       if self._clipboard_store_is_disk() else
+                       [dict(row) for row in self.clipboard_items])
+            for row in updated:
+                if row["id"] == item["id"]:
+                    row["pinned"] = not row["pinned"]
+            try:
+                self._clipboard_write_text_view(updated)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+                return
             self._refresh_clipboard()
 
     def _delete_clipboard_item(self):
         item = self._selected_clipboard_item()
         if item:
-            self.clipboard_items.remove(item)
+            all_items = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
+                         if self._clipboard_store_is_disk() else self.clipboard_items)
+            updated = [row for row in all_items if row["id"] != item["id"]]
+            try:
+                self._clipboard_write_text_view(updated)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+                return
+            if self._clipboard_store_is_disk():
+                clipboard_gallery.refresh_history_selector(self)
             self._refresh_clipboard()
+
+    def _clipboard_delete_image(self, item):
+        if self._clipboard_store_is_disk():
+            try:
+                self.clipboard_database.delete_image(
+                    self._clipboard_view_days["images"], item)
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+                return False
+        return True
+
+    def _clipboard_clear_images(self):
+        if self._clipboard_store_is_disk():
+            try:
+                self.clipboard_database.clear_images(
+                    self._clipboard_view_days["images"])
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+                return False
+        return True
 
     def _clear_clipboard(self):
         if self.clipboard_page == "images":
             clipboard_gallery.clear_images(self)
         else:
-            self.clipboard_items.clear()
+            try:
+                self._clipboard_write_text_view([])
+            except (OSError, ValueError) as exc:
+                self._clipboard_report_io_error(exc)
+                return
             self._refresh_clipboard()
+        if self._clipboard_store_is_disk():
+            clipboard_gallery.refresh_history_selector(self)
+            if self.clipboard_page == "text":
+                self._refresh_clipboard()
 
     def _section_title(self, parent, title, desc, button_text, button_action):
         """Shared presentation across Pocket tools; preserve original callbacks."""
@@ -1788,6 +2249,7 @@ class PocketDesk:
                                     highlightbackground=BORDER, relief="flat", font=(FONT, 10, "bold"))
         self.title_entry.pack(fill="x", padx=8, pady=(3, 5), ipady=5)
         self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
+        self.title_entry.bind("<FocusOut>", lambda _event: self._commit_note_title(), add="+")
         self.title_var.trace_add("write", self._change_note_title)
         phone_row = tk.Frame(details, bg=PANEL)
         phone_row.pack(fill="x", padx=8, pady=(0, 4))
@@ -1921,6 +2383,7 @@ class PocketDesk:
                                     relief="flat", font=(FONT, 11, "bold"))
         self.title_entry.pack(fill="x", padx=12, ipady=6 if self.display_mode == "normal" else 9)
         self.title_entry.bind("<ButtonPress-1>", self._note_focus_field, add="+")
+        self.title_entry.bind("<FocusOut>", lambda _event: self._commit_note_title(), add="+")
         self.title_var.trace_add("write", self._change_note_title)
 
         phone_row = tk.Frame(details, bg=PANEL)
@@ -1991,6 +2454,7 @@ class PocketDesk:
         """
         if self._loading_note or self.current_tab != "notes":
             return
+        self._commit_note_title()
         note = self.active_note()
         if note is None or not hasattr(self, "note_body") or not self.note_body.winfo_exists():
             return
@@ -2278,6 +2742,7 @@ class PocketDesk:
             if note["id"] == note_id:
                 copy = duplicate_note(note)
                 self.data["notes"].insert(index + 1, copy)
+                copy["title"] = self._unique_note_path(copy, copy["title"]).stem
                 self.data["active_note"] = copy["id"]
                 self.refresh_note_list()
                 self._load_selected_note()
@@ -2305,6 +2770,101 @@ class PocketDesk:
         self._load_selected_note()
         self.schedule_save()
 
+    def _unique_note_path(self, note, title):
+        """Reserve other Notes' titles and working files, even before export."""
+        reserved = set()
+        prior = getattr(self, "_committed_note_titles", {}).get(note["id"])
+        unchanged_legacy = (prior is None or
+                            note_sync._safe_title_stem(prior).casefold() ==
+                            note_sync._safe_title_stem(title).casefold())
+        my_index = next((i for i, item in enumerate(self.data["notes"])
+                         if item["id"] == note["id"]), -1)
+        for index, other in enumerate(self.data["notes"]):
+            if other["id"] == note["id"]:
+                continue
+            other_stem = note_sync._safe_title_stem(other.get("title", ""))
+            same_legacy_name = other_stem.casefold() == note_sync._safe_title_stem(title).casefold()
+            # Legacy data can already contain duplicate titles. Preserve the
+            # first existing Note's title; number the later ones on first use.
+            # For a *new* rename, every other Note takes precedence.
+            if not (unchanged_legacy and same_legacy_name and index > my_index):
+                reserved.add(other_stem + ".txt")
+            filename = other.get("notepad_filename")
+            if note_sync._valid_saved_filename(filename):
+                reserved.add(filename)
+        folder = self.path.parent / "notepad"
+        session = self._notepad_sessions.get(note["id"])
+        owned = (session["path"].name if session is not None else
+                 note.get("notepad_filename"))
+        return note_sync.unique_note_path(
+            folder, title, reserved_names=reserved, own_filename=owned)
+
+    def _commit_note_title(self, note_id=None):
+        """Finalize a Title edit and rename its existing Notepad file together.
+
+        Called after typing settles, on focus loss and before switching Notes.
+        Never rename on each keystroke or silently overwrite a neighboring Note.
+        """
+        note_id = note_id or self.data["active_note"]
+        if getattr(self, "_title_job", None) is not None and (
+                getattr(self, "_title_job_note_id", None) == note_id):
+            self.root.after_cancel(self._title_job)
+            self._title_job = None
+            self._title_job_note_id = None
+        note = next((item for item in self.data["notes"]
+                     if item["id"] == note_id), None)
+        if note is None:
+            return
+        session = self._notepad_sessions.get(note_id)
+        folder = self.path.parent / "notepad"
+        old_name = (session["path"].name if session is not None else
+                    note.get("notepad_filename"))
+        old_path = (folder / old_name if note_sync._valid_saved_filename(old_name)
+                    else None)
+        target = self._unique_note_path(note, note["title"])
+        if old_path is not None and old_path != target and old_path.is_file():
+            try:
+                note_sync.rename_text_file(old_path, target)
+            except OSError as exc:
+                # A running Notepad may lock its file. Keep the original name
+                # and Title aligned instead of pretending the rename succeeded.
+                note["title"] = old_path.stem
+                if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                    self._loading_note = True
+                    try:
+                        self.title_var.set(note["title"])
+                    finally:
+                        self._loading_note = False
+                    self.refresh_note_list()
+                messagebox.showwarning(
+                    "Rename note", f"The Notepad file could not be renamed.\n"
+                    f"Close the file in Notepad and try again.\n\n{exc}",
+                    parent=self.root)
+                self.schedule_save()
+                return
+        previous_title = note["title"]
+        note["title"] = target.stem
+        if hasattr(self, "_committed_note_titles"):
+            self._committed_note_titles[note_id] = note["title"]
+        if old_path is not None:
+            # A file can be temporarily missing if moved externally. Retain
+            # the logical filename association for its next open.
+            note["notepad_filename"] = target.name
+        if session is not None:
+            session["path"] = target
+        if (self.current_tab == "notes" and self.data["active_note"] == note_id
+                and hasattr(self, "title_var")):
+            if self.title_var.get() != note["title"]:
+                self._loading_note = True
+                try:
+                    self.title_var.set(note["title"])
+                finally:
+                    self._loading_note = False
+            if previous_title != note["title"] or (old_path is not None and old_path != target):
+                self.refresh_note_list()
+        if previous_title != note["title"] or (old_path is not None and old_path != target):
+            self.schedule_save()
+
     def _change_note_title(self, *_args):
         if self._loading_note or self.current_tab != "notes":
             return
@@ -2313,6 +2873,13 @@ class PocketDesk:
             note["title"] = self.title_var.get()
             self.refresh_note_list()
             self._edit_dirty()
+            # File names and Windows collision numbering are committed only
+            # after editing pauses, rather than renaming on every keystroke.
+            if self._title_job is not None:
+                self.root.after_cancel(self._title_job)
+            self._title_job_note_id = note["id"]
+            self._title_job = self.root.after(
+                450, lambda ident=note["id"]: self._commit_note_title(ident))
 
     def _change_note_phone(self, *_args):
         if self._loading_note or self.current_tab != "notes":
@@ -2622,8 +3189,12 @@ class PocketDesk:
 
     def add_note(self):
         self._flush_current_note()
-        self.data["notes"].insert(0, new_note())
-        self.data["active_note"] = self.data["notes"][0]["id"]
+        # Append at the end regardless of the previously selected note.
+        # ordered_notes() still keeps pinned notes at the top of every picker.
+        created = new_note()
+        self.data["notes"].append(created)
+        created["title"] = self._unique_note_path(created, created["title"]).stem
+        self.data["active_note"] = created["id"]
         if self.current_tab != "notes":
             self.show_tab("notes")
         else:
@@ -4070,11 +4641,14 @@ class PocketDesk:
         self.scan_info.config(text=f"Checking {len(ports)} TCP port(s) on {ip} {location}…",
                               fg=ACCENT)
 
+        use_windows_proxy = self.settings["use_windows_proxy"]
+
         def worker():
             try:
                 if source == "dashdash":
                     # One HTTPS request; no local TCP connections in remote mode.
-                    results = remote_ports.check_remote_ports(ip, ports)
+                    results = remote_ports.check_remote_ports(
+                        ip, ports, use_windows_proxy=use_windows_proxy)
                 else:
                     results = net.scan_tcp_ports(ip, ports, cancel=self.scan_cancel)
                 for result in results:
@@ -4354,10 +4928,12 @@ class PocketDesk:
         self.updating_vendors = True
         if self.current_tab == "mac":
             self.vendor_info.config(text="Downloading registries from IEEE…", fg=ACCENT)
+        use_windows_proxy = self.settings["use_windows_proxy"]
         def worker():
             try:
                 count = net.download_ieee_database(
-                    self.vendor_file, lambda note: self.events.put(("vendor_progress", note)))
+                    self.vendor_file, lambda note: self.events.put(("vendor_progress", note)),
+                    use_windows_proxy=use_windows_proxy)
                 self.events.put(("vendor_done", count))
             except Exception as exc:
                 self.events.put(("vendor_error", str(exc)))
@@ -4438,9 +5014,12 @@ class PocketDesk:
             self.mac_check_button.config(state="disabled")
             self.mac_info.config(text=f"Checking {len(macs)} MAC(s) via DashDash…", fg=ACCENT)
 
+            use_windows_proxy = self.settings["use_windows_proxy"]
+
             def worker():
                 try:
-                    rows = remote_mac.lookup_remote_macs(macs)
+                    rows = remote_mac.lookup_remote_macs(
+                        macs, use_windows_proxy=use_windows_proxy)
                     self.events.put(("mac_remote_result", (token, rows)))
                 except Exception as exc:
                     self.events.put(("mac_remote_error", (token, str(exc))))
@@ -4565,7 +5144,7 @@ class PocketDesk:
             session["dismissed"] = None
 
     def open_notepad(self):
-        """Edit a note using its stable local file; saved changes sync into Pocket."""
+        """Open a readable, per-note .txt file while retaining live edit sync."""
         if sys.platform != "win32":
             messagebox.showinfo("Windows only", "Opening notes in Windows Notepad requires Windows.",
                                 parent=self.root)
@@ -4574,21 +5153,35 @@ class PocketDesk:
         if not note:
             return
         self._flush_current_note()
+        # A Title edited before opening Notepad must already own the final
+        # Windows-safe name, including any (1), (2), ... suffix.
+        self._commit_note_title(note["id"])
         folder = self.path.parent / "notepad"
         try:
-            path = note_sync.note_path(folder, note["id"])
             session = self._notepad_sessions.get(note["id"])
-            if session is None:
-                if path.exists():
-                    external = note_sync.read_text(path)
+            if session is not None:
+                # Never rename an open working file or overwrite unsaved Notepad edits.
+                path = session["path"]
+            else:
+                # Reuse the same allocation rules as Title editing, including
+                # first-in-list priority for old notes with duplicate titles.
+                path = self._unique_note_path(note, note["title"])
+                # Migrate older note_<uuid>.txt working files non-destructively:
+                # read old edits, then write a new readable filename. Keep the
+                # original on disk as a fallback; it is never silently discarded.
+                legacy = note_sync.note_path(folder, note["id"])
+                prior = (path if path.is_file() else
+                         legacy if legacy.is_file() else None)
+                if prior is not None:
+                    external = note_sync.read_text(prior)
                     if external != note["body"]:
                         self._modal = True
                         try:
                             answer = messagebox.askyesnocancel(
                                 "Existing Notepad edits",
-                                "A saved Notepad file differs from this Pocket note.\\n\\n"
-                                "Yes: import the Notepad version.\\n"
-                                "No: use Pocket's version (preserve a recovery copy).\\n"
+                                "A saved Notepad file differs from this Pocket note.\n\n"
+                                "Yes: import the Notepad version.\n"
+                                "No: use Pocket's version (preserve the external copy).\n"
                                 "Cancel: do not open.",
                                 parent=self.root)
                         finally:
@@ -4597,14 +5190,31 @@ class PocketDesk:
                             return
                         if answer:
                             self._import_notepad_body(note, external)
-                        else:
+                        elif prior == path:
                             note_sync.preserve_conflict(path, external)
                             note_sync.write_text(path, note["body"])
+                        # A legacy file is itself the preserved original copy.
+                    if prior != path:
+                        note_sync.create_text(path, note["body"])
                 else:
-                    note_sync.write_text(path, note["body"])
-                self._notepad_sessions[note["id"]] = {"path": path, "baseline": note["body"]}
-            # Reopening a session must never overwrite unsaved Notepad edits.
+                    note_sync.create_text(path, note["body"])
             subprocess.Popen(["notepad.exe", str(path)])
+            if session is None:
+                self._notepad_sessions[note["id"]] = {
+                    "path": path, "baseline": note["body"]}
+                # Save only the filename, not a path or a new ID. This survives a
+                # Pocket restart and prevents duplicate copies on repeat opens.
+                if note.get("notepad_filename") != path.name or note["title"] != path.stem:
+                    note["notepad_filename"] = path.name
+                    note["title"] = path.stem
+                    if self.current_tab == "notes":
+                        self._loading_note = True
+                        try:
+                            self.title_var.set(note["title"])
+                        finally:
+                            self._loading_note = False
+                        self.refresh_note_list()
+                    self.schedule_save()
         except (OSError, ValueError, UnicodeError) as exc:
             messagebox.showerror("Notepad", str(exc), parent=self.root)
 
@@ -4823,7 +5433,17 @@ class PocketDesk:
                 if name == "toggle":
                     self.toggle(xy)
                 elif name == "convert_clipboard":
-                    self._convert_clipboard_text()
+                    if not self.settings["convert_enabled"]:
+                        continue
+                    if self.settings["convert_mode"] == "mark":
+                        self._start_mark_conversion(xy)
+                    else:
+                        self._convert_clipboard_text()
+                elif name == "mark_result":
+                    self._mark_active = False
+                    # Prevent the history monitor from recording transient Mark data.
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    self._notify("Pocket · Keyboard layout", xy)
                 elif name == "show":
                     self.show(xy)
                 elif name == "hotkey_error":
@@ -4845,6 +5465,10 @@ class PocketDesk:
                     self.schedule_save()
                     if self.current_tab == "settings":
                         self.show_tab("settings")
+                elif name == "convert_hotkey_disabled":
+                    self.convert_hotkey_available = False
+                elif name == "convert_hotkey_enabled":
+                    self.convert_hotkey_available = True
                 elif name == "convert_hotkey_conflict":
                     self._warning("Keyboard shortcut unavailable",
                                   "This shortcut is in use. The previous keyboard-fix shortcut remains active.")
@@ -5017,9 +5641,10 @@ class WindowsTray:
     WM_HOTKEY_CHANGE = 0x8000 + 39
     WM_NOTIFICATION = 0x8000 + 40
     WM_CONVERT_HOTKEY_CHANGE = 0x8000 + 41
+    WM_CONVERT_ENABLE_CHANGE = 0x8000 + 42
     NIF_INFO = 0x10
 
-    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None):
+    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *, convert_enabled=True):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -5032,6 +5657,8 @@ class WindowsTray:
         self.hotkey = hk.normalize_hotkey(hotkey)
         self.convert_hotkey = hk.normalize_convert_hotkey(
             convert_hotkey, popup=self.hotkey)
+        self.convert_enabled = bool(convert_enabled)
+        self._pending_convert_enabled = None
         self._pending_hotkey = None
         self._pending_convert_hotkey = None
         self._pending_notification = None
@@ -5056,6 +5683,15 @@ class WindowsTray:
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(
                 self.hwnd, self.WM_CONVERT_HOTKEY_CHANGE, 0, 0)
+
+    def set_convert_enabled(self, enabled):
+        if not self.hwnd:
+            # A settings change can precede the tray window registration.
+            self.convert_enabled = bool(enabled)
+            return
+        self._pending_convert_enabled = bool(enabled)
+        ctypes.windll.user32.PostMessageW(
+            self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
@@ -5102,6 +5738,7 @@ class WindowsTray:
                         ("hBalloonIcon", wintypes.HICON)]
 
         user = ctypes.windll.user32
+        user.GetForegroundWindow.restype = wintypes.HWND
         kernel = ctypes.windll.kernel32
         shell = ctypes.windll.shell32
         kernel.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
@@ -5233,6 +5870,30 @@ class WindowsTray:
                         self.events.put(("hotkey_conflict", None))
                 self._pending_hotkey = None
                 return 0
+            if msg == self.WM_CONVERT_ENABLE_CHANGE:
+                requested = self._pending_convert_enabled
+                self._pending_convert_enabled = None
+                if requested is None or bool(requested) == self.convert_enabled:
+                    return 0
+                if not requested:
+                    for hotkey_id in tuple(self.convert_hotkey_ids):
+                        user.UnregisterHotKey(hwnd, hotkey_id)
+                    self.convert_hotkey_ids.clear()
+                    self.convert_enabled = False
+                    self.events.put(("convert_hotkey_disabled", None))
+                else:
+                    registered = set()
+                    for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
+                        if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                            registered.add(hotkey_id)
+                    if registered:
+                        self.convert_hotkey_ids = registered
+                        self.convert_enabled = True
+                        self.events.put(("convert_hotkey_enabled", None))
+                    else:
+                        self.convert_enabled = False
+                        self.events.put(("convert_hotkey_error", None))
+                return 0
             if msg == self.WM_CONVERT_HOTKEY_CHANGE:
                 candidate = self._pending_convert_hotkey
                 if candidate and hk.collides(candidate, self.hotkey):
@@ -5268,7 +5929,7 @@ class WindowsTray:
                 if int(wp) in self.hotkey_ids:
                     self.events.put(("toggle", None))
                 elif int(wp) in self.convert_hotkey_ids:
-                    self.events.put(("convert_clipboard", None))
+                    self.events.put(("convert_clipboard", user.GetForegroundWindow()))
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -5312,14 +5973,15 @@ class WindowsTray:
             if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                 self.hotkey_ids.add(hotkey_id)
         self.convert_hotkey_ids = set()
-        for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
-            if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
-                self.convert_hotkey_ids.add(hotkey_id)
+        if self.convert_enabled:
+            for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
+                if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
+                    self.convert_hotkey_ids.add(hotkey_id)
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:
             self.events.put(("hotkey_error", None))
-        if not self.convert_hotkey_ids:
+        if self.convert_enabled and not self.convert_hotkey_ids:
             self.events.put(("convert_hotkey_error", None))
         if not shell.Shell_NotifyIconW(self.NIM_ADD, ctypes.byref(nid)):
             user.DestroyWindow(hwnd)  # also unregisters the hotkeys

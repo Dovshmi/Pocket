@@ -7,6 +7,7 @@ Dashboard uses independent two-column stacks. No new data or network I/O.
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 
 from . import icon_themes as themes
 from . import app_info
@@ -26,7 +27,7 @@ TOOL_HELP = {
     "mac": "Local IEEE vendor lookup",
     "commands": "CLI library and manual backups",
     "subnet": "IPv4 subnet calculator",
-    "clipboard": "Session-only clipboard history",
+    "clipboard": "RAM or optional local clipboard history",
 }
 TOOL_ICONS = {
     "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
@@ -255,6 +256,63 @@ def _tools(parent, app, c, *, compact=False, wide=False):
                 compact=compact)
 
 
+
+def _dropdown_field(parent, app, c, key, heading, detail,
+                    choices, selected, callback, *, compact=False):
+    """Native themed readonly dropdown, uniform in Mini/Normal/Dashboard."""
+    section = tk.Frame(parent, bg=c["PANEL"])
+    section.pack(fill="x", padx=13, pady=(9, 11))
+    _label(section, heading, c, size=9, bold=True, anchor="w").pack(fill="x")
+    if detail:
+        _label(section, detail, c, size=8, muted=True, anchor="w",
+               justify="left", wraplength=190 if compact else 360).pack(
+                   fill="x", pady=(3, 7))
+    select = ttk.Combobox(section, style="Pocket.TCombobox",
+                          values=[label for label, _ in choices],
+                          state="readonly", width=23 if compact else 31,
+                          takefocus=True)
+    chosen = next((i for i, (_label, value) in enumerate(choices)
+                   if value == selected), 0)
+    select.current(chosen)
+    select.pack(fill="x", padx=(0, 2), pady=(0, 3))
+
+    def apply(_event=None):
+        index = select.current()
+        if 0 <= index < len(choices):
+            callback(choices[index][1])
+        return "break"
+
+    select.bind("<<ComboboxSelected>>", apply)
+    return _register(app, key, select)
+
+
+def _convert_mode_picker(parent, app, c, *, compact=False):
+    return _dropdown_field(
+        parent, app, c, "convert_mode_picker", "Translate behavior",
+        "Mark replaces selected text; Clipboard corrects copied text.",
+        [("Mark — selected text", "mark"),
+         ("Clipboard — copied text", "clipboard")],
+        app.settings["convert_mode"], app._set_convert_mode,
+        compact=compact)
+
+
+def _network_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Network connection",
+                    "Choose how requested DashDash and IEEE HTTPS traffic connects.",
+                    compact=compact, wide=wide)
+    _toggle(card, app, c, "use_windows_proxy", "Use Windows Proxy",
+            "ON: Windows PAC. OFF: direct HTTPS; IEEE GET uses Windows TLS.",
+            app.settings["use_windows_proxy"], app._set_windows_proxy,
+            compact=compact)
+    _divider(card, c)
+    _label(card,
+           "Default ON for workplace networks. Local checks stay offline. "
+           "Changes affect the next request, not an in-progress check.",
+           c, size=8, muted=True, justify="left", anchor="w",
+           wraplength=200 if compact else 350).pack(
+               fill="x", padx=13, pady=(10, 13))
+
+
 def _shortcuts(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Keyboard & quick search",
                     "Stay productive without opening another window.",
@@ -263,65 +321,81 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
             "Pocket shortcut", app._hotkey_hint(),
             "Edit", app._open_hotkey_picker, compact=compact)
     _divider(card, c)
-    _action(card, app, c, "change_convert_hotkey",
-            "Fix EN / HE keyboard layout", app._convert_hotkey_hint(),
-            "Edit", app._open_convert_hotkey_picker, compact=compact)
-    _divider(card, c)
     _action(card, app, c, "quick_search",
             "Quick Search", "Ctrl+K · Search all enabled tools locally.",
             "Open", app._open_global_search, compact=compact, primary=True)
 
 
-def _image_capacity(parent, app, c, *, compact=False, wide=False):
-    """Memory-only screenshot count picker, shared across all Settings modes."""
-    from . import clipboard_images
+def _clipboard_history_controls(parent, app, c, *, compact=False):
+    """Four independent history settings in a space-efficient two-column grid.
 
+    The mouse wheel is intentionally intercepted only for these selectors.
+    Other Pocket Comboboxes retain their original mouse-wheel behavior.
+    """
     section = tk.Frame(parent, bg=c["PANEL"])
-    section.pack(fill="x", padx=13, pady=(9, 12))
-    _label(section, "Image history capacity", c, size=9, bold=True,
-           anchor="w").pack(fill="x")
-    _label(section, "How many screenshots Pocket keeps in RAM.",
+    section.pack(fill="x", padx=13, pady=(7, 9))
+    _label(section, "History capacity & cleanup", c, size=9,
+           bold=True, anchor="w").pack(fill="x", pady=(0, 5))
+    grid = tk.Frame(section, bg=c["PANEL"])
+    grid.pack(fill="x")
+    for col in (0, 1):
+        grid.columnconfigure(col, weight=1, uniform="history")
+
+    ram_counts = [(str(value), value) for value in (10, 15, 20, 25, 30)]
+    db_images = [(str(value), value) for value in range(10, 101, 10)]
+    db_text = [(str(value), value) for value in
+               (100, 300, 500, 800, 1000, 1200, 1500)]
+    retention = [("Off", 0)] + [
+        (f"{day} days", day) for day in range(7, 31)]
+    fields = (
+        ("ram_image_limit", "RAM images", ram_counts,
+         app.settings["clipboard_image_limit"], app._set_clipboard_image_limit),
+        ("db_image_display_limit", "DB images shown", db_images,
+         app.settings["clipboard_db_image_display_limit"],
+         lambda count: app._set_clipboard_display_limit("images", count)),
+        ("db_text_display_limit", "DB text shown", db_text,
+         app.settings["clipboard_text_display_limit"],
+         lambda count: app._set_clipboard_display_limit("text", count)),
+        ("clipboard_retention", "Auto-delete", retention,
+         app.settings["clipboard_autodelete_days"],
+         app._set_clipboard_autodelete_days),
+    )
+    for index, (key, title, options, value, callback) in enumerate(fields):
+        cell = tk.Frame(grid, bg=c["PANEL"])
+        cell.grid(row=index // 2, column=index % 2, sticky="ew",
+                  padx=(0, 5) if index % 2 == 0 else (5, 0),
+                  pady=(2, 6))
+        _label(cell, title, c, size=8, anchor="w").pack(fill="x", pady=(0, 3))
+        select = ttk.Combobox(
+            cell, style="Pocket.TCombobox", state="readonly",
+            values=[label for label, _ in options], width=9,
+            takefocus=True)
+        select.current(next((i for i, (_label, actual) in enumerate(options)
+                             if actual == value), 0))
+        select.pack(fill="x")
+
+        def apply(_event=None, dropdown=select, choices=options, change=callback):
+            current = dropdown.current()
+            if 0 <= current < len(choices):
+                change(choices[current][1])
+            return "break"
+
+        def scroll_page(event):
+            # Delegate scrolling to the existing Settings canvas *before*
+            # the Combobox class binding can silently change its value.
+            # No other dropdown bindings or global widget styles change.
+            app._scroll_tool_on_wheel(event, from_picker=True)
+            return "break"
+
+        select.bind("<<ComboboxSelected>>", apply)
+        for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            select.bind(event_name, scroll_page)
+        _register(app, key, select)
+
+    _label(section, "RAM images: 10–30 · DB images: 10–100 · "
+           "DB text: 100–1500 · Auto-delete: Off or 7–30 days.",
            c, muted=True, size=8, anchor="w", justify="left",
-           wraplength=190 if compact else 320
-           ).pack(fill="x", pady=(3, 8))
-
-    choices = tk.Frame(section, bg=c["PANEL"])
-    choices.pack(fill="x")
-    columns = 5 if wide else 2
-    buttons = {}
-
-    def paint():
-        current = app.settings["clipboard_image_limit"]
-        for count, control in buttons.items():
-            active = count == current
-            control.configure(
-                text=f"{count}  ✓" if active else str(count),
-                bg=c["ACCENT_DARK"] if active else c["CARD"],
-                fg=c["WHITE"] if active else c["SECONDARY"],
-                highlightbackground=c["ACCENT"] if active else c["BORDER"])
-
-    def select(count):
-        app._set_clipboard_image_limit(count)
-        paint()
-
-    for index, count in enumerate(clipboard_images.IMAGE_LIMIT_CHOICES):
-        col, row = index % columns, index // columns
-        choices.grid_columnconfigure(col, weight=1, uniform="image_limits")
-        control = _button(
-            choices, str(count), lambda amount=count: select(amount), c,
-            compact=compact)
-        control.grid(row=row, column=col, sticky="nsew",
-                     padx=(0, 5) if col < columns - 1 else 0, pady=(0, 5))
-        buttons[count] = control
-        _register(app, "image_limit_" + str(count), control)
-    paint()
-
-    _label(section,
-           "20 is the default · 30 is the maximum. "
-           "Lowering the limit removes the oldest images immediately.",
-           c, muted=True, size=8, anchor="w", justify="left",
-           wraplength=190 if compact else 340
-           ).pack(fill="x", pady=(6, 0))
+           wraplength=185 if compact else 330).pack(fill="x", pady=(1, 0))
 
 
 def _privacy(parent, app, c, *, compact=False, wide=False):
@@ -338,10 +412,21 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             app.settings["clipboard_sensitive_filter"],
             app._set_clipboard_sensitive_filter, compact=compact)
     _divider(card, c)
-    _image_capacity(card, app, c, compact=compact, wide=wide)
+    _clipboard_history_controls(card, app, c, compact=compact)
     _divider(card, c)
-    _label(card, "Clipboard history stays in memory for this session. "
-           "Pocket contacts the network only when you request a network check.",
+    _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
+            "Register the global EN / HE layout correction shortcut.",
+            app.settings["convert_enabled"],
+            app._set_convert_enabled, compact=compact)
+    _action(card, app, c, "change_convert_hotkey",
+            "Translate keyboard shortcut", app._convert_hotkey_hint(),
+            "Edit", app._open_convert_hotkey_picker, compact=compact)
+    _convert_mode_picker(card, app, c, compact=compact)
+    _divider(card, c)
+    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
+           "TXT files and screenshots in one dated PNG folder. Auto-delete "
+           "is OFF by default; enable 7–30-day cleanup if you choose. "
+           "The sensitive-text filter is heuristic and does not guarantee privacy.",
            c, size=8, muted=True, justify="left", anchor="w",
            wraplength=210 if compact else 350
            ).pack(fill="x", padx=13, pady=(10, 13))
@@ -385,6 +470,7 @@ def build_settings(app, parent, *, wide=False):
     _shortcuts(left, app, c, wide=wide, compact=compact)
     _launcher(left, app, c, wide=wide, compact=compact)
     _tools(right, app, c, wide=wide, compact=compact)
+    _network_preferences(right, app, c, wide=wide, compact=compact)
     _privacy(right, app, c, wide=wide, compact=compact)
 
     # The footer is the last element of the scrollable Settings body in all

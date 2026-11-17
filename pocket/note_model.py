@@ -8,7 +8,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 import ipaddress
-import re
 import uuid
 
 def new_note(title="Untitled note", body="", phone="") -> dict:
@@ -24,7 +23,9 @@ def ordered_notes(notes: list[dict]) -> list[dict]:
 
 def duplicate_note(original: dict) -> dict:
     """Copy the content but use a fresh note ID and creation time. Pin is not inherited."""
-    copy = new_note(f"{original.get('title', 'Untitled note')} (copy)",
+    # The UI allocates the next available Windows-style title, e.g. (1).
+    # Do not bake "(copy)" into the user's eventual TXT filename.
+    copy = new_note(original.get('title', 'Untitled note'),
                     original.get('body', ''), original.get('phone', ''))
     copy["direction"] = normalize_note_direction(original.get("direction"))
     return copy
@@ -49,20 +50,17 @@ def display_created_at(value: str) -> str:
 
 
 def export_note_for_notepad(note: dict, output_dir: Path) -> Path:
-    """Save a one-off UTF-8 copy of the selected note for Windows Notepad.
+    """Create a numbered, never-overwriting UTF-8 snapshot for Notepad.
 
-    A fresh snapshot avoids overwriting previous edits made in Notepad.
-    Notepad snapshots do not synchronize edits back to the application's data.
+    Unlike Pocket's live Notepad working file, snapshots do not sync edits
+    back into the application's data.
     """
-    title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", note.get("title", "Note"))
-    title = title.strip(" .")[:40] or "Note"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"PocketDesk_{title}_{stamp}_{uuid.uuid4().hex[:8]}.txt"
-    target = output_dir / filename
-    with target.open("x", encoding="utf-8-sig", newline="") as stream:
-        stream.write(note.get("body", ""))
+    from . import note_sync
+
+    target = note_sync.named_note_path(output_dir, note.get("title", "Note"))
+    note_sync.create_text(target, note.get("body", ""))
     return target
+
 
 
 def note_selection_ip(selected: str) -> str | None:

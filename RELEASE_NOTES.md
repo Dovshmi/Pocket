@@ -1,3 +1,81 @@
+# Pocket v1.38.0 — Clipboard Selection Counter & History Options
+
+**Stable release v1.38.0 · Windows 10/11 · Portable ZIP + standalone EXE**
+
+This release includes the requested v1.38 Clipboard refinements and integrates the v1.37 development improvements. Existing Pocket v1.36 settings and local data remain supported.
+
+### Clipboard refinements in v1.38.0
+
+- **Text selection indicator:** The existing grey Clipboard Text status displays **selected position / displayed entries**, matching the Images selection indicator. The count follows mouse, keyboard, pinning and text-selection changes; it does not add or move UI controls. Mini omits redundant date/storage text from this narrow status line to prevent clipping.
+- **RAM screenshot capacity:** Choice list restored to **10 / 15 / 20 / 25 / 30** images, with **20 as the factory default**. Existing saved preferences of 15 and 25 remain intact; previously allowed 40–100 are safely capped to 30.
+- **DATABASE text shown:** Independent options **100 / 300 / 500 / 800 / 1000 / 1200 / 1500** entries, default **100**. Older 10–100 values migrate to 100, and any intermediate saved count rounds up to the nearest supported option. Saved daily TXT history is not changed or deleted by this migration.
+- **DATABASE screenshots shown:** Retains its independent 10–100 in steps of ten (30 default).
+- **Settings layout unchanged:** The existing two-column dropdown grid, mouse-wheel behavior, clipboard content area, date selector, and text/image positions remain in place.
+
+### Functionality included from the previous v1.37 development work
+
+### Notes and Notepad sync
+
+- Newly created Notes are appended and selected at the last position in the Notes picker.
+- A Note's Title matches the TXT working filename (without its .txt extension), including Windows-style numbered duplicates: Router, Router (1), Router (2).
+- Renaming the Title also renames its TXT file after typing settles; locks and conflicts are handled without silently overwriting a neighboring note.
+- Previous opaque Notepad files are migrated non-destructively.
+
+### Two explicit internet connection modes
+
+- **Use Windows Proxy: ON by default** under Settings. DashDash MAC and TCP requests continue using the existing native Windows WinHTTP PAC resolution and WinINet HTTPS POST stack, unchanged.
+- **OFF:** DashDash requests use direct HTTPS with proxy discovery explicitly disabled for those requests.
+- **Update IEEE DB:** uses native WinINet HTTPS GET in both modes. With Windows Proxy ON, it resolves the existing Windows PAC settings; with OFF, it uses WinINet's explicit **direct** mode and the Windows certificate trust store instead of Python TLS. This addresses Python's `CERTIFICATE_VERIFY_FAILED` on machines where Windows trusts the issuer. Untrusted certificates still fail; no TLS checks are disabled. Official IEEE URL restrictions, size limits, validation and atomic cache replacement remain enforced.
+- No automatic fallback between corporate and direct modes; local checks continue to work offline. The setting is persisted per Pocket profile.
+
+### Keyboard layout conversion
+
+- Factory keyboard repair hotkey changes from **Ctrl+Alt+F9** to **Ctrl+Alt+V**; unchanged former factory profiles are migrated.
+- Settings now offers a native dropdown for **Mark | Clipboard** selection, with **Mark by default** for new profiles. Clipboard mode preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
+- Mark mode reads a *freshly copied selection* from the active Windows application and applies the same offline EN/HE physical-keyboard mapping before automatically pasting over the selection.
+- The Mark workflow checks focus/clipboard sequence changes, does not paste old clipboard text when nothing is selected, and attempts to restore all original clipboard formats using Windows OLE clipboard preservation. Mark does not work in every application; test in your editors before using on important unsaved text. No text is transmitted to the network.
+
+### Clipboard RAM / local DATABASE (new in 1.37)
+
+- **Storage dropdown:** A compact Storage (RAM / DATABASE) dropdown shares a row with the date selector, freeing space in Mini. RAM remains the default with session-only text and configurable **10–30** screenshot slots (20 default) in v1.38. DATABASE is opt-in and preserves copied content across restarts.
+- **Append-only daily text journal:** One UTF-8 TXT file per date, named with its creation timestamp and expiry or `to_saved`, contains structured JSON lines. New copies append efficiently; pin/delete operations atomically rewrite the selected day without dropping entries on other pages.
+- **One screenshot folder:** `ClipboardDatabase/ClipboardScreenshots/` contains all date-prefixed PNG files (no per-day subfolders). Migration safely moves recognized old daily-folder PNGs without overwriting conflicts. Full-resolution PNG data is loaded only for thumbnails being drawn or for Copy/Preview; the on-screen item count does not limit disk storage.
+- **Compact history layout:** Browse prior dates through Storage/Date selectors and scroll the text list or image gallery to load older items automatically—no redundant Prev/Next navigation row. Clipboard & privacy uses a short **2×2 dropdown grid** for RAM images, DB images, DB text and 7–30-day cleanup. Only these four selectors intercept the mouse wheel and scroll the Settings page instead of changing values. DATABASE screenshot batches remain **10–100 items**; text batches are **100–1500**.
+- **Optional cleanup:** Under **Clipboard & privacy**, auto-delete is **OFF by default** (history is retained until manually deleted). An explicit dropdown choice of **7 through 30 calendar days, in one-day increments**, deletes expired text and screenshots. Text filename expiry labels update accordingly; the former 1–5-day setting does not silently enable deletion.
+- **Safe defaults:** Database history is never exported to DashDash or included in the app's release ZIP. RAM and DATABASE stores remain separate when switching; only bounded pages are displayed in RAM. The local Database is **plaintext**, and sensitive-text filtering cannot guarantee secrets/screenshots are excluded; enable persistent history only where local/workplace policy permits it.
+
+### Translate keyboard repair preferences
+
+- All controls are now grouped under **Settings → Clipboard & privacy**, beside image capacity and retention.
+- **Enable Translate shortcut** is ON by default but can be toggled OFF, unregistering the global Windows hotkey without changing Pocket's popup shortcut.
+- The default for a new profile is **Mark** mode with `Ctrl+Alt+V`. Clipboard mode remains selectable and works as before. Existing manually saved mode preferences are retained.
+- Mark requires text selection in the original foreground application; it does not use the internet.
+
+See [Clipboard Database documentation](docs/CLIPBOARD_DATABASE.md) for folder structure, retention semantics, and the privacy warning.
+
+### Verification and availability
+
+GitHub Actions exercises the unit suite, GUI smoke tests on Windows/Linux, the release-Python GUI smoke check, and a Windows portable build test. Live corporate PAC/IEEE authentication and actual third-party foreground text replacement must also be verified on the target Windows machine.
+
+### Release downloads
+
+- **Pocket-Portable-v1.38.0.zip** — recommended for work PCs; includes `Pocket-Portable/PocketDesk.exe`, bundled native runtime, integrity manifest and `Verify-Pocket.ps1`.
+- **Pocket-v1.38.0.exe** — standalone Windows executable.
+- **SHA256SUMS.txt** — SHA-256 checksums of both packages.
+
+The public packages contain sanitized example commands only. They exclude private notes, passwords, local profiles, clipboard history, backups and personal command files. Executables are **not code-signed**.
+
+### Upgrade safely
+
+1. Close Pocket completely, including its tray process, and back up your existing data.
+2. Extract the v1.38.0 portable ZIP into a **new folder**. Do not mix old and new `_internal/` runtime files.
+3. For an existing portable installation, copy only your saved `data/` folder to the new portable installation. For a standalone installation, keep your existing `%APPDATA%\\PocketDesk\\` profile.
+4. Check Notes, Commands, Clipboard settings and the preferred UI mode. Database history is plaintext; review your workplace storage policy before enabling it.
+
+The previous [v1.36.0 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.36.0) remains available.
+
+---
+
 # Pocket v1.36.0 — Native Windows Inputs & Mini Improvements
 
 **Stable Version 1.36 · Windows 10/11 · Portable ZIP + standalone EXE**

@@ -21,7 +21,7 @@ class NotePinAndDuplicateTests(unittest.TestCase):
         original['pinned'] = True
         copy = api['duplicate_note'](original)
         self.assertNotEqual(original['id'], copy['id'])
-        self.assertEqual(copy['title'], 'Router (copy)')
+        self.assertEqual(copy['title'], 'Router')
         self.assertEqual(copy['body'], original['body'])
         self.assertEqual(copy['phone'], original['phone'])
         self.assertFalse(copy['pinned'])

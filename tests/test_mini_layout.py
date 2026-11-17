@@ -64,6 +64,12 @@ class MiniLayoutTests(unittest.TestCase):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"]}),
                          {"visible_tabs": ["notes"], "display_mode": "normal", "extra_mini_enabled": False,
                           "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
+                          "use_windows_proxy": True, "convert_mode": "mark",
+                          "convert_enabled": True, "clipboard_storage": "ram",
+                          "clipboard_days": 1,
+                          "clipboard_autodelete_days": 0,
+                          "clipboard_text_display_limit": 100,
+                          "clipboard_db_image_display_limit": 30,
                           "clipboard_paused": False, "clipboard_sensitive_filter": True,
                           "clipboard_image_limit": 20})
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"],

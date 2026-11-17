@@ -67,5 +67,70 @@ class NotepadBridgeTests(unittest.TestCase):
             self.assertEqual(note_sync.read_text(backup), external)
 
 
+    def test_named_files_and_duplicate_numbering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            first = note_sync.named_note_path(folder, "Network")
+            self.assertEqual(first.name, "Network.txt")
+            note_sync.create_text(first, "first")
+            second = note_sync.named_note_path(folder, "Network")
+            self.assertEqual(second.name, "Network (1).txt")
+            note_sync.create_text(second, "second")
+            self.assertEqual(note_sync.named_note_path(folder, "Network").name,
+                             "Network (2).txt")
+            self.assertEqual(note_sync.read_text(first), "first")
+            self.assertEqual(note_sync.read_text(second), "second")
+            with self.assertRaises(FileExistsError):
+                note_sync.create_text(first, "should never overwrite")
+            self.assertEqual(note_sync.read_text(first), "first")
+
+    def test_legal_unicode_names_and_windows_reserved_filenames(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            self.assertEqual(note_sync.named_note_path(folder, "דו״ח רשת").name,
+                             "דו״ח רשת.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "My note: / test").name,
+                             "My note_ _ test.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "CON").name, "_CON.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "Readme.txt").name,
+                             "Readme.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "COM¹").name,
+                             "_COM¹.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "LPT1.log").name,
+                             "_LPT1.log.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "..").name,
+                             "Untitled note.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "..\\secrets").name,
+                             "_secrets.txt")
+            self.assertEqual(note_sync.named_note_path(folder, "").name,
+                             "Untitled note.txt")
+
+    def test_saved_name_persists_and_other_notes_reserve_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            original = note_sync.named_note_path(folder, "Router")
+            note_sync.create_text(original, "v1")
+            reopened = note_sync.named_note_path(
+                folder, "Router renamed", saved_filename="Router.txt")
+            self.assertEqual(reopened, original)
+            # A second note must not claim another note's filename, even if the
+            # original file has since been moved outside the folder.
+            original.unlink()
+            newer = note_sync.named_note_path(
+                folder, "Router", reserved_names={"Router.txt"})
+            self.assertEqual(newer.name, "Router (1).txt")
+            self.assertEqual(note_sync.named_note_path(
+                folder, "Router", saved_filename="../escape.txt").name, "Router.txt")
+            self.assertEqual(note_sync.named_note_path(
+                folder, "Router", saved_filename="CON.txt").name, "Router.txt")
+
+    def test_windows_case_insensitive_collisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            note_sync.create_text(folder / "network.TXT", "exists")
+            self.assertEqual(note_sync.named_note_path(folder, "Network").name,
+                             "Network (1).txt")
+
+
 if __name__ == "__main__":
     unittest.main()

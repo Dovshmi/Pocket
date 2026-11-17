@@ -8,13 +8,13 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.36.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.36.0)
+[![Release](https://img.shields.io/badge/Stable-v1.38.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.38.0)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-Portable-v1.36.0.zip)** ·
-**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-v1.36.0.exe)** ·
+**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-Portable-v1.38.0.zip)** ·
+**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-v1.38.0.exe)** ·
 **[All Releases](https://github.com/Dovshmi/Pocket/releases)**
 
 </div>
@@ -24,7 +24,19 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!NOTE]
-> **Version 1.36 (v1.36.0):** Native Windows input controls with standard editing shortcuts, better CLI/MAC scrolling and parsing, clearer Mini filters, and pinned Clipboard text at the top. Dropdowns retain their familiar click-to-select behavior—no typing-based filter. All existing offline tools and saved settings remain supported. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
+> **Version 1.38 (v1.38.0):** Clipboard text selection counter, RAM screenshot limit choices (10–30), database text display options (100–1,500), and all v1.37 development enhancements. This includes optional persistent clipboard history, Notes/Notepad filename sync, explicit Windows proxy routing and offline EN/HE keyboard repair. See [release notes](RELEASE_NOTES.md) and [Clipboard database details](docs/CLIPBOARD_DATABASE.md).
+
+## New in v1.38.0
+
+- **Clipboard Text status:** The grey status line shows the selected item position and the number of displayed entries without adding or moving controls.
+- **RAM screenshots:** Choose **10 / 15 / 20 / 25 / 30**, default **20**.
+- **DATABASE display:** Choose **100 / 300 / 500 / 800 / 1000 / 1200 / 1500** text entries (default **100**); screenshot display remains independently configurable from 10 to 100.
+- **Opt-in local clipboard history:** Daily append-only TXT journal, flat date-stamped PNG folder, date browsing, scrolling to older entries and optional 7–30-day retention cleanup (OFF by default).
+- **Notes + Notepad:** New notes append to the picker; renaming the note also safely renames its TXT file, with numbered names for duplicates.
+- **Windows Proxy and IEEE MAC vendor updates:** A saved **Use Windows Proxy** toggle supports Windows PAC or explicit direct HTTPS, while keeping Windows certificate validation enabled.
+- **Offline EN/HE keyboard repair:** Configurable `Ctrl+Alt+V` shortcut and **Mark / Clipboard** modes. Mark replaces selected text in compatible Windows applications; clipboard mode keeps the earlier copy-and-convert workflow.
+
+All features retain Pocket's local-first design. Internet access is initiated only by an explicit network action. **Note:** Optional DATABASE history stores text and screenshots as local plaintext; enable it on managed computers only where policy permits. Test corporate PAC routes and third-party text replacement on the target PC.
 
 ## Screenshots
 
@@ -70,11 +82,11 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 | **TCP Port Check** | Check up to **16 TCP ports** per run, with favorites, last-check suggestions, status sorting, and CSV export | Local or optional DashDash |
 | **MAC Vendor Lookup** | Search cached IEEE registrations (MA-L, MA-M, MA-S, IAB), import CSV, or query DashDash | Local or optional DashDash |
 | **Subnet Calculator** | IPv4 CIDR, masks, wildcard, network/broadcast, usable hosts, and subnet splitting | Offline |
-| **Clipboard Manager** | Separate Text and Images pages; search/pin/copy text, preview/copy up to 30 RAM-only images (20 by default), Mini carousel, keyboard navigation and optional sensitive-text filter | Offline |
+| **Clipboard Manager** | Text and Images pages; compact storage/date controls and scroll-to-load history. RAM keeps 10/15/20/25/30 screenshots (20 default); opt-in DATABASE saves daily text and unlimited accepted dated PNGs in one folder, displaying 10–100 per page. Optional 7–30-day cleanup | Offline |
 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying; manual command backups are created **only when you choose Backup**.
 
-**Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu also stops clipboard monitoring. **Text and screenshot history are kept in RAM only**, with images capped at the selected 10–30 entries (default 20); neither is written to disk.
+**Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu stops clipboard monitoring. **Clipboard RAM mode never writes history to disk**; optional DATABASE mode writes plaintext text and screenshots locally under `ClipboardDatabase/` in Pocket's user data directory. Sensitive-text filtering is heuristic, and database mode should only be enabled where permitted. [Clipboard database and retention details](docs/CLIPBOARD_DATABASE.md).
 
 ## New in Version 1.36 (v1.36.0)
 
@@ -105,7 +117,7 @@ Settings now uses a consistent, responsive design in **Normal, Mini and Dashboar
 
 ### Clipboard and EN/HE keyboard repair
 
-Choose **10, 15, 20, 25 or 30** clipboard images in Settings (**20 default**). Images remain in RAM only; changing the count does not upload or save them to disk. The **Text / Images** view, Mini image gallery, screenshot preview and copy workflow introduced in v1.35.0 remain available. Use **Clipboard Text → Use text in Pocket → TRANSLATE EN/HE** or the configurable **Ctrl+Alt+F9** shortcut to correct text typed on the wrong English/Hebrew physical keyboard layout, fully offline. This is not semantic translation.
+The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In **v1.38**, choose a **RAM capacity of 10/15/20/25/30** (20 default), or opt into the local DATABASE with **10–100 images or up to 1,500 text entries shown per batch** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
 
 ### Notes, commands and visual polish
 
@@ -173,7 +185,7 @@ Pocket has **no mandatory account, cloud sync, or continuous internet requiremen
 | Notes, settings, reminders, shortcuts, launcher setup | Local `data.json` |
 | Personal CLI commands and Smart Template metadata | Local `commands.json` |
 | IEEE vendor cache | Local `vendors.json` |
-| Clipboard history | **RAM only**; cleared when Pocket exits |
+| Clipboard history | **RAM by default**; optional daily TXT/PNG database, text batches up to 1,500 and screenshot batches up to 100, OFF / 7–30-day cleanup |
 | Recoverable settings snapshot | Local `data-recovery.json` |
 
 Public Windows releases contain the **sanitized example command library only**—not private commands, notes, passwords, customer information, or backups. Pocket files are **not encrypted**, so protect your data folder and backups. Remote DashDash mode sends only the targets you explicitly submit; local lookups never upload them.

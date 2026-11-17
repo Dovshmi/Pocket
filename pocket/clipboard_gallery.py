@@ -1,7 +1,8 @@
 """Responsive Text / Images pages for Pocket's existing Clipboard tool.
 
 The Text page keeps the original searchable Listbox. The Images page uses a
-width-aware thumbnail gallery with no search field. All state stays in RAM.
+width-aware thumbnail gallery. Optional Database mode persists daily local
+history; RAM mode remains fully ephemeral.
 """
 from __future__ import annotations
 
@@ -52,46 +53,123 @@ def _action(parent, title, callback, colors):
         takefocus=True)
 
 
+def _mini_pause_button(parent, app, colors):
+    """Accessible, single-line capture control sized for the Mini workspace."""
+    paused = app.settings["clipboard_paused"]
+    return tk.Button(
+        parent, text="Resume" if paused else "Pause",
+        command=app._toggle_clipboard_pause,
+        bg=colors["ACCENT_DARK"] if paused else colors["CARD"],
+        fg=colors["WHITE"] if paused else colors["SECONDARY"],
+        activebackground=colors["CARD_HOVER"],
+        activeforeground=colors["WHITE"], relief="flat", bd=0,
+        highlightthickness=1, highlightbackground=colors["BORDER"],
+        cursor="hand2", takefocus=True, font=("Segoe UI", 8, "bold"),
+        padx=6, pady=2)
+
+
 def build(app):
     c = themes.palette(app.theme)
-    header = app._section_title(app.body, "Clipboard history",
-                                "RAM only · Never saved to disk",
-                                "Clear text", app._clear_clipboard)
+    stored = app.settings.get("clipboard_storage") == "database"
+    mini_mode = app.display_mode == "mini"
+    description = ("LOCAL DATABASE · Saved on this PC" if stored
+                   else "RAM only · Never saved to disk")
+    if mini_mode:
+        # Keep the sensitive-filter indicator visible without spending another
+        # entire row on it. Avoid a long subtitle that would wrap in Mini.
+        description = (("LOCAL DB" if stored else "RAM") +
+                       (" · Sensitive filter ON" if app.settings["clipboard_sensitive_filter"]
+                        else " · Sensitive filter OFF"))
+    header = app._section_title(
+        app.body, "Clipboard history", description,
+        "Clear text", app._clear_clipboard)
+    if mini_mode:
+        # Keep header compact so additional space goes to Clipboard history.
+        header.pack_configure(pady=(0, 5))
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
         None)
-    privacy = tk.Frame(app.body, bg=c["BG"])
-    privacy.pack(fill="x", pady=(0, 6))
-    app.clipboard_pause_button = design.button(
-        privacy, "Resume capture" if app.settings["clipboard_paused"]
-        else "Pause capture", app._toggle_clipboard_pause,
-        app.theme, compact=True)
-    app.clipboard_pause_button.pack(side="left")
-    tk.Label(
-        privacy, text="Sensitive-text filter: " +
-        ("On" if app.settings["clipboard_sensitive_filter"] else "Off"),
-        bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8)
-    ).pack(side="right")
+    # Place both native dropdowns on ONE compact row, including in Mini mode.
+    # The date picker is intentionally hidden while RAM-only mode is selected.
+    controls = tk.Frame(app.body, bg=c["BG"])
+    controls.pack(fill="x", pady=(0, 2) if mini_mode else (2, 5))
+    left = tk.Frame(controls, bg=c["BG"])
+    left.pack(side="left", padx=(0, 6))
+    if not mini_mode:
+        tk.Label(left, text="Storage", bg=c["BG"], fg=c["SECONDARY"],
+                 font=("Segoe UI", 8)).pack(side="left", padx=(0, 4))
+    app.clipboard_storage_select = ttk.Combobox(
+        left, style="Pocket.TCombobox", state="readonly",
+        values=("RAM", "DATABASE"), width=9, takefocus=True)
+    app.clipboard_storage_select.set("DATABASE" if stored else "RAM")
+    app.clipboard_storage_select.pack(side="left")
 
-    # Same compact labelled switch used by Local / DashDash. No full-width tabs.
+    def select_storage(_event=None):
+        chosen = app.clipboard_storage_select.get().strip().lower()
+        app._clipboard_use_storage(chosen)
+        return "break"
+
+    app.clipboard_storage_select.bind("<<ComboboxSelected>>", select_storage)
+
+    app.clipboard_history_row = tk.Frame(controls, bg=c["BG"])
+    if not mini_mode:
+        tk.Label(app.clipboard_history_row, text="Date", bg=c["BG"],
+                 fg=c["SECONDARY"], font=("Segoe UI", 8)).pack(
+                     side="left", padx=(0, 4))
+    app.clipboard_day_select = ttk.Combobox(
+        app.clipboard_history_row, style="Pocket.TCombobox",
+        state="readonly", width=11 if app.display_mode == "mini" else 18,
+        takefocus=True)
+    app.clipboard_day_select.pack(side="left")
+
+    def selected_day(_event=None):
+        picked = app.clipboard_day_select.get()
+        app._clipboard_choose_day(picked[-10:])
+        return "break"
+
+    app.clipboard_day_select.bind("<<ComboboxSelected>>", selected_day)
+    if stored:
+        app.clipboard_history_row.pack(side="left", padx=(2, 0))
+    if not mini_mode:
+        privacy = tk.Frame(app.body, bg=c["BG"])
+        privacy.pack(fill="x", pady=(0, 6))
+        app.clipboard_pause_button = design.button(
+            privacy, "Resume capture" if app.settings["clipboard_paused"]
+            else "Pause capture", app._toggle_clipboard_pause,
+            app.theme, compact=True)
+        app.clipboard_pause_button.pack(side="left")
+        tk.Label(
+            privacy, text="Sensitive-text filter: " +
+            ("On" if app.settings["clipboard_sensitive_filter"] else "Off"),
+            bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8)
+        ).pack(side="right")
+
+    # Mini combines the Text/Images toggle and DB paging controls in one row.
+    # This preserves the familiar switch without shortening the history panel.
     switch = tk.Frame(app.body, bg=c["BG"])
-    switch.pack(side="top", anchor="e", pady=(0, 4))
+    if mini_mode:
+        switch.pack(fill="x", pady=(0, 2))
+        page_switch = tk.Frame(switch, bg=c["BG"])
+        page_switch.pack(side="right")
+    else:
+        switch.pack(side="top", anchor="e", pady=(0, 4))
+        page_switch = switch
     app.clipboard_page_buttons = {}
     left = tk.Button(
-        switch, text="Text", cursor="hand2", bd=0, relief="flat",
+        page_switch, text="Text", cursor="hand2", bd=0, relief="flat",
         font=("Segoe UI", 8, "bold"), takefocus=True,
         bg=c["BG"], padx=2, pady=1,
         command=lambda: show_page(app, "text"))
     left.pack(side="left", padx=(0, 5))
     app.clipboard_page_buttons["text"] = left
     toggle = tk.Canvas(
-        switch, width=44, height=22, bg=c["BG"], bd=0,
+        page_switch, width=44, height=22, bg=c["BG"], bd=0,
         highlightthickness=1, highlightbackground=c["BG"],
         highlightcolor=c["ACCENT"], takefocus=True, cursor="hand2")
     toggle.pack(side="left")
     app.clipboard_page_toggle = toggle
     right = tk.Button(
-        switch, text="Images", cursor="hand2", bd=0, relief="flat",
+        page_switch, text="Images", cursor="hand2", bd=0, relief="flat",
         font=("Segoe UI", 8, "bold"), takefocus=True,
         bg=c["BG"], padx=2, pady=1,
         command=lambda: show_page(app, "images"))
@@ -111,7 +189,11 @@ def build(app):
     app.clipboard_images_page = tk.Frame(app.body, bg=c["BG"])
     _build_text_page(app, c)
     _build_images_page(app, c)
+    # Browsing deeper DB history happens by scrolling the list / gallery.
+    # Do not add a separate pagination row in the space-limited Mini menu.
     show_page(app, getattr(app, "clipboard_page", "text"))
+    refresh_history_selector(app)
+    refresh_page_navigation(app)
 
 
 def _build_text_page(app, c):
@@ -124,7 +206,13 @@ def _build_text_page(app, c):
     entry = design.entry(search_row, app.clipboard_query, app.theme, compact=True)
     app.clipboard_query_entry = entry
     entry.configure(width=20)
-    entry.pack(side="left", fill="x", expand=False, ipady=3)
+    entry.pack(side="left", fill="x", expand=False, ipady=2 if app.display_mode == "mini" else 3)
+    if app.display_mode == "mini":
+        # The former full-width Pause/Filter row is removed. Pause remains
+        # accessible directly beside the search field; the active filter is
+        # identified in the header subtitle for both Text and Images.
+        app.clipboard_pause_button = _mini_pause_button(search_row, app, c)
+        app.clipboard_pause_button.pack(side="right", padx=(4, 0))
     app.clipboard_query.trace_add("write", lambda *_: app._refresh_clipboard())
 
     app.clipboard_status = tk.Label(
@@ -157,6 +245,51 @@ def _build_text_page(app, c):
         highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],
         selectborderwidth=0, activestyle="none", exportselection=False)
     app.clipboard_list.pack(fill="both", expand=True)
+    if app.display_mode == "mini":
+        # After Tk finishes the native listbox scroll, fetch one additional
+        # database page only when the user scrolls beyond the loaded entries.
+        def more_on_wheel(event):
+            if app.settings.get("clipboard_storage") != "database":
+                return None
+            forward = (getattr(event, "delta", 0) < 0 or
+                       getattr(event, "num", 0) == 5)
+            if not forward:
+                return None
+
+            def check_bottom():
+                if (app.clipboard_page != "text" or
+                        not app.clipboard_list.winfo_exists()):
+                    return
+                if app.clipboard_list.yview()[1] >= 0.999:
+                    app._clipboard_load_more("text")
+
+            app.root.after_idle(check_bottom)
+            return None
+
+        for wheel in ("<MouseWheel>", "<Button-5>"):
+            app.clipboard_list.bind(wheel, more_on_wheel, add="+")
+        app.clipboard_list.bind(
+            "<End>", lambda _e: app.root.after_idle(
+                lambda: app._clipboard_load_more("text")), add="+")
+    else:
+        # Same behavior in Normal/Dashboard on the text Listbox itself.
+        def more_on_wheel(event):
+            if (app.settings.get("clipboard_storage") != "database" or
+                    not (getattr(event, "delta", 0) < 0 or
+                         getattr(event, "num", 0) == 5)):
+                return None
+            app.root.after_idle(lambda: (
+                app._clipboard_load_more("text")
+                if app.clipboard_list.winfo_exists()
+                and app.clipboard_page == "text"
+                and app.clipboard_list.yview()[1] >= 0.999 else None))
+            return None
+
+        for wheel in ("<MouseWheel>", "<Button-5>"):
+            app.clipboard_list.bind(wheel, more_on_wheel, add="+")
+
+    app.clipboard_list.bind("<<ListboxSelect>>",
+                            lambda _evt: app._update_clipboard_text_status(), add="+")
     app.clipboard_list.bind("<Double-1>", lambda _evt: app._copy_clipboard_item())
 
     def copy_text(_event=None):
@@ -249,10 +382,16 @@ def build_text_context_menu(app, colors, selected):
 
 def _build_images_page(app, c):
     parent = app.clipboard_images_page
+    image_status_row = tk.Frame(parent, bg=c["BG"])
+    image_status_row.pack(fill="x", pady=(0, 3))
     app.clipboard_images_status = tk.Label(
-        parent, bg=c["BG"], fg=c["MUTED"], text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
+        image_status_row, bg=c["BG"], fg=c["MUTED"],
+        text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
         font=("Segoe UI", 9), anchor="w")
-    app.clipboard_images_status.pack(fill="x", pady=(0, 3))
+    app.clipboard_images_status.pack(side="left", fill="x", expand=True)
+    if app.display_mode == "mini":
+        app.clipboard_image_pause_button = _mini_pause_button(image_status_row, app, c)
+        app.clipboard_image_pause_button.pack(side="right", padx=(4, 0))
     footer = tk.Frame(parent, bg=c["BG"])
     footer.pack(fill="x", pady=(4, 4))
     for title, action in (("Copy", lambda: copy_selected(app)),
@@ -314,12 +453,53 @@ def _build_images_page(app, c):
         widget.bind("<Button-5>", lambda e: _wheel(app, e))
 
 
+def refresh_history_selector(app):
+    """Refresh available saved dates without recursively changing the view."""
+    if not hasattr(app, "clipboard_day_select"):
+        return
+    if app.settings.get("clipboard_storage") != "database":
+        return
+    page = getattr(app, "clipboard_page", "text")
+    from . import clipboard_database as db
+    today = db.today()
+    dates = app.clipboard_database.days(
+        page, days=app.settings["clipboard_autodelete_days"])
+    if today not in dates:
+        dates.insert(0, today)
+    # Mini has two dropdowns on the same line; show the full ISO date rather
+    # than clipping "Today · YYYY-MM-DD" inside a narrow combobox.
+    mini = app.display_mode == "mini"
+    values = [(date if mini else ("Today · " + date if date == today else date))
+              for date in dates]
+    selector = app.clipboard_day_select
+    selector["values"] = values
+    selected = app._clipboard_view_days.get(page, today)
+    if selected not in dates:
+        selected = today
+        app._clipboard_view_days[page] = today
+        app._clipboard_load_day(page, today)
+    selector.set(selected if mini else ("Today · " + selected if selected == today else selected))
+    if hasattr(app, "clipboard_clear_button") and app.clipboard_clear_button:
+        app.clipboard_clear_button.configure(
+            text="Clear day images" if page == "images" else "Clear day text")
+
+
+def refresh_page_navigation(app):
+    """Compatibility shim: history now extends naturally on scrolling."""
+    return None
+
+
 def show_page(app, page):
     page = page if page in ("text", "images") else "text"
     app.clipboard_page = page  # Remember across menu/layout switches in session.
+    refresh_history_selector(app)
+    refresh_page_navigation(app)
     if app.clipboard_clear_button is not None:
+        on_disk = app.settings.get("clipboard_storage") == "database"
         app.clipboard_clear_button.configure(
-            text="Clear images" if page == "images" else "Clear text")
+            text=("Clear day images" if page == "images" else "Clear day text")
+            if on_disk else
+            ("Clear images" if page == "images" else "Clear text"))
     c = themes.palette(app.theme)
     for key, btn in app.clipboard_page_buttons.items():
         selected = key == page
@@ -358,12 +538,19 @@ def _wheel(app, event):
     forward = (event.delta < 0) if getattr(event, "delta", 0) else (
         getattr(event, "num", 0) == 5)
     if app.display_mode == "mini":
-        # A regular mouse wheel selects the neighboring horizontal card.
-        # No dragging, extra arrows, or additional UI controls.
+        # A regular wheel moves across the horizontal gallery. Reaching the
+        # last loaded image fetches the next DB batch without extra arrows.
         move_selection(app, 1 if forward else -1)
     else:
         app.clipboard_images_canvas.yview_scroll(
             (1 if forward else -1) * 3, "units")
+        if (forward and app.settings.get("clipboard_storage") == "database"):
+            app.root.after_idle(lambda: (
+                app._clipboard_load_more("images")
+                if (app.clipboard_page == "images"
+                    and app.clipboard_images_canvas.winfo_exists()
+                    and app.clipboard_images_canvas.yview()[1] >= 0.999)
+                else None))
     return "break"
 
 
@@ -379,14 +566,19 @@ def _update_status(app):
         return
     count = len(app.clipboard_images)
     maximum = app.settings["clipboard_image_limit"]
+    stored = app.settings.get("clipboard_storage") == "database"
     capture = "PAUSED" if app.settings["clipboard_paused"] else "Capture ON"
     if app.display_mode == "mini":
         index = _selection_index(app)
         label.configure(text=(
             f"{index + 1 if index >= 0 else 0} / {count} selected · "
+            f"{count} shown · {capture}" if stored else
+            f"{index + 1 if index >= 0 else 0} / {count} selected · "
             f"{count}/{maximum} images · {capture}"))
     else:
-        label.configure(text=f"{count}/{maximum} images · RAM only · {capture}")
+        label.configure(
+            text=f"{count} shown · DATABASE · {capture}" if stored else
+                 f"{count}/{maximum} images · RAM only · {capture}")
 
 
 def _ensure_selected_visible(app):
@@ -451,6 +643,9 @@ def move_selection(app, step):
     if not app.clipboard_images:
         return "break"
     current = _selection_index(app)
+    if (step > 0 and current == len(app.clipboard_images) - 1
+            and getattr(app, "settings", {}).get("clipboard_storage") == "database"):
+        app._clipboard_load_more("images")
     index = (max(0, min(len(app.clipboard_images) - 1, current + step))
              if current >= 0 else 0)
     select_image(app, app.clipboard_images[index]["id"])
@@ -511,9 +706,12 @@ def refresh_images(app, *, force=False):
                   column=index if horizontal else index % columns,
                   sticky="nsew", padx=3, pady=3)
         app._clipboard_gallery_tiles[ident] = tile
-        picture = clipboard_images.decode_image(item["data"])
-        picture.thumbnail(thumb_size, Image.Resampling.LANCZOS)
-        photo = ImageTk.PhotoImage(picture, master=app.root)
+        try:
+            picture = clipboard_images.decode_image(_image_payload(app, item))
+            picture.thumbnail(thumb_size, Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(picture, master=app.root)
+        except (OSError, ValueError, MemoryError):
+            continue
         app._clipboard_gallery_photos.append(photo)
         label = tk.Label(
             tile, image=photo, bg=c["PANEL"], cursor="hand2",
@@ -557,12 +755,18 @@ def selected_image(app):
     return next((item for item in app.clipboard_images if item["id"] == ident), None)
 
 
+def _image_payload(app, item):
+    if "data" in item:
+        return item["data"]  # RAM screenshot, already in memory.
+    return app.clipboard_database.image_data(item)  # One disk read on demand.
+
+
 def copy_selected(app):
     item = selected_image(app)
     if item is None:
         return
     try:
-        clipboard_images.copy_image(item["data"])
+        clipboard_images.copy_image(_image_payload(app, item))
         app._clipboard_sequence = clipboard_images.sequence_number()
         _update_status(app)
         label = app.clipboard_images_status
@@ -576,7 +780,11 @@ def preview_selected(app):
     if item is None:
         return
     c = themes.palette(app.theme)
-    picture = clipboard_images.decode_image(item["data"])
+    try:
+        picture = clipboard_images.decode_image(_image_payload(app, item))
+    except (OSError, ValueError, MemoryError) as exc:
+        messagebox.showerror("Image preview", str(exc), parent=app.root)
+        return
     max_width = max(260, min(1120, app.root.winfo_screenwidth() - 100))
     max_height = max(200, min(760, app.root.winfo_screenheight() - 140))
     picture.thumbnail((max_width - 36, max_height - 80), Image.Resampling.LANCZOS)
@@ -612,15 +820,27 @@ def delete_selected(app):
     if item is None:
         return
     previous_index = _selection_index(app)
+    if (app.settings.get("clipboard_storage") == "database"
+            and not app._clipboard_delete_image(item)):
+        return
     app.clipboard_images[:] = [
         entry for entry in app.clipboard_images if entry["id"] != item["id"]]
     app._clipboard_selected_image_id = (
         app.clipboard_images[min(previous_index, len(app.clipboard_images) - 1)]["id"]
         if app.clipboard_images else None)
     refresh_images(app, force=True)
+    if app.settings.get("clipboard_storage") == "database":
+        refresh_history_selector(app)
+        refresh_images(app, force=True)
 
 
 def clear_images(app):
+    if (app.settings.get("clipboard_storage") == "database"
+            and not app._clipboard_clear_images()):
+        return
     app.clipboard_images.clear()
     app._clipboard_selected_image_id = None
     refresh_images(app, force=True)
+    if app.settings.get("clipboard_storage") == "database":
+        refresh_history_selector(app)
+        refresh_images(app, force=True)

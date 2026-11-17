@@ -43,7 +43,9 @@ class ModernSettingsTests(unittest.TestCase):
         for count in clipboard_images.IMAGE_LIMIT_CHOICES:
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": count})["clipboard_image_limit"], count)
-        for value in (-1, 0, 25, 105, 200, True, "30", 12.5, None):
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 15})["clipboard_image_limit"], 20)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 25})["clipboard_image_limit"], 30)
+        for value in (-1, 0, 105, 200, True, "30", 12.5, None):
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
 

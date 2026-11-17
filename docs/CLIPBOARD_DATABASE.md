@@ -1,9 +1,9 @@
-# Pocket v1.37 — Clipboard history: RAM or local DATABASE
+# Pocket v1.38 — Clipboard history: RAM or local DATABASE
 
 Pocket stores clipboard content **offline**. The Clipboard menu now has a compact **Storage** dropdown (RAM / DATABASE) beside a date selector in Mini, Normal and Dashboard layouts.
 
-- **RAM (default):** the original session-only text and screenshot history. Nothing is written to disk. The number of screenshots **stored** in RAM can be set to 10–100 (increments of ten; default 20). Closing Pocket clears RAM history.
-- **DATABASE (opt-in):** text history and screenshots survive a restart in the Pocket data folder. The settings specify how many items **to show per page** (10–100, increments of ten), not how many are retained on disk. Scroll toward the end of the Text list or Images gallery to load more history automatically. There is no extra Prev/Next row. Full-resolution screenshots are read on demand for copy/preview; history navigation stores only a bounded set of metadata/thumbnail objects in RAM.
+- **RAM (default):** the original session-only text and screenshot history. Nothing is written to disk. The number of screenshots **stored** in RAM can be set to 10, 15, 20, 25 or 30 (default 20). Closing Pocket clears RAM history.
+- **DATABASE (opt-in):** text history and screenshots survive a restart in the Pocket data folder. The settings specify how many items **to show per batch** (screenshots: 10–100 in tens; text: 100, 300, 500, 800, 1000, 1200, 1500), not how many are retained on disk. Scroll toward the end of the Text list or Images gallery to load more history automatically. There is no extra Prev/Next row. Full-resolution screenshots are read on demand for copy/preview; history navigation stores only a bounded set of metadata/thumbnail objects in RAM.
 
 Switching modes does **not** import old RAM entries into DATABASE or expose DATABASE entries while in RAM mode. The chosen storage mode is stored in Pocket preferences; no clipboard content is written into `data.json`.
 
@@ -35,7 +35,7 @@ On first opening DATABASE in v1.37, Pocket migrates the previous `ClipboardScree
 - Each page keeps its own chosen date while Pocket is running. Selecting a date starts with 10–100 entries; scrolling automatically extends the visible history in batches without loading the full archive at once.
 - Copying text or a screenshot (even if identical to the most recent item) returns that respective page to **Today** without clearing older dates.
 - **Clear day** deletes Pocket-managed items **only for the selected day and type**; deleting a single item affects only that entry.
-- RAM limits and DATABASE display limits are **separate**. Default DATABASE text and screenshot batch limits: 30 each. Four compact Settings dropdowns are arranged in a 2×2 grid; wheel-scrolling over these choices scrolls Settings without changing their selection. Other dropdowns are unaffected. You may select 10, 20, ..., 100 per batch and scroll to access older items.
+- RAM limits and DATABASE display limits are **separate**. Default DATABASE text batch limit: 100; screenshot batch limit: 30. Four compact Settings dropdowns are arranged in a 2×2 grid; wheel-scrolling over these choices scrolls Settings without changing their selection. Other dropdowns are unaffected. You may select 10, 20, ..., 100 screenshots or 100/300/500/800/1000/1200/1500 text entries per batch and scroll to access older items. The grey Text status line shows the selected item index and number of displayed entries, mirroring the Images status without adding another row.
 - Text remains searchable within the currently displayed page. Other pages/dates are accessible through navigation.
 
 ## Automatic cleanup: OFF / 7–30 days

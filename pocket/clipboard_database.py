@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections import deque
 from datetime import date, datetime, timedelta
 from hashlib import sha256
+import heapq
 import json
 import os
 from pathlib import Path
@@ -24,7 +25,7 @@ _MAX_IMAGE = 12 * 1024 * 1024
 _TEXT_FILE = re.compile(
     r"^(?P<day>\d{4}-\d{2}-\d{2})_(?P<created>\d{2}-\d{2}-\d{2})_to_(?P<expires>\d{4}-\d{2}-\d{2}|saved)\.txt$")
 _IMAGE_FILE = re.compile(
-    r"^(?P<day>\d{4}-\d{2}-\d{2})_(?P<clock>\d{2}-\d{2}-\d{2})_(?P<id>[0-9a-f]{32})\.png$")
+    r"^(?P<day>\d{4}-\d{2}-\d{2})_(?P<clock>\d{2}-\d{2}-\d{2})(?:-(?P<us>\d{6}))?_(?P<id>[0-9a-f]{32})\.png$")
 _LEGACY_IMAGE = re.compile(r"^(?P<clock>\d{2}-\d{2}-\d{2})_(?P<id>[0-9a-f]{32})\.png$")
 _PNG_HEADER = b"\x89PNG\r\n\x1a\n"
 
@@ -330,15 +331,29 @@ class ClipboardDatabase:
         entries = self.load_text(day, limit=1)
         return entries[0] if entries else None
 
-    def _image_paths(self, day):
+    def _image_paths(self, day, *, take=None):
         if not valid_day(day):
             raise ValueError("Invalid history date")
         if not self.image_dir.is_dir() or self.image_dir.is_symlink():
             return []
-        return sorted((file for file in self.image_dir.iterdir()
-                       if file.is_file() and not file.is_symlink()
-                       and (match := _IMAGE_FILE.fullmatch(file.name))
-                       and match.group("day") == day), reverse=True)
+
+        def images():
+            for file in self.image_dir.iterdir():
+                match = _IMAGE_FILE.fullmatch(file.name)
+                if (match is not None and match.group("day") == day
+                        and file.is_file() and not file.is_symlink()):
+                    yield file
+
+        def sort_key(file):
+            matched = _IMAGE_FILE.fullmatch(file.name)
+            return (matched.group("clock"), int(matched.group("us") or 0),
+                    matched.group("id"))
+
+        # Keep only the requested display page in memory, even with tens of
+        # thousands of saved PNG filenames in the flat folder.
+        if take is not None:
+            return heapq.nlargest(take, images(), key=sort_key)
+        return sorted(images(), key=sort_key, reverse=True)
 
     def load_images(self, day, *, limit=None, offset=0, metadata_only=False):
         """Only fetch the selected visible page; avoid eager PNG bytes in RAM."""
@@ -346,7 +361,8 @@ class ClipboardDatabase:
             raise ValueError("Invalid screenshot display limit")
         if type(offset) is not int or offset < 0:
             raise ValueError("Invalid screenshot page offset")
-        selected = self._image_paths(day)[offset:offset + limit if limit is not None else None]
+        selected = self._image_paths(day, take=(offset + limit) if limit else None)[
+            offset:offset + limit if limit is not None else None]
         result = []
         for file in selected:
             if file.stat().st_size > _MAX_IMAGE:
@@ -401,7 +417,7 @@ class ClipboardDatabase:
         timestamp = item["time"].replace(":", "-")
         if not re.fullmatch(r"\d{2}-\d{2}-\d{2}", timestamp):
             raise ValueError("Invalid screenshot timestamp")
-        name = f"{day}_{timestamp}_{identifier}.png"
+        name = f"{day}_{timestamp}-{datetime.now().microsecond:06d}_{identifier}.png"
         with (self.image_dir / name).open("xb") as output:
             output.write(payload)
         item["file_name"] = name

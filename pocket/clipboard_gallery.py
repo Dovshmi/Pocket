@@ -498,12 +498,12 @@ def _update_status(app):
         index = _selection_index(app)
         label.configure(text=(
             f"{index + 1 if index >= 0 else 0} / {count} selected · "
-            f"{count} saved · {capture}" if stored else
+            f"{count} shown · {capture}" if stored else
             f"{index + 1 if index >= 0 else 0} / {count} selected · "
             f"{count}/{maximum} images · {capture}"))
     else:
         label.configure(
-            text=f"{count} images · DATABASE · {capture}" if stored else
+            text=f"{count} shown · DATABASE · {capture}" if stored else
                  f"{count}/{maximum} images · RAM only · {capture}")
 
 

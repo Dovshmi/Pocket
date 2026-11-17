@@ -358,9 +358,8 @@ def build_text_context_menu(app, colors, selected):
         slots_menu = menu_style.Menu(menu, **style)
         assigned = selected.get("slot")
         for number in quick_slots.SLOT_NUMBERS:
-            occupied = str(number) in app.clipboard_slots
             slots_menu.add_command(
-                label=f"[{number}]" + (" · Replace" if occupied and assigned != number else ""),
+                label=f"[{number}]",
                 command=lambda number=number, content=content:
                     app._assign_clipboard_slot(number, content))
         menu.add_cascade(label="Assign to Quick Slot", menu=slots_menu)
@@ -368,7 +367,8 @@ def build_text_context_menu(app, colors, selected):
             menu.add_command(label=f"Remove [{assigned}] assignment",
                              command=lambda n=assigned: app._remove_clipboard_slot(n))
     menu.add_command(
-        label="Delete from history", command=app._delete_clipboard_item,
+        label=("Clear Quick Slot" if selected and selected.get("slot") else
+               "Delete from history"), command=app._delete_clipboard_item,
         state="normal" if selected else "disabled")
     menu.add_separator()
     if selected:

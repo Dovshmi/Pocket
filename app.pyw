@@ -2084,7 +2084,7 @@ class PocketDesk:
         selected = self._selected_clipboard_item()
         selected_id = selected["id"] if selected else None
         self._clipboard_filtered = quick_slots.merged_rows(
-            self.clipboard_slots, self.clipboard_items, query)
+            getattr(self, "clipboard_slots", {}), self.clipboard_items, query)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
@@ -2227,9 +2227,10 @@ class PocketDesk:
                     self._clipboard_view_days["text"])
             else:
                 records = [dict(item) for item in self.clipboard_items]
-            if any(row["text"] == text and row.get("pinned") for row in records):
+            replaced = {text, old}
+            if any(row["text"] in replaced and row.get("pinned") for row in records):
                 for row in records:
-                    if row["text"] == text:
+                    if row["text"] in replaced:
                         row["pinned"] = False
                 self._clipboard_write_text_view(records)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:

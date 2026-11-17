@@ -41,7 +41,9 @@ def text_row_label(item):
     native Listbox text inset, matching other Pocket input panels.
     """
     preview = " ".join(item["text"].split())[:65]
-    return ("★ " if item["pinned"] else "") + preview
+    prefix = (f'[{item["slot"]}] ' if item.get("slot") else
+              "★ " if item["pinned"] else "")
+    return prefix + preview
 
 
 def _action(parent, title, callback, colors):
@@ -346,10 +348,25 @@ def build_text_context_menu(app, colors, selected):
         state="normal" if selected else "disabled")
     if selected:
         menu.add_command(
-            label="Unpin from history" if selected["pinned"] else "Pin in history",
+            label=("Remove from Quick Slot" if selected.get("slot") else
+                   "Unpin from history" if selected["pinned"] else "Pin in history"),
             command=app._pin_clipboard_item)
     else:
         menu.add_command(label="Pin in history", state="disabled")
+    if selected:
+        from . import quick_slots
+        slots_menu = menu_style.Menu(menu, **style)
+        assigned = selected.get("slot")
+        for number in quick_slots.SLOT_NUMBERS:
+            occupied = str(number) in app.clipboard_slots
+            slots_menu.add_command(
+                label=f"[{number}]" + (" · Replace" if occupied and assigned != number else ""),
+                command=lambda number=number, content=content:
+                    app._assign_clipboard_slot(number, content))
+        menu.add_cascade(label="Assign to Quick Slot", menu=slots_menu)
+        if assigned:
+            menu.add_command(label=f"Remove [{assigned}] assignment",
+                             command=lambda n=assigned: app._remove_clipboard_slot(n))
     menu.add_command(
         label="Delete from history", command=app._delete_clipboard_item,
         state="normal" if selected else "disabled")

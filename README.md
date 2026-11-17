@@ -26,14 +26,14 @@ Pocket runs from the Windows system tray and opens on demand. It brings seven pr
 > [!NOTE]
 > **Version 1.36 (v1.36.0):** Native Windows input controls with standard editing shortcuts, better CLI/MAC scrolling and parsing, clearer Mini filters, and pinned Clipboard text at the top. Dropdowns retain their familiar click-to-select behavior—no typing-based filter. All existing offline tools and saved settings remain supported. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
 
-## Development v1.37.0 — pending stable release
+## Development v1.38.0 — pending stable release
 
 The [feature/pocket-next-updates](https://github.com/Dovshmi/Pocket/tree/feature/pocket-next-updates) branch contains improvements that are **not yet part of stable v1.36.0**:
 
 - **Notes + Notepad:** New notes appear at the end of the list; the Note Title and its working TXT filename stay aligned. Renaming a note renames the corresponding file; duplicate names receive Windows-style numbered Titles and filenames such as *Router (1)* / *Router (1).txt*. Existing Notepad content is preserved on migration and conflicts.
 - **Configurable Windows Proxy:** Under **Settings → Network connection**, *Use Windows Proxy* defaults to ON. DashDash MAC and TCP requests keep the existing working native Windows PAC/WinINet route when ON. OFF selects explicit direct HTTPS for DashDash. No global Windows proxy settings change.
 - **IEEE MAC vendors:** **Update IEEE DB** now uses native Windows WinINet HTTPS GET in both modes. ON selects the existing Windows PAC resolver; OFF selects **direct WinINet with the Windows certificate trust store**, avoiding the Python SSL route that reported self-signed-certificate errors on some managed computers. TLS validation remains enabled; untrusted certificates will still fail. Incomplete downloads never overwrite the local cache, and manual CSV import remains available.
-- **Clipboard RAM / DATABASE:** The Mini-friendly Storage and History date dropdowns let you switch between session-only RAM and persistent local history. DATABASE stores an **append-only daily TXT journal** and all PNG screenshots together in one flat folder (filenames contain date/time). **A compact 2×2 Settings grid selects how many items to display (10–100), not how many are saved**. Scroll the list or gallery to load older items without extra page buttons. Automatic deletion is **OFF by default**, optionally **7–30 days** for text and images. Old daily screenshot folders migrate without overwrites. [File layout, retention & privacy](docs/CLIPBOARD_DATABASE.md).
+- **Clipboard RAM / DATABASE:** The Mini-friendly Storage and History date dropdowns let you switch between session-only RAM and persistent local history. DATABASE stores an **append-only daily TXT journal** and all PNG screenshots together in one flat folder (filenames contain date/time). **The compact 2×2 Settings grid keeps RAM screenshots at 10/15/20/25/30 (default 20), database screenshots at 10–100, and database text display at 100/300/500/800/1000/1200/1500 (default 100)**. The grey Clipboard Text status now shows the selected item number and entries count, just like Images, without changing the layout. Scroll to load older items without extra page buttons. Automatic deletion is **OFF by default**, optionally **7–30 days** for text and images. Old daily screenshot folders migrate without overwrites. [File layout, retention & privacy](docs/CLIPBOARD_DATABASE.md).
 - **Translate keyboard repair:** Defaults to **enabled**, using **Mark** and `Ctrl+Alt+V`. You can now disable the global shortcut, edit its keys, and select Clipboard or Mark **all inside Settings → Clipboard & privacy**. Mark replaces selected text with the corrected EN/HE keyboard layout; Clipboard retains the original copy-and-convert workflow. Mark requires Windows and a supported Ctrl+C/Ctrl+V application.
 
 These changes remain local-first. Mark does not use an online translator or require a persistent keyboard hook. [Windows proxy details](docs/WINDOWS_PROXY.md) · [Pending release notes](RELEASE_NOTES.md). Test before deploying at work, as a corporate PAC server and third-party app selection/paste behavior cannot be reproduced fully in CI.
@@ -82,7 +82,7 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 | **TCP Port Check** | Check up to **16 TCP ports** per run, with favorites, last-check suggestions, status sorting, and CSV export | Local or optional DashDash |
 | **MAC Vendor Lookup** | Search cached IEEE registrations (MA-L, MA-M, MA-S, IAB), import CSV, or query DashDash | Local or optional DashDash |
 | **Subnet Calculator** | IPv4 CIDR, masks, wildcard, network/broadcast, usable hosts, and subnet splitting | Offline |
-| **Clipboard Manager** | Text and Images pages; compact storage/date controls and scroll-to-load history. RAM keeps 10–100 screenshots (20 default); opt-in DATABASE saves daily text and unlimited accepted dated PNGs in one folder, displaying 10–100 per page. Optional 7–30-day cleanup | Offline |
+| **Clipboard Manager** | Text and Images pages; compact storage/date controls and scroll-to-load history. RAM keeps 10/15/20/25/30 screenshots (20 default); opt-in DATABASE saves daily text and unlimited accepted dated PNGs in one folder, displaying 10–100 per page. Optional 7–30-day cleanup | Offline |
 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying; manual command backups are created **only when you choose Backup**.
 
@@ -117,7 +117,7 @@ Settings now uses a consistent, responsive design in **Normal, Mini and Dashboar
 
 ### Clipboard and EN/HE keyboard repair
 
-The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In the pending **v1.37**, choose a **RAM capacity of 10–100** (20 default), or opt into the local DATABASE with independent **10–100 items shown per page** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
+The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In the pending **v1.38**, choose a **RAM capacity of 10/15/20/25/30** (20 default), or opt into the local DATABASE with **10–100 images or up to 1,500 text entries shown per batch** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
 
 ### Notes, commands and visual polish
 

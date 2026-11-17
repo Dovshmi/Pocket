@@ -208,7 +208,9 @@ def default_data() -> dict:
                      "convert_enabled": True, "clipboard_storage": "ram",
                      "clipboard_days": 1, "clipboard_autodelete_days": 0,
                      "clipboard_text_display_limit": 100,
-                     "clipboard_db_image_display_limit": 30},
+                     "clipboard_db_image_display_limit": 30,
+                     "quick_slots_enabled": True,
+                     "quick_slots_prefix": quick_slots.DEFAULT_PREFIX},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -248,6 +250,8 @@ def normalize_settings(raw):
                              raw.get("convert_mode") if raw.get("convert_mode") in
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
+            "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
+            "quick_slots_prefix": quick_slots.normalize_prefix(raw.get("quick_slots_prefix")),
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             # Earlier 1–5-day history is never deleted without opting in now.
@@ -457,6 +461,8 @@ class PocketDesk:
         self._clipboard_sequence = None
         self._clipboard_last = None
         self._mark_active = False
+        self._quick_slot_save_until = 0.0
+        self._quick_slot_save_timer = None
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
@@ -603,7 +609,9 @@ class PocketDesk:
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
                                     self.hotkey, self.convert_hotkey,
-                                    convert_enabled=self.settings["convert_enabled"])
+                                    convert_enabled=self.settings["convert_enabled"],
+                                    quick_slots_enabled=self.settings["quick_slots_enabled"],
+                                    quick_slots_prefix=self.settings["quick_slots_prefix"])
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -2084,7 +2092,9 @@ class PocketDesk:
         selected = self._selected_clipboard_item()
         selected_id = selected["id"] if selected else None
         self._clipboard_filtered = quick_slots.merged_rows(
-            getattr(self, "clipboard_slots", {}), self.clipboard_items, query)
+            getattr(self, "clipboard_slots", {})
+            if self.settings.get("quick_slots_enabled", True) else {},
+            self.clipboard_items, query)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))

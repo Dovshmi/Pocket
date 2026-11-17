@@ -556,6 +556,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         check(bool(canvas.bind(keystroke)),
                               f"{mode}: image gallery is missing {keystroke}")
                     if mode == "mini":
+                        check(app.clipboard_image_pause_button.winfo_ismapped(),
+                              "Mini: image capture button disappeared after compacting header")
+                        check(app.clipboard_image_pause_button.master is
+                              app.clipboard_images_status.master,
+                              "Mini: image Pause must share the status row")
                         original_images = list(app.clipboard_images)
                         for color in ((32, 91, 162), (11, 149, 85)):
                             check(clipboard_images.add_image(
@@ -656,6 +661,24 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     if mode == "mini":
                         check(actions_y >= list_y + app.clipboard_list.winfo_height(),
                               "Mini: Copy/Pin/Delete must be beneath the text history")
+                        # Mini reclaim: search and Pause share one horizontal row;
+                        # the DB pager shares a row with the Text/Images toggle.
+                        pause = app.clipboard_pause_button
+                        search = app.clipboard_query_entry
+                        check(pause.master is search.master,
+                              "Mini: Pause must be inside the search row")
+                        check(pause.winfo_ismapped(),
+                              "Mini: Pause must remain visible beside search")
+                        check(pause.winfo_rootx() >= search.winfo_rootx() +
+                              search.winfo_width(),
+                              "Mini: Pause overlaps the search field")
+                        check(abs(pause.winfo_rooty() - search.winfo_rooty()) < 12,
+                              "Mini: Pause is not on the search row")
+                        check(app.clipboard_page_navigation.master is
+                              app.clipboard_page_toggle.master.master,
+                              "Mini: history paging should share the view switch row")
+                        check(listbox.winfo_height() >= 130,
+                              "Mini: Clipboard history panel became too short")
                     else:
                         check(actions_y < list_y,
                               f"{mode}: keep text actions above the list")

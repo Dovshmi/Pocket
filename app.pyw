@@ -239,6 +239,9 @@ def normalize_settings(raw):
         visible = ["notes"]
     legacy_compact = raw.get("display_mode") == "compact"
     selected_mode = mini.display_mode(raw.get("display_mode"))
+    paste_prefix, copy_prefix = quick_slots.normalized_prefix_pair(
+        raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
+        raw.get("quick_slots_copy_prefix"))
     return {"visible_tabs": visible,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
@@ -252,10 +255,8 @@ def normalize_settings(raw):
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
             "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
-            "quick_slots_paste_prefix": quick_slots.normalize_prefix(
-                raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix"))),
-            "quick_slots_copy_prefix": quick_slots.normalize_prefix(
-                raw.get("quick_slots_copy_prefix"), default=quick_slots.DEFAULT_COPY_PREFIX),
+            "quick_slots_paste_prefix": paste_prefix,
+            "quick_slots_copy_prefix": copy_prefix,
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             # Earlier 1–5-day history is never deleted without opting in now.

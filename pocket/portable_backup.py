@@ -115,9 +115,16 @@ def available_restore_categories(bundle, *, commands_path=None):
         elif category == "settings":
             present = bool(filtered_settings(group["settings"]))
         elif category == "cli":
-            present = bool(commands_path and
-                           (json.loads(files["cli/commands.json"])["commands"] or
-                            group.get("custom_commands")))
+            present = False
+            if commands_path:
+                try:
+                    cs.read_document(Path(commands_path))
+                    present = bool(
+                        json.loads(files["cli/commands.json"])["commands"]
+                        or group.get("custom_commands"))
+                except (OSError, ValueError, TypeError):
+                    # The importer needs an existing valid writable library.
+                    present = False
         elif category == "clipboard_text":
             present = any(bool(rows) for rows in group.values())
         else:

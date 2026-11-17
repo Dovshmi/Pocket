@@ -1971,6 +1971,43 @@ class PocketDesk:
         self.settings["convert_mode"] = mode
         self.schedule_save()
 
+    def _quick_slot_hotkey(self, action, number, target_hwnd):
+        """Handle a Win32 hotkey off the Tk thread; never poll key presses."""
+        if self._mark_active:
+            return
+        if action not in ("save", "paste") or number not in quick_slots.SLOT_NUMBERS:
+            return
+        value = self.clipboard_slots.get(str(number)) if action == "paste" else None
+        if action == "paste" and not quick_slots.valid_text(value):
+            self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
+            return
+        self._mark_active = True  # Also suppress capture of temporary Ctrl+C/V.
+        owner = self.root.winfo_id()
+
+        def worker():
+            try:
+                if action == "save":
+                    selected = quick_slots.capture_selection_or_clipboard(
+                        target_hwnd=target_hwnd, owner_hwnd=owner)
+                    self.events.put(("quick_slot_save_result", (number, selected, None)))
+                else:
+                    quick_slots.paste_slot_text(
+                        value, target_hwnd=target_hwnd, owner_hwnd=owner)
+                    self.events.put(("quick_slot_paste_result", (number, None)))
+            except (marked_layout.MarkError, OSError, RuntimeError, ValueError) as exc:
+                kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
+                payload = ((number, None, str(exc)) if action == "save"
+                           else (number, str(exc)))
+                self.events.put((kind, payload))
+            except Exception:
+                kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
+                payload = ((number, None, "Quick Slot action failed.") if action == "save"
+                           else (number, "Quick Slot action failed."))
+                self.events.put((kind, payload))
+
+        threading.Thread(target=worker, name="PocketDeskQuickSlot",
+                         daemon=True).start()
+
     def _start_mark_conversion(self, target_hwnd):
         """One-shot, native selection conversion; never poll the keyboard."""
         if self._mark_active:
@@ -5514,6 +5551,25 @@ class PocketDesk:
                         self._start_mark_conversion(xy)
                     else:
                         self._convert_clipboard_text()
+                elif name == "quick_slot_hotkey":
+                    action, number, target_hwnd = xy
+                    self._quick_slot_hotkey(action, number, target_hwnd)
+                elif name == "quick_slot_save_result":
+                    number, selected, error = xy
+                    self._mark_active = False
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    if error:
+                        self._notify("Pocket Quick Slots", error)
+                    else:
+                        self._assign_clipboard_slot(number, selected)
+                elif name == "quick_slot_paste_result":
+                    number, error = xy
+                    self._mark_active = False
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    if error:
+                        self._notify("Pocket Quick Slots", error)
+                    else:
+                        self._notify("Pocket Quick Slots", f"Pasted [{number}].")
                 elif name == "mark_result":
                     self._mark_active = False
                     # Prevent the history monitor from recording transient Mark data.

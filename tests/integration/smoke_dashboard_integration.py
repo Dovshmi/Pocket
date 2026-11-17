@@ -928,6 +928,33 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               for key in ("extra_mini", "clipboard_paused",
                                           "sensitive_filter")),
                           f"{mode}: legacy checkbox indicators remain visible")
+                    if mode == "normal":
+                        # Open the actual dialogs, not just their buttons.
+                        # No file picker is exercised here; backup data stays
+                        # in the disposable CI test profile.
+                        for key, caption in (
+                                ("create_pocket_backup", "Create Backup"),
+                                ("reset_default_settings", "Default Settings")):
+                            common[key].invoke()
+                            app.root.update()
+                            dialogs = [widget for widget in app.root.winfo_children()
+                                       if isinstance(widget, tk.Toplevel)
+                                       and caption in widget.title()]
+                            check(len(dialogs) == 1,
+                                  f"{mode}: {caption} dialog did not open")
+                            if key == "create_pocket_backup":
+                                from pocket import portable_backup as pb
+                                labels = [widget.cget("text")
+                                          for widget in widgets(dialogs[0])
+                                          if isinstance(widget, tk.Checkbutton)]
+                                check(all(pb.LABELS[x] in labels for x in pb.CATEGORIES),
+                                      "Backup dialog lost categories")
+                                check(not any("Quick Slots" == title for title in labels),
+                                      "Quick Slots content must not be selectable")
+                            dialogs[0].event_generate("<Escape>")
+                            app.root.update()
+                            check(not app._modal and not dialogs[0].winfo_exists(),
+                                  f"{mode}: {caption} dialog did not close cleanly")
                     check(common["theme_blue"].winfo_exists() and
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")

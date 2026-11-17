@@ -7,8 +7,11 @@ v1.38 download in the README has not been replaced.
 ## Create Backup
 
 1. Open **Settings → Backup & Restore → Create Backup**.
-2. Choose only the data to include (by default: Notes, Links, CLI, Settings).
-3. Optionally include **Clipboard DATABASE text** and/or **saved screenshots**.
+2. All categories that currently contain exportable data are selected by default.
+   Empty categories are dimmed and cannot be selected. You can uncheck any
+   available category to create a smaller backup.
+3. **Clipboard DATABASE text** and/or **saved screenshots** are selectable
+   only if that data actually exists locally.
 4. Click **Save ZIP**, choose a file path, and transfer the resulting ZIP to
    the other Windows computer using your approved method.
 
@@ -36,16 +39,22 @@ Pocket performs no cloud upload, network synchronization or scheduled backup.
    **Settings → Backup & Restore → Restore Backup**.
 2. Choose a Pocket ZIP archive. The file is checked for expected version,
    category structure, member size, safe paths and SHA-256 checksums.
-3. Choose only the categories to import, and select a strategy:
+3. The restore window displays every category. **All available categories
+   are checked automatically**, including saved Clipboard history. Categories
+   missing from the ZIP (or empty in the ZIP) are greyed out and cannot be
+   selected. You can uncheck any available category. Use the **scrollable
+   Restore Preview** to see all results even when both Clipboard categories
+   are included.
+4. Select a strategy:
    - **Merge** (default): add missing IDs without deleting local content.
      When an ID already exists with different content, the local entry wins.
      Preview shows the number of conflicts.
    - **Replace**: overwrite only the selected categories. Unselected
      categories are left unchanged.
-4. Review the preview and confirm. Pocket saves a
+5. Review the preview and confirm. Pocket saves a
    `backups/Pocket-before-restore-*.zip` rollback archive **before** making
    changes.
-5. Pocket closes when the restore completes. **Reopen it** to load fresh
+6. Pocket closes when the restore completes. **Reopen it** to load fresh
    settings, clipboard data and Windows keyboard registrations.
 
 **Settings are values rather than additive records:** selecting Settings during

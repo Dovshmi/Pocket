@@ -240,6 +240,51 @@ class ClipboardIntegrationTests(unittest.TestCase):
             self.assertEqual(app._clipboard_view_days["images"], day)
             self.assertEqual(len(db.load_images(day)), 1)
 
+    def test_scroll_loads_more_text_without_extra_pagination_controls(self):
+        with tempfile.TemporaryDirectory() as folder:
+            app, events = self._desk(folder)
+            day = clipdb.today()
+            for n in range(27):
+                app.clipboard_database.append_text(
+                    day, {"id": f"{n:032x}", "text": f"clip {n}",
+                          "time": "10:00:00", "pinned": False})
+            app.settings["clipboard_text_display_limit"] = 10
+            app.settings["clipboard_storage"] = "database"
+            app.current_tab = "clipboard"
+            app.clipboard_page = "text"
+            app.clipboard_list = Mock()
+            app.clipboard_list.winfo_exists.return_value = True
+            app.clipboard_list.nearest.return_value = 0
+            app._clipboard_load_day("text")
+            self.assertEqual(len(app.clipboard_items), 10)
+            self.assertTrue(Desk._clipboard_load_more(app, "text"))
+            self.assertEqual(len(app.clipboard_items), 20)
+            self.assertTrue(Desk._clipboard_load_more(app, "text"))
+            self.assertEqual(len(app.clipboard_items), 27)
+            self.assertFalse(Desk._clipboard_load_more(app, "text"))
+            self.assertEqual(len(app.clipboard_database.load_text(day)), 27)
+            self.assertIn("refresh", events)
+
+    def test_scroll_loads_more_image_metadata_without_full_pngs(self):
+        with tempfile.TemporaryDirectory() as folder:
+            app, _ = self._desk(folder)
+            day = clipdb.today()
+            for n in range(17):
+                row = []
+                clipboard_images.add_image(
+                    row, Image.new("RGB", (11, 10), (n, 50, 70)))
+                app.clipboard_database.save_image(day, row[0])
+            app.settings["clipboard_storage"] = "database"
+            app.settings["clipboard_db_image_display_limit"] = 10
+            app.current_tab = "clipboard"
+            app.clipboard_page = "images"
+            app._clipboard_load_day("images")
+            with patch.object(clipboard_gallery, "refresh_images"):
+                self.assertTrue(Desk._clipboard_load_more(app, "images"))
+            self.assertEqual(len(app.clipboard_images), 17)
+            self.assertTrue(all("data" not in row for row in app.clipboard_images))
+            self.assertFalse(Desk._clipboard_load_more(app, "images"))
+
     def test_translate_off_prevents_hotkey_handling(self):
         with tempfile.TemporaryDirectory() as folder:
             app, events = self._desk(folder)

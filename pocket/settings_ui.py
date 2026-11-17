@@ -326,39 +326,73 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
             "Open", app._open_global_search, compact=compact, primary=True)
 
 
-def _image_capacity(parent, app, c, *, compact=False, wide=False):
-    """Store limits in RAM, *show* limits on disk: three independent dropdowns."""
-    options = [(f"{count} items", count) for count in range(10, 101, 10)]
-    _dropdown_field(
-        parent, app, c, "ram_image_limit", "RAM — stored screenshots",
-        "Maximum kept in memory. Older RAM screenshots are discarded.",
-        options, app.settings["clipboard_image_limit"],
-        app._set_clipboard_image_limit, compact=compact)
-    _dropdown_field(
-        parent, app, c, "db_image_display_limit", "DATABASE — screenshots shown",
-        "Only this many thumbnails load per page; all others stay on disk.",
-        options, app.settings["clipboard_db_image_display_limit"],
-        lambda v: app._set_clipboard_display_limit("images", v),
-        compact=compact)
-    _dropdown_field(
-        parent, app, c, "db_text_display_limit", "DATABASE — text entries shown",
-        "Only this many entries appear per page; all are saved by day.",
-        options, app.settings["clipboard_text_display_limit"],
-        lambda v: app._set_clipboard_display_limit("text", v),
-        compact=compact)
+def _clipboard_history_controls(parent, app, c, *, compact=False):
+    """Four independent history settings in a space-efficient two-column grid.
 
+    The mouse wheel is intentionally intercepted only for these selectors.
+    Other Pocket Comboboxes retain their original mouse-wheel behavior.
+    """
+    section = tk.Frame(parent, bg=c["PANEL"])
+    section.pack(fill="x", padx=13, pady=(7, 9))
+    _label(section, "History capacity & cleanup", c, size=9,
+           bold=True, anchor="w").pack(fill="x", pady=(0, 5))
+    grid = tk.Frame(section, bg=c["PANEL"])
+    grid.pack(fill="x")
+    for col in (0, 1):
+        grid.columnconfigure(col, weight=1, uniform="history")
 
-def _database_days_picker(parent, app, c, *, compact=False):
-    """Safe default: do not delete personal data unless user opts in."""
-    options = [("Off — keep history until manually deleted", 0)]
-    options.extend((f"Delete after {day} days", day) for day in range(7, 31))
-    return _dropdown_field(
-        parent, app, c, "clipboard_retention",
-        "Automatic history cleanup", 
-        "Optional 7–30 calendar days, applies to text AND screenshots. "
-        "OFF keeps all days; enabling deletion permanently removes expired Pocket files.",
-        options, app.settings["clipboard_autodelete_days"],
-        app._set_clipboard_autodelete_days, compact=compact)
+    counts = [(str(value), value) for value in range(10, 101, 10)]
+    retention = [("Off", 0)] + [
+        (f"{day} days", day) for day in range(7, 31)]
+    fields = (
+        ("ram_image_limit", "RAM images", counts,
+         app.settings["clipboard_image_limit"], app._set_clipboard_image_limit),
+        ("db_image_display_limit", "DB images shown", counts,
+         app.settings["clipboard_db_image_display_limit"],
+         lambda count: app._set_clipboard_display_limit("images", count)),
+        ("db_text_display_limit", "DB text shown", counts,
+         app.settings["clipboard_text_display_limit"],
+         lambda count: app._set_clipboard_display_limit("text", count)),
+        ("clipboard_retention", "Auto-delete", retention,
+         app.settings["clipboard_autodelete_days"],
+         app._set_clipboard_autodelete_days),
+    )
+    for index, (key, title, options, value, callback) in enumerate(fields):
+        cell = tk.Frame(grid, bg=c["PANEL"])
+        cell.grid(row=index // 2, column=index % 2, sticky="ew",
+                  padx=(0, 5) if index % 2 == 0 else (5, 0),
+                  pady=(2, 6))
+        _label(cell, title, c, size=8, anchor="w").pack(fill="x", pady=(0, 3))
+        select = ttk.Combobox(
+            cell, style="Pocket.TCombobox", state="readonly",
+            values=[label for label, _ in options], width=9,
+            takefocus=True)
+        select.current(next((i for i, (_label, actual) in enumerate(options)
+                             if actual == value), 0))
+        select.pack(fill="x")
+
+        def apply(_event=None, dropdown=select, choices=options, change=callback):
+            current = dropdown.current()
+            if 0 <= current < len(choices):
+                change(choices[current][1])
+            return "break"
+
+        def scroll_page(event):
+            # Delegate scrolling to the existing Settings canvas *before*
+            # the Combobox class binding can silently change its value.
+            # No other dropdown bindings or global widget styles change.
+            app._scroll_tool_on_wheel(event, from_picker=True)
+            return "break"
+
+        select.bind("<<ComboboxSelected>>", apply)
+        for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            select.bind(event_name, scroll_page)
+        _register(app, key, select)
+
+    _label(section, "RAM: stored · Database: shown per page (10–100). "
+           "Auto-delete: Off, or 7–30 days.",
+           c, muted=True, size=8, anchor="w", justify="left",
+           wraplength=185 if compact else 330).pack(fill="x", pady=(1, 0))
 
 
 def _privacy(parent, app, c, *, compact=False, wide=False):
@@ -375,9 +409,7 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             app.settings["clipboard_sensitive_filter"],
             app._set_clipboard_sensitive_filter, compact=compact)
     _divider(card, c)
-    _image_capacity(card, app, c, compact=compact, wide=wide)
-    _divider(card, c)
-    _database_days_picker(card, app, c, compact=compact)
+    _clipboard_history_controls(card, app, c, compact=compact)
     _divider(card, c)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",

@@ -1,7 +1,7 @@
 # Pocket — Backup & Restore and keyboard recording (development)
 
 These features are implemented on the development branch
-\`feature/backup-restore-record-hotkeys\`; the currently published stable
+`feature/backup-restore-record-hotkeys`; the currently published stable
 v1.38 download in the README has not been replaced.
 
 ## Create Backup
@@ -19,7 +19,7 @@ or setting does not automatically create a new portable backup.
 | --- | --- | --- |
 | Notes | Titles, text, phone fields, creation dates, reminder metadata, note IDs and pin state | User edits and IDs are preserved |
 | Links | URL/file/folder targets, labels, folder grouping/order | Local file paths might not exist on the new PC; files themselves are not copied |
-| CLI | The writable \`commands.json\` library (including template metadata), machine favorites, recent items, custom records | A separate Commands-only backup feature also exists |
+| CLI | The writable `commands.json` library (including template metadata), machine favorites, recent items, custom records | A separate Commands-only backup feature also exists |
 | Settings | Appearance, layouts, menu visibility, network proxy and normal Popup/Translate hotkeys | Machine-specific window coordinates and network credentials are not included |
 | Clipboard DATABASE text | Saved daily journal history, **opt in** | RAM-only history is not exportable after the session |
 | Clipboard DATABASE screenshots | Local saved PNGs, **opt in** | RAM-only screenshots are not exported |
@@ -43,7 +43,7 @@ Pocket performs no cloud upload, network synchronization or scheduled backup.
    - **Replace**: overwrite only the selected categories. Unselected
      categories are left unchanged.
 4. Review the preview and confirm. Pocket saves a
-   \`backups/Pocket-before-restore-*.zip\` rollback archive **before** making
+   `backups/Pocket-before-restore-*.zip` rollback archive **before** making
    changes.
 5. Pocket closes when the restore completes. **Reopen it** to load fresh
    settings, clipboard data and Windows keyboard registrations.

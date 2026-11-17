@@ -1,8 +1,18 @@
-# Pocket v1.37.0 — Clipboard Database & Translate Controls (unreleased development)
+# Pocket v1.38.0 — Clipboard Selection Counter & History Options (unreleased development)
 
 **Branch:** feature/pocket-next-updates · **Stable release remains v1.36.0**.
 
 This upcoming update groups the requested improvements together. It is not a published Windows release or a change to main.
+
+### Clipboard refinements in v1.38.0
+
+- **Text selection indicator:** The existing grey Clipboard Text status displays **selected position / displayed entries**, matching the Images selection indicator. The count follows mouse, keyboard, pinning and text-selection changes; it does not add or move UI controls. Mini omits redundant date/storage text from this narrow status line to prevent clipping.
+- **RAM screenshot capacity:** Choice list restored to **10 / 15 / 20 / 25 / 30** images, with **20 as the factory default**. Existing saved preferences of 15 and 25 remain intact; previously allowed 40–100 are safely capped to 30.
+- **DATABASE text shown:** Independent options **100 / 300 / 500 / 800 / 1000 / 1200 / 1500** entries, default **100**. Older 10–100 values migrate to 100, and any intermediate saved count rounds up to the nearest supported option. Saved daily TXT history is not changed or deleted by this migration.
+- **DATABASE screenshots shown:** Retains its independent 10–100 in steps of ten (30 default).
+- **Settings layout unchanged:** The existing two-column dropdown grid, mouse-wheel behavior, clipboard content area, date selector, and text/image positions remain in place.
+
+### Functionality included from the previous v1.37 development work
 
 ### Notes and Notepad sync
 

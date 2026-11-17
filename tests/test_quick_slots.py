@@ -173,6 +173,7 @@ class QuickSlotsTests(unittest.TestCase):
             self.assertTrue(Desk._assign_clipboard_slot(desk, 1, "NEW"))
         self.assertEqual(desk.clipboard_slots, {"1": "NEW"})
         self.assertFalse(desk.clipboard_items[1]["pinned"])
+        self.assertFalse(desk.clipboard_items[0]["pinned"])
         self.assertEqual(events.count("save"), 1)
         self.assertEqual(quick_slots.merged_rows(desk.clipboard_slots, desk.clipboard_items)[0]["text"], "NEW")
 

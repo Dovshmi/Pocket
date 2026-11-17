@@ -1,8 +1,9 @@
-# Pocket — Backup & Restore and keyboard recording (development)
+# Pocket v1.39 — Backup & Restore and keyboard recording
 
-These features are implemented on the development branch
-`feature/backup-restore-record-hotkeys`; the currently published stable
-v1.38 download in the README has not been replaced.
+These features are merged into the `main` branch (Pocket v1.39.0).
+The latest separately published Windows release remains **v1.38.0**;
+see the [README](../README.md) for the distinction between source version
+and the release-download assets.
 
 ## Create Backup
 

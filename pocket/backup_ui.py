@@ -203,17 +203,32 @@ def restore_backup(app):
     preview_panel = tk.Frame(window, bg=c["PANEL"], height=127)
     preview_panel.pack(fill="x", padx=16, pady=(0, 7))
     preview_panel.pack_propagate(False)
-    scrollbar = tk.Scrollbar(preview_panel, orient="vertical",
-                             bg=c["CARD"], troughcolor=c["PANEL"])
-    scrollbar.pack(side="right", fill="y")
+    # The preview is wheel-scrollable but intentionally has no visible
+    # scrollbar; it must not steal horizontal space or leave a white strip.
     preview_text = tk.Text(
         preview_panel, wrap="word", height=6, width=1,
         bg=c["PANEL"], fg=c["SECONDARY"], relief="flat",
         bd=0, padx=9, pady=7, highlightthickness=0,
-        font=("Segoe UI", 9), cursor="arrow", state="disabled",
-        yscrollcommand=scrollbar.set)
-    preview_text.pack(side="left", fill="both", expand=True)
-    scrollbar.configure(command=preview_text.yview)
+        font=("Segoe UI", 9), cursor="arrow", state="disabled")
+    preview_text.pack(fill="both", expand=True)
+
+    def scroll_preview(event):
+        if getattr(event, "num", None) == 4:  # X11 wheel up
+            direction, steps = -1, 3
+        elif getattr(event, "num", None) == 5:  # X11 wheel down
+            direction, steps = 1, 3
+        else:
+            delta = getattr(event, "delta", 0)
+            if not delta:
+                return "break"
+            direction = -1 if delta > 0 else 1
+            steps = max(1, abs(delta) // 120) * 3
+        preview_text.yview_scroll(direction * steps, "units")
+        return "break"
+
+    preview_text.bind("<MouseWheel>", scroll_preview)
+    preview_text.bind("<Button-4>", scroll_preview)
+    preview_text.bind("<Button-5>", scroll_preview)
     def display_preview(content):
         preview_text.configure(state="normal")
         preview_text.delete("1.0", "end")

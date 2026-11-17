@@ -951,7 +951,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                       "Backup dialog lost categories")
                                 check(not any("Quick Slots" == title for title in labels),
                                       "Quick Slots content must not be selectable")
-                            dialogs[0].event_generate("<Escape>")
+                            cancel_buttons = [
+                                widget for widget in widgets(dialogs[0])
+                                if isinstance(widget, tk.Button)
+                                and widget.cget("text") == "Cancel"]
+                            check(len(cancel_buttons) == 1,
+                                  f"{mode}: {caption} has no Cancel button")
+                            cancel_buttons[0].invoke()
                             app.root.update()
                             check(not app._modal and not dialogs[0].winfo_exists(),
                                   f"{mode}: {caption} dialog did not close cleanly")

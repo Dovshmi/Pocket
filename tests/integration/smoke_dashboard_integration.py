@@ -912,6 +912,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "convert_enabled", "convert_mode_picker",
                                 "quick_slots_enabled", "quick_slots_paste_prefix_picker",
                                 "quick_slots_copy_prefix_picker",
+                                "record_quick_slots_paste", "record_quick_slots_copy",
+                                "create_pocket_backup", "restore_pocket_backup",
+                                "reset_default_settings",
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
@@ -1032,7 +1035,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "change_hotkey", "change_convert_hotkey", "quick_search",
                         "clipboard_paused", "sensitive_filter",
                         "quick_slots_enabled", "quick_slots_paste_prefix_picker",
-                        "quick_slots_copy_prefix_picker")),
+                        "quick_slots_copy_prefix_picker",
+                        "record_quick_slots_paste", "record_quick_slots_copy",
+                        "create_pocket_backup", "restore_pocket_backup",
+                        "reset_default_settings")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,

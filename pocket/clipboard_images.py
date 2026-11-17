@@ -23,7 +23,12 @@ MAX_PNG_BYTES = 12 * 1024 * 1024
 
 def normalize_limit(value):
     """Constrain persisted count to known choices; reject bool/string/huge values."""
-    return value if type(value) is int and value in IMAGE_LIMIT_CHOICES else MAX_IMAGES
+    if type(value) is int and value in IMAGE_LIMIT_CHOICES:
+        return value
+    # Upgrade the v1.36/v1.37 legacy 15/25 choices to nearest 10-step option.
+    if type(value) is int and value in (15, 25):
+        return value + 5
+    return MAX_IMAGES
 
 
 def sequence_number():

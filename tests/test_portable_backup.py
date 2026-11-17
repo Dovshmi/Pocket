@@ -66,6 +66,43 @@ class PortableBackupTests(unittest.TestCase):
                        commands_path=self.cli, profile_dir=self.source)
         return output, pb.read_backup(output)
 
+    def test_export_availability_only_enables_categories_with_data(self):
+        existing = pb.available_export_categories(
+            profile(), commands_path=self.cli, profile_dir=self.source)
+        self.assertEqual(existing, ("notes", "links", "cli", "settings"))
+        self.assertNotIn("clipboard_text", existing)
+        self.assertNotIn("clipboard_images", existing)
+        empty = profile()
+        empty["links"] = []
+        self.cli.write_text(json.dumps({"commands": []}), encoding="utf-8")
+        available = pb.available_export_categories(
+            empty, commands_path=self.cli, profile_dir=self.source)
+        self.assertEqual(available, ("notes", "settings"))
+        db = cdb.ClipboardDatabase(self.source)
+        db.save_text("2026-11-17", [
+            {"id": "f" * 32, "text": "Saved in database",
+             "time": "10:00:00", "pinned": False}
+        ])
+        self.assertEqual(pb.available_export_categories(
+            empty, commands_path=self.cli, profile_dir=self.source),
+            ("notes", "settings", "clipboard_text"))
+
+    def test_restore_availability_shows_only_present_nonempty_categories(self):
+        _file, partial = self.backup(("notes", "settings"))
+        self.assertEqual(pb.available_restore_categories(
+            partial, commands_path=self.cli), ("notes", "settings"))
+        self.assertNotIn("links", pb.available_restore_categories(
+            partial, commands_path=self.cli))
+        _file, full = self.backup()
+        self.assertEqual(pb.available_restore_categories(
+            full, commands_path=self.cli), pb.RECOMMENDED)
+        self.assertEqual(pb.available_restore_categories(
+            full, commands_path=None), ("notes", "links", "settings"))
+        full["payload"]["links"]["links"] = []
+        self.assertEqual(pb.available_restore_categories(
+            full, commands_path=self.cli), ("notes", "cli", "settings"))
+        self.assertNotIn("quick_slots", pb.CATEGORIES)
+
     def test_all_recommended_categories_exclude_quick_slots_even_settings(self):
         archive, result = self.backup()
         self.assertEqual(result["manifest"]["categories"], list(pb.RECOMMENDED))

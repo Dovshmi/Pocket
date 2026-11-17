@@ -397,7 +397,8 @@ class ClipboardDatabase:
                 if not header.startswith(_PNG_HEADER) or len(header) < 24:
                     continue
                 width, height = struct.unpack(">II", header[16:24])
-                if not 0 < width <= 25000 or not 0 < height <= 25000:
+                if not (0 < width <= 25000 and 0 < height <= 25000
+                        and width * height <= 16_000_000):
                     continue
                 item = {
                     "id": _IMAGE_FILE.fullmatch(file.name).group("id"),
@@ -423,8 +424,12 @@ class ClipboardDatabase:
         if file.is_symlink() or not file.is_file() or file.stat().st_size > _MAX_IMAGE:
             raise ValueError("Screenshot file is missing or unsafe")
         payload = file.read_bytes()
-        if not payload.startswith(_PNG_HEADER):
+        if not payload.startswith(_PNG_HEADER) or len(payload) < 24:
             raise ValueError("Invalid screenshot content")
+        width, height = struct.unpack(">II", payload[16:24])
+        if not (0 < width <= 25000 and 0 < height <= 25000
+                and width * height <= 16_000_000):
+            raise ValueError("Screenshot dimensions exceed the safe limit")
         return payload
 
     def save_image(self, day, item):

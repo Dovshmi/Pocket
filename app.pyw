@@ -5864,9 +5864,12 @@ class WindowsTray:
     WM_NOTIFICATION = 0x8000 + 40
     WM_CONVERT_HOTKEY_CHANGE = 0x8000 + 41
     WM_CONVERT_ENABLE_CHANGE = 0x8000 + 42
+    WM_QUICK_SLOTS_CHANGE = 0x8000 + 43
     NIF_INFO = 0x10
 
-    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *, convert_enabled=True):
+    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *,
+                 convert_enabled=True, quick_slots_enabled=True,
+                 quick_slots_prefix=quick_slots.DEFAULT_PREFIX):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -5876,6 +5879,10 @@ class WindowsTray:
         self.hotkey_ids = set()
         self.convert_hotkey_ids = set()
         self.quick_slot_hotkey_ids = set()
+        self.quick_slot_hotkey_base = quick_slots.PASTE_HOTKEY_BASE
+        self.quick_slots_enabled = bool(quick_slots_enabled)
+        self.quick_slots_prefix = quick_slots.normalize_prefix(quick_slots_prefix)
+        self._pending_quick_slots_config = None
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
         self.convert_hotkey = hk.normalize_convert_hotkey(
@@ -5915,6 +5922,14 @@ class WindowsTray:
         self._pending_convert_enabled = bool(enabled)
         ctypes.windll.user32.PostMessageW(
             self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
+
+    def set_quick_slots_config(self, enabled, prefix):
+        """Ask the tray thread to atomically swap its ten Win32 bindings."""
+        prefix = quick_slots.normalize_prefix(prefix)
+        self._pending_quick_slots_config = (bool(enabled), prefix)
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(
+                self.hwnd, self.WM_QUICK_SLOTS_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
@@ -6154,7 +6169,8 @@ class WindowsTray:
                 elif int(wp) in self.convert_hotkey_ids:
                     self.events.put(("convert_clipboard", user.GetForegroundWindow()))
                 elif int(wp) in self.quick_slot_hotkey_ids:
-                    assignment = quick_slots.hotkey_action(int(wp))
+                    assignment = quick_slots.hotkey_action(
+                        int(wp), base=self.quick_slot_hotkey_base)
                     if assignment is not None:
                         action, number = assignment
                         self.events.put(("quick_slot_hotkey", (

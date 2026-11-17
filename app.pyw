@@ -171,6 +171,7 @@ def new_link(title, url, kind="url") -> dict:
 
 def default_data() -> dict:
     n = new_note("הבחשט מתקרר", "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר.")
+    n["direction"] = "rtl"
     # Factory shortcuts are seeded only for profiles without a data.json.
     # Never add/recreate these entries when loading an existing user profile.
     links = [

@@ -189,27 +189,8 @@ def build(app):
     app.clipboard_images_page = tk.Frame(app.body, bg=c["BG"])
     _build_text_page(app, c)
     _build_images_page(app, c)
-    # Date paging is optional and keeps old records accessible without loading
-    # all of them into memory. Keep the controls narrow in Mini.
-    nav = tk.Frame(switch if mini_mode else app.body, bg=c["BG"])
-    app.clipboard_page_navigation = nav
-    app.clipboard_prev_button = tk.Button(
-        nav, text="‹" if mini_mode else "‹ Prev",
-        command=lambda: app._clipboard_turn_page(-1),
-        bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
-        font=("Segoe UI", 8), cursor="hand2",
-        padx=4 if mini_mode else 5, pady=1 if mini_mode else 2)
-    app.clipboard_prev_button.pack(side="left")
-    app.clipboard_page_status = tk.Label(
-        nav, bg=c["BG"], fg=c["SECONDARY"], font=("Segoe UI", 8))
-    app.clipboard_page_status.pack(side="left", padx=4 if mini_mode else 6)
-    app.clipboard_next_button = tk.Button(
-        nav, text="›" if mini_mode else "Next ›",
-        command=lambda: app._clipboard_turn_page(1),
-        bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
-        font=("Segoe UI", 8), cursor="hand2",
-        padx=4 if mini_mode else 5, pady=1 if mini_mode else 2)
-    app.clipboard_next_button.pack(side="left")
+    # Browsing deeper DB history happens by scrolling the list / gallery.
+    # Do not add a separate pagination row in the space-limited Mini menu.
     show_page(app, getattr(app, "clipboard_page", "text"))
     refresh_history_selector(app)
     refresh_page_navigation(app)
@@ -264,6 +245,49 @@ def _build_text_page(app, c):
         highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],
         selectborderwidth=0, activestyle="none", exportselection=False)
     app.clipboard_list.pack(fill="both", expand=True)
+    if app.display_mode == "mini":
+        # After Tk finishes the native listbox scroll, fetch one additional
+        # database page only when the user scrolls beyond the loaded entries.
+        def more_on_wheel(event):
+            if app.settings.get("clipboard_storage") != "database":
+                return None
+            forward = (getattr(event, "delta", 0) < 0 or
+                       getattr(event, "num", 0) == 5)
+            if not forward:
+                return None
+
+            def check_bottom():
+                if (app.clipboard_page != "text" or
+                        not app.clipboard_list.winfo_exists()):
+                    return
+                if app.clipboard_list.yview()[1] >= 0.999:
+                    app._clipboard_load_more("text")
+
+            app.root.after_idle(check_bottom)
+            return None
+
+        for wheel in ("<MouseWheel>", "<Button-5>"):
+            app.clipboard_list.bind(wheel, more_on_wheel, add="+")
+        app.clipboard_list.bind(
+            "<End>", lambda _e: app.root.after_idle(
+                lambda: app._clipboard_load_more("text")), add="+")
+    else:
+        # Same behavior in Normal/Dashboard on the text Listbox itself.
+        def more_on_wheel(event):
+            if (app.settings.get("clipboard_storage") != "database" or
+                    not (getattr(event, "delta", 0) < 0 or
+                         getattr(event, "num", 0) == 5)):
+                return None
+            app.root.after_idle(lambda: (
+                app._clipboard_load_more("text")
+                if app.clipboard_list.winfo_exists()
+                and app.clipboard_page == "text"
+                and app.clipboard_list.yview()[1] >= 0.999 else None))
+            return None
+
+        for wheel in ("<MouseWheel>", "<Button-5>"):
+            app.clipboard_list.bind(wheel, more_on_wheel, add="+")
+
     app.clipboard_list.bind("<Double-1>", lambda _evt: app._copy_clipboard_item())
 
     def copy_text(_event=None):
@@ -459,28 +483,8 @@ def refresh_history_selector(app):
 
 
 def refresh_page_navigation(app):
-    """The page controls provide access beyond the visible 10–100 items."""
-    row = getattr(app, "clipboard_page_navigation", None)
-    if row is None:
-        return
-    database = app.settings.get("clipboard_storage") == "database"
-    if database:
-        mini = app.display_mode == "mini"
-        if not row.winfo_manager():
-            if mini:
-                row.pack(side="left", pady=(0, 0))
-            else:
-                row.pack(fill="x", pady=(1, 2))
-        page = getattr(app, "clipboard_page", "text")
-        offset = getattr(app, "_clipboard_page_index", {}).get(page, 0)
-        limit = app.settings["clipboard_text_display_limit" if page == "text"
-                             else "clipboard_db_image_display_limit"]
-        app.clipboard_page_status.configure(
-            text=f"{offset + 1}–{offset + limit}" if mini
-            else f"Items {offset + 1}–{offset + limit} · {page.title()}")
-        app.clipboard_prev_button.configure(state="normal" if offset else "disabled")
-    elif row.winfo_manager():
-        row.pack_forget()
+    """Compatibility shim: history now extends naturally on scrolling."""
+    return None
 
 
 def show_page(app, page):
@@ -532,12 +536,19 @@ def _wheel(app, event):
     forward = (event.delta < 0) if getattr(event, "delta", 0) else (
         getattr(event, "num", 0) == 5)
     if app.display_mode == "mini":
-        # A regular mouse wheel selects the neighboring horizontal card.
-        # No dragging, extra arrows, or additional UI controls.
+        # A regular wheel moves across the horizontal gallery. Reaching the
+        # last loaded image fetches the next DB batch without extra arrows.
         move_selection(app, 1 if forward else -1)
     else:
         app.clipboard_images_canvas.yview_scroll(
             (1 if forward else -1) * 3, "units")
+        if (forward and app.settings.get("clipboard_storage") == "database"):
+            app.root.after_idle(lambda: (
+                app._clipboard_load_more("images")
+                if (app.clipboard_page == "images"
+                    and app.clipboard_images_canvas.winfo_exists()
+                    and app.clipboard_images_canvas.yview()[1] >= 0.999)
+                else None))
     return "break"
 
 
@@ -630,6 +641,9 @@ def move_selection(app, step):
     if not app.clipboard_images:
         return "break"
     current = _selection_index(app)
+    if (step > 0 and current == len(app.clipboard_images) - 1
+            and app.settings.get("clipboard_storage") == "database"):
+        app._clipboard_load_more("images")
     index = (max(0, min(len(app.clipboard_images) - 1, current + step))
              if current >= 0 else 0)
     select_image(app, app.clipboard_images[index]["id"])

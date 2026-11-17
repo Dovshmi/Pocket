@@ -674,9 +674,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               "Mini: Pause overlaps the search field")
                         check(abs(pause.winfo_rooty() - search.winfo_rooty()) < 12,
                               "Mini: Pause is not on the search row")
-                        check(app.clipboard_page_navigation.master is
-                              app.clipboard_page_toggle.master.master,
-                              "Mini: history paging should share the view switch row")
+                        check(not hasattr(app, "clipboard_prev_button") or
+                              not app.clipboard_prev_button.winfo_exists(),
+                              "Mini: redundant pagination buttons should be removed")
                         check(listbox.winfo_height() >= 130,
                               "Mini: Clipboard history panel became too short")
                     else:
@@ -884,18 +884,37 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
                     picker = common["ram_image_limit"]
-                    picker.set("100 items")
+                    picker.set("100")
                     picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
                     check(app.settings["clipboard_image_limit"] == 100,
                           f"{mode}: RAM screenshot dropdown failed")
-                    picker.set(f"{old_limit} items")
+                    picker.set(str(old_limit))
                     picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
                     check(app.settings["clipboard_image_limit"] == old_limit,
                           f"{mode}: RAM count was not restored")
                     check("Off" in common["clipboard_retention"]["values"][0],
                           f"{mode}: automatic history deletion is not opt-in")
+                    # Only these four Clipboard history selectors intercept
+                    # wheel changes; their other keyboard/dropdown actions work.
+                    history_keys = ("ram_image_limit", "db_image_display_limit",
+                                    "db_text_display_limit", "clipboard_retention")
+                    for key in history_keys:
+                        combo = common[key]
+                        initial = combo.get()
+                        before = dict(app.settings)
+                        combo.event_generate("<MouseWheel>", delta=-120)
+                        app.root.update()
+                        check(combo.get() == initial and app.settings == before,
+                              f"{mode}: mouse wheel changed {key} instead of scrolling Settings")
+                        check(bool(combo.bind("<Button-4>")) and
+                              bool(combo.bind("<Button-5>")),
+                              f"{mode}: Linux wheel is not protected on {key}")
+                    # The Translate dropdown and every unrelated selector
+                    # must remain untouched by this Clipboard-only behavior.
+                    check(not common["convert_mode_picker"].bind("<MouseWheel>"),
+                          f"{mode}: unrelated dropdown was modified")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==

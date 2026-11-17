@@ -1979,17 +1979,88 @@ class PocketDesk:
         self.settings["convert_mode"] = mode
         self.schedule_save()
 
+    def _quick_slots_status(self):
+        prefix = quick_slots.prefix_label(self.settings["quick_slots_prefix"])
+        return (f"{prefix}+Num0 → Save mode · {prefix}+Num1–9 → Paste"
+                if self.settings["quick_slots_enabled"] else "Disabled · saved slots are kept")
+
+    def _cancel_quick_slot_save_mode(self):
+        self._quick_slot_save_until = 0.0
+        timer = self._quick_slot_save_timer
+        self._quick_slot_save_timer = None
+        if timer is not None:
+            self.root.after_cancel(timer)
+
+    def _arm_quick_slot_save_mode(self):
+        if not self.settings["quick_slots_enabled"] or self._mark_active:
+            return
+        self._cancel_quick_slot_save_mode()
+        self._quick_slot_save_until = time.monotonic() + quick_slots.SAVE_MODE_SECONDS
+
+        def expire():
+            self._quick_slot_save_timer = None
+            if self._quick_slot_save_until and time.monotonic() >= self._quick_slot_save_until:
+                self._quick_slot_save_until = 0.0
+                self._notify("Pocket Quick Slots", "Save mode expired.")
+
+        self._quick_slot_save_timer = self.root.after(
+            quick_slots.SAVE_MODE_SECONDS * 1000, expire)
+        self._notify("Pocket Quick Slots", "Save mode: choose Numpad1–9 within 5 seconds.")
+
+    def _apply_quick_slots_config(self, enabled, prefix):
+        """Commit only a successfully registered configuration on the UI thread."""
+        prefix = quick_slots.normalize_prefix(prefix)
+        enabled = bool(enabled)
+        changed = (self.settings["quick_slots_enabled"] != enabled or
+                   self.settings["quick_slots_prefix"] != prefix)
+        if not enabled or changed:
+            self._cancel_quick_slot_save_mode()
+        self.settings["quick_slots_enabled"] = enabled
+        self.settings["quick_slots_prefix"] = prefix
+        if changed:
+            self.schedule_save()
+            if self.current_tab == "clipboard":
+                self._refresh_clipboard()
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
+
+    def _set_quick_slots_enabled(self, enabled):
+        enabled = bool(enabled)
+        if enabled == self.settings["quick_slots_enabled"]:
+            return
+        prefix = self.settings["quick_slots_prefix"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, prefix)
+        else:
+            self._apply_quick_slots_config(enabled, prefix)
+
+    def _set_quick_slots_prefix(self, value):
+        prefix = quick_slots.normalize_prefix(value)
+        if prefix == self.settings["quick_slots_prefix"]:
+            return
+        enabled = self.settings["quick_slots_enabled"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, prefix)
+        else:
+            self._apply_quick_slots_config(enabled, prefix)
+
     def _quick_slot_hotkey(self, action, number, target_hwnd):
-        """Handle a Win32 hotkey off the Tk thread; never poll key presses."""
-        if self._mark_active:
+        """One-shot Numpad0 save-mode, Numpad1–9 select slot (Windows tray)."""
+        if not self.settings["quick_slots_enabled"]:
             return
-        if action not in ("save", "paste") or number not in quick_slots.SLOT_NUMBERS:
+        if action == "mode":
+            self._arm_quick_slot_save_mode()
             return
+        if action != "slot" or number not in quick_slots.SLOT_NUMBERS or self._mark_active:
+            return
+        action = quick_slots.slot_action(
+            number, armed_until=self._quick_slot_save_until, now=time.monotonic())
+        self._cancel_quick_slot_save_mode()  # One shot, even after failure.
         value = self.clipboard_slots.get(str(number)) if action == "paste" else None
         if action == "paste" and not quick_slots.valid_text(value):
             self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
             return
-        self._mark_active = True  # Also suppress capture of temporary Ctrl+C/V.
+        self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
         owner = self.root.winfo_id()
 
         def worker():

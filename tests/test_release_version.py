@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_release_metadata_and_factory_version_match(self):
-        self.assertEqual(app_info.VERSION, "1.37.0")
+        self.assertEqual(app_info.VERSION, "1.38.0")
         self.assertEqual(app_info.version_label(), "v1.38.0")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
 

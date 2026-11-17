@@ -2201,13 +2201,22 @@ class PocketDesk:
         if old == text:
             self._notify("Pocket Quick Slots", f"Slot [{number}] already contains this text.")
             return True
-        if old is not None and not messagebox.askyesno(
-                "Replace Quick Slot",
-                f"Slot [{number}] is already assigned. Replace it with the new text?\\n\\n"
-                "The previous value will no longer be a Quick Slot or Favorite "
-                "unless you explicitly pin it again.",
-                parent=self.root):
-            return False
+        if old is not None:
+            # Keep the Pocket popup alive while its modal confirmation is
+            # shown; the same dialog works when invoked via a global hotkey.
+            previous_modal = getattr(self, "_modal", False)
+            self._modal = True
+            try:
+                confirmed = messagebox.askyesno(
+                    "Replace Quick Slot",
+                    f"Slot [{number}] is already assigned. Replace it with new text?\\n\\n"
+                    "The previous value will no longer be a Quick Slot or Favorite "
+                    "unless you explicitly pin it again.",
+                    parent=self.root)
+            finally:
+                self._modal = previous_modal
+            if not confirmed:
+                return False
 
         # A promoted historical Favorite must not remain starred after its
         # Quick Slot is overwritten. Keep only the explicit slot assignment

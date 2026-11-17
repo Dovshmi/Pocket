@@ -5655,19 +5655,19 @@ class PocketDesk:
                     action, number, target_hwnd = xy
                     self._quick_slot_hotkey(action, number, target_hwnd)
                 elif name == "quick_slots_config_changed":
-                    enabled, prefix = xy
-                    self._apply_quick_slots_config(enabled, prefix)
+                    enabled, paste_prefix, copy_prefix = xy
+                    self._apply_quick_slots_config(enabled, paste_prefix, copy_prefix)
                 elif name == "quick_slots_config_conflict":
                     if self.current_tab == "settings":
                         self.root.after_idle(self._build_settings_refresh)
                     self._warning(
                         "Quick Slots shortcut unavailable",
                         "Windows or another application already uses at least one "
-                        "key in that prefix. The previous Quick Slots shortcuts are unchanged.")
+                        "key in the requested prefix. The previous Quick Slots shortcuts are unchanged.")
                 elif name == "quick_slots_hotkey_error":
                     self._notify(
                         "Pocket Quick Slots",
-                        "Numpad shortcut unavailable. Change the prefix in Settings.")
+                        "Numpad shortcut unavailable. Change a prefix in Settings.")
                 elif name == "quick_slot_save_result":
                     number, selected, error = xy
                     self._mark_active = False
@@ -5892,7 +5892,8 @@ class WindowsTray:
 
     def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *,
                  convert_enabled=True, quick_slots_enabled=True,
-                 quick_slots_prefix=quick_slots.DEFAULT_PREFIX):
+                 quick_slots_paste_prefix=quick_slots.DEFAULT_PASTE_PREFIX,
+                 quick_slots_copy_prefix=quick_slots.DEFAULT_COPY_PREFIX):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -5901,10 +5902,15 @@ class WindowsTray:
         self._thread = None
         self.hotkey_ids = set()
         self.convert_hotkey_ids = set()
-        self.quick_slot_hotkey_ids = set()
-        self.quick_slot_hotkey_base = quick_slots.PASTE_HOTKEY_BASE
+        self.quick_slot_group_ids = {"paste": set(), "save": set()}
+        self.quick_slot_group_bases = {
+            "paste": quick_slots.PASTE_HOTKEY_BASE,
+            "save": quick_slots.SAVE_HOTKEY_BASE,
+        }
         self.quick_slots_enabled = bool(quick_slots_enabled)
-        self.quick_slots_prefix = quick_slots.normalize_prefix(quick_slots_prefix)
+        self.quick_slots_paste_prefix = quick_slots.normalize_prefix(quick_slots_paste_prefix)
+        self.quick_slots_copy_prefix = quick_slots.normalize_prefix(
+            quick_slots_copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
         self._pending_quick_slots_config = None
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
@@ -5946,10 +5952,12 @@ class WindowsTray:
         ctypes.windll.user32.PostMessageW(
             self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
 
-    def set_quick_slots_config(self, enabled, prefix):
-        """Ask the tray thread to atomically swap its ten Win32 bindings."""
-        prefix = quick_slots.normalize_prefix(prefix)
-        self._pending_quick_slots_config = (bool(enabled), prefix)
+    def set_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
+        """Ask the tray thread to switch separate nine-key save/paste groups."""
+        paste_prefix = quick_slots.normalize_prefix(paste_prefix)
+        copy_prefix = quick_slots.normalize_prefix(
+            copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
+        self._pending_quick_slots_config = (bool(enabled), paste_prefix, copy_prefix)
         if self.hwnd:
             ctypes.windll.user32.PostMessageW(
                 self.hwnd, self.WM_QUICK_SLOTS_CHANGE, 0, 0)
@@ -6190,37 +6198,65 @@ class WindowsTray:
                 self._pending_quick_slots_config = None
                 if request is None:
                     return 0
-                enabled, prefix = request
+                enabled, paste_prefix, copy_prefix = request
                 if not enabled:
-                    for hotkey_id in self.quick_slot_hotkey_ids:
-                        user.UnregisterHotKey(hwnd, hotkey_id)
-                    self.quick_slot_hotkey_ids.clear()
+                    for ids in self.quick_slot_group_ids.values():
+                        for hotkey_id in ids:
+                            user.UnregisterHotKey(hwnd, hotkey_id)
+                    self.quick_slot_group_ids = {"paste": set(), "save": set()}
                     self.quick_slots_enabled = False
-                    self.quick_slots_prefix = prefix
-                    self.events.put(("quick_slots_config_changed", (False, prefix)))
+                    self.quick_slots_paste_prefix = paste_prefix
+                    self.quick_slots_copy_prefix = copy_prefix
+                    self.events.put((
+                        "quick_slots_config_changed",
+                        (False, paste_prefix, copy_prefix)))
                     return 0
-                if (self.quick_slots_enabled and self.quick_slots_prefix == prefix
-                        and len(self.quick_slot_hotkey_ids) == 10):
-                    self.events.put(("quick_slots_config_changed", (True, prefix)))
-                    return 0
-                new_base = (quick_slots.ALTERNATE_HOTKEY_BASE
-                            if self.quick_slot_hotkey_base == quick_slots.PASTE_HOTKEY_BASE
-                            else quick_slots.PASTE_HOTKEY_BASE)
-                registered = quick_slots.register_all(
-                    user.RegisterHotKey, user.UnregisterHotKey, hwnd,
-                    prefix, base=new_base)
-                if not registered:
-                    # Old working keys stay registered; an unavailable
-                    # Win32 combination must never replace them.
+                if not quick_slots.distinct_prefixes(paste_prefix, copy_prefix):
                     self.events.put(("quick_slots_config_conflict", None))
                     return 0
-                for hotkey_id in self.quick_slot_hotkey_ids:
-                    user.UnregisterHotKey(hwnd, hotkey_id)
-                self.quick_slot_hotkey_ids = registered
-                self.quick_slot_hotkey_base = new_base
-                self.quick_slots_prefix = prefix
+
+                # Register only modified groups; never unregister a working
+                # hotkey before its replacement has succeeded. This matters
+                # because registering an unchanged chord under a second ID
+                # fails with ERROR_HOTKEY_ALREADY_REGISTERED in Windows.
+                previous = {
+                    "paste": self.quick_slots_paste_prefix,
+                    "save": self.quick_slots_copy_prefix,
+                }
+                proposed = {"paste": paste_prefix, "save": copy_prefix}
+                added = {}
+                for action in ("paste", "save"):
+                    if (self.quick_slots_enabled and proposed[action] == previous[action]
+                            and len(self.quick_slot_group_ids[action]) == 9):
+                        continue
+                    original_base = self.quick_slot_group_bases[action]
+                    standard_base = (quick_slots.PASTE_HOTKEY_BASE if action == "paste"
+                                     else quick_slots.SAVE_HOTKEY_BASE)
+                    alternate_base = (quick_slots.ALTERNATE_HOTKEY_BASE if action == "paste"
+                                      else quick_slots.ALTERNATE_HOTKEY_BASE + 0x10)
+                    new_base = (alternate_base if original_base == standard_base
+                                else standard_base)
+                    ids = quick_slots.register_group(
+                        user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                        action, proposed[action], base=new_base)
+                    if not ids:
+                        for staged_ids, _ in added.values():
+                            for hotkey_id in staged_ids:
+                                user.UnregisterHotKey(hwnd, hotkey_id)
+                        self.events.put(("quick_slots_config_conflict", None))
+                        return 0
+                    added[action] = (ids, new_base)
+                for action, (ids, new_base) in added.items():
+                    for old_id in self.quick_slot_group_ids[action]:
+                        user.UnregisterHotKey(hwnd, old_id)
+                    self.quick_slot_group_ids[action] = ids
+                    self.quick_slot_group_bases[action] = new_base
                 self.quick_slots_enabled = True
-                self.events.put(("quick_slots_config_changed", (True, prefix)))
+                self.quick_slots_paste_prefix = paste_prefix
+                self.quick_slots_copy_prefix = copy_prefix
+                self.events.put((
+                    "quick_slots_config_changed",
+                    (True, paste_prefix, copy_prefix)))
                 return 0
             if msg == self.WM_HOTKEY:
                 # Only queue actions; Tkinter clipboard access is UI-thread only.
@@ -6228,13 +6264,13 @@ class WindowsTray:
                     self.events.put(("toggle", None))
                 elif int(wp) in self.convert_hotkey_ids:
                     self.events.put(("convert_clipboard", user.GetForegroundWindow()))
-                elif int(wp) in self.quick_slot_hotkey_ids:
-                    assignment = quick_slots.hotkey_action(
-                        int(wp), base=self.quick_slot_hotkey_base)
-                    if assignment is not None:
-                        action, number = assignment
-                        self.events.put(("quick_slot_hotkey", (
-                            action, number, user.GetForegroundWindow())))
+                else:
+                    for action in ("paste", "save"):
+                        if int(wp) in self.quick_slot_group_ids[action]:
+                            number = int(wp) - self.quick_slot_group_bases[action] + 1
+                            self.events.put(("quick_slot_hotkey", (
+                                action, number, user.GetForegroundWindow())))
+                            break
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -6250,12 +6286,14 @@ class WindowsTray:
                     popup_menu(hwnd)
                 return 0
             if msg == self.WM_DESTROY:
-                for hotkey_id in tuple(self.hotkey_ids | self.convert_hotkey_ids |
-                                       self.quick_slot_hotkey_ids):
+                active = self.hotkey_ids | self.convert_hotkey_ids
+                for group_ids in self.quick_slot_group_ids.values():
+                    active |= group_ids
+                for hotkey_id in tuple(active):
                     user.UnregisterHotKey(hwnd, hotkey_id)
                 self.hotkey_ids.clear()
                 self.convert_hotkey_ids.clear()
-                self.quick_slot_hotkey_ids.clear()
+                self.quick_slot_group_ids = {"paste": set(), "save": set()}
                 self.hwnd = None
                 shell.Shell_NotifyIconW(self.NIM_DELETE, ctypes.byref(nid))
                 user.PostQuitMessage(0)
@@ -6284,14 +6322,29 @@ class WindowsTray:
             for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
                 if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                     self.convert_hotkey_ids.add(hotkey_id)
-        self.quick_slot_hotkey_ids = set()
         if self.quick_slots_enabled:
-            self.quick_slot_hotkey_ids = quick_slots.register_all(
-                user.RegisterHotKey, user.UnregisterHotKey, hwnd,
-                self.quick_slots_prefix, base=self.quick_slot_hotkey_base)
-            if not self.quick_slot_hotkey_ids:
+            configured = {
+                "paste": self.quick_slots_paste_prefix,
+                "save": self.quick_slots_copy_prefix,
+            }
+            registered = {}
+            if quick_slots.distinct_prefixes(*configured.values()):
+                for action in ("paste", "save"):
+                    ids = quick_slots.register_group(
+                        user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                        action, configured[action],
+                        base=self.quick_slot_group_bases[action])
+                    if not ids:
+                        break
+                    registered[action] = ids
+            if len(registered) != 2:
+                for ids in registered.values():
+                    for hotkey_id in ids:
+                        user.UnregisterHotKey(hwnd, hotkey_id)
                 self.quick_slots_enabled = False
                 self.events.put(("quick_slots_hotkey_error", None))
+            else:
+                self.quick_slot_group_ids = registered
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

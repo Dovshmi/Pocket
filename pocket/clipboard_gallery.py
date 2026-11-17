@@ -75,8 +75,6 @@ def build(app):
     description = ("LOCAL DATABASE · Saved on this PC" if stored
                    else "RAM only · Never saved to disk")
     if mini_mode:
-        # Save the old 12px heading gap for the history list.
-        header.pack_configure(pady=(0, 5))
         # Keep the sensitive-filter indicator visible without spending another
         # entire row on it. Avoid a long subtitle that would wrap in Mini.
         description = (("LOCAL DB" if stored else "RAM") +
@@ -85,6 +83,9 @@ def build(app):
     header = app._section_title(
         app.body, "Clipboard history", description,
         "Clear text", app._clear_clipboard)
+    if mini_mode:
+        # Keep header compact so additional space goes to Clipboard history.
+        header.pack_configure(pady=(0, 5))
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
         None)

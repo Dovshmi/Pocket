@@ -33,7 +33,7 @@ The [feature/pocket-next-updates](https://github.com/Dovshmi/Pocket/tree/feature
 - **Notes + Notepad:** New notes appear at the end of the list; the Note Title and its working TXT filename stay aligned. Renaming a note renames the corresponding file; duplicate names receive Windows-style numbered Titles and filenames such as *Router (1)* / *Router (1).txt*. Existing Notepad content is preserved on migration and conflicts.
 - **Configurable Windows Proxy:** Under **Settings → Network connection**, *Use Windows Proxy* defaults to ON. DashDash MAC and TCP requests keep the existing working native Windows PAC/WinINet route when ON. OFF selects explicit direct HTTPS for DashDash. No global Windows proxy settings change.
 - **IEEE MAC vendors:** **Update IEEE DB** now uses native Windows WinINet HTTPS GET in both modes. ON selects the existing Windows PAC resolver; OFF selects **direct WinINet with the Windows certificate trust store**, avoiding the Python SSL route that reported self-signed-certificate errors on some managed computers. TLS validation remains enabled; untrusted certificates will still fail. Incomplete downloads never overwrite the local cache, and manual CSV import remains available.
-- **Clipboard RAM / DATABASE:** Switch between the original session-only RAM history and an opt-in **local Database** with one dated UTF-8 TXT per day and a PNG screenshot folder per day. The date picker browses old history, while a new copy returns to Today. Retention is **1–5 calendar days** (default 1), with expired files removed automatically. [Folders, examples & privacy notes](docs/CLIPBOARD_DATABASE.md).
+- **Clipboard RAM / DATABASE:** The Mini-friendly Storage and History date dropdowns let you switch between session-only RAM and persistent local history. DATABASE stores an **append-only daily TXT journal** and all PNG screenshots together in one flat folder (filenames contain date/time). **Separate dropdowns control how many items to show per page (10–100), not how many are saved**. You can browse older pages. Automatic deletion is **OFF by default**, optionally **7–30 days** for text and images. Old daily screenshot folders migrate without overwrites. [File layout, retention & privacy](docs/CLIPBOARD_DATABASE.md).
 - **Translate keyboard repair:** Defaults to **enabled**, using **Mark** and `Ctrl+Alt+V`. You can now disable the global shortcut, edit its keys, and select Clipboard or Mark **all inside Settings → Clipboard & privacy**. Mark replaces selected text with the corrected EN/HE keyboard layout; Clipboard retains the original copy-and-convert workflow. Mark requires Windows and a supported Ctrl+C/Ctrl+V application.
 
 These changes remain local-first. Mark does not use an online translator or require a persistent keyboard hook. [Windows proxy details](docs/WINDOWS_PROXY.md) · [Pending release notes](RELEASE_NOTES.md). Test before deploying at work, as a corporate PAC server and third-party app selection/paste behavior cannot be reproduced fully in CI.
@@ -82,7 +82,7 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 | **TCP Port Check** | Check up to **16 TCP ports** per run, with favorites, last-check suggestions, status sorting, and CSV export | Local or optional DashDash |
 | **MAC Vendor Lookup** | Search cached IEEE registrations (MA-L, MA-M, MA-S, IAB), import CSV, or query DashDash | Local or optional DashDash |
 | **Subnet Calculator** | IPv4 CIDR, masks, wildcard, network/broadcast, usable hosts, and subnet splitting | Offline |
-| **Clipboard Manager** | Text and Images pages with a RAM / DATABASE selector; search, pin, copy and preview. RAM retains 10–30 images; local Database stores daily TXT and all accepted PNG screenshots with a 1–5-day retention preference | Offline |
+| **Clipboard Manager** | Text and Images pages; compact storage/date dropdowns and pagination. RAM keeps 10–100 screenshots (20 default); opt-in DATABASE saves daily text and unlimited accepted dated PNGs in one folder, displaying 10–100 per page. Optional 7–30-day cleanup | Offline |
 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying; manual command backups are created **only when you choose Backup**.
 
@@ -117,7 +117,7 @@ Settings now uses a consistent, responsive design in **Normal, Mini and Dashboar
 
 ### Clipboard and EN/HE keyboard repair
 
-Choose **10, 15, 20, 25 or 30** clipboard images in Settings (**20 default**). Images remain in RAM only; changing the count does not upload or save them to disk. The **Text / Images** view, Mini image gallery, screenshot preview and copy workflow introduced in v1.35.0 remain available. Use **Clipboard Text → Use text in Pocket → TRANSLATE EN/HE** or the configurable **Ctrl+Alt+F9** shortcut to correct text typed on the wrong English/Hebrew physical keyboard layout, fully offline. This is not semantic translation.
+The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In the pending **v1.37**, choose a **RAM capacity of 10–100** (20 default), or opt into the local DATABASE with independent **10–100 items shown per page** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
 
 ### Notes, commands and visual polish
 
@@ -185,7 +185,7 @@ Pocket has **no mandatory account, cloud sync, or continuous internet requiremen
 | Notes, settings, reminders, shortcuts, launcher setup | Local `data.json` |
 | Personal CLI commands and Smart Template metadata | Local `commands.json` |
 | IEEE vendor cache | Local `vendors.json` |
-| Clipboard history | **RAM by default**; optional local daily TXT / PNG database with 1–5-day retention |
+| Clipboard history | **RAM by default**; optional daily text journal and flat PNG database, 10–100 displayed per page, OFF / 7–30-day cleanup |
 | Recoverable settings snapshot | Local `data-recovery.json` |
 
 Public Windows releases contain the **sanitized example command library only**—not private commands, notes, passwords, customer information, or backups. Pocket files are **not encrypted**, so protect your data folder and backups. Remote DashDash mode sends only the targets you explicitly submit; local lookups never upload them.

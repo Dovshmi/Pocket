@@ -2271,6 +2271,8 @@ class PocketDesk:
 
     def _assign_clipboard_slot(self, number, text):
         """Explicit user action, shared by the menu and global save hotkey."""
+        if not self.settings.get("quick_slots_enabled", True):
+            return False
         if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
             self._notify("Pocket Quick Slots", "Select or copy text first.")
             return False

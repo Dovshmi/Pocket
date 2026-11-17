@@ -5666,9 +5666,10 @@ class PocketDesk:
                         "Windows or another application already uses at least one "
                         "key in the requested prefix. The previous Quick Slots shortcuts are unchanged.")
                 elif name == "quick_slots_hotkey_error":
+                    action = "Save/Copy" if xy == "save" else "Paste"
                     self._notify(
                         "Pocket Quick Slots",
-                        "Numpad shortcut unavailable. Change a prefix in Settings.")
+                        f"{action} Numpad shortcut unavailable. Change its prefix in Settings.")
                 elif name == "quick_slot_save_result":
                     number, selected, error = xy
                     self._mark_active = False
@@ -6227,8 +6228,7 @@ class WindowsTray:
                 proposed = {"paste": paste_prefix, "save": copy_prefix}
                 added = {}
                 for action in ("paste", "save"):
-                    if (self.quick_slots_enabled and proposed[action] == previous[action]
-                            and len(self.quick_slot_group_ids[action]) == 9):
+                    if self.quick_slots_enabled and proposed[action] == previous[action]:
                         continue
                     original_base = self.quick_slot_group_bases[action]
                     standard_base = (quick_slots.PASTE_HOTKEY_BASE if action == "paste"
@@ -6241,6 +6241,11 @@ class WindowsTray:
                         user.RegisterHotKey, user.UnregisterHotKey, hwnd,
                         action, proposed[action], base=new_base)
                     if not ids:
+                        if not self.quick_slots_enabled:
+                            # On first enable, one blocked group must not
+                            # disable the other (especially working Paste).
+                            self.events.put(("quick_slots_hotkey_error", action))
+                            continue
                         for staged_ids, _ in added.values():
                             for hotkey_id in staged_ids:
                                 user.UnregisterHotKey(hwnd, hotkey_id)
@@ -6338,14 +6343,10 @@ class WindowsTray:
                     if not ids:
                         break
                     registered[action] = ids
-            if len(registered) != 2:
-                for ids in registered.values():
-                    for hotkey_id in ids:
-                        user.UnregisterHotKey(hwnd, hotkey_id)
-                self.quick_slots_enabled = False
-                self.events.put(("quick_slots_hotkey_error", None))
-            else:
-                self.quick_slot_group_ids = registered
+            self.quick_slot_group_ids.update(registered)
+            for action in ("paste", "save"):
+                if action not in registered:
+                    self.events.put(("quick_slots_hotkey_error", action))
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

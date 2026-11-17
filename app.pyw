@@ -1686,6 +1686,49 @@ class PocketDesk:
             clipboard_gallery.refresh_images(self, force=True)
         clipboard_gallery.refresh_history_selector(self)
 
+    def _clipboard_load_more(self, page):
+        """Extend the current day's visible window on demand.
+
+        Text is appended as records; image pages append only metadata. The
+        remaining database stays on disk until scrolling requests more.
+        """
+        if (not self._clipboard_store_is_disk() or
+                self.current_tab != "clipboard" or
+                page != self.clipboard_page or page not in ("text", "images")):
+            return False
+        day = self._clipboard_view_days[page]
+        current = self.clipboard_items if page == "text" else self.clipboard_images
+        offset = len(current)
+        count = self._clipboard_display_limit(page)
+        if count <= 0:
+            return False
+        try:
+            if page == "text":
+                records = self.clipboard_database.load_text(
+                    day, limit=count, offset=offset)
+            else:
+                records = self.clipboard_database.load_images(
+                    day, limit=count, offset=offset, metadata_only=True)
+            if not records:
+                return False
+            existing = {item["id"] for item in current}
+            new_items = [item for item in records if item["id"] not in existing]
+            if not new_items:
+                return False
+            current.extend(new_items)
+            if page == "text":
+                top = (self.clipboard_list.nearest(0)
+                       if self.clipboard_list.winfo_exists() else 0)
+                self._refresh_clipboard()
+                if self.clipboard_list.winfo_exists():
+                    self.clipboard_list.yview(top)
+            else:
+                clipboard_gallery.refresh_images(self, force=True)
+            return True
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
+            return False
+
     def _clipboard_turn_page(self, delta):
         page = self.clipboard_page
         if not self._clipboard_store_is_disk() or delta not in (-1, 1):

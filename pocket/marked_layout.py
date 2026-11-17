@@ -110,6 +110,10 @@ class WindowsMarkBackend:
             time.sleep(0.025)
         return False
 
+    def settle_hotkey_release(self):
+        """Let Ctrl+Win key-up events reach the focused app before Ctrl+C."""
+        time.sleep(0.10)
+
     @contextmanager
     def preserve_clipboard(self):
         # A private COM apartment is used only for this single hotkey action.

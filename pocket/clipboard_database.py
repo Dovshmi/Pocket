@@ -122,12 +122,16 @@ class ClipboardDatabase:
             raise ValueError("Invalid history date")
         if not self.text_dir.is_dir() or self.text_dir.is_symlink():
             return None
-        for file in sorted(self.text_dir.iterdir()):
+        candidates = []
+        for file in self.text_dir.iterdir():
             parsed = _TEXT_FILE.fullmatch(file.name)
             if (parsed and parsed.group("day") == day and file.is_file()
                     and not file.is_symlink()):
-                return file
-        return None
+                candidates.append(file)
+        # Interrupted upgrades can temporarily leave both a legacy expiry
+        # name and an upgraded _to_saved file. Prefer the most recently
+        # committed file; never delete or overwrite the other candidate.
+        return max(candidates, key=lambda file: (file.stat().st_mtime_ns, file.name)) if candidates else None
 
     def migrate_screenshots(self):
         """Move valid old YYYY-MM-DD/HH-MM-SS_ID.png to one flat folder.

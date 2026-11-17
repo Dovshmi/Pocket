@@ -16,7 +16,7 @@ import uuid
 from PIL import Image, ImageGrab
 
 MAX_IMAGES = 20
-IMAGE_LIMIT_CHOICES = tuple(range(10, 101, 10))
+IMAGE_LIMIT_CHOICES = (10, 15, 20, 25, 30)
 MAX_PIXELS = 16_000_000
 MAX_PNG_BYTES = 12 * 1024 * 1024
 
@@ -25,9 +25,10 @@ def normalize_limit(value):
     """Constrain persisted count to known choices; reject bool/string/huge values."""
     if type(value) is int and value in IMAGE_LIMIT_CHOICES:
         return value
-    # Upgrade the v1.36/v1.37 legacy 15/25 choices to nearest 10-step option.
-    if type(value) is int and value in (15, 25):
-        return value + 5
+    # Existing v1.37 profiles may have used 40–100. Keep as much history
+    # as the new 30-image maximum allows, rather than resetting to 20.
+    if type(value) is int and value in range(40, 101, 10):
+        return 30
     return MAX_IMAGES
 
 

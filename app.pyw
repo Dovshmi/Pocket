@@ -2141,6 +2141,71 @@ class PocketDesk:
         else:
             self.clipboard_items[:] = updated
 
+    def _remove_clipboard_slot(self, number):
+        """Unassign only the chosen slot; ordinary history remains intact."""
+        if str(number) not in self.clipboard_slots:
+            return False
+        del self.clipboard_slots[str(number)]
+        self.schedule_save()
+        self._refresh_clipboard()
+        self._notify("Pocket Quick Slots", f"Slot [{number}] cleared.")
+        return True
+
+    def _assign_clipboard_slot(self, number, text):
+        """Explicit user action, shared by the menu and global save hotkey."""
+        if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
+            self._notify("Pocket Quick Slots", "Select or copy text first.")
+            return False
+        if (self.settings.get("clipboard_sensitive_filter", True)
+                and not clipboard_policy.should_capture(text)):
+            self._notify("Pocket Quick Slots", "Sensitive text cannot be saved while the filter is ON.")
+            return False
+        old = self.clipboard_slots.get(str(number))
+        if old == text:
+            self._notify("Pocket Quick Slots", f"Slot [{number}] already contains this text.")
+            return True
+        if old is not None and not messagebox.askyesno(
+                "Replace Quick Slot",
+                f"Slot [{number}] is already assigned. Replace it with the new text?\\n\\n"
+                "The previous value will no longer be a Quick Slot or Favorite "
+                "unless you explicitly pin it again.",
+                parent=self.root):
+            return False
+
+        # A promoted historical Favorite must not remain starred after its
+        # Quick Slot is overwritten. Keep only the explicit slot assignment
+        # as the Favorite; never accumulate displaced pinned entries.
+        try:
+            if self._clipboard_store_is_disk():
+                records = self.clipboard_database.load_text(
+                    self._clipboard_view_days["text"])
+            else:
+                records = [dict(item) for item in self.clipboard_items]
+            if any(row["text"] == text and row.get("pinned") for row in records):
+                for row in records:
+                    if row["text"] == text:
+                        row["pinned"] = False
+                self._clipboard_write_text_view(records)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
+            return False
+
+        # Values are deliberately stored independently of the day-scoped DB
+        # and are written only after this explicit assignment.
+        self.clipboard_slots[str(number)] = text
+        self.schedule_save()
+        self._refresh_clipboard()
+        if hasattr(self, "clipboard_list") and self.clipboard_list.winfo_exists():
+            for index, row in enumerate(getattr(self, "_clipboard_filtered", ())):
+                if row.get("slot") == number:
+                    self.clipboard_list.selection_clear(0, tk.END)
+                    self.clipboard_list.selection_set(index)
+                    self.clipboard_list.activate(index)
+                    self.clipboard_list.see(index)
+                    break
+        self._notify("Pocket Quick Slots", f"Saved to [{number}].")
+        return True
+
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
         if item and item.get("slot"):

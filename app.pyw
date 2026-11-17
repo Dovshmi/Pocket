@@ -210,7 +210,8 @@ def default_data() -> dict:
                      "clipboard_text_display_limit": 100,
                      "clipboard_db_image_display_limit": 30,
                      "quick_slots_enabled": True,
-                     "quick_slots_prefix": quick_slots.DEFAULT_PREFIX},
+                     "quick_slots_paste_prefix": quick_slots.DEFAULT_PASTE_PREFIX,
+                     "quick_slots_copy_prefix": quick_slots.DEFAULT_COPY_PREFIX},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -251,7 +252,10 @@ def normalize_settings(raw):
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
             "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
-            "quick_slots_prefix": quick_slots.normalize_prefix(raw.get("quick_slots_prefix")),
+            "quick_slots_paste_prefix": quick_slots.normalize_prefix(
+                raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix"))),
+            "quick_slots_copy_prefix": quick_slots.normalize_prefix(
+                raw.get("quick_slots_copy_prefix"), default=quick_slots.DEFAULT_COPY_PREFIX),
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             # Earlier 1–5-day history is never deleted without opting in now.
@@ -461,8 +465,6 @@ class PocketDesk:
         self._clipboard_sequence = None
         self._clipboard_last = None
         self._mark_active = False
-        self._quick_slot_save_until = 0.0
-        self._quick_slot_save_timer = None
         self._quick_search_dialog = None
         self.tasks = None  # Initialized after the Tk root is created.
         self.theme = themes.valid_theme(self.data.get("theme"))
@@ -611,7 +613,8 @@ class PocketDesk:
                                     self.hotkey, self.convert_hotkey,
                                     convert_enabled=self.settings["convert_enabled"],
                                     quick_slots_enabled=self.settings["quick_slots_enabled"],
-                                    quick_slots_prefix=self.settings["quick_slots_prefix"])
+                                    quick_slots_paste_prefix=self.settings["quick_slots_paste_prefix"],
+                                    quick_slots_copy_prefix=self.settings["quick_slots_copy_prefix"])
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -1980,43 +1983,26 @@ class PocketDesk:
         self.schedule_save()
 
     def _quick_slots_status(self):
-        prefix = quick_slots.prefix_label(self.settings["quick_slots_prefix"])
-        return (f"{prefix}+Num0 → Save mode · {prefix}+Num1–9 → Paste"
-                if self.settings["quick_slots_enabled"] else "Disabled · saved slots are kept")
+        if not self.settings["quick_slots_enabled"]:
+            return "Disabled · saved slots are kept"
+        paste = quick_slots.prefix_label(self.settings["quick_slots_paste_prefix"])
+        copy = quick_slots.prefix_label(self.settings["quick_slots_copy_prefix"])
+        return f"Paste: {paste}+Num1–9 · Save: {copy}+Num1–9"
 
-    def _cancel_quick_slot_save_mode(self):
-        self._quick_slot_save_until = 0.0
-        timer = self._quick_slot_save_timer
-        self._quick_slot_save_timer = None
-        if timer is not None:
-            self.root.after_cancel(timer)
-
-    def _arm_quick_slot_save_mode(self):
-        if not self.settings["quick_slots_enabled"] or self._mark_active:
-            return
-        self._cancel_quick_slot_save_mode()
-        self._quick_slot_save_until = time.monotonic() + quick_slots.SAVE_MODE_SECONDS
-
-        def expire():
-            self._quick_slot_save_timer = None
-            if self._quick_slot_save_until and time.monotonic() >= self._quick_slot_save_until:
-                self._quick_slot_save_until = 0.0
-                self._notify("Pocket Quick Slots", "Save mode expired.")
-
-        self._quick_slot_save_timer = self.root.after(
-            quick_slots.SAVE_MODE_SECONDS * 1000, expire)
-        self._notify("Pocket Quick Slots", "Save mode: choose Numpad1–9 within 5 seconds.")
-
-    def _apply_quick_slots_config(self, enabled, prefix):
-        """Commit only a successfully registered configuration on the UI thread."""
-        prefix = quick_slots.normalize_prefix(prefix)
+    def _apply_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
+        """Apply only successfully registered direct hotkeys on Tk's thread."""
+        paste_prefix = quick_slots.normalize_prefix(paste_prefix)
+        copy_prefix = quick_slots.normalize_prefix(
+            copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
         enabled = bool(enabled)
-        changed = (self.settings["quick_slots_enabled"] != enabled or
-                   self.settings["quick_slots_prefix"] != prefix)
-        if not enabled or changed:
-            self._cancel_quick_slot_save_mode()
+        changed = any((
+            self.settings["quick_slots_enabled"] != enabled,
+            self.settings["quick_slots_paste_prefix"] != paste_prefix,
+            self.settings["quick_slots_copy_prefix"] != copy_prefix,
+        ))
         self.settings["quick_slots_enabled"] = enabled
-        self.settings["quick_slots_prefix"] = prefix
+        self.settings["quick_slots_paste_prefix"] = paste_prefix
+        self.settings["quick_slots_copy_prefix"] = copy_prefix
         if changed:
             self.schedule_save()
             if self.current_tab == "clipboard":
@@ -2028,34 +2014,55 @@ class PocketDesk:
         enabled = bool(enabled)
         if enabled == self.settings["quick_slots_enabled"]:
             return
-        prefix = self.settings["quick_slots_prefix"]
+        paste = self.settings["quick_slots_paste_prefix"]
+        copy = self.settings["quick_slots_copy_prefix"]
         if self.tray and not self.tray.error:
-            self.tray.set_quick_slots_config(enabled, prefix)
+            self.tray.set_quick_slots_config(enabled, paste, copy)
         else:
-            self._apply_quick_slots_config(enabled, prefix)
+            self._apply_quick_slots_config(enabled, paste, copy)
 
-    def _set_quick_slots_prefix(self, value):
-        prefix = quick_slots.normalize_prefix(value)
-        if prefix == self.settings["quick_slots_prefix"]:
+    def _set_quick_slots_paste_prefix(self, value):
+        paste = quick_slots.normalize_prefix(value)
+        if paste == self.settings["quick_slots_paste_prefix"]:
+            return
+        copy = self.settings["quick_slots_copy_prefix"]
+        if not quick_slots.distinct_prefixes(paste, copy):
+            self._warning("Quick Slots shortcut conflict",
+                          "Copy and paste must use different modifier prefixes.")
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
             return
         enabled = self.settings["quick_slots_enabled"]
         if self.tray and not self.tray.error:
-            self.tray.set_quick_slots_config(enabled, prefix)
+            self.tray.set_quick_slots_config(enabled, paste, copy)
         else:
-            self._apply_quick_slots_config(enabled, prefix)
+            self._apply_quick_slots_config(enabled, paste, copy)
+
+    def _set_quick_slots_copy_prefix(self, value):
+        copy = quick_slots.normalize_prefix(
+            value, default=quick_slots.DEFAULT_COPY_PREFIX)
+        if copy == self.settings["quick_slots_copy_prefix"]:
+            return
+        paste = self.settings["quick_slots_paste_prefix"]
+        if not quick_slots.distinct_prefixes(paste, copy):
+            self._warning("Quick Slots shortcut conflict",
+                          "Copy and paste must use different modifier prefixes.")
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
+            return
+        enabled = self.settings["quick_slots_enabled"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, paste, copy)
+        else:
+            self._apply_quick_slots_config(enabled, paste, copy)
 
     def _quick_slot_hotkey(self, action, number, target_hwnd):
-        """One-shot Numpad0 save-mode, Numpad1–9 select slot (Windows tray)."""
+        """Direct save (Ctrl+Win) or paste (Ctrl+Alt) for Numpad1–9."""
         if not self.settings["quick_slots_enabled"]:
             return
-        if action == "mode":
-            self._arm_quick_slot_save_mode()
+        if (action not in ("save", "paste") or
+                number not in quick_slots.SLOT_NUMBERS or self._mark_active):
             return
-        if action != "slot" or number not in quick_slots.SLOT_NUMBERS or self._mark_active:
-            return
-        action = quick_slots.slot_action(
-            number, armed_until=self._quick_slot_save_until, now=time.monotonic())
-        self._cancel_quick_slot_save_mode()  # One shot, even after failure.
         value = self.clipboard_slots.get(str(number)) if action == "paste" else None
         if action == "paste" and not quick_slots.valid_text(value):
             self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")

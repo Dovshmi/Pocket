@@ -642,7 +642,7 @@ def move_selection(app, step):
         return "break"
     current = _selection_index(app)
     if (step > 0 and current == len(app.clipboard_images) - 1
-            and app.settings.get("clipboard_storage") == "database"):
+            and getattr(app, "settings", {}).get("clipboard_storage") == "database"):
         app._clipboard_load_more("images")
     index = (max(0, min(len(app.clipboard_images) - 1, current + step))
              if current >= 0 else 0)

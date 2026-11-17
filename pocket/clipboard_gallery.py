@@ -353,7 +353,7 @@ def build_text_context_menu(app, colors, selected):
             command=app._pin_clipboard_item)
     else:
         menu.add_command(label="Pin in history", state="disabled")
-    if selected:
+    if selected and app.settings.get("quick_slots_enabled", True):
         from . import quick_slots
         slots_menu = menu_style.Menu(menu, **style)
         assigned = selected.get("slot")

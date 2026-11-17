@@ -113,7 +113,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(app.data["last_tab"] == "notes", "Factory tab was not initialized")
         check(app.data["settings"]["display_mode"] == "mini",
               "Mini must be the saved factory mode")
-        # Only the two requested starter links should appear inside Ushpelo.
+        # Only the two requested starter links should appear inside אושפלו.
+        note = app.data["notes"][0]
+        check(note["title"] == "הבחשט מתקרר" and
+              note["body"] == "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר." and
+              note["direction"] == "rtl",
+              "The Hebrew first-run note is incorrect")
         initial_links = app.data["links"]
         check([(link["title"], link["url"]) for link in initial_links] == [
             ("DashDash", "https://dashdash-tau.vercel.app"),
@@ -121,8 +126,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Factory shortcuts are incorrect")
         folders = app.data["shortcut_folders"]
         check(len(folders["folders"]) == 1 and
-              folders["folders"][0]["title"] == "Ushpelo",
-              "Ushpelo default folder is missing")
+              folders["folders"][0]["title"] == "אושפלו",
+              "Hebrew אושפלו default folder is missing")
         folder_id = folders["folders"][0]["id"]
         check(folders["children"][folder_id] ==
               [link["id"] for link in initial_links],
@@ -147,7 +152,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Active Shortcuts tool was not persisted across restart")
         app.show_tab("notes")
         app.root.update()
-        print("PASS: Mini startup, Ushpelo links, TCP defaults and last-tab restore")
+        print("PASS: Mini startup, Hebrew starter note and folder, TCP defaults and last-tab restore")
 
         from tkinter import ttk
         from pocket.icon_themes import palette
@@ -915,10 +920,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: DB text display options do not match v1.38")
                     check("Off" in common["clipboard_retention"]["values"][0],
                           f"{mode}: automatic history deletion is not opt-in")
-                    # Only these four Clipboard history selectors intercept
-                    # wheel changes; their other keyboard/dropdown actions work.
+                    # History selectors and Translate behavior ignore wheel
+                    # changes; other keyboard/dropdown actions still work.
                     history_keys = ("ram_image_limit", "db_image_display_limit",
-                                    "db_text_display_limit", "clipboard_retention")
+                                    "db_text_display_limit", "clipboard_retention",
+                                    "convert_mode_picker")
                     for key in history_keys:
                         combo = common[key]
                         initial = combo.get()
@@ -930,10 +936,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         check(bool(combo.bind("<Button-4>")) and
                               bool(combo.bind("<Button-5>")),
                               f"{mode}: Linux wheel is not protected on {key}")
-                    # The Translate dropdown and every unrelated selector
-                    # must remain untouched by this Clipboard-only behavior.
-                    check(not common["convert_mode_picker"].bind("<MouseWheel>"),
-                          f"{mode}: unrelated dropdown was modified")
+                    check(tuple(common["convert_mode_picker"]["values"]) ==
+                          ("Mark — selected text", "Clipboard — copied text"),
+                          f"{mode}: Translate behavior options changed")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==
@@ -984,7 +989,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     folder_id = sf.add_folder(app.data["shortcut_folders"],
                                               "Network tools")
                     # Put the folder first, within the Mini viewport.
-                    # The factory shortcuts are now *inside* Ushpelo, so use
+                    # The factory shortcuts are now *inside* אושפלו, so use
                     # its root-row folder key instead of a nested link.
                     first_row = app.data["shortcut_folders"]["root"][0]
                     check(sf.move(app.data["shortcut_folders"],

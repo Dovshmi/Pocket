@@ -204,7 +204,7 @@ def default_data() -> dict:
                      "use_windows_proxy": True, "convert_mode": "mark",
                      "convert_enabled": True, "clipboard_storage": "ram",
                      "clipboard_days": 1, "clipboard_autodelete_days": 0,
-                     "clipboard_text_display_limit": 30,
+                     "clipboard_text_display_limit": 100,
                      "clipboard_db_image_display_limit": 30},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
@@ -249,7 +249,7 @@ def normalize_settings(raw):
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             # Earlier 1–5-day history is never deleted without opting in now.
             "clipboard_autodelete_days": clipdb.normalize_autodelete_days(raw.get("clipboard_autodelete_days")),
-            "clipboard_text_display_limit": clipdb.normalize_display_limit(raw.get("clipboard_text_display_limit")),
+            "clipboard_text_display_limit": clipdb.normalize_text_display_limit(raw.get("clipboard_text_display_limit")),
             "clipboard_db_image_display_limit": clipdb.normalize_display_limit(raw.get("clipboard_db_image_display_limit")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
@@ -1815,7 +1815,8 @@ class PocketDesk:
         if page not in ("text", "images"):
             return
         key = "clipboard_text_display_limit" if page == "text" else "clipboard_db_image_display_limit"
-        limit = clipdb.normalize_display_limit(value, self.settings[key])
+        limit = (clipdb.normalize_text_display_limit(value) if page == "text"
+                 else clipdb.normalize_display_limit(value, self.settings[key]))
         if self.settings[key] == limit:
             return
         self.settings[key] = limit

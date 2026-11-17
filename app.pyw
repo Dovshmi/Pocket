@@ -349,7 +349,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
             normalize_note_reminder(note)
         update_untouched_starter_note(notes)
         for link in links:
-            if link.get("kind") not in shortcuts.VALID_KIN:
+            if link.get("kind") not in shortcuts.VALID_KINDS:
                 link["kind"] = "url"
         if not notes:
             notes = [new_note()]

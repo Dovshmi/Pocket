@@ -2054,12 +2054,25 @@ class PocketDesk:
                     self.clipboard_list.activate(index)
                     self.clipboard_list.see(index)
                     break
-        scope = (f"{self._clipboard_view_days['text']} · DATABASE · "
-                 if self._clipboard_store_is_disk() else "")
+        self._update_clipboard_text_status()
+
+    def _update_clipboard_text_status(self):
+        """Update the existing grey status label, without changing layout."""
+        if not hasattr(self, "clipboard_status") or not self.clipboard_status.winfo_exists():
+            return
+        count = len(getattr(self, "_clipboard_filtered", []))
+        selection = self.clipboard_list.curselection()
+        selected = selection[0] + 1 if selection and selection[0] < count else 0
+        # The Mini header already displays storage and the date selector.
+        # Avoid clipping the status text in the narrow panel.
+        context = (f"{self._clipboard_view_days['text']} · DATABASE · "
+                   if self._clipboard_store_is_disk() and self.display_mode != "mini"
+                   else "")
+        capture = ("PAUSED" if self.settings["clipboard_paused"] else
+                   "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF")
         self.clipboard_status.config(
-            text=f"{len(self._clipboard_filtered)} entries · " + scope + "capture " +
-                 ("PAUSED" if self.settings["clipboard_paused"] else
-                  "ON" if "clipboard" in self.settings["visible_tabs"] else "OFF"))
+            text=f"{selected} / {count} selected · {count} entries · "
+                 + context + f"capture {capture}")
 
     def _selected_clipboard_item(self):
         if not hasattr(self, "clipboard_list"):

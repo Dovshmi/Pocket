@@ -103,6 +103,7 @@ from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
+from pocket import quick_slots
 from pocket import keyboard_layout
 from pocket import marked_layout
 from pocket import single_instance
@@ -189,6 +190,7 @@ def default_data() -> dict:
         "active_note": n["id"],
         "links": links,
         "shortcut_folders": layout,
+        "clipboard_slots": {},
         "last_tab": "notes",
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
@@ -342,6 +344,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 "last_tab": restored_tab(data.get("last_tab"), settings),
                 "shortcut_folders": shortcut_folders.normalize(
                     data.get("shortcut_folders"), links),
+                "clipboard_slots": quick_slots.normalize_slots(data.get("clipboard_slots")),
                 "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
                      settings["extra_mini_tiles"]),
                 "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
@@ -406,6 +409,7 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        self.clipboard_slots = self.data["clipboard_slots"]
         # Distinguish an unchanged legacy duplicate from an actual title rename.
         # This lets the oldest existing Note keep its original unsuffixed title.
         self._committed_note_titles = {
@@ -2042,9 +2046,8 @@ class PocketDesk:
         # than accidentally applying Copy/Delete to a different clipboard item.
         selected = self._selected_clipboard_item()
         selected_id = selected["id"] if selected else None
-        matches = [item for item in self.clipboard_items
-                   if query in item["text"].casefold()]
-        self._clipboard_filtered = clipboard_gallery.pinned_first(matches)
+        self._clipboard_filtered = quick_slots.merged_rows(
+            self.clipboard_slots, self.clipboard_items, query)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
@@ -2140,6 +2143,9 @@ class PocketDesk:
 
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
+        if item and item.get("slot"):
+            self._remove_clipboard_slot(item["slot"])
+            return
         if item:
             # Never truncate a whole day to the 10–100 visible rows.
             updated = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
@@ -2157,6 +2163,9 @@ class PocketDesk:
 
     def _delete_clipboard_item(self):
         item = self._selected_clipboard_item()
+        if item and item.get("slot"):
+            self._remove_clipboard_slot(item["slot"])
+            return
         if item:
             all_items = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
                          if self._clipboard_store_is_disk() else self.clipboard_items)

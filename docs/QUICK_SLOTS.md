@@ -5,40 +5,69 @@ Clipboard panel, row, button, or resized control is required.
 
 ## Use
 
-| Action | Windows global shortcut |
-| --- | --- |
-| Paste Quick Slot 1–9 to the focused application | `Ctrl+Alt+Numpad1` through `Ctrl+Alt+Numpad9` |
-| Save selection or current clipboard text in Quick Slot 1–9 | `Ctrl+Alt+Shift+Numpad1` through `Ctrl+Alt+Shift+Numpad9` |
+By default the Quick Slots prefix is **Ctrl+Alt**. The number keys are always
+the **right-hand Numpad**, with **Num Lock ON**:
 
-Use the **right-side number pad with Num Lock enabled**, not the digits
-above the alphabet. All bindings are registered with Win32 `RegisterHotKey`
-and only respond to their own combination. If Windows or another application
-has already registered a combination, that binding may not be available.
+| Action | Default shortcut |
+| --- | --- |
+| Arm Save Mode (5 seconds) | `Ctrl+Alt+Numpad0` |
+| Paste saved slot 1–9 | `Ctrl+Alt+Numpad1` through `Numpad9` |
+| Save to slot 1–9 | Press `Ctrl+Alt+Numpad0`, then `Ctrl+Alt+Numpad1–9` within 5 seconds |
+
+After the next numbered shortcut, Pocket leaves Save Mode automatically,
+whether or not the save succeeds. It also leaves Save Mode after five seconds
+without a numbered shortcut, or whenever Quick Slots are disabled. A brief
+Windows tray notification confirms entry into Save Mode; the main Pocket
+window does not need to be opened.
+
+Only one global chord is registered for both actions. **Shift is not used**,
+because Shift combined with some numeric keypad buttons produces navigation
+key virtual codes on Windows.
+
+## Settings
+
+Open **Settings → Clipboard & privacy**:
+
+* **Enable Quick Slots** — turn the entire feature ON/OFF. When OFF, all
+  Quick Slots keyboard shortcuts are unregistered and both the numbered
+  rows and assignment actions are hidden from the Clipboard menu. Stored
+  assignments are preserved for re-enabling; they are never silently deleted.
+* **Quick Slots key prefix** — change only the modifier keys used before
+  `Numpad0–9`: `Ctrl+Alt` (default), `Ctrl`, `Ctrl+Win` or
+  `Ctrl+Alt+Win`. The Numpad keys are fixed and cannot be changed.
+  Windows may reserve some Win-key combinations. If any of the ten new
+  combinations cannot be registered, Pocket rejects the change and keeps
+  the previous working prefix. Switching preferences does not require a
+  restart.
+* The prefix selector's mouse wheel scrolls Settings instead of accidentally
+  changing the value.
 
 ### Saving
 
-1. Select text in the current application and press a **save** shortcut.
-2. Pocket borrows the Windows clipboard briefly to copy the selection,
+1. Select text in the foreground application and press the **Save Mode**
+   shortcut (`Ctrl+Alt+Numpad0` by default).
+2. Press the chosen numbered shortcut (`Ctrl+Alt+NumpadN`) within five seconds.
+3. Pocket borrows the Windows clipboard briefly to copy the selection,
    then restores its original data (including non-text formats).
-3. If no fresh nonempty selected text was copied, Pocket falls back to
+4. If no fresh nonempty selected text was copied, Pocket uses
    **the text that was in the clipboard before the shortcut**.
-4. The slot is persisted locally. No upload or DashDash call occurs.
-5. When the destination slot is already occupied by different text, Pocket
-   asks for confirmation before replacing it. Declining leaves it unchanged.
+5. The slot is persisted locally. No upload or DashDash call occurs.
+6. When the destination slot contains different text, Pocket asks for
+   confirmation before replacing it. Declining leaves it unchanged.
 
 To avoid accidental storage of secrets, recognizable sensitive text is
 rejected while Pocket's Sensitive Text Filter is enabled.
 
 ### Pasting
 
-Press `Ctrl+Alt+NumpadN` while focused in a target application. Pocket
-temporarily places the chosen text into the Windows clipboard, issues
-`Ctrl+V` to the original foreground window, and attempts to restore the
-previous multi-format clipboard contents. It does not leave the chosen
-slot permanently replacing the user's original clipboard. Some elevated,
-remote, or protected applications may refuse injected paste input; in
-those cases, use Pocket's existing **Copy** action followed by manual
-`Ctrl+V`.
+Without arming Save Mode, press `Ctrl+Alt+NumpadN` while focused in a
+target application. Pocket temporarily places the chosen text into the
+Windows clipboard, issues `Ctrl+V` to the original foreground window,
+and attempts to restore the previous multi-format clipboard contents.
+
+Some elevated, remote, or protected applications may refuse injected
+paste input; use Pocket's existing **Copy** action followed by manual
+`Ctrl+V` if needed.
 
 ## Clipboard menu and ordering
 

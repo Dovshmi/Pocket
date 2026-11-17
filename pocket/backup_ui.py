@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox
 
 from . import portable_backup as pb
 from . import settings_reset as sr
-from . import themes
+from . import icon_themes as themes
 from . import command_store as cs
 
 

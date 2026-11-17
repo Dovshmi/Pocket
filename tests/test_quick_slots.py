@@ -23,6 +23,7 @@ class FakeSelectionBackend:
         self.counter = 10
         self.restored = 0
         self.keys = []
+        self.settled = 0
 
     def foreground(self):
         return 100
@@ -37,6 +38,9 @@ class FakeSelectionBackend:
             self.clipboard = original
             self.restored += 1
         yield restore
+
+    def settle_hotkey_release(self):
+        self.settled += 1
 
     def read_text(self):
         return self.clipboard
@@ -179,15 +183,16 @@ class QuickSlotsTests(unittest.TestCase):
         Desk._set_quick_slots_paste_prefix(desk, "ctrl")
         self.assertEqual(desk.settings["quick_slots_paste_prefix"], "ctrl")
 
-    def test_copy_current_selection_restores_previous_clipboard(self):
+    def test_copy_selected_text_into_slot_and_windows_clipboard(self):
         fake = FakeSelectionBackend("PREVIOUS", "SELECTED")
         self.assertEqual(
             quick_slots.capture_selection_or_clipboard(
                 target_hwnd=100, backend=fake),
             "SELECTED")
         self.assertEqual(fake.keys, ["C"])
-        self.assertEqual(fake.restored, 1)
-        self.assertEqual(fake.clipboard, "PREVIOUS")
+        self.assertEqual(fake.restored, 0)
+        self.assertEqual(fake.clipboard, "SELECTED")
+        self.assertEqual(fake.settled, 1)
 
     def test_no_selection_falls_back_to_current_clipboard(self):
         fake = FakeSelectionBackend("CURRENT", None)
@@ -197,10 +202,27 @@ class QuickSlotsTests(unittest.TestCase):
             "CURRENT")
         self.assertEqual(fake.restored, 0)
         self.assertEqual(fake.clipboard, "CURRENT")
+        self.assertEqual(fake.settled, 1)
         no_text = FakeSelectionBackend(None, None)
         with self.assertRaises(Exception):
             quick_slots.capture_selection_or_clipboard(
                 target_hwnd=100, backend=no_text)
+
+    def test_copy_selection_does_not_require_ole_snapshot(self):
+        backend = FakeSelectionBackend("BEFORE", "AFTER")
+        def impossible_snapshot():
+            raise AssertionError("Copy must not depend on OLE clipboard snapshot")
+        backend.preserve_clipboard = impossible_snapshot
+        self.assertEqual(quick_slots.capture_selection_or_clipboard(
+            target_hwnd=100, backend=backend), "AFTER")
+        self.assertEqual(backend.clipboard, "AFTER")
+
+    def test_unusable_selected_text_does_not_silently_save_old_clipboard(self):
+        backend = FakeSelectionBackend("BEFORE", "  ")
+        with self.assertRaisesRegex(Exception, "not usable text"):
+            quick_slots.capture_selection_or_clipboard(
+                target_hwnd=100, backend=backend)
+        self.assertEqual(backend.clipboard, "  ")
 
     def test_paste_restores_original_clipboard(self):
         fake = FakeSelectionBackend("UNRELATED", None)

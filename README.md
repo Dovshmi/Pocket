@@ -26,6 +26,24 @@ Pocket runs from the Windows system tray and opens on demand. It brings seven pr
 > [!NOTE]
 > **Version 1.38 (v1.38.0):** Clipboard text selection counter, RAM screenshot limit choices (10–30), database text display options (100–1,500), and all v1.37 development enhancements. This includes optional persistent clipboard history, Notes/Notepad filename sync, explicit Windows proxy routing and offline EN/HE keyboard repair. See [release notes](RELEASE_NOTES.md) and [Clipboard database details](docs/CLIPBOARD_DATABASE.md).
 
+## Development preview — portable backups and live shortcut recording
+
+The development branch adds **Settings → Backup & Restore** with a local
+selective ZIP export for Notes, Links, CLI and Settings, plus optional saved
+Clipboard DATABASE text/screenshots. **Quick Slots are never included**, even
+when Settings is selected. A ZIP can be previewed and restored on another PC
+using **Merge** (keep local conflicts) or **Replace** (only chosen categories).
+A pre-restore ZIP provides a recovery path.
+
+Settings also provides **Default Settings** to reset chosen preference groups
+without deleting Notes, Links, Commands or clipboard content, and a **Record
+Shortcut** option for live keyboard chord selection (with fixed Numpad1–9
+suffix for Quick Slots).
+
+All actions remain local and explicit; no network sync or background
+backups. **This is development code, not part of the v1.38 release above.**
+[Detailed workflow and limitations](docs/BACKUP_RESTORE.md).
+
 ## New in v1.38.0
 
 - **Clipboard Text status:** The grey status line shows the selected item position and the number of displayed entries without adding or moving controls.

@@ -842,15 +842,13 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     required = {"mode_normal", "mode_mini", "mode_dashboard",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
-                                "convert_enabled", "convert_mode_mark",
-                                "convert_mode_clipboard", "quick_search",
-                                "clipboard_paused", "sensitive_filter"}
+                                "convert_enabled", "convert_mode_picker",
+                                "ram_image_limit", "db_image_display_limit",
+                                "db_text_display_limit", "clipboard_retention",
+                                "quick_search", "clipboard_paused", "sensitive_filter"}
                     required.update("tool_" + key
                                     for key, _ in app.VISIBLE_TABS_REFERENCE)
-                    required.update("image_limit_" + str(value)
-                                    for value in (10, 15, 20, 25, 30))
-                    required.update("clipboard_days_" + str(value)
-                                    for value in (1, 2, 3, 4, 5))
+
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
                     check(all(isinstance(common[key], tk.Checkbutton) and
@@ -862,14 +860,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
-                    common["image_limit_30"].invoke()
-                    check(app.settings["clipboard_image_limit"] == 30,
-                          f"{mode}: image history capacity did not update")
-                    check("✓" in common["image_limit_30"].cget("text"),
-                          f"{mode}: selected image limit is not highlighted")
-                    common["image_limit_" + str(old_limit)].invoke()
+                    picker = common["ram_image_limit"]
+                    picker.set("100 items")
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["clipboard_image_limit"] == 100,
+                          f"{mode}: RAM screenshot dropdown failed")
+                    picker.set(f"{old_limit} items")
+                    picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
                     check(app.settings["clipboard_image_limit"] == old_limit,
-                          f"{mode}: prior image limit was not restored")
+                          f"{mode}: RAM count was not restored")
+                    check("Off" in common["clipboard_retention"]["values"][0],
+                          f"{mode}: automatic history deletion is not opt-in")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==
@@ -1510,10 +1513,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app.root.update()
         check(app.settings["clipboard_storage"] == "ram",
               "Clipboard should default to RAM")
-        check(app.clipboard_storage_buttons["ram"].winfo_exists() and
-              app.clipboard_storage_buttons["database"].winfo_exists(),
-              "Clipboard RAM / DATABASE selector is missing")
-        app.clipboard_storage_buttons["database"].invoke()
+        check(app.clipboard_storage_select.winfo_exists(),
+              "Clipboard RAM / DATABASE dropdown is missing")
+        app.clipboard_storage_select.set("DATABASE")
+        app.clipboard_storage_select.event_generate("<<ComboboxSelected>>")
         app.root.update()
         check(app.settings["clipboard_storage"] == "database" and
               app.clipboard_history_row.winfo_ismapped(),
@@ -1529,10 +1532,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app.clipboard_page_buttons["images"].invoke()
         app.root.update()
         check(len(app.clipboard_database.load_images(_dbmod.today())) == 1,
-              "Database screenshot was not saved in its daily folder")
+              "Database screenshot was not saved in the flat PNG directory")
         check("DATABASE" in app.clipboard_images_status.cget("text"),
               "Gallery still reported RAM while Database mode is active")
-        app.clipboard_storage_buttons["ram"].invoke()
+        app.clipboard_storage_select.set("RAM")
+        app.clipboard_storage_select.event_generate("<<ComboboxSelected>>")
         app.root.update()
         check(app.settings["clipboard_storage"] == "ram",
               "Switching back to RAM failed")

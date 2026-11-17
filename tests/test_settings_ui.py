@@ -2,6 +2,8 @@
 from pathlib import Path
 import runpy
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from pocket import icon_themes as themes
 from pocket import settings_ui
@@ -11,6 +13,36 @@ app = runpy.run_path(str((Path(__file__).resolve().parents[1] / "app.pyw")), run
 
 
 class ModernSettingsTests(unittest.TestCase):
+    def test_translate_picker_wheel_scrolls_settings_not_selection(self):
+        app_stub = SimpleNamespace(
+            settings={"convert_mode": "mark"},
+            _set_convert_mode=Mock(),
+            _scroll_tool_on_wheel=Mock(),
+        )
+        with patch.object(settings_ui.tk, "Frame") as frame, \
+             patch.object(settings_ui, "_label") as label, \
+             patch.object(settings_ui.ttk, "Combobox") as combobox, \
+             patch.object(settings_ui, "_register") as register:
+            frame.return_value.pack = Mock()
+            label.return_value.pack = Mock()
+            select = combobox.return_value
+            settings_ui._convert_mode_picker(
+                Mock(), app_stub, {"PANEL": "#111111"}, compact=True)
+            callbacks = {call.args[0]: call.args[1]
+                         for call in select.bind.call_args_list}
+            self.assertIn("<<ComboboxSelected>>", callbacks)
+            self.assertEqual(
+                {key for key in callbacks if key != "<<ComboboxSelected>>"},
+                {"<MouseWheel>", "<Button-4>", "<Button-5>"})
+            for key in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+                event = SimpleNamespace(delta=120, num=4, widget=select)
+                self.assertEqual(callbacks[key](event), "break")
+                app_stub._scroll_tool_on_wheel.assert_called_with(
+                    event, from_picker=True)
+            app_stub._set_convert_mode.assert_not_called()
+            register.assert_called_once_with(app_stub, "convert_mode_picker", select)
+
+
     def test_all_working_layouts_have_selection_cards(self):
         keys = [mode for mode, _icon, _title, _detail in settings_ui.LAYOUTS]
         self.assertEqual(keys, ["normal", "mini", "dashboard"])

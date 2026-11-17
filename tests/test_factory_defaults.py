@@ -27,6 +27,7 @@ class FactoryDefaultsTests(unittest.TestCase):
         self.assertEqual(len(data["notes"]), 1)
         self.assertEqual(data["notes"][0]["title"], "הבחשט מתקרר")
         self.assertEqual(data["notes"][0]["body"], "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר.")
+        self.assertEqual(data["notes"][0]["direction"], "rtl")
         self.assertEqual(
             [(row["title"], row["url"], row["kind"]) for row in data["links"]],
             [
@@ -43,6 +44,19 @@ class FactoryDefaultsTests(unittest.TestCase):
                          [item["id"] for item in data["links"]])
         # Both links stay in the folder after normalization and not unfiled.
         self.assertEqual(shortcut_folders.normalize(layout, data["links"]), layout)
+
+    def test_existing_legacy_starter_content_is_not_replaced(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = Path(tempdir) / "data.json"
+            old = default_data()
+            old["notes"][0]["title"] = "Welcome"
+            old["notes"][0]["body"] = "Existing note text"
+            old["notes"][0]["direction"] = "ltr"
+            old["shortcut_folders"]["folders"][0]["title"] = "Ushpelo"
+            save_data(path, old)
+            restored = load_data(path)
+        self.assertEqual(restored["notes"], old["notes"])
+        self.assertEqual(restored["shortcut_folders"], old["shortcut_folders"])
 
     def test_tcp_input_defaults_are_prefilled_but_never_scanned(self):
         tools = default_data()["tools"]

@@ -43,11 +43,12 @@ class ModernSettingsTests(unittest.TestCase):
             register.assert_called_once_with(app_stub, "convert_mode_picker", select)
 
 
-    def test_quick_slots_prefix_picker_only_changes_modifiers_and_ignores_wheel(self):
+    def test_quick_slots_picker_changes_only_modifiers_and_ignores_wheel(self):
         from pocket import quick_slots
         app_stub = SimpleNamespace(
-            settings={"quick_slots_prefix": "ctrl_alt"},
-            _set_quick_slots_prefix=Mock(), _scroll_tool_on_wheel=Mock())
+            settings={"quick_slots_paste_prefix": "ctrl_alt",
+                      "quick_slots_copy_prefix": "ctrl_win"},
+            _set_quick_slots_copy_prefix=Mock(), _scroll_tool_on_wheel=Mock())
         with patch.object(settings_ui.tk, "Frame") as frame, \
              patch.object(settings_ui, "_label") as label, \
              patch.object(settings_ui.ttk, "Combobox") as combobox, \
@@ -57,42 +58,47 @@ class ModernSettingsTests(unittest.TestCase):
             select = combobox.return_value
             settings_ui._dropdown_field(
                 Mock(), app_stub, {"PANEL": "#111111"},
-                "quick_slots_prefix_picker", "Quick Slots prefix", "",
+                "quick_slots_copy_prefix_picker", "Copy shortcut prefix", "",
                 quick_slots.PREFIX_CHOICES,
-                app_stub.settings["quick_slots_prefix"],
-                app_stub._set_quick_slots_prefix,
+                app_stub.settings["quick_slots_copy_prefix"],
+                app_stub._set_quick_slots_copy_prefix,
                 compact=True, wheel_scroll_page=True)
             callbacks = {call.args[0]: call.args[1]
                          for call in select.bind.call_args_list}
             self.assertEqual(len(quick_slots.PREFIX_CHOICES), 4)
-            self.assertTrue(all("Num" not in label for label, _ in
+            self.assertTrue(all("Num" not in text for text, _ in
                                 quick_slots.PREFIX_CHOICES))
             for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
                 self.assertEqual(callbacks[event_name](Mock()), "break")
-            app_stub._set_quick_slots_prefix.assert_not_called()
+            app_stub._set_quick_slots_copy_prefix.assert_not_called()
             app_stub._scroll_tool_on_wheel.assert_called()
 
-    def test_quick_slots_preferences_normalize_and_persist(self):
+    def test_two_shortcuts_migrate_normalize_and_persist(self):
         from tempfile import TemporaryDirectory
-        self.assertTrue(app["default_data"]()["settings"]["quick_slots_enabled"])
-        self.assertEqual(
-            app["default_data"]()["settings"]["quick_slots_prefix"], "ctrl_alt")
-        settings = app["normalize_settings"](
-            {"quick_slots_enabled": False, "quick_slots_prefix": "ctrl_win"})
-        self.assertFalse(settings["quick_slots_enabled"])
-        self.assertEqual(settings["quick_slots_prefix"], "ctrl_win")
+        factory = app["default_data"]()["settings"]
+        self.assertTrue(factory["quick_slots_enabled"])
+        self.assertEqual(factory["quick_slots_paste_prefix"], "ctrl_alt")
+        self.assertEqual(factory["quick_slots_copy_prefix"], "ctrl_win")
+        migrated = app["normalize_settings"](
+            {"quick_slots_enabled": False, "quick_slots_prefix": "ctrl"})
+        self.assertFalse(migrated["quick_slots_enabled"])
+        self.assertEqual(migrated["quick_slots_paste_prefix"], "ctrl")
+        self.assertEqual(migrated["quick_slots_copy_prefix"], "ctrl_win")
         self.assertEqual(app["normalize_settings"](
-            {"quick_slots_prefix": {"bad": True}})["quick_slots_prefix"],
-            "ctrl_alt")
+            {"quick_slots_copy_prefix": {"bad": True}})["quick_slots_copy_prefix"],
+            "ctrl_win")
         with TemporaryDirectory() as folder:
             file = Path(folder) / "data.json"
             data = app["default_data"]()
             data["settings"].update(
-                quick_slots_enabled=False, quick_slots_prefix="ctrl_alt_win")
+                quick_slots_enabled=False,
+                quick_slots_paste_prefix="ctrl",
+                quick_slots_copy_prefix="ctrl_alt_win")
             app["save_data"](file, data)
             result = app["load_data"](file)
             self.assertFalse(result["settings"]["quick_slots_enabled"])
-            self.assertEqual(result["settings"]["quick_slots_prefix"],
+            self.assertEqual(result["settings"]["quick_slots_paste_prefix"], "ctrl")
+            self.assertEqual(result["settings"]["quick_slots_copy_prefix"],
                              "ctrl_alt_win")
             self.assertEqual(result["clipboard_slots"], {})
 

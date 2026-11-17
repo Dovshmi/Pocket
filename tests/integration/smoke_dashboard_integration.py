@@ -723,6 +723,32 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: Clipboard context tool actions missing")
                     check("Open MAC lookup with address" not in tool_labels,
                           f"{mode}: irrelevant MAC action should be hidden for IP")
+                    # The new nine-slot action must stay inside the
+                    # existing menu and Listbox, with no extra toolbar space.
+                    check("Assign to Quick Slot" in main_labels,
+                          f"{mode}: Quick Slot context submenu missing")
+                    slot_menu_path = sample_menu.entrycget(
+                        main_labels.index("Assign to Quick Slot"), "menu")
+                    slots_menu = app.root.nametowidget(slot_menu_path)
+                    check(menu_labels(slots_menu) == [
+                        f"[{i}]" for i in range(1, 10)],
+                        f"{mode}: nine compact Numpad slots should have no labels")
+                    old_rect = (listbox.winfo_width(), listbox.winfo_height())
+                    slots_menu.invoke(0)
+                    app.root.update()
+                    check(app.clipboard_slots.get("1") == "8.8.8.8",
+                          f"{mode}: menu could not assign slot [1]")
+                    check(app._clipboard_filtered[0].get("slot") == 1,
+                          f"{mode}: slot [1] must sort before regular favorites")
+                    check(clipboard_gallery.text_row_label(
+                        app._clipboard_filtered[0]).startswith("[1] "),
+                        f"{mode}: Quick Slot badge must replace the star")
+                    check((listbox.winfo_width(), listbox.winfo_height()) == old_rect,
+                          f"{mode}: Quick Slot expanded the Clipboard panel")
+                    app._remove_clipboard_slot(1)
+                    app.root.update()
+                    check("1" not in app.clipboard_slots,
+                          f"{mode}: deleting a slot must not keep a ghost Favorite")
                     sample_menu.destroy()
                     converted_menu = clipboard_gallery.build_text_context_menu(
                         app, menu_colors, {"text": "akuo", "pinned": False})

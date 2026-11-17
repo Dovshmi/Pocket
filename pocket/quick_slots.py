@@ -43,7 +43,9 @@ def normalize_slots(raw):
 
 def normalize_prefix(value):
     """Reject unsupported combinations (including Shift and Alt-only)."""
-    return value if value in {identifier for _, identifier in PREFIX_CHOICES} else DEFAULT_PREFIX
+    return (value if isinstance(value, str) and
+            value in {identifier for _, identifier in PREFIX_CHOICES}
+            else DEFAULT_PREFIX)
 
 
 def prefix_label(value):

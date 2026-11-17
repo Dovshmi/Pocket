@@ -166,11 +166,15 @@ def merged_rows(slots, history, query=""):
 
 
 def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
-    """Prefer selected Windows text; otherwise use the previous clipboard.
+    """Copy the selected text into the slot, using ordinary Windows Ctrl+C.
 
-    The user's full OLE clipboard is restored after a temporary Ctrl+C, even
-    when it contains images. Never substitute stale clipboard text for a
-    selection *if* copying has actually produced fresh selected text.
+    Do not obtain/restore the old clipboard via OLE for *copy*. Some Windows
+    applications expose delayed-rendered clipboard data that causes
+    OleGetClipboard/CloseClipboard to fail while text is selected. A copy
+    shortcut should behave like normal Ctrl+C: if text is selected it also
+    becomes the current clipboard content; otherwise the previous clipboard
+    text is the fallback. The separate *paste* action still preserves the
+    user's original multi-format clipboard through OLE.
     """
     if backend is None:
         from .marked_layout import WindowsMarkBackend
@@ -181,26 +185,24 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
 
-    with backend.preserve_clipboard() as restore:
-        before_text = backend.read_text()
-        baseline = backend.sequence()
-        changed_by_us = None
-        try:
-            backend.send_key("C")
-            if backend.wait_for_sequence_change(baseline, timeout=0.5):
-                changed_by_us = backend.sequence()
-                selected_text = backend.read_text()
-                value = selected_text if valid_text(selected_text) else before_text
-            else:
-                # Ctrl+C had no effect: use the original clipboard contents.
-                value = before_text
-            if not valid_text(value):
-                raise MarkError("No selected text or existing text clipboard to save.")
-            return value
-        finally:
-            # Do not overwrite newer clipboard changes made by another app.
-            if changed_by_us is not None and backend.sequence() == changed_by_us:
-                restore()
+    # Ctrl+Win+NumpadN has just been released. Allow the foreground app to
+    # process the released Win modifier before injecting a plain Ctrl+C.
+    backend.settle_hotkey_release() if hasattr(backend, "settle_hotkey_release") else None
+    if backend.foreground() != target_hwnd:
+        raise MarkError("The active window changed before the text was copied.")
+
+    before_text = backend.read_text()
+    baseline = backend.sequence()
+    backend.send_key("C")
+    if backend.wait_for_sequence_change(baseline, timeout=1.0):
+        copied_text = backend.read_text()
+        if valid_text(copied_text):
+            return copied_text
+        raise MarkError("The selection was copied, but it is not usable text.")
+    # No new copy occurred: the previous clipboard text remains available.
+    if valid_text(before_text):
+        return before_text
+    raise MarkError("No selected text or existing text clipboard to save.")
 
 
 def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):

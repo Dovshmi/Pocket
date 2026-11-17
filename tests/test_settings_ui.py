@@ -38,14 +38,16 @@ class ModernSettingsTests(unittest.TestCase):
     def test_clipboard_image_limit_defaults_and_rejects_unsafe_values(self):
         from pocket import clipboard_images
         self.assertEqual(clipboard_images.IMAGE_LIMIT_CHOICES,
-                         tuple(range(10, 101, 10)))
+                         (10, 15, 20, 25, 30))
         self.assertEqual(app["default_data"]()["settings"]["clipboard_image_limit"], 20)
         for count in clipboard_images.IMAGE_LIMIT_CHOICES:
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": count})["clipboard_image_limit"], count)
-        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 15})["clipboard_image_limit"], 20)
-        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 25})["clipboard_image_limit"], 30)
-        for value in (-1, 0, 105, 200, True, "30", 12.5, None):
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 15})["clipboard_image_limit"], 15)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 25})["clipboard_image_limit"], 25)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 40})["clipboard_image_limit"], 30)
+        self.assertEqual(app["normalize_settings"]({"clipboard_image_limit": 100})["clipboard_image_limit"], 30)
+        for value in (-1, 0, 35, 105, 200, True, "30", 12.5, None):
             self.assertEqual(app["normalize_settings"](
                 {"clipboard_image_limit": value})["clipboard_image_limit"], 20)
 

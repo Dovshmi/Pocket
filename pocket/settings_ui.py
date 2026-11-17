@@ -341,16 +341,19 @@ def _clipboard_history_controls(parent, app, c, *, compact=False):
     for col in (0, 1):
         grid.columnconfigure(col, weight=1, uniform="history")
 
-    counts = [(str(value), value) for value in range(10, 101, 10)]
+    ram_counts = [(str(value), value) for value in (10, 15, 20, 25, 30)]
+    db_images = [(str(value), value) for value in range(10, 101, 10)]
+    db_text = [(str(value), value) for value in
+               (100, 300, 500, 800, 1000, 1200, 1500)]
     retention = [("Off", 0)] + [
         (f"{day} days", day) for day in range(7, 31)]
     fields = (
-        ("ram_image_limit", "RAM images", counts,
+        ("ram_image_limit", "RAM images", ram_counts,
          app.settings["clipboard_image_limit"], app._set_clipboard_image_limit),
-        ("db_image_display_limit", "DB images shown", counts,
+        ("db_image_display_limit", "DB images shown", db_images,
          app.settings["clipboard_db_image_display_limit"],
          lambda count: app._set_clipboard_display_limit("images", count)),
-        ("db_text_display_limit", "DB text shown", counts,
+        ("db_text_display_limit", "DB text shown", db_text,
          app.settings["clipboard_text_display_limit"],
          lambda count: app._set_clipboard_display_limit("text", count)),
         ("clipboard_retention", "Auto-delete", retention,
@@ -389,8 +392,8 @@ def _clipboard_history_controls(parent, app, c, *, compact=False):
             select.bind(event_name, scroll_page)
         _register(app, key, select)
 
-    _label(section, "RAM: stored · Database: shown per page (10–100). "
-           "Auto-delete: Off, or 7–30 days.",
+    _label(section, "RAM images: 10–30 · DB images: 10–100 · "
+           "DB text: 100–1500 · Auto-delete: Off or 7–30 days.",
            c, muted=True, size=8, anchor="w", justify="left",
            wraplength=185 if compact else 330).pack(fill="x", pady=(1, 0))
 

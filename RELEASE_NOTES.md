@@ -1,8 +1,8 @@
-# Pocket v1.38.0 — Clipboard Selection Counter & History Options (unreleased development)
+# Pocket v1.38.0 — Clipboard Selection Counter & History Options
 
-**Branch:** feature/pocket-next-updates · **Stable release remains v1.36.0**.
+**Stable release v1.38.0 · Windows 10/11 · Portable ZIP + standalone EXE**
 
-This upcoming update groups the requested improvements together. It is not a published Windows release or a change to main.
+This release includes the requested v1.38 Clipboard refinements and integrates the v1.37 development improvements. Existing Pocket v1.36 settings and local data remain supported.
 
 ### Clipboard refinements in v1.38.0
 
@@ -37,10 +37,10 @@ This upcoming update groups the requested improvements together. It is not a pub
 
 ### Clipboard RAM / local DATABASE (new in 1.37)
 
-- **Storage dropdown:** A compact Storage (RAM / DATABASE) dropdown shares a row with the date selector, freeing space in Mini. RAM remains the default with session-only text and configurable **10–100** screenshot slots (20 default). DATABASE is opt-in and preserves copied content across restarts.
+- **Storage dropdown:** A compact Storage (RAM / DATABASE) dropdown shares a row with the date selector, freeing space in Mini. RAM remains the default with session-only text and configurable **10–30** screenshot slots (20 default) in v1.38. DATABASE is opt-in and preserves copied content across restarts.
 - **Append-only daily text journal:** One UTF-8 TXT file per date, named with its creation timestamp and expiry or `to_saved`, contains structured JSON lines. New copies append efficiently; pin/delete operations atomically rewrite the selected day without dropping entries on other pages.
 - **One screenshot folder:** `ClipboardDatabase/ClipboardScreenshots/` contains all date-prefixed PNG files (no per-day subfolders). Migration safely moves recognized old daily-folder PNGs without overwriting conflicts. Full-resolution PNG data is loaded only for thumbnails being drawn or for Copy/Preview; the on-screen item count does not limit disk storage.
-- **Compact history layout:** Browse prior dates through Storage/Date selectors and scroll the text list or image gallery to load older items automatically—no redundant Prev/Next navigation row. Clipboard & privacy uses a short **2×2 dropdown grid** for RAM images, DB images, DB text and 7–30-day cleanup. Only these four selectors intercept the mouse wheel and scroll the Settings page instead of changing values. Display limits remain **10–100 items**.
+- **Compact history layout:** Browse prior dates through Storage/Date selectors and scroll the text list or image gallery to load older items automatically—no redundant Prev/Next navigation row. Clipboard & privacy uses a short **2×2 dropdown grid** for RAM images, DB images, DB text and 7–30-day cleanup. Only these four selectors intercept the mouse wheel and scroll the Settings page instead of changing values. DATABASE screenshot batches remain **10–100 items**; text batches are **100–1500**.
 - **Optional cleanup:** Under **Clipboard & privacy**, auto-delete is **OFF by default** (history is retained until manually deleted). An explicit dropdown choice of **7 through 30 calendar days, in one-day increments**, deletes expired text and screenshots. Text filename expiry labels update accordingly; the former 1–5-day setting does not silently enable deletion.
 - **Safe defaults:** Database history is never exported to DashDash or included in the app's release ZIP. RAM and DATABASE stores remain separate when switching; only bounded pages are displayed in RAM. The local Database is **plaintext**, and sensitive-text filtering cannot guarantee secrets/screenshots are excluded; enable persistent history only where local/workplace policy permits it.
 
@@ -57,7 +57,22 @@ See [Clipboard Database documentation](docs/CLIPBOARD_DATABASE.md) for folder st
 
 GitHub Actions exercises the unit suite, GUI smoke tests on Windows/Linux, the release-Python GUI smoke check, and a Windows portable build test. Live corporate PAC/IEEE authentication and actual third-party foreground text replacement must also be verified on the target Windows machine.
 
-Development snapshots are available from the branch CI artifacts. Do not substitute them for the published v1.36.0 release until tested.
+### Release downloads
+
+- **Pocket-Portable-v1.38.0.zip** — recommended for work PCs; includes `Pocket-Portable/PocketDesk.exe`, bundled native runtime, integrity manifest and `Verify-Pocket.ps1`.
+- **Pocket-v1.38.0.exe** — standalone Windows executable.
+- **SHA256SUMS.txt** — SHA-256 checksums of both packages.
+
+The public packages contain sanitized example commands only. They exclude private notes, passwords, local profiles, clipboard history, backups and personal command files. Executables are **not code-signed**.
+
+### Upgrade safely
+
+1. Close Pocket completely, including its tray process, and back up your existing data.
+2. Extract the v1.38.0 portable ZIP into a **new folder**. Do not mix old and new `_internal/` runtime files.
+3. For an existing portable installation, copy only your saved `data/` folder to the new portable installation. For a standalone installation, keep your existing `%APPDATA%\\PocketDesk\\` profile.
+4. Check Notes, Commands, Clipboard settings and the preferred UI mode. Database history is plaintext; review your workplace storage policy before enabling it.
+
+The previous [v1.36.0 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.36.0) remains available.
 
 ---
 

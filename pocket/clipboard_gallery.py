@@ -6,6 +6,8 @@ history; RAM mode remains fully ephemeral.
 """
 from __future__ import annotations
 
+import os
+import subprocess
 import tkinter as tk
 from . import menu_style
 from tkinter import messagebox, ttk
@@ -775,10 +777,35 @@ def copy_selected(app):
         messagebox.showerror("Image clipboard", str(exc), parent=app.root)
 
 
+def _open_native_image(path):
+    """Open an existing image with the system's registered PNG application."""
+    if os.name == "nt":
+        os.startfile(str(path))
+    else:
+        # Useful for Linux GUI development; never run through a shell.
+        subprocess.Popen(
+            ["xdg-open", str(path)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
+
+
 def preview_selected(app):
     item = selected_image(app)
     if item is None:
         return
+    if app.settings.get("clipboard_storage") == "database":
+        try:
+            # Validate a Pocket-managed PNG before giving its original path
+            # to Windows. Never trust an arbitrary path from gallery metadata.
+            app.clipboard_database.image_data(item)
+            image_path = app.clipboard_database.image_dir / item["file_name"]
+            _open_native_image(image_path)
+        except (OSError, ValueError, MemoryError) as exc:
+            messagebox.showerror("Open image", str(exc), parent=app.root)
+        return
+
+    # RAM contains bytes only, not files. Keep the existing in-app viewer
+    # instead of silently writing sensitive clipboard history to a temp file.
     c = themes.palette(app.theme)
     try:
         picture = clipboard_images.decode_image(_image_payload(app, item))

@@ -910,7 +910,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
                                 "convert_enabled", "convert_mode_picker",
-                                "quick_slots_enabled", "quick_slots_prefix_picker",
+                                "quick_slots_enabled", "quick_slots_paste_prefix_picker",
+                                "quick_slots_copy_prefix_picker",
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
@@ -951,7 +952,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # changes; other keyboard/dropdown actions still work.
                     history_keys = ("ram_image_limit", "db_image_display_limit",
                                     "db_text_display_limit", "clipboard_retention",
-                                    "convert_mode_picker", "quick_slots_prefix_picker")
+                                    "convert_mode_picker", "quick_slots_paste_prefix_picker",
+                                    "quick_slots_copy_prefix_picker")
                     for key in history_keys:
                         combo = common[key]
                         initial = combo.get()
@@ -966,9 +968,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(tuple(common["convert_mode_picker"]["values"]) ==
                           ("Mark — selected text", "Clipboard — copied text"),
                           f"{mode}: Translate behavior options changed")
-                    check(tuple(common["quick_slots_prefix_picker"]["values"]) ==
-                          ("Ctrl+Alt", "Ctrl", "Ctrl+Win", "Ctrl+Alt+Win"),
-                          f"{mode}: Quick Slots must only change modifiers")
+                    for key in ("quick_slots_paste_prefix_picker",
+                                "quick_slots_copy_prefix_picker"):
+                        check(tuple(common[key]["values"]) ==
+                              ("Ctrl+Alt", "Ctrl", "Ctrl+Win", "Ctrl+Alt+Win"),
+                              f"{mode}: {key} must only change modifiers")
                     check(app.settings["quick_slots_enabled"],
                           f"{mode}: Quick Slots default should be ON")
                     retained = dict(app.clipboard_slots)
@@ -987,18 +991,30 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     app.root.update()
                     check(app.settings["quick_slots_enabled"],
                           f"{mode}: re-enabling Quick Slots failed")
-                    prefix_picker = app.settings_controls["quick_slots_prefix_picker"]
-                    prefix_picker.set("Ctrl")
-                    prefix_picker.event_generate("<<ComboboxSelected>>")
+                    paste_picker = app.settings_controls["quick_slots_paste_prefix_picker"]
+                    paste_picker.set("Ctrl")
+                    paste_picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
-                    check(app.settings["quick_slots_prefix"] == "ctrl",
-                          f"{mode}: Quick Slots modifier change did not apply")
-                    prefix_picker = app.settings_controls["quick_slots_prefix_picker"]
-                    prefix_picker.set("Ctrl+Alt")
-                    prefix_picker.event_generate("<<ComboboxSelected>>")
+                    check(app.settings["quick_slots_paste_prefix"] == "ctrl",
+                          f"{mode}: paste modifier change did not apply")
+                    paste_picker = app.settings_controls["quick_slots_paste_prefix_picker"]
+                    paste_picker.set("Ctrl+Alt")
+                    paste_picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
-                    check(app.settings["quick_slots_prefix"] == "ctrl_alt",
-                          f"{mode}: Quick Slots default modifier was not restored")
+                    check(app.settings["quick_slots_paste_prefix"] == "ctrl_alt",
+                          f"{mode}: paste default modifier was not restored")
+                    copy_picker = app.settings_controls["quick_slots_copy_prefix_picker"]
+                    copy_picker.set("Ctrl+Alt+Win")
+                    copy_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_copy_prefix"] == "ctrl_alt_win",
+                          f"{mode}: copy modifier change did not apply")
+                    copy_picker = app.settings_controls["quick_slots_copy_prefix_picker"]
+                    copy_picker.set("Ctrl+Win")
+                    copy_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_copy_prefix"] == "ctrl_win",
+                          f"{mode}: copy default modifier was not restored")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==

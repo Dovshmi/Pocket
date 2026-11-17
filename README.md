@@ -8,13 +8,13 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.36.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.36.0)
+[![Release](https://img.shields.io/badge/Stable-v1.38.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.38.0)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-Portable-v1.36.0.zip)** ·
-**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-v1.36.0.exe)** ·
+**[Download Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-Portable-v1.38.0.zip)** ·
+**[Download Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.38.0/Pocket-v1.38.0.exe)** ·
 **[All Releases](https://github.com/Dovshmi/Pocket/releases)**
 
 </div>
@@ -24,19 +24,19 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!NOTE]
-> **Version 1.36 (v1.36.0):** Native Windows input controls with standard editing shortcuts, better CLI/MAC scrolling and parsing, clearer Mini filters, and pinned Clipboard text at the top. Dropdowns retain their familiar click-to-select behavior—no typing-based filter. All existing offline tools and saved settings remain supported. [What's new](RELEASE_NOTES.md) · [Windows proxy details](docs/WINDOWS_PROXY.md).
+> **Version 1.38 (v1.38.0):** Clipboard text selection counter, RAM screenshot limit choices (10–30), database text display options (100–1,500), and all v1.37 development enhancements. This includes optional persistent clipboard history, Notes/Notepad filename sync, explicit Windows proxy routing and offline EN/HE keyboard repair. See [release notes](RELEASE_NOTES.md) and [Clipboard database details](docs/CLIPBOARD_DATABASE.md).
 
-## Development v1.38.0 — pending stable release
+## New in v1.38.0
 
-The [feature/pocket-next-updates](https://github.com/Dovshmi/Pocket/tree/feature/pocket-next-updates) branch contains improvements that are **not yet part of stable v1.36.0**:
+- **Clipboard Text status:** The grey status line shows the selected item position and the number of displayed entries without adding or moving controls.
+- **RAM screenshots:** Choose **10 / 15 / 20 / 25 / 30**, default **20**.
+- **DATABASE display:** Choose **100 / 300 / 500 / 800 / 1000 / 1200 / 1500** text entries (default **100**); screenshot display remains independently configurable from 10 to 100.
+- **Opt-in local clipboard history:** Daily append-only TXT journal, flat date-stamped PNG folder, date browsing, scrolling to older entries and optional 7–30-day retention cleanup (OFF by default).
+- **Notes + Notepad:** New notes append to the picker; renaming the note also safely renames its TXT file, with numbered names for duplicates.
+- **Windows Proxy and IEEE MAC vendor updates:** A saved **Use Windows Proxy** toggle supports Windows PAC or explicit direct HTTPS, while keeping Windows certificate validation enabled.
+- **Offline EN/HE keyboard repair:** Configurable `Ctrl+Alt+V` shortcut and **Mark / Clipboard** modes. Mark replaces selected text in compatible Windows applications; clipboard mode keeps the earlier copy-and-convert workflow.
 
-- **Notes + Notepad:** New notes appear at the end of the list; the Note Title and its working TXT filename stay aligned. Renaming a note renames the corresponding file; duplicate names receive Windows-style numbered Titles and filenames such as *Router (1)* / *Router (1).txt*. Existing Notepad content is preserved on migration and conflicts.
-- **Configurable Windows Proxy:** Under **Settings → Network connection**, *Use Windows Proxy* defaults to ON. DashDash MAC and TCP requests keep the existing working native Windows PAC/WinINet route when ON. OFF selects explicit direct HTTPS for DashDash. No global Windows proxy settings change.
-- **IEEE MAC vendors:** **Update IEEE DB** now uses native Windows WinINet HTTPS GET in both modes. ON selects the existing Windows PAC resolver; OFF selects **direct WinINet with the Windows certificate trust store**, avoiding the Python SSL route that reported self-signed-certificate errors on some managed computers. TLS validation remains enabled; untrusted certificates will still fail. Incomplete downloads never overwrite the local cache, and manual CSV import remains available.
-- **Clipboard RAM / DATABASE:** The Mini-friendly Storage and History date dropdowns let you switch between session-only RAM and persistent local history. DATABASE stores an **append-only daily TXT journal** and all PNG screenshots together in one flat folder (filenames contain date/time). **The compact 2×2 Settings grid keeps RAM screenshots at 10/15/20/25/30 (default 20), database screenshots at 10–100, and database text display at 100/300/500/800/1000/1200/1500 (default 100)**. The grey Clipboard Text status now shows the selected item number and entries count, just like Images, without changing the layout. Scroll to load older items without extra page buttons. Automatic deletion is **OFF by default**, optionally **7–30 days** for text and images. Old daily screenshot folders migrate without overwrites. [File layout, retention & privacy](docs/CLIPBOARD_DATABASE.md).
-- **Translate keyboard repair:** Defaults to **enabled**, using **Mark** and `Ctrl+Alt+V`. You can now disable the global shortcut, edit its keys, and select Clipboard or Mark **all inside Settings → Clipboard & privacy**. Mark replaces selected text with the corrected EN/HE keyboard layout; Clipboard retains the original copy-and-convert workflow. Mark requires Windows and a supported Ctrl+C/Ctrl+V application.
-
-These changes remain local-first. Mark does not use an online translator or require a persistent keyboard hook. [Windows proxy details](docs/WINDOWS_PROXY.md) · [Pending release notes](RELEASE_NOTES.md). Test before deploying at work, as a corporate PAC server and third-party app selection/paste behavior cannot be reproduced fully in CI.
+All features retain Pocket's local-first design. Internet access is initiated only by an explicit network action. **Note:** Optional DATABASE history stores text and screenshots as local plaintext; enable it on managed computers only where policy permits. Test corporate PAC routes and third-party text replacement on the target PC.
 
 ## Screenshots
 
@@ -117,7 +117,7 @@ Settings now uses a consistent, responsive design in **Normal, Mini and Dashboar
 
 ### Clipboard and EN/HE keyboard repair
 
-The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In the pending **v1.38**, choose a **RAM capacity of 10/15/20/25/30** (20 default), or opt into the local DATABASE with **10–100 images or up to 1,500 text entries shown per batch** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
+The familiar **Text / Images** view, Mini gallery, screenshot preview/copy workflow, and offline EN/HE keyboard repair were introduced in v1.35.0. In **v1.38**, choose a **RAM capacity of 10/15/20/25/30** (20 default), or opt into the local DATABASE with **10–100 images or up to 1,500 text entries shown per batch** and optional 7–30-day cleanup. Its new default Translate shortcut is **Ctrl+Alt+V**, in **Mark** mode, with the ability to switch to Clipboard mode or disable the hotkey under Clipboard & privacy. This is keyboard-layout correction, not semantic translation.
 
 ### Notes, commands and visual polish
 
@@ -185,7 +185,7 @@ Pocket has **no mandatory account, cloud sync, or continuous internet requiremen
 | Notes, settings, reminders, shortcuts, launcher setup | Local `data.json` |
 | Personal CLI commands and Smart Template metadata | Local `commands.json` |
 | IEEE vendor cache | Local `vendors.json` |
-| Clipboard history | **RAM by default**; optional daily text journal and flat PNG database, 10–100 displayed per page, OFF / 7–30-day cleanup |
+| Clipboard history | **RAM by default**; optional daily TXT/PNG database, text batches up to 1,500 and screenshot batches up to 100, OFF / 7–30-day cleanup |
 | Recoverable settings snapshot | Local `data-recovery.json` |
 
 Public Windows releases contain the **sanitized example command library only**—not private commands, notes, passwords, customer information, or backups. Pocket files are **not encrypted**, so protect your data folder and backups. Remote DashDash mode sends only the targets you explicitly submit; local lookups never upload them.

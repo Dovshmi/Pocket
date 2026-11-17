@@ -84,6 +84,30 @@ class DailyArchiveUpgradeTests(unittest.TestCase):
             self.assertEqual(len(list(db.image_dir.glob("*.png"))), 56)
             self.assertEqual(db.days("images", on=day), [day])
 
+    def test_same_second_screenshots_sort_by_microseconds(self):
+        with tempfile.TemporaryDirectory() as folder:
+            db = dbm.ClipboardDatabase(folder)
+            day = "2026-11-17"
+            first = []
+            second = []
+            clipboard_images.add_image(first, Image.new("RGB", (12, 12), (10, 20, 30)))
+            clipboard_images.add_image(second, Image.new("RGB", (12, 12), (20, 30, 40)))
+            first[0]["time"] = "14:12:22"
+            second[0]["time"] = "14:12:22"
+            class Clock:
+                count = 0
+                @classmethod
+                def now(cls):
+                    cls.count += 1
+                    return SimpleNamespace(microsecond=cls.count)
+            with patch.object(dbm, "datetime", Clock):
+                db.save_image(day, first[0])
+                db.save_image(day, second[0])
+            displayed = db.load_images(day, limit=2, metadata_only=True)
+            self.assertEqual([record["id"] for record in displayed],
+                             [second[0]["id"], first[0]["id"]])
+            self.assertTrue(all("data" not in item for item in displayed))
+
     def test_legacy_daily_png_folders_migrate_safely_without_overwrites(self):
         with tempfile.TemporaryDirectory() as folder:
             db = dbm.ClipboardDatabase(folder)

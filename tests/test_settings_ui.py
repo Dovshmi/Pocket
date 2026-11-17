@@ -84,6 +84,9 @@ class ModernSettingsTests(unittest.TestCase):
         self.assertFalse(migrated["quick_slots_enabled"])
         self.assertEqual(migrated["quick_slots_paste_prefix"], "ctrl")
         self.assertEqual(migrated["quick_slots_copy_prefix"], "ctrl_win")
+        legacy_win = app["normalize_settings"]({"quick_slots_prefix": "ctrl_win"})
+        self.assertEqual(legacy_win["quick_slots_paste_prefix"], "ctrl_win")
+        self.assertEqual(legacy_win["quick_slots_copy_prefix"], "ctrl_alt")
         self.assertEqual(app["normalize_settings"](
             {"quick_slots_copy_prefix": {"bad": True}})["quick_slots_copy_prefix"],
             "ctrl_win")

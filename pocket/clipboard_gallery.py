@@ -6,6 +6,8 @@ history; RAM mode remains fully ephemeral.
 """
 from __future__ import annotations
 
+import os
+import subprocess
 import tkinter as tk
 from . import menu_style
 from tkinter import messagebox, ttk
@@ -39,7 +41,9 @@ def text_row_label(item):
     native Listbox text inset, matching other Pocket input panels.
     """
     preview = " ".join(item["text"].split())[:65]
-    return ("★ " if item["pinned"] else "") + preview
+    prefix = (f'[{item["slot"]}] ' if item.get("slot") else
+              "★ " if item["pinned"] else "")
+    return prefix + preview
 
 
 def _action(parent, title, callback, colors):
@@ -344,12 +348,27 @@ def build_text_context_menu(app, colors, selected):
         state="normal" if selected else "disabled")
     if selected:
         menu.add_command(
-            label="Unpin from history" if selected["pinned"] else "Pin in history",
+            label=("Remove from Quick Slot" if selected.get("slot") else
+                   "Unpin from history" if selected["pinned"] else "Pin in history"),
             command=app._pin_clipboard_item)
     else:
         menu.add_command(label="Pin in history", state="disabled")
+    if selected and app.settings.get("quick_slots_enabled", True):
+        from . import quick_slots
+        slots_menu = menu_style.Menu(menu, **style)
+        assigned = selected.get("slot")
+        for number in quick_slots.SLOT_NUMBERS:
+            slots_menu.add_command(
+                label=f"[{number}]",
+                command=lambda number=number, content=content:
+                    app._assign_clipboard_slot(number, content))
+        menu.add_cascade(label="Assign to Quick Slot", menu=slots_menu)
+        if assigned:
+            menu.add_command(label=f"Remove [{assigned}] assignment",
+                             command=lambda n=assigned: app._remove_clipboard_slot(n))
     menu.add_command(
-        label="Delete from history", command=app._delete_clipboard_item,
+        label=("Clear Quick Slot" if selected and selected.get("slot") else
+               "Delete from history"), command=app._delete_clipboard_item,
         state="normal" if selected else "disabled")
     menu.add_separator()
     if selected:
@@ -775,10 +794,35 @@ def copy_selected(app):
         messagebox.showerror("Image clipboard", str(exc), parent=app.root)
 
 
+def _open_native_image(path):
+    """Open an existing image with the system's registered PNG application."""
+    if os.name == "nt":
+        os.startfile(str(path))
+    else:
+        # Useful for Linux GUI development; never run through a shell.
+        subprocess.Popen(
+            ["xdg-open", str(path)],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True)
+
+
 def preview_selected(app):
     item = selected_image(app)
     if item is None:
         return
+    if app.settings.get("clipboard_storage") == "database":
+        try:
+            # Validate a Pocket-managed PNG before giving its original path
+            # to Windows. Never trust an arbitrary path from gallery metadata.
+            app.clipboard_database.image_data(item)
+            image_path = app.clipboard_database.image_dir / item["file_name"]
+            _open_native_image(image_path)
+        except (OSError, ValueError, MemoryError) as exc:
+            messagebox.showerror("Open image", str(exc), parent=app.root)
+        return
+
+    # RAM contains bytes only, not files. Keep the existing in-app viewer
+    # instead of silently writing sensitive clipboard history to a temp file.
     c = themes.palette(app.theme)
     try:
         picture = clipboard_images.decode_image(_image_payload(app, item))

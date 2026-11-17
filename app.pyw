@@ -103,6 +103,7 @@ from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
+from pocket import quick_slots
 from pocket import keyboard_layout
 from pocket import marked_layout
 from pocket import single_instance
@@ -169,8 +170,29 @@ def new_link(title, url, kind="url") -> dict:
     return {"id": new_id(), "title": title, "url": url, "kind": kind}
 
 
+# Only migrate the untouched factory note; never overwrite an edited note.
+_OLD_STARTER_TITLE = "הבחשט מתקרר"
+_OLD_STARTER_BODY = "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר."
+STARTER_NOTE_TITLE = "הבאכש מתקרר"
+STARTER_NOTE_BODY = "תקלה באיזור בוכרה, הכל תקין אבל החינקלי כבר קר!!!!!"
+
+
+def update_untouched_starter_note(notes) -> bool:
+    """Refresh the first legacy factory note without altering personal notes."""
+    if not notes:
+        return False
+    first = notes[0]
+    if (first.get("title") == _OLD_STARTER_TITLE
+            and first.get("body") == _OLD_STARTER_BODY):
+        first["title"] = STARTER_NOTE_TITLE
+        first["body"] = STARTER_NOTE_BODY
+        return True
+    return False
+
+
 def default_data() -> dict:
-    n = new_note("Welcome", "Your notes live here.\n\nCreate another note with + New. Everything saves automatically.")
+    n = new_note(STARTER_NOTE_TITLE, STARTER_NOTE_BODY)
+    n["direction"] = "rtl"
     # Factory shortcuts are seeded only for profiles without a data.json.
     # Never add/recreate these entries when loading an existing user profile.
     links = [
@@ -178,7 +200,7 @@ def default_data() -> dict:
         new_link("My GitHub", "https://github.com/Dovshmi"),
     ]
     layout = shortcut_folders.normalize(None, links)
-    folder_id = shortcut_folders.add_folder(layout, "Ushpelo")
+    folder_id = shortcut_folders.add_folder(layout, "אושפלו")
     for link in links:
         shortcut_folders.move(
             layout, shortcut_folders.link_key(link["id"]),
@@ -188,6 +210,7 @@ def default_data() -> dict:
         "active_note": n["id"],
         "links": links,
         "shortcut_folders": layout,
+        "clipboard_slots": {},
         "last_tab": "notes",
         "command_state": ch.safe_prefs({}),
         "extra_mini_pages": lp.default_pages(),
@@ -205,7 +228,10 @@ def default_data() -> dict:
                      "convert_enabled": True, "clipboard_storage": "ram",
                      "clipboard_days": 1, "clipboard_autodelete_days": 0,
                      "clipboard_text_display_limit": 100,
-                     "clipboard_db_image_display_limit": 30},
+                     "clipboard_db_image_display_limit": 30,
+                     "quick_slots_enabled": True,
+                     "quick_slots_paste_prefix": quick_slots.DEFAULT_PASTE_PREFIX,
+                     "quick_slots_copy_prefix": quick_slots.DEFAULT_COPY_PREFIX},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -233,6 +259,9 @@ def normalize_settings(raw):
         visible = ["notes"]
     legacy_compact = raw.get("display_mode") == "compact"
     selected_mode = mini.display_mode(raw.get("display_mode"))
+    paste_prefix, copy_prefix = quick_slots.normalized_prefix_pair(
+        raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
+        raw.get("quick_slots_copy_prefix"))
     return {"visible_tabs": visible,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
@@ -245,6 +274,9 @@ def normalize_settings(raw):
                              raw.get("convert_mode") if raw.get("convert_mode") in
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
+            "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
+            "quick_slots_paste_prefix": paste_prefix,
+            "quick_slots_copy_prefix": copy_prefix,
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
             # Earlier 1–5-day history is never deleted without opting in now.
@@ -315,6 +347,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
             note["pinned"] = note.get("pinned") is True
             note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
+        update_untouched_starter_note(notes)
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
                 link["kind"] = "url"
@@ -341,6 +374,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 "last_tab": restored_tab(data.get("last_tab"), settings),
                 "shortcut_folders": shortcut_folders.normalize(
                     data.get("shortcut_folders"), links),
+                "clipboard_slots": quick_slots.normalize_slots(data.get("clipboard_slots")),
                 "extra_mini_pages": lp.normalize_pages(data.get("extra_mini_pages"),
                      settings["extra_mini_tiles"]),
                 "extra_mini_page": lp.page_index(data.get("extra_mini_page")),
@@ -405,6 +439,7 @@ class PocketDesk:
         self.path = data_file()
         self.recovery_notice = None
         self.data = load_data(self.path, on_recovery=self._record_recovery)
+        self.clipboard_slots = self.data["clipboard_slots"]
         # Distinguish an unchanged legacy duplicate from an actual title rename.
         # This lets the oldest existing Note keep its original unsuffixed title.
         self._committed_note_titles = {
@@ -598,7 +633,10 @@ class PocketDesk:
             self.root.withdraw()
             self.tray = WindowsTray(self.theme_icons[self.theme]["ico"], self.events,
                                     self.hotkey, self.convert_hotkey,
-                                    convert_enabled=self.settings["convert_enabled"])
+                                    convert_enabled=self.settings["convert_enabled"],
+                                    quick_slots_enabled=self.settings["quick_slots_enabled"],
+                                    quick_slots_paste_prefix=self.settings["quick_slots_paste_prefix"],
+                                    quick_slots_copy_prefix=self.settings["quick_slots_copy_prefix"])
             self.tray.start()
             self.root.after(250, self._check_tray)
         else:
@@ -1966,6 +2004,118 @@ class PocketDesk:
         self.settings["convert_mode"] = mode
         self.schedule_save()
 
+    def _quick_slots_status(self):
+        if not self.settings["quick_slots_enabled"]:
+            return "Disabled · saved slots are kept"
+        paste = quick_slots.prefix_label(self.settings["quick_slots_paste_prefix"])
+        copy = quick_slots.prefix_label(self.settings["quick_slots_copy_prefix"])
+        return f"Paste: {paste}+Num1–9 · Save: {copy}+Num1–9"
+
+    def _apply_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
+        """Apply only successfully registered direct hotkeys on Tk's thread."""
+        paste_prefix = quick_slots.normalize_prefix(paste_prefix)
+        copy_prefix = quick_slots.normalize_prefix(
+            copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
+        enabled = bool(enabled)
+        changed = any((
+            self.settings["quick_slots_enabled"] != enabled,
+            self.settings["quick_slots_paste_prefix"] != paste_prefix,
+            self.settings["quick_slots_copy_prefix"] != copy_prefix,
+        ))
+        self.settings["quick_slots_enabled"] = enabled
+        self.settings["quick_slots_paste_prefix"] = paste_prefix
+        self.settings["quick_slots_copy_prefix"] = copy_prefix
+        if changed:
+            self.schedule_save()
+            if self.current_tab == "clipboard":
+                self._refresh_clipboard()
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
+
+    def _set_quick_slots_enabled(self, enabled):
+        enabled = bool(enabled)
+        if enabled == self.settings["quick_slots_enabled"]:
+            return
+        paste = self.settings["quick_slots_paste_prefix"]
+        copy = self.settings["quick_slots_copy_prefix"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, paste, copy)
+        else:
+            self._apply_quick_slots_config(enabled, paste, copy)
+
+    def _set_quick_slots_paste_prefix(self, value):
+        paste = quick_slots.normalize_prefix(value)
+        if paste == self.settings["quick_slots_paste_prefix"]:
+            return
+        copy = self.settings["quick_slots_copy_prefix"]
+        if not quick_slots.distinct_prefixes(paste, copy):
+            self._warning("Quick Slots shortcut conflict",
+                          "Copy and paste must use different modifier prefixes.")
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
+            return
+        enabled = self.settings["quick_slots_enabled"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, paste, copy)
+        else:
+            self._apply_quick_slots_config(enabled, paste, copy)
+
+    def _set_quick_slots_copy_prefix(self, value):
+        copy = quick_slots.normalize_prefix(
+            value, default=quick_slots.DEFAULT_COPY_PREFIX)
+        if copy == self.settings["quick_slots_copy_prefix"]:
+            return
+        paste = self.settings["quick_slots_paste_prefix"]
+        if not quick_slots.distinct_prefixes(paste, copy):
+            self._warning("Quick Slots shortcut conflict",
+                          "Copy and paste must use different modifier prefixes.")
+            if self.current_tab == "settings":
+                self.root.after_idle(self._build_settings_refresh)
+            return
+        enabled = self.settings["quick_slots_enabled"]
+        if self.tray and not self.tray.error:
+            self.tray.set_quick_slots_config(enabled, paste, copy)
+        else:
+            self._apply_quick_slots_config(enabled, paste, copy)
+
+    def _quick_slot_hotkey(self, action, number, target_hwnd):
+        """Direct save (Ctrl+Win) or paste (Ctrl+Alt) for Numpad1–9."""
+        if not self.settings["quick_slots_enabled"]:
+            return
+        if (action not in ("save", "paste") or
+                number not in quick_slots.SLOT_NUMBERS or self._mark_active):
+            return
+        value = self.clipboard_slots.get(str(number)) if action == "paste" else None
+        if action == "paste" and not quick_slots.valid_text(value):
+            self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
+            return
+        self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
+        owner = self.root.winfo_id()
+
+        def worker():
+            try:
+                if action == "save":
+                    selected = quick_slots.capture_selection_or_clipboard(
+                        target_hwnd=target_hwnd, owner_hwnd=owner)
+                    self.events.put(("quick_slot_save_result", (number, selected, None)))
+                else:
+                    quick_slots.paste_slot_text(
+                        value, target_hwnd=target_hwnd, owner_hwnd=owner)
+                    self.events.put(("quick_slot_paste_result", (number, None)))
+            except (marked_layout.MarkError, OSError, RuntimeError, ValueError) as exc:
+                kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
+                payload = ((number, None, str(exc)) if action == "save"
+                           else (number, str(exc)))
+                self.events.put((kind, payload))
+            except Exception:
+                kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
+                payload = ((number, None, "Quick Slot action failed.") if action == "save"
+                           else (number, "Quick Slot action failed."))
+                self.events.put((kind, payload))
+
+        threading.Thread(target=worker, name="PocketDeskQuickSlot",
+                         daemon=True).start()
+
     def _start_mark_conversion(self, target_hwnd):
         """One-shot, native selection conversion; never poll the keyboard."""
         if self._mark_active:
@@ -2041,9 +2191,10 @@ class PocketDesk:
         # than accidentally applying Copy/Delete to a different clipboard item.
         selected = self._selected_clipboard_item()
         selected_id = selected["id"] if selected else None
-        matches = [item for item in self.clipboard_items
-                   if query in item["text"].casefold()]
-        self._clipboard_filtered = clipboard_gallery.pinned_first(matches)
+        self._clipboard_filtered = quick_slots.merged_rows(
+            getattr(self, "clipboard_slots", {})
+            if self.settings.get("quick_slots_enabled", True) else {},
+            self.clipboard_items, query)
         self.clipboard_list.delete(0, tk.END)
         for item in self._clipboard_filtered:
             self.clipboard_list.insert(tk.END, clipboard_gallery.text_row_label(item))
@@ -2137,8 +2288,88 @@ class PocketDesk:
         else:
             self.clipboard_items[:] = updated
 
+    def _remove_clipboard_slot(self, number):
+        """Unassign only the chosen slot; ordinary history remains intact."""
+        if str(number) not in self.clipboard_slots:
+            return False
+        del self.clipboard_slots[str(number)]
+        self.schedule_save()
+        self._refresh_clipboard()
+        self._notify("Pocket Quick Slots", f"Slot [{number}] cleared.")
+        return True
+
+    def _assign_clipboard_slot(self, number, text):
+        """Explicit user action, shared by the menu and global save hotkey."""
+        if not self.settings.get("quick_slots_enabled", True):
+            return False
+        if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
+            self._notify("Pocket Quick Slots", "Select or copy text first.")
+            return False
+        if (self.settings.get("clipboard_sensitive_filter", True)
+                and not clipboard_policy.should_capture(text)):
+            self._notify("Pocket Quick Slots", "Sensitive text cannot be saved while the filter is ON.")
+            return False
+        old = self.clipboard_slots.get(str(number))
+        if old == text:
+            self._notify("Pocket Quick Slots", f"Slot [{number}] already contains this text.")
+            return True
+        if old is not None:
+            # Keep the Pocket popup alive while its modal confirmation is
+            # shown; the same dialog works when invoked via a global hotkey.
+            previous_modal = getattr(self, "_modal", False)
+            self._modal = True
+            try:
+                confirmed = messagebox.askyesno(
+                    "Replace Quick Slot",
+                    f"Slot [{number}] is already assigned. Replace it with new text?\\n\\n"
+                    "The previous value will no longer be a Quick Slot or Favorite "
+                    "unless you explicitly pin it again.",
+                    parent=self.root)
+            finally:
+                self._modal = previous_modal
+            if not confirmed:
+                return False
+
+        # A promoted historical Favorite must not remain starred after its
+        # Quick Slot is overwritten. Keep only the explicit slot assignment
+        # as the Favorite; never accumulate displaced pinned entries.
+        try:
+            if self._clipboard_store_is_disk():
+                records = self.clipboard_database.load_text(
+                    self._clipboard_view_days["text"])
+            else:
+                records = [dict(item) for item in self.clipboard_items]
+            replaced = {text, old}
+            if any(row["text"] in replaced and row.get("pinned") for row in records):
+                for row in records:
+                    if row["text"] in replaced:
+                        row["pinned"] = False
+                self._clipboard_write_text_view(records)
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            self._clipboard_report_io_error(exc)
+            return False
+
+        # Values are deliberately stored independently of the day-scoped DB
+        # and are written only after this explicit assignment.
+        self.clipboard_slots[str(number)] = text
+        self.schedule_save()
+        self._refresh_clipboard()
+        if hasattr(self, "clipboard_list") and self.clipboard_list.winfo_exists():
+            for index, row in enumerate(getattr(self, "_clipboard_filtered", ())):
+                if row.get("slot") == number:
+                    self.clipboard_list.selection_clear(0, tk.END)
+                    self.clipboard_list.selection_set(index)
+                    self.clipboard_list.activate(index)
+                    self.clipboard_list.see(index)
+                    break
+        self._notify("Pocket Quick Slots", f"Saved to [{number}].")
+        return True
+
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
+        if item and item.get("slot"):
+            self._remove_clipboard_slot(item["slot"])
+            return
         if item:
             # Never truncate a whole day to the 10–100 visible rows.
             updated = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
@@ -2156,6 +2387,9 @@ class PocketDesk:
 
     def _delete_clipboard_item(self):
         item = self._selected_clipboard_item()
+        if item and item.get("slot"):
+            self._remove_clipboard_slot(item["slot"])
+            return
         if item:
             all_items = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
                          if self._clipboard_store_is_disk() else self.clipboard_items)
@@ -5439,6 +5673,40 @@ class PocketDesk:
                         self._start_mark_conversion(xy)
                     else:
                         self._convert_clipboard_text()
+                elif name == "quick_slot_hotkey":
+                    action, number, target_hwnd = xy
+                    self._quick_slot_hotkey(action, number, target_hwnd)
+                elif name == "quick_slots_config_changed":
+                    enabled, paste_prefix, copy_prefix = xy
+                    self._apply_quick_slots_config(enabled, paste_prefix, copy_prefix)
+                elif name == "quick_slots_config_conflict":
+                    if self.current_tab == "settings":
+                        self.root.after_idle(self._build_settings_refresh)
+                    self._warning(
+                        "Quick Slots shortcut unavailable",
+                        "Windows or another application already uses at least one "
+                        "key in the requested prefix. The previous Quick Slots shortcuts are unchanged.")
+                elif name == "quick_slots_hotkey_error":
+                    action = "Save/Copy" if xy == "save" else "Paste"
+                    self._notify(
+                        "Pocket Quick Slots",
+                        f"{action} Numpad shortcut unavailable. Change its prefix in Settings.")
+                elif name == "quick_slot_save_result":
+                    number, selected, error = xy
+                    self._mark_active = False
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    if error:
+                        self._notify("Pocket Quick Slots", error)
+                    else:
+                        self._assign_clipboard_slot(number, selected)
+                elif name == "quick_slot_paste_result":
+                    number, error = xy
+                    self._mark_active = False
+                    self._clipboard_sequence = clipboard_images.sequence_number()
+                    if error:
+                        self._notify("Pocket Quick Slots", error)
+                    else:
+                        self._notify("Pocket Quick Slots", f"Pasted [{number}].")
                 elif name == "mark_result":
                     self._mark_active = False
                     # Prevent the history monitor from recording transient Mark data.
@@ -5642,9 +5910,13 @@ class WindowsTray:
     WM_NOTIFICATION = 0x8000 + 40
     WM_CONVERT_HOTKEY_CHANGE = 0x8000 + 41
     WM_CONVERT_ENABLE_CHANGE = 0x8000 + 42
+    WM_QUICK_SLOTS_CHANGE = 0x8000 + 43
     NIF_INFO = 0x10
 
-    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *, convert_enabled=True):
+    def __init__(self, icon_path: Path, events, hotkey=None, convert_hotkey=None, *,
+                 convert_enabled=True, quick_slots_enabled=True,
+                 quick_slots_paste_prefix=quick_slots.DEFAULT_PASTE_PREFIX,
+                 quick_slots_copy_prefix=quick_slots.DEFAULT_COPY_PREFIX):
         self.icon_path = icon_path
         self.events = events
         self.error = None
@@ -5653,6 +5925,16 @@ class WindowsTray:
         self._thread = None
         self.hotkey_ids = set()
         self.convert_hotkey_ids = set()
+        self.quick_slot_group_ids = {"paste": set(), "save": set()}
+        self.quick_slot_group_bases = {
+            "paste": quick_slots.PASTE_HOTKEY_BASE,
+            "save": quick_slots.SAVE_HOTKEY_BASE,
+        }
+        self.quick_slots_enabled = bool(quick_slots_enabled)
+        self.quick_slots_paste_prefix = quick_slots.normalize_prefix(quick_slots_paste_prefix)
+        self.quick_slots_copy_prefix = quick_slots.normalize_prefix(
+            quick_slots_copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
+        self._pending_quick_slots_config = None
         self._pending_icon = None
         self.hotkey = hk.normalize_hotkey(hotkey)
         self.convert_hotkey = hk.normalize_convert_hotkey(
@@ -5692,6 +5974,16 @@ class WindowsTray:
         self._pending_convert_enabled = bool(enabled)
         ctypes.windll.user32.PostMessageW(
             self.hwnd, self.WM_CONVERT_ENABLE_CHANGE, 0, 0)
+
+    def set_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
+        """Ask the tray thread to switch separate nine-key save/paste groups."""
+        paste_prefix = quick_slots.normalize_prefix(paste_prefix)
+        copy_prefix = quick_slots.normalize_prefix(
+            copy_prefix, default=quick_slots.DEFAULT_COPY_PREFIX)
+        self._pending_quick_slots_config = (bool(enabled), paste_prefix, copy_prefix)
+        if self.hwnd:
+            ctypes.windll.user32.PostMessageW(
+                self.hwnd, self.WM_QUICK_SLOTS_CHANGE, 0, 0)
 
     def notify(self, title, message, note_id=None):
         self._pending_notification = (str(title)[:63], str(message)[:255], note_id)
@@ -5924,12 +6216,88 @@ class WindowsTray:
                         self.events.put(("convert_hotkey_conflict", None))
                 self._pending_convert_hotkey = None
                 return 0
+            if msg == self.WM_QUICK_SLOTS_CHANGE:
+                request = self._pending_quick_slots_config
+                self._pending_quick_slots_config = None
+                if request is None:
+                    return 0
+                enabled, paste_prefix, copy_prefix = request
+                if not enabled:
+                    for ids in self.quick_slot_group_ids.values():
+                        for hotkey_id in ids:
+                            user.UnregisterHotKey(hwnd, hotkey_id)
+                    self.quick_slot_group_ids = {"paste": set(), "save": set()}
+                    self.quick_slots_enabled = False
+                    self.quick_slots_paste_prefix = paste_prefix
+                    self.quick_slots_copy_prefix = copy_prefix
+                    self.events.put((
+                        "quick_slots_config_changed",
+                        (False, paste_prefix, copy_prefix)))
+                    return 0
+                if not quick_slots.distinct_prefixes(paste_prefix, copy_prefix):
+                    self.events.put(("quick_slots_config_conflict", None))
+                    return 0
+
+                # Register only modified groups; never unregister a working
+                # hotkey before its replacement has succeeded. This matters
+                # because registering an unchanged chord under a second ID
+                # fails with ERROR_HOTKEY_ALREADY_REGISTERED in Windows.
+                previous = {
+                    "paste": self.quick_slots_paste_prefix,
+                    "save": self.quick_slots_copy_prefix,
+                }
+                proposed = {"paste": paste_prefix, "save": copy_prefix}
+                added = {}
+                for action in ("paste", "save"):
+                    if self.quick_slots_enabled and proposed[action] == previous[action]:
+                        continue
+                    original_base = self.quick_slot_group_bases[action]
+                    standard_base = (quick_slots.PASTE_HOTKEY_BASE if action == "paste"
+                                     else quick_slots.SAVE_HOTKEY_BASE)
+                    alternate_base = (quick_slots.ALTERNATE_HOTKEY_BASE if action == "paste"
+                                      else quick_slots.ALTERNATE_HOTKEY_BASE + 0x10)
+                    new_base = (alternate_base if original_base == standard_base
+                                else standard_base)
+                    ids = quick_slots.register_group(
+                        user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                        action, proposed[action], base=new_base)
+                    if not ids:
+                        if not self.quick_slots_enabled:
+                            # On first enable, one blocked group must not
+                            # disable the other (especially working Paste).
+                            self.events.put(("quick_slots_hotkey_error", action))
+                            continue
+                        for staged_ids, _ in added.values():
+                            for hotkey_id in staged_ids:
+                                user.UnregisterHotKey(hwnd, hotkey_id)
+                        self.events.put(("quick_slots_config_conflict", None))
+                        return 0
+                    added[action] = (ids, new_base)
+                for action, (ids, new_base) in added.items():
+                    for old_id in self.quick_slot_group_ids[action]:
+                        user.UnregisterHotKey(hwnd, old_id)
+                    self.quick_slot_group_ids[action] = ids
+                    self.quick_slot_group_bases[action] = new_base
+                self.quick_slots_enabled = True
+                self.quick_slots_paste_prefix = paste_prefix
+                self.quick_slots_copy_prefix = copy_prefix
+                self.events.put((
+                    "quick_slots_config_changed",
+                    (True, paste_prefix, copy_prefix)))
+                return 0
             if msg == self.WM_HOTKEY:
                 # Only queue actions; Tkinter clipboard access is UI-thread only.
                 if int(wp) in self.hotkey_ids:
                     self.events.put(("toggle", None))
                 elif int(wp) in self.convert_hotkey_ids:
                     self.events.put(("convert_clipboard", user.GetForegroundWindow()))
+                else:
+                    for action in ("paste", "save"):
+                        if int(wp) in self.quick_slot_group_ids[action]:
+                            number = int(wp) - self.quick_slot_group_bases[action] + 1
+                            self.events.put(("quick_slot_hotkey", (
+                                action, number, user.GetForegroundWindow())))
+                            break
                 return 0
             if msg == self.WM_TRAY:
                 action = int(lp) & 0xFFFF
@@ -5945,10 +6313,14 @@ class WindowsTray:
                     popup_menu(hwnd)
                 return 0
             if msg == self.WM_DESTROY:
-                for hotkey_id in tuple(self.hotkey_ids | self.convert_hotkey_ids):
+                active = self.hotkey_ids | self.convert_hotkey_ids
+                for group_ids in self.quick_slot_group_ids.values():
+                    active |= group_ids
+                for hotkey_id in tuple(active):
                     user.UnregisterHotKey(hwnd, hotkey_id)
                 self.hotkey_ids.clear()
                 self.convert_hotkey_ids.clear()
+                self.quick_slot_group_ids = {"paste": set(), "save": set()}
                 self.hwnd = None
                 shell.Shell_NotifyIconW(self.NIM_DELETE, ctypes.byref(nid))
                 user.PostQuitMessage(0)
@@ -5977,6 +6349,25 @@ class WindowsTray:
             for hotkey_id, mods, key in hk.bindings(self.convert_hotkey, 0xB30):
                 if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                     self.convert_hotkey_ids.add(hotkey_id)
+        if self.quick_slots_enabled:
+            configured = {
+                "paste": self.quick_slots_paste_prefix,
+                "save": self.quick_slots_copy_prefix,
+            }
+            registered = {}
+            if quick_slots.distinct_prefixes(*configured.values()):
+                for action in ("paste", "save"):
+                    ids = quick_slots.register_group(
+                        user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                        action, configured[action],
+                        base=self.quick_slot_group_bases[action])
+                    if not ids:
+                        break
+                    registered[action] = ids
+            self.quick_slot_group_ids.update(registered)
+            for action in ("paste", "save"):
+                if action not in registered:
+                    self.events.put(("quick_slots_hotkey_error", action))
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

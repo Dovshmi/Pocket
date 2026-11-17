@@ -1,13 +1,51 @@
 """Regression tests for memory-only image history and adaptive Clipboard gallery."""
 from __future__ import annotations
 import sys
+import tempfile
 import unittest
-from unittest.mock import patch
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from PIL import Image
-from pocket import clipboard_images, clipboard_gallery
+from pocket import clipboard_images, clipboard_gallery, clipboard_database
 
 
 class ClipboardImagesTests(unittest.TestCase):
+    def test_database_preview_opens_validated_original_png_in_system_viewer(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = clipboard_database.ClipboardDatabase(folder)
+            screenshots = []
+            self.assertTrue(clipboard_images.add_image(
+                screenshots, Image.new("RGB", (12, 14), (25, 50, 75))))
+            database.save_image("2026-11-17", screenshots[0])
+            item = database.load_images("2026-11-17", metadata_only=True)[0]
+            app = SimpleNamespace(
+                settings={"clipboard_storage": "database"},
+                clipboard_database=database,
+                clipboard_images=[item], _clipboard_selected_image_id=item["id"],
+                root=Mock())
+            with patch.object(clipboard_gallery, "_open_native_image") as open_native:
+                clipboard_gallery.preview_selected(app)
+            open_native.assert_called_once_with(
+                database.image_dir / item["file_name"])
+            self.assertTrue((database.image_dir / item["file_name"]).is_file())
+            self.assertFalse(hasattr(app, "_modal"))
+
+    def test_database_preview_rejects_unmanaged_file_and_never_launches_it(self):
+        with tempfile.TemporaryDirectory() as folder:
+            database = clipboard_database.ClipboardDatabase(folder)
+            app = SimpleNamespace(
+                settings={"clipboard_storage": "database"},
+                clipboard_database=database,
+                clipboard_images=[{"id": "x", "file_name": "../../private.png"}],
+                _clipboard_selected_image_id="x", root=Mock())
+            with patch.object(clipboard_gallery, "_open_native_image") as open_native, \
+                 patch.object(clipboard_gallery.messagebox, "showerror") as error:
+                clipboard_gallery.preview_selected(app)
+            open_native.assert_not_called()
+            error.assert_called_once()
+
+
     def test_twenty_first_picture_removes_oldest(self):
         history = []
         for number in range(21):

@@ -2,7 +2,7 @@ name: Pocket regression checks
 
 on:
   push:
-    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish, chore/repository-cleanup-v131, fix/input-editing-smart-mac-port-order, feature/pocket-next-updates]
+    branches: [main, before-release, feature/smart-command-templates, feature/extra-mini-dynamic-pages-ui-polish, chore/repository-cleanup-v131, fix/input-editing-smart-mac-port-order, feature/pocket-next-updates, feature/v1.39]
   pull_request:
     branches: [main, feature/dashboard-ui-refresh]
   workflow_dispatch:
@@ -57,6 +57,12 @@ jobs:
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
+      - name: Probe real Windows Quick Slots Ctrl+Win / Ctrl+Alt registrations
+        if: runner.os == 'Windows'
+        run: python tests/integration/probe_quick_slots_win32.py
+      - name: Verify real selection copy and clipboard fallback (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_quick_slots_selection.py
       - name: Exercise embedded Windows native inputs (Windows)
         if: runner.os == 'Windows'
         run: python tests/integration/smoke_native_inputs.py

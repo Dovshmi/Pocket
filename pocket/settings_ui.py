@@ -11,6 +11,7 @@ from tkinter import ttk
 
 from . import icon_themes as themes
 from . import app_info
+from . import quick_slots
 
 FONT = "Segoe UI"
 
@@ -258,7 +259,8 @@ def _tools(parent, app, c, *, compact=False, wide=False):
 
 
 def _dropdown_field(parent, app, c, key, heading, detail,
-                    choices, selected, callback, *, compact=False):
+                    choices, selected, callback, *, compact=False,
+                    wheel_scroll_page=False):
     """Native themed readonly dropdown, uniform in Mini/Normal/Dashboard."""
     section = tk.Frame(parent, bg=c["PANEL"])
     section.pack(fill="x", padx=13, pady=(9, 11))
@@ -283,6 +285,15 @@ def _dropdown_field(parent, app, c, key, heading, detail,
         return "break"
 
     select.bind("<<ComboboxSelected>>", apply)
+    if wheel_scroll_page:
+        # Match the protected history-size selectors: the wheel scrolls the
+        # Settings canvas instead of changing a saved Combobox preference.
+        def scroll_page(event):
+            app._scroll_tool_on_wheel(event, from_picker=True)
+            return "break"
+
+        for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            select.bind(event_name, scroll_page)
     return _register(app, key, select)
 
 
@@ -293,7 +304,7 @@ def _convert_mode_picker(parent, app, c, *, compact=False):
         [("Mark — selected text", "mark"),
          ("Clipboard — copied text", "clipboard")],
         app.settings["convert_mode"], app._set_convert_mode,
-        compact=compact)
+        compact=compact, wheel_scroll_page=True)
 
 
 def _network_preferences(parent, app, c, *, compact=False, wide=False):
@@ -413,6 +424,23 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             app._set_clipboard_sensitive_filter, compact=compact)
     _divider(card, c)
     _clipboard_history_controls(card, app, c, compact=compact)
+    _divider(card, c)
+    _toggle(card, app, c, "quick_slots_enabled", "Enable Quick Slots",
+            "Paste or save text directly with separate Numpad1–9 shortcuts.",
+            app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
+            compact=compact)
+    _dropdown_field(
+        card, app, c, "quick_slots_paste_prefix_picker", "Paste shortcut prefix",
+        "Default Ctrl+Alt + Numpad1–9; only modifier keys can change.",
+        quick_slots.PREFIX_CHOICES, app.settings["quick_slots_paste_prefix"],
+        app._set_quick_slots_paste_prefix,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
+        card, app, c, "quick_slots_copy_prefix_picker", "Save / Copy shortcut prefix",
+        "Default Ctrl+Win + Numpad1–9; only modifier keys can change.",
+        quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
+        app._set_quick_slots_copy_prefix,
+        compact=compact, wheel_scroll_page=True)
     _divider(card, c)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",

@@ -113,7 +113,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         check(app.data["last_tab"] == "notes", "Factory tab was not initialized")
         check(app.data["settings"]["display_mode"] == "mini",
               "Mini must be the saved factory mode")
-        # Only the two requested starter links should appear inside Ushpelo.
+        # Only the two requested starter links should appear inside אושפלו.
+        note = app.data["notes"][0]
+        check(note["title"] == "הבאכש מתקרר" and
+              note["body"] == "תקלה באיזור בוכרה, הכל תקין אבל החינקלי כבר קר!!!!!" and
+              note["direction"] == "rtl",
+              "The Hebrew first-run note is incorrect")
         initial_links = app.data["links"]
         check([(link["title"], link["url"]) for link in initial_links] == [
             ("DashDash", "https://dashdash-tau.vercel.app"),
@@ -121,8 +126,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Factory shortcuts are incorrect")
         folders = app.data["shortcut_folders"]
         check(len(folders["folders"]) == 1 and
-              folders["folders"][0]["title"] == "Ushpelo",
-              "Ushpelo default folder is missing")
+              folders["folders"][0]["title"] == "אושפלו",
+              "Hebrew אושפלו default folder is missing")
         folder_id = folders["folders"][0]["id"]
         check(folders["children"][folder_id] ==
               [link["id"] for link in initial_links],
@@ -147,7 +152,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
               "Active Shortcuts tool was not persisted across restart")
         app.show_tab("notes")
         app.root.update()
-        print("PASS: Mini startup, Ushpelo links, TCP defaults and last-tab restore")
+        print("PASS: Mini startup, Hebrew starter note and folder, TCP defaults and last-tab restore")
 
         from tkinter import ttk
         from pocket.icon_themes import palette
@@ -718,6 +723,32 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: Clipboard context tool actions missing")
                     check("Open MAC lookup with address" not in tool_labels,
                           f"{mode}: irrelevant MAC action should be hidden for IP")
+                    # The new nine-slot action must stay inside the
+                    # existing menu and Listbox, with no extra toolbar space.
+                    check("Assign to Quick Slot" in main_labels,
+                          f"{mode}: Quick Slot context submenu missing")
+                    slot_menu_path = sample_menu.entrycget(
+                        main_labels.index("Assign to Quick Slot"), "menu")
+                    slots_menu = app.root.nametowidget(slot_menu_path)
+                    check(menu_labels(slots_menu) == [
+                        f"[{i}]" for i in range(1, 10)],
+                        f"{mode}: nine compact Numpad slots should have no labels")
+                    old_rect = (listbox.winfo_width(), listbox.winfo_height())
+                    slots_menu.invoke(0)
+                    app.root.update()
+                    check(app.clipboard_slots.get("1") == "8.8.8.8",
+                          f"{mode}: menu could not assign slot [1]")
+                    check(app._clipboard_filtered[0].get("slot") == 1,
+                          f"{mode}: slot [1] must sort before regular favorites")
+                    check(clipboard_gallery.text_row_label(
+                        app._clipboard_filtered[0]).startswith("[1] "),
+                        f"{mode}: Quick Slot badge must replace the star")
+                    check((listbox.winfo_width(), listbox.winfo_height()) == old_rect,
+                          f"{mode}: Quick Slot expanded the Clipboard panel")
+                    app._remove_clipboard_slot(1)
+                    app.root.update()
+                    check("1" not in app.clipboard_slots,
+                          f"{mode}: deleting a slot must not keep a ghost Favorite")
                     sample_menu.destroy()
                     converted_menu = clipboard_gallery.build_text_context_menu(
                         app, menu_colors, {"text": "akuo", "pinned": False})
@@ -879,6 +910,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
                                 "convert_enabled", "convert_mode_picker",
+                                "quick_slots_enabled", "quick_slots_paste_prefix_picker",
+                                "quick_slots_copy_prefix_picker",
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
@@ -915,10 +948,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: DB text display options do not match v1.38")
                     check("Off" in common["clipboard_retention"]["values"][0],
                           f"{mode}: automatic history deletion is not opt-in")
-                    # Only these four Clipboard history selectors intercept
-                    # wheel changes; their other keyboard/dropdown actions work.
+                    # History selectors and Translate behavior ignore wheel
+                    # changes; other keyboard/dropdown actions still work.
                     history_keys = ("ram_image_limit", "db_image_display_limit",
-                                    "db_text_display_limit", "clipboard_retention")
+                                    "db_text_display_limit", "clipboard_retention",
+                                    "convert_mode_picker", "quick_slots_paste_prefix_picker",
+                                    "quick_slots_copy_prefix_picker")
                     for key in history_keys:
                         combo = common[key]
                         initial = combo.get()
@@ -930,10 +965,56 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         check(bool(combo.bind("<Button-4>")) and
                               bool(combo.bind("<Button-5>")),
                               f"{mode}: Linux wheel is not protected on {key}")
-                    # The Translate dropdown and every unrelated selector
-                    # must remain untouched by this Clipboard-only behavior.
-                    check(not common["convert_mode_picker"].bind("<MouseWheel>"),
-                          f"{mode}: unrelated dropdown was modified")
+                    check(tuple(common["convert_mode_picker"]["values"]) ==
+                          ("Mark — selected text", "Clipboard — copied text"),
+                          f"{mode}: Translate behavior options changed")
+                    for key in ("quick_slots_paste_prefix_picker",
+                                "quick_slots_copy_prefix_picker"):
+                        check(tuple(common[key]["values"]) ==
+                              ("Ctrl+Alt", "Ctrl", "Ctrl+Win", "Ctrl+Alt+Win"),
+                              f"{mode}: {key} must only change modifiers")
+                    check(app.settings["quick_slots_enabled"],
+                          f"{mode}: Quick Slots default should be ON")
+                    retained = dict(app.clipboard_slots)
+                    common["quick_slots_enabled"].invoke()
+                    app.root.update()
+                    check(not app.settings["quick_slots_enabled"],
+                          f"{mode}: disabling Quick Slots failed")
+                    check(app.clipboard_slots == retained,
+                          f"{mode}: disabling Quick Slots erased stored entries")
+                    disabled_menu = clipboard_gallery.build_text_context_menu(
+                        app, menu_colors, {"text": "8.8.8.8", "pinned": False})
+                    check("Assign to Quick Slot" not in menu_labels(disabled_menu),
+                          f"{mode}: disabled Quick Slots action still visible")
+                    disabled_menu.destroy()
+                    app.settings_controls["quick_slots_enabled"].invoke()
+                    app.root.update()
+                    check(app.settings["quick_slots_enabled"],
+                          f"{mode}: re-enabling Quick Slots failed")
+                    paste_picker = app.settings_controls["quick_slots_paste_prefix_picker"]
+                    paste_picker.set("Ctrl")
+                    paste_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_paste_prefix"] == "ctrl",
+                          f"{mode}: paste modifier change did not apply")
+                    paste_picker = app.settings_controls["quick_slots_paste_prefix_picker"]
+                    paste_picker.set("Ctrl+Alt")
+                    paste_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_paste_prefix"] == "ctrl_alt",
+                          f"{mode}: paste default modifier was not restored")
+                    copy_picker = app.settings_controls["quick_slots_copy_prefix_picker"]
+                    copy_picker.set("Ctrl+Alt+Win")
+                    copy_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_copy_prefix"] == "ctrl_alt_win",
+                          f"{mode}: copy modifier change did not apply")
+                    copy_picker = app.settings_controls["quick_slots_copy_prefix_picker"]
+                    copy_picker.set("Ctrl+Win")
+                    copy_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_copy_prefix"] == "ctrl_win",
+                          f"{mode}: copy default modifier was not restored")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==
@@ -949,7 +1030,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "mode_normal", "mode_mini", "mode_dashboard",
                         "extra_mini", "customize_launcher",
                         "change_hotkey", "change_convert_hotkey", "quick_search",
-                        "clipboard_paused", "sensitive_filter")),
+                        "clipboard_paused", "sensitive_filter",
+                        "quick_slots_enabled", "quick_slots_paste_prefix_picker",
+                        "quick_slots_copy_prefix_picker")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,
@@ -984,7 +1067,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     folder_id = sf.add_folder(app.data["shortcut_folders"],
                                               "Network tools")
                     # Put the folder first, within the Mini viewport.
-                    # The factory shortcuts are now *inside* Ushpelo, so use
+                    # The factory shortcuts are now *inside* אושפלו, so use
                     # its root-row folder key instead of a nested link.
                     first_row = app.data["shortcut_folders"]["root"][0]
                     check(sf.move(app.data["shortcut_folders"],

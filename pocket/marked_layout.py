@@ -105,10 +105,14 @@ class WindowsMarkBackend:
         # Never send Ctrl+C while the original Ctrl+Alt+V is held.
         while time.monotonic() < deadline:
             if not any(self.user.GetAsyncKeyState(key) & 0x8000
-                       for key in (0x11, 0x12, 0x56, 0x10, 0x5B, 0x5C)):
+                       for key in (0x11, 0x12, 0x56, 0x10, 0x5B, 0x5C, *range(0x60, 0x6A))):
                 return True
             time.sleep(0.025)
         return False
+
+    def settle_hotkey_release(self):
+        """Let Ctrl+Win key-up events reach the focused app before Ctrl+C."""
+        time.sleep(0.10)
 
     @contextmanager
     def preserve_clipboard(self):

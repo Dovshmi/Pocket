@@ -68,7 +68,7 @@ class MiniLayoutTests(unittest.TestCase):
                           "convert_enabled": True, "clipboard_storage": "ram",
                           "clipboard_days": 1,
                           "clipboard_autodelete_days": 0,
-                          "clipboard_text_display_limit": 30,
+                          "clipboard_text_display_limit": 100,
                           "clipboard_db_image_display_limit": 30,
                           "clipboard_paused": False, "clipboard_sensitive_filter": True,
                           "clipboard_image_limit": 20})

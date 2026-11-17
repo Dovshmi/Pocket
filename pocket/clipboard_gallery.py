@@ -75,9 +75,11 @@ def build(app):
     description = ("LOCAL DATABASE · Saved on this PC" if stored
                    else "RAM only · Never saved to disk")
     if mini_mode:
+        # Save the old 12px heading gap for the history list.
+        header.pack_configure(pady=(0, 5))
         # Keep the sensitive-filter indicator visible without spending another
         # entire row on it. Avoid a long subtitle that would wrap in Mini.
-        description = (("LOCAL DATABASE" if stored else "RAM ONLY") +
+        description = (("LOCAL DB" if stored else "RAM") +
                        (" · Sensitive filter ON" if app.settings["clipboard_sensitive_filter"]
                         else " · Sensitive filter OFF"))
     header = app._section_title(

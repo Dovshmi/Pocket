@@ -6162,6 +6162,43 @@ class WindowsTray:
                         self.events.put(("convert_hotkey_conflict", None))
                 self._pending_convert_hotkey = None
                 return 0
+            if msg == self.WM_QUICK_SLOTS_CHANGE:
+                request = self._pending_quick_slots_config
+                self._pending_quick_slots_config = None
+                if request is None:
+                    return 0
+                enabled, prefix = request
+                if not enabled:
+                    for hotkey_id in self.quick_slot_hotkey_ids:
+                        user.UnregisterHotKey(hwnd, hotkey_id)
+                    self.quick_slot_hotkey_ids.clear()
+                    self.quick_slots_enabled = False
+                    self.quick_slots_prefix = prefix
+                    self.events.put(("quick_slots_config_changed", (False, prefix)))
+                    return 0
+                if (self.quick_slots_enabled and self.quick_slots_prefix == prefix
+                        and len(self.quick_slot_hotkey_ids) == 10):
+                    self.events.put(("quick_slots_config_changed", (True, prefix)))
+                    return 0
+                new_base = (quick_slots.ALTERNATE_HOTKEY_BASE
+                            if self.quick_slot_hotkey_base == quick_slots.PASTE_HOTKEY_BASE
+                            else quick_slots.PASTE_HOTKEY_BASE)
+                registered = quick_slots.register_all(
+                    user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                    prefix, base=new_base)
+                if not registered:
+                    # Old working keys stay registered; an unavailable
+                    # Win32 combination must never replace them.
+                    self.events.put(("quick_slots_config_conflict", None))
+                    return 0
+                for hotkey_id in self.quick_slot_hotkey_ids:
+                    user.UnregisterHotKey(hwnd, hotkey_id)
+                self.quick_slot_hotkey_ids = registered
+                self.quick_slot_hotkey_base = new_base
+                self.quick_slots_prefix = prefix
+                self.quick_slots_enabled = True
+                self.events.put(("quick_slots_config_changed", (True, prefix)))
+                return 0
             if msg == self.WM_HOTKEY:
                 # Only queue actions; Tkinter clipboard access is UI-thread only.
                 if int(wp) in self.hotkey_ids:
@@ -6225,9 +6262,13 @@ class WindowsTray:
                 if user.RegisterHotKey(hwnd, hotkey_id, mods, key):
                     self.convert_hotkey_ids.add(hotkey_id)
         self.quick_slot_hotkey_ids = set()
-        for hotkey_id, modifiers, key in quick_slots.slot_hotkeys():
-            if user.RegisterHotKey(hwnd, hotkey_id, modifiers, key):
-                self.quick_slot_hotkey_ids.add(hotkey_id)
+        if self.quick_slots_enabled:
+            self.quick_slot_hotkey_ids = quick_slots.register_all(
+                user.RegisterHotKey, user.UnregisterHotKey, hwnd,
+                self.quick_slots_prefix, base=self.quick_slot_hotkey_base)
+            if not self.quick_slot_hotkey_ids:
+                self.quick_slots_enabled = False
+                self.events.put(("quick_slots_hotkey_error", None))
         if self._pending_icon:
             user.PostMessageW(hwnd, self.WM_ICON_UPDATE, 0, 0)
         if not self.hotkey_ids:

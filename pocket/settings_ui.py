@@ -258,7 +258,8 @@ def _tools(parent, app, c, *, compact=False, wide=False):
 
 
 def _dropdown_field(parent, app, c, key, heading, detail,
-                    choices, selected, callback, *, compact=False):
+                    choices, selected, callback, *, compact=False,
+                    wheel_scroll_page=False):
     """Native themed readonly dropdown, uniform in Mini/Normal/Dashboard."""
     section = tk.Frame(parent, bg=c["PANEL"])
     section.pack(fill="x", padx=13, pady=(9, 11))
@@ -283,6 +284,15 @@ def _dropdown_field(parent, app, c, key, heading, detail,
         return "break"
 
     select.bind("<<ComboboxSelected>>", apply)
+    if wheel_scroll_page:
+        # Match the protected history-size selectors: the wheel scrolls the
+        # Settings canvas instead of changing a saved Combobox preference.
+        def scroll_page(event):
+            app._scroll_tool_on_wheel(event, from_picker=True)
+            return "break"
+
+        for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            select.bind(event_name, scroll_page)
     return _register(app, key, select)
 
 
@@ -293,7 +303,7 @@ def _convert_mode_picker(parent, app, c, *, compact=False):
         [("Mark — selected text", "mark"),
          ("Clipboard — copied text", "clipboard")],
         app.settings["convert_mode"], app._set_convert_mode,
-        compact=compact)
+        compact=compact, wheel_scroll_page=True)
 
 
 def _network_preferences(parent, app, c, *, compact=False, wide=False):

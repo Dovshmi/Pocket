@@ -951,6 +951,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                       "Backup dialog lost categories")
                                 check(not any("Quick Slots" == title for title in labels),
                                       "Quick Slots content must not be selectable")
+                                available = set(pb.available_export_categories(
+                                    app.data, commands_path=app.commands_file,
+                                    profile_dir=app.path.parent))
+                                for checkbox in (w for w in widgets(dialogs[0])
+                                                 if isinstance(w, tk.Checkbutton)):
+                                    key = next((k for k in pb.CATEGORIES
+                                                if pb.LABELS[k] == checkbox.cget("text")), None)
+                                    check(key is not None, "Unknown backup category")
+                                    enabled = key in available
+                                    check((checkbox.cget("state") == "normal") == enabled,
+                                          f"Create Backup: {key} availability mismatch")
+                                    check(bool(app.root.getvar(checkbox.cget("variable"))) == enabled,
+                                          f"Create Backup: {key} should start selected only if available")
                             cancel_buttons = [
                                 widget for widget in widgets(dialogs[0])
                                 if isinstance(widget, tk.Button)
@@ -961,6 +974,53 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                             app.root.update()
                             check(not app._modal and not dialogs[0].winfo_exists(),
                                   f"{mode}: {caption} dialog did not close cleanly")
+                    if mode == "normal":
+                        # Restore a deliberately partial ZIP: Notes must be
+                        # selected automatically; all missing groups disabled.
+                        from unittest.mock import patch
+                        from pocket import portable_backup as pb
+                        partial = Path(profile) / "pocket-notes-only.zip"
+                        pb.make_backup(partial, app.data, selected=("notes",),
+                                       profile_dir=app.path.parent)
+                        with patch("pocket.backup_ui.filedialog.askopenfilename",
+                                   return_value=str(partial)):
+                            common["restore_pocket_backup"].invoke()
+                        app.root.update()
+                        restored = [w for w in app.root.winfo_children()
+                                    if isinstance(w, tk.Toplevel)
+                                    and "Restore Backup" in w.title()]
+                        check(len(restored) == 1, "Restore dialog did not open")
+                        boxes = [w for w in widgets(restored[0])
+                                 if isinstance(w, tk.Checkbutton)]
+                        check(len(boxes) == len(pb.CATEGORIES),
+                              "Restore should show every category")
+                        for box in boxes:
+                            key = next(k for k in pb.CATEGORIES
+                                       if pb.LABELS[k] == box.cget("text"))
+                            available = key == "notes"
+                            check((box.cget("state") == "normal") == available,
+                                  f"Restore: missing {key} must be disabled")
+                            check(bool(app.root.getvar(box.cget("variable"))) == available,
+                                  f"Restore: {key} initial selection wrong")
+                        preview_boxes = [w for w in widgets(restored[0])
+                                         if isinstance(w, tk.Text)]
+                        check(len(preview_boxes) == 1 and
+                              "Notes and reminders" in
+                              preview_boxes[0].get("1.0", "end"),
+                              "Restore preview text must be readable")
+                        scrollbars = [w for w in widgets(restored[0])
+                                      if isinstance(w, tk.Scrollbar)]
+                        check(bool(scrollbars) and
+                              bool(preview_boxes[0].cget("yscrollcommand")),
+                              "Restore preview needs its own vertical scrollbar")
+                        cancel = [w for w in widgets(restored[0])
+                                  if isinstance(w, tk.Button)
+                                  and w.cget("text") == "Cancel"]
+                        check(len(cancel) == 1, "Restore cancel button missing")
+                        cancel[0].invoke()
+                        app.root.update()
+                        check(not app._modal and not restored[0].winfo_exists(),
+                              "Restore dialog did not close cleanly")
                     check(common["theme_blue"].winfo_exists() and
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")

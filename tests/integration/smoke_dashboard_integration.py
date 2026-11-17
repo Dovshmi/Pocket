@@ -1031,7 +1031,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "extra_mini", "customize_launcher",
                         "change_hotkey", "change_convert_hotkey", "quick_search",
                         "clipboard_paused", "sensitive_filter",
-                        "quick_slots_enabled", "quick_slots_prefix_picker")),
+                        "quick_slots_enabled", "quick_slots_paste_prefix_picker",
+                        "quick_slots_copy_prefix_picker")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,

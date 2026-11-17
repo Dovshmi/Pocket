@@ -17,13 +17,16 @@ restored_tab = app["restored_tab"]
 
 
 class FactoryDefaultsTests(unittest.TestCase):
-    def test_brand_new_profile_is_mini_with_two_links_inside_ushpelo(self):
+    def test_brand_new_profile_is_mini_with_two_links_inside_hebrew_folder(self):
         with tempfile.TemporaryDirectory() as tempdir:
             path = Path(tempdir) / "data.json"
             data = load_data(path)
             self.assertFalse(path.exists())
         self.assertEqual(data["settings"]["display_mode"], "mini")
         self.assertEqual(data["last_tab"], "notes")
+        self.assertEqual(len(data["notes"]), 1)
+        self.assertEqual(data["notes"][0]["title"], "הבחשט מתקרר")
+        self.assertEqual(data["notes"][0]["body"], "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר.")
         self.assertEqual(
             [(row["title"], row["url"], row["kind"]) for row in data["links"]],
             [
@@ -33,7 +36,7 @@ class FactoryDefaultsTests(unittest.TestCase):
         layout = data["shortcut_folders"]
         self.assertEqual(len(layout["folders"]), 1)
         folder = layout["folders"][0]
-        self.assertEqual(folder["title"], "Ushpelo")
+        self.assertEqual(folder["title"], "אושפלו")
         self.assertTrue(folder["expanded"])
         self.assertEqual(layout["root"], [shortcut_folders.folder_key(folder["id"])])
         self.assertEqual(layout["children"][folder["id"]],

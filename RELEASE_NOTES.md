@@ -21,18 +21,18 @@ This upcoming update groups the requested improvements together. It is not a pub
 ### Keyboard layout conversion
 
 - Factory keyboard repair hotkey changes from **Ctrl+Alt+F9** to **Ctrl+Alt+V**; unchanged former factory profiles are migrated.
-- Settings now offers a horizontal **Clipboard | Mark** selector, **Mark by default** for new profiles. Clipboard mode preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
+- Settings now offers a native dropdown for **Mark | Clipboard** selection, with **Mark by default** for new profiles. Clipboard mode preserves the previous behavior: convert existing clipboard text and leave it ready to paste.
 - Mark mode reads a *freshly copied selection* from the active Windows application and applies the same offline EN/HE physical-keyboard mapping before automatically pasting over the selection.
 - The Mark workflow checks focus/clipboard sequence changes, does not paste old clipboard text when nothing is selected, and attempts to restore all original clipboard formats using Windows OLE clipboard preservation. Mark does not work in every application; test in your editors before using on important unsaved text. No text is transmitted to the network.
 
 ### Clipboard RAM / local DATABASE (new in 1.37)
 
-- **Storage selector:** Clipboard now has a compact **RAM | DATABASE** control. RAM remains the default and behaves as before, with session-only text and 10–30 configurable screenshot slots. DATABASE is opt-in and local; it preserves copied content across restarts.
-- **Daily text files:** One UTF-8 TXT file per date, named with its creation timestamp and expiration date, containing structured readable JSON-line records. All accepted text clips from the day, including pins, remain accessible.
-- **Daily screenshot folders:** `ClipboardDatabase/ClipboardScreenshots/YYYY-MM-DD/` holds separate PNG files for all accepted screenshots captured on that date, not limited by the RAM-only 20-image default.
-- **One date selector per page:** Browse prior days in Text or Images. The next clipboard copy returns the corresponding page to Today, even for a repeated copy, while other dates remain available.
-- **Configurable retention:** Under **Clipboard & privacy**, keep 1–5 local calendar days (default 1); Pocket removes expired files and reflects the intended expiry in daily TXT filenames.
-- **Safe defaults:** Database history is never exported to DashDash or included in the app's release ZIP. RAM and DATABASE stores remain separate when changing modes. The local Database is **plaintext**, and sensitive-text filtering cannot guarantee secrets/screenshots are excluded; enable it only if permitted by local/workplace policy.
+- **Storage dropdown:** A compact Storage (RAM / DATABASE) dropdown shares a row with the date selector, freeing space in Mini. RAM remains the default with session-only text and configurable **10–100** screenshot slots (20 default). DATABASE is opt-in and preserves copied content across restarts.
+- **Append-only daily text journal:** One UTF-8 TXT file per date, named with its creation timestamp and expiry or `to_saved`, contains structured JSON lines. New copies append efficiently; pin/delete operations atomically rewrite the selected day without dropping entries on other pages.
+- **One screenshot folder:** `ClipboardDatabase/ClipboardScreenshots/` contains all date-prefixed PNG files (no per-day subfolders). Migration safely moves recognized old daily-folder PNGs without overwriting conflicts. Full-resolution PNG data is loaded only for thumbnails being drawn or for Copy/Preview; the on-screen item count does not limit disk storage.
+- **Compact date dropdown plus pagination:** Browse prior dates in Text or Images and load older pages using Prev/Next. Separate settings choose **10–100 text entries** and **10–100 screenshots** per page. The next clipboard copy returns the corresponding page to Today, even for repeated content.
+- **Optional cleanup:** Under **Clipboard & privacy**, auto-delete is **OFF by default** (history is retained until manually deleted). An explicit dropdown choice of **7 through 30 calendar days, in one-day increments**, deletes expired text and screenshots. Text filename expiry labels update accordingly; the former 1–5-day setting does not silently enable deletion.
+- **Safe defaults:** Database history is never exported to DashDash or included in the app's release ZIP. RAM and DATABASE stores remain separate when switching; only bounded pages are displayed in RAM. The local Database is **plaintext**, and sensitive-text filtering cannot guarantee secrets/screenshots are excluded; enable persistent history only where local/workplace policy permits it.
 
 ### Translate keyboard repair preferences
 

@@ -7,6 +7,7 @@ Dashboard uses independent two-column stacks. No new data or network I/O.
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 
 from . import icon_themes as themes
 from . import app_info
@@ -26,7 +27,7 @@ TOOL_HELP = {
     "mac": "Local IEEE vendor lookup",
     "commands": "CLI library and manual backups",
     "subnet": "IPv4 subnet calculator",
-    "clipboard": "Session-only clipboard history",
+    "clipboard": "RAM or optional local clipboard history",
 }
 TOOL_ICONS = {
     "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
@@ -256,42 +257,43 @@ def _tools(parent, app, c, *, compact=False, wide=False):
 
 
 
-def _convert_mode_picker(parent, app, c, *, compact=False):
-    """One horizontal, keyboard-focusable Clipboard / Mark mode selector."""
+def _dropdown_field(parent, app, c, key, heading, detail,
+                    choices, selected, callback, *, compact=False):
+    """Native themed readonly dropdown, uniform in Mini/Normal/Dashboard."""
     section = tk.Frame(parent, bg=c["PANEL"])
-    section.pack(fill="x", padx=13, pady=(9, 12))
-    _label(section, "Shortcut behavior", c, size=9, bold=True,
-           anchor="w").pack(fill="x", pady=(0, 4))
-    _label(section, "Clipboard: correct copied text. Mark: replace selected text.",
-           c, muted=True, size=8, anchor="w", justify="left",
-           wraplength=190 if compact else 350).pack(fill="x", pady=(0, 8))
-    bar = tk.Frame(section, bg=c["CARD"])
-    bar.pack(fill="x")
-    buttons = {}
+    section.pack(fill="x", padx=13, pady=(9, 11))
+    _label(section, heading, c, size=9, bold=True, anchor="w").pack(fill="x")
+    if detail:
+        _label(section, detail, c, size=8, muted=True, anchor="w",
+               justify="left", wraplength=190 if compact else 360).pack(
+                   fill="x", pady=(3, 7))
+    select = ttk.Combobox(section, style="Pocket.TCombobox",
+                          values=[label for label, _ in choices],
+                          state="readonly", width=23 if compact else 31,
+                          takefocus=True)
+    chosen = next((i for i, (_label, value) in enumerate(choices)
+                   if value == selected), 0)
+    select.current(chosen)
+    select.pack(fill="x", padx=(0, 2), pady=(0, 3))
 
-    def paint():
-        selected = app.settings["convert_mode"]
-        for mode, button in buttons.items():
-            current = mode == selected
-            button.configure(
-                text=("● " if current else "") + mode.title(),
-                bg=c["ACCENT_DARK"] if current else c["CARD"],
-                fg=c["WHITE"] if current else c["SECONDARY"],
-                highlightbackground=c["ACCENT"] if current else c["BORDER"])
+    def apply(_event=None):
+        index = select.current()
+        if 0 <= index < len(choices):
+            callback(choices[index][1])
+        return "break"
 
-    def choose(mode):
-        app._set_convert_mode(mode)
-        paint()
+    select.bind("<<ComboboxSelected>>", apply)
+    return _register(app, key, select)
 
-    for mode in ("clipboard", "mark"):
-        button = _button(bar, mode.title(),
-                         lambda chosen=mode: choose(chosen), c,
-                         compact=compact)
-        button.pack(side="left", fill="x", expand=True,
-                    padx=(0, 3) if mode == "clipboard" else (3, 0))
-        buttons[mode] = button
-        _register(app, "convert_mode_" + mode, button)
-    paint()
+
+def _convert_mode_picker(parent, app, c, *, compact=False):
+    return _dropdown_field(
+        parent, app, c, "convert_mode_picker", "Translate behavior",
+        "Mark replaces selected text; Clipboard corrects copied text.",
+        [("Mark — selected text", "mark"),
+         ("Clipboard — copied text", "clipboard")],
+        app.settings["convert_mode"], app._set_convert_mode,
+        compact=compact)
 
 
 def _network_preferences(parent, app, c, *, compact=False, wide=False):
@@ -325,94 +327,38 @@ def _shortcuts(parent, app, c, *, compact=False, wide=False):
 
 
 def _image_capacity(parent, app, c, *, compact=False, wide=False):
-    """RAM-only screenshot capacity; Database keeps all accepted images per day."""
-    from . import clipboard_images
-
-    section = tk.Frame(parent, bg=c["PANEL"])
-    section.pack(fill="x", padx=13, pady=(9, 12))
-    _label(section, "Image history capacity", c, size=9, bold=True,
-           anchor="w").pack(fill="x")
-    _label(section, "Screenshot capacity in RAM mode (database is day-based).",
-           c, muted=True, size=8, anchor="w", justify="left",
-           wraplength=190 if compact else 320
-           ).pack(fill="x", pady=(3, 8))
-
-    choices = tk.Frame(section, bg=c["PANEL"])
-    choices.pack(fill="x")
-    columns = 5 if wide else 2
-    buttons = {}
-
-    def paint():
-        current = app.settings["clipboard_image_limit"]
-        for count, control in buttons.items():
-            active = count == current
-            control.configure(
-                text=f"{count}  ✓" if active else str(count),
-                bg=c["ACCENT_DARK"] if active else c["CARD"],
-                fg=c["WHITE"] if active else c["SECONDARY"],
-                highlightbackground=c["ACCENT"] if active else c["BORDER"])
-
-    def select(count):
-        app._set_clipboard_image_limit(count)
-        paint()
-
-    for index, count in enumerate(clipboard_images.IMAGE_LIMIT_CHOICES):
-        col, row = index % columns, index // columns
-        choices.grid_columnconfigure(col, weight=1, uniform="image_limits")
-        control = _button(
-            choices, str(count), lambda amount=count: select(amount), c,
-            compact=compact)
-        control.grid(row=row, column=col, sticky="nsew",
-                     padx=(0, 5) if col < columns - 1 else 0, pady=(0, 5))
-        buttons[count] = control
-        _register(app, "image_limit_" + str(count), control)
-    paint()
-
-    _label(section,
-           "20 is the default · 30 is the maximum. "
-           "Lowering the RAM limit removes the oldest images immediately.",
-           c, muted=True, size=8, anchor="w", justify="left",
-           wraplength=190 if compact else 340
-           ).pack(fill="x", pady=(6, 0))
-
+    """Store limits in RAM, *show* limits on disk: three independent dropdowns."""
+    options = [(f"{count} items", count) for count in range(10, 101, 10)]
+    _dropdown_field(
+        parent, app, c, "ram_image_limit", "RAM — stored screenshots",
+        "Maximum kept in memory. Older RAM screenshots are discarded.",
+        options, app.settings["clipboard_image_limit"],
+        app._set_clipboard_image_limit, compact=compact)
+    _dropdown_field(
+        parent, app, c, "db_image_display_limit", "DATABASE — screenshots shown",
+        "Only this many thumbnails load per page; all others stay on disk.",
+        options, app.settings["clipboard_db_image_display_limit"],
+        lambda v: app._set_clipboard_display_limit("images", v),
+        compact=compact)
+    _dropdown_field(
+        parent, app, c, "db_text_display_limit", "DATABASE — text entries shown",
+        "Only this many entries appear per page; all are saved by day.",
+        options, app.settings["clipboard_text_display_limit"],
+        lambda v: app._set_clipboard_display_limit("text", v),
+        compact=compact)
 
 
 def _database_days_picker(parent, app, c, *, compact=False):
-    """Retention selects 1–5 calendar days; affects local text and PNG files."""
-    box = tk.Frame(parent, bg=c["PANEL"])
-    box.pack(fill="x", padx=13, pady=(10, 12))
-    _label(box, "Database history retention", c, bold=True,
-           size=9, anchor="w").pack(fill="x")
-    _label(box, "Keep the current day and up to four previous days. "
-           "Expired local files are deleted automatically.",
-           c, size=8, muted=True, anchor="w", justify="left",
-           wraplength=190 if compact else 360).pack(fill="x", pady=(4, 8))
-    buttons = {}
-    row = tk.Frame(box, bg=c["PANEL"])
-    row.pack(fill="x")
-
-    def paint():
-        for days, button in buttons.items():
-            active = app.settings["clipboard_days"] == days
-            button.configure(
-                text=f"{days}d ✓" if active else f"{days}d",
-                bg=c["ACCENT_DARK"] if active else c["CARD"],
-                fg=c["WHITE"] if active else c["SECONDARY"],
-                highlightbackground=c["ACCENT"] if active else c["BORDER"])
-
-    def choose(days):
-        app._set_clipboard_days(days)
-        paint()
-
-    for days in (1, 2, 3, 4, 5):
-        button = _button(row, f"{days}d",
-                         lambda value=days: choose(value), c, compact=compact)
-        button.pack(side="left", fill="x", expand=True,
-                    padx=(0, 3) if days != 5 else 0)
-        buttons[days] = button
-        _register(app, "clipboard_days_" + str(days), button)
-    paint()
-
+    """Safe default: do not delete personal data unless user opts in."""
+    options = [("Off — keep history until manually deleted", 0)]
+    options.extend((f"Delete after {day} days", day) for day in range(7, 31))
+    return _dropdown_field(
+        parent, app, c, "clipboard_retention",
+        "Automatic history cleanup", 
+        "Optional 7–30 calendar days, applies to text AND screenshots. "
+        "OFF keeps all days; enabling deletion permanently removes expired Pocket files.",
+        options, app.settings["clipboard_autodelete_days"],
+        app._set_clipboard_autodelete_days, compact=compact)
 
 
 def _privacy(parent, app, c, *, compact=False, wide=False):
@@ -442,10 +388,10 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             "Edit", app._open_convert_hotkey_picker, compact=compact)
     _convert_mode_picker(card, app, c, compact=compact)
     _divider(card, c)
-    _label(card, "RAM never writes Clipboard history to disk. DATABASE saves text and "
-           "screenshots in local daily folders and deletes expired days. "
-           "The sensitive-text filter is heuristic, not a guarantee. "
-           "Use DATABASE only if local storage is appropriate for your work.",
+    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
+           "TXT files and screenshots in one dated PNG folder. Auto-delete "
+           "is OFF by default; enable 7–30-day cleanup if you choose. "
+           "The sensitive-text filter is heuristic and does not guarantee privacy.",
            c, size=8, muted=True, justify="left", anchor="w",
            wraplength=210 if compact else 350
            ).pack(fill="x", padx=13, pady=(10, 13))

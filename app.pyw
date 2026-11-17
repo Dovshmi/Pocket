@@ -170,8 +170,28 @@ def new_link(title, url, kind="url") -> dict:
     return {"id": new_id(), "title": title, "url": url, "kind": kind}
 
 
+# Only migrate the untouched factory note; never overwrite an edited note.
+_OLD_STARTER_TITLE = "הבחשט מתקרר"
+_OLD_STARTER_BODY = "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר."
+STARTER_NOTE_TITLE = "הבאכש מתקרר"
+STARTER_NOTE_BODY = "תקלה באיזור בוכרה, הכל תקין אבל החינקלי כבר קר!!!!!"
+
+
+def update_untouched_starter_note(notes) -> bool:
+    """Refresh the first legacy factory note without altering personal notes."""
+    if not notes:
+        return False
+    first = notes[0]
+    if (first.get("title") == _OLD_STARTER_TITLE
+            and first.get("body") == _OLD_STARTER_BODY):
+        first["title"] = STARTER_NOTE_TITLE
+        first["body"] = STARTER_NOTE_BODY
+        return True
+    return False
+
+
 def default_data() -> dict:
-    n = new_note("הבחשט מתקרר", "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר.")
+    n = new_note(STARTER_NOTE_TITLE, STARTER_NOTE_BODY)
     n["direction"] = "rtl"
     # Factory shortcuts are seeded only for profiles without a data.json.
     # Never add/recreate these entries when loading an existing user profile.
@@ -327,8 +347,9 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
             note["pinned"] = note.get("pinned") is True
             note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
+        update_untouched_starter_note(notes)
         for link in links:
-            if link.get("kind") not in shortcuts.VALID_KINDS:
+            if link.get("kind") not in shortcuts.VALID_KIN:
                 link["kind"] = "url"
         if not notes:
             notes = [new_note()]

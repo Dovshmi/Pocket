@@ -7,11 +7,24 @@ from __future__ import annotations
 
 SLOT_NUMBERS = tuple(range(1, 10))
 MAX_TEXT_LENGTH = 20_000
+# A single chord covers Numpad0 (arm) and Numpad1–9 (paste/save).
+# Shift is deliberately absent: Shift changes the virtual key reported by
+# some numeric keypads into a navigation key. Alt-only triggers Windows Alt
+# codes; the selection below avoids it.
+DEFAULT_PREFIX = "ctrl_alt"
+PREFIX_CHOICES = (
+    ("Ctrl+Alt", "ctrl_alt"),
+    ("Ctrl", "ctrl"),
+    ("Ctrl+Win", "ctrl_win"),
+    ("Ctrl+Alt+Win", "ctrl_alt_win"),
+)
 PASTE_HOTKEY_BASE = 0xB60
-SAVE_HOTKEY_BASE = 0xB70
+ALTERNATE_HOTKEY_BASE = 0xB80
+SAVE_MODE_SECONDS = 5
 MOD_ALT = 0x0001
 MOD_CTRL = 0x0002
 MOD_SHIFT = 0x0004
+MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000
 
 
@@ -28,22 +41,53 @@ def normalize_slots(raw):
             if valid_text(raw.get(str(number)))}
 
 
-def slot_hotkeys():
-    """Separate Ctrl+Alt+NumpadN paste and Ctrl+Alt+Shift+NumpadN save."""
+def normalize_prefix(value):
+    """Reject unsupported combinations (including Shift and Alt-only)."""
+    return value if value in {identifier for _, identifier in PREFIX_CHOICES} else DEFAULT_PREFIX
+
+
+def prefix_label(value):
+    chosen = normalize_prefix(value)
+    return next(label for label, identifier in PREFIX_CHOICES if identifier == chosen)
+
+
+def modifier_flags(value):
+    value = normalize_prefix(value)
+    mapping = {
+        "ctrl_alt": MOD_CTRL | MOD_ALT,
+        "ctrl": MOD_CTRL,
+        "ctrl_win": MOD_CTRL | MOD_WIN,
+        "ctrl_alt_win": MOD_CTRL | MOD_ALT | MOD_WIN,
+    }
+    return mapping[value] | MOD_NOREPEAT
+
+
+def slot_hotkeys(prefix=DEFAULT_PREFIX, *, base=PASTE_HOTKEY_BASE):
+    """Ten registrations: Numpad0 arms Save; Numpad1..9 select the slot.
+
+    Numpad numbers are fixed. Only the modifier prefix is customizable.
+    All bindings have an identical prefix and use VK_NUMPADN, not top-row N.
+    """
+    modifiers = modifier_flags(prefix)
     for number in SLOT_NUMBERS:
-        key = 0x60 + number  # VK_NUMPAD1..9, not top-row digit keys.
-        yield (PASTE_HOTKEY_BASE + number - 1,
-               MOD_CTRL | MOD_ALT | MOD_NOREPEAT, key)
-        yield (SAVE_HOTKEY_BASE + number - 1,
-               MOD_CTRL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, key)
+        yield (base + number - 1, modifiers, 0x60 + number)
+    yield (base + 9, modifiers, 0x60)  # VK_NUMPAD0: one-shot Save Mode
 
 
-def hotkey_action(hotkey_id):
-    if PASTE_HOTKEY_BASE <= hotkey_id < PASTE_HOTKEY_BASE + 9:
-        return ("paste", hotkey_id - PASTE_HOTKEY_BASE + 1)
-    if SAVE_HOTKEY_BASE <= hotkey_id < SAVE_HOTKEY_BASE + 9:
-        return ("save", hotkey_id - SAVE_HOTKEY_BASE + 1)
+def hotkey_action(hotkey_id, *, base=PASTE_HOTKEY_BASE):
+    offset = hotkey_id - base
+    if 0 <= offset <= 8:
+        return ("slot", offset + 1)
+    if offset == 9:
+        return ("mode", 0)
     return None
+
+
+def slot_action(number, *, armed_until=0.0, now=0.0):
+    """Decide between save and paste without querying the keyboard."""
+    if number not in SLOT_NUMBERS:
+        return None
+    return "save" if armed_until > now else "paste"
 
 
 def merged_rows(slots, history, query=""):

@@ -18,8 +18,10 @@ def _dialog(app, title, *, height=590):
     window.title("Pocket · " + title)
     window.configure(bg=c["BG"])
     window.resizable(True, True)
-    x = app.root.winfo_rootx() + 20
-    y = max(12, app.root.winfo_rooty() + 30)
+    x = max(12, min(app.root.winfo_rootx() + 20,
+                    app.root.winfo_screenwidth() - 545))
+    y = max(12, min(app.root.winfo_rooty() + 30,
+                    app.root.winfo_screenheight() - height - 65))
     window.geometry(f"525x{height}+{x}+{y}")
     window.transient(app.root)
     app._modal = True

@@ -31,9 +31,15 @@ def capture_while_ui_pumps(root, target_hwnd, *, timeout=5.0):
     thread = threading.Thread(target=worker, daemon=True)
     thread.start()
     end = time.monotonic() + timeout
-    while not finished.is_set() and time.monotonic() < end:
-        root.update()
-        time.sleep(.012)
+    def poll():
+        if finished.is_set() or time.monotonic() >= end:
+            root.quit()
+        else:
+            root.after(15, poll)
+    root.after(15, poll)
+    # Tk clipboard formats can be rendered lazily from this UI thread.
+    # A real mainloop is required; repeated update() alone is insufficient.
+    root.mainloop()
     if not finished.is_set():
         raise AssertionError("Timed out waiting for Quick Slot selection capture")
     if "error" in answer:

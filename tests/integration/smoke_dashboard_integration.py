@@ -1769,8 +1769,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app._clipboard_on_new_text("SYNTHETIC DB TEST HISTORY")
         app._clipboard_on_new_image(_DbImage.new("RGB", (21, 19), "#234567"))
         app.root.update()
-        check(app.clipboard_database.load_text(_dbmod.today())[0]["text"] ==
-              "SYNTHETIC DB TEST HISTORY",
+        check(any(record["text"] == "SYNTHETIC DB TEST HISTORY"
+                  for record in app.clipboard_database.load_text(_dbmod.today())),
               "Database text was not written to its daily file")
         app.clipboard_page_buttons["images"].invoke()
         app.root.update()

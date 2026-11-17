@@ -388,7 +388,11 @@ def refresh_history_selector(app):
         page, days=app.settings["clipboard_autodelete_days"])
     if today not in dates:
         dates.insert(0, today)
-    values = [("Today · " + date if date == today else date) for date in dates]
+    # Mini has two dropdowns on the same line; show the full ISO date rather
+    # than clipping "Today · YYYY-MM-DD" inside a narrow combobox.
+    mini = app.display_mode == "mini"
+    values = [(date if mini else ("Today · " + date if date == today else date))
+              for date in dates]
     selector = app.clipboard_day_select
     selector["values"] = values
     selected = app._clipboard_view_days.get(page, today)
@@ -396,7 +400,7 @@ def refresh_history_selector(app):
         selected = today
         app._clipboard_view_days[page] = today
         app._clipboard_load_day(page, today)
-    selector.set("Today · " + selected if selected == today else selected)
+    selector.set(selected if mini else ("Today · " + selected if selected == today else selected))
     if hasattr(app, "clipboard_clear_button") and app.clipboard_clear_button:
         app.clipboard_clear_button.configure(
             text="Clear day images" if page == "images" else "Clear day text")

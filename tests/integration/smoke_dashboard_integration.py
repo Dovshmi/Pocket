@@ -910,6 +910,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
                                 "convert_enabled", "convert_mode_picker",
+                                "quick_slots_enabled", "quick_slots_prefix_picker",
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
@@ -950,7 +951,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # changes; other keyboard/dropdown actions still work.
                     history_keys = ("ram_image_limit", "db_image_display_limit",
                                     "db_text_display_limit", "clipboard_retention",
-                                    "convert_mode_picker")
+                                    "convert_mode_picker", "quick_slots_prefix_picker")
                     for key in history_keys:
                         combo = common[key]
                         initial = combo.get()
@@ -965,6 +966,39 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(tuple(common["convert_mode_picker"]["values"]) ==
                           ("Mark — selected text", "Clipboard — copied text"),
                           f"{mode}: Translate behavior options changed")
+                    check(tuple(common["quick_slots_prefix_picker"]["values"]) ==
+                          ("Ctrl+Alt", "Ctrl", "Ctrl+Win", "Ctrl+Alt+Win"),
+                          f"{mode}: Quick Slots must only change modifiers")
+                    check(app.settings["quick_slots_enabled"],
+                          f"{mode}: Quick Slots default should be ON")
+                    retained = dict(app.clipboard_slots)
+                    common["quick_slots_enabled"].invoke()
+                    app.root.update()
+                    check(not app.settings["quick_slots_enabled"],
+                          f"{mode}: disabling Quick Slots failed")
+                    check(app.clipboard_slots == retained,
+                          f"{mode}: disabling Quick Slots erased stored entries")
+                    disabled_menu = clipboard_gallery.build_text_context_menu(
+                        app, menu_colors, {"text": "8.8.8.8", "pinned": False})
+                    check("Assign to Quick Slot" not in menu_labels(disabled_menu),
+                          f"{mode}: disabled Quick Slots action still visible")
+                    disabled_menu.destroy()
+                    app.settings_controls["quick_slots_enabled"].invoke()
+                    app.root.update()
+                    check(app.settings["quick_slots_enabled"],
+                          f"{mode}: re-enabling Quick Slots failed")
+                    prefix_picker = app.settings_controls["quick_slots_prefix_picker"]
+                    prefix_picker.set("Ctrl")
+                    prefix_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_prefix"] == "ctrl",
+                          f"{mode}: Quick Slots modifier change did not apply")
+                    prefix_picker = app.settings_controls["quick_slots_prefix_picker"]
+                    prefix_picker.set("Ctrl+Alt")
+                    prefix_picker.event_generate("<<ComboboxSelected>>")
+                    app.root.update()
+                    check(app.settings["quick_slots_prefix"] == "ctrl_alt",
+                          f"{mode}: Quick Slots default modifier was not restored")
                 if page == "settings":
                     check(app.settings_footer_author.winfo_exists() and
                           app.settings_footer_author.cget("text") ==
@@ -980,7 +1014,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "mode_normal", "mode_mini", "mode_dashboard",
                         "extra_mini", "customize_launcher",
                         "change_hotkey", "change_convert_hotkey", "quick_search",
-                        "clipboard_paused", "sensitive_filter")),
+                        "clipboard_paused", "sensitive_filter",
+                        "quick_slots_enabled", "quick_slots_prefix_picker")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,

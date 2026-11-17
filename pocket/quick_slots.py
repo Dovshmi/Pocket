@@ -74,6 +74,18 @@ def slot_hotkeys(prefix=DEFAULT_PREFIX, *, base=PASTE_HOTKEY_BASE):
     yield (base + 9, modifiers, 0x60)  # VK_NUMPAD0: one-shot Save Mode
 
 
+def register_all(register, unregister, hwnd, prefix, *, base=PASTE_HOTKEY_BASE):
+    """All-or-none registration; never leave an unusable partial keypad."""
+    registered = set()
+    for hotkey_id, modifiers, key in slot_hotkeys(prefix, base=base):
+        if not register(hwnd, hotkey_id, modifiers, key):
+            for earlier in registered:
+                unregister(hwnd, earlier)
+            return set()
+        registered.add(hotkey_id)
+    return registered
+
+
 def hotkey_action(hotkey_id, *, base=PASTE_HOTKEY_BASE):
     offset = hotkey_id - base
     if 0 <= offset <= 8:

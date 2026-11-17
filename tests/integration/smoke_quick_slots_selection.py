@@ -17,13 +17,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from pocket import quick_slots
 
 
-def capture_while_ui_pumps(root, *, timeout=5.0):
+def capture_while_ui_pumps(root, target_hwnd, *, timeout=5.0):
     finished = threading.Event()
     answer = {}
     def worker():
         try:
             answer["value"] = quick_slots.capture_selection_or_clipboard(
-                target_hwnd=root.winfo_id(), owner_hwnd=root.winfo_id())
+                target_hwnd=target_hwnd, owner_hwnd=root.winfo_id())
         except Exception as exc:
             answer["error"] = str(exc)
         finally:
@@ -60,8 +60,15 @@ def run():
         root.update()
         user = ctypes.WinDLL("user32", use_last_error=True)
         user.GetForegroundWindow.restype = ctypes.c_void_p
+        user.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        user.GetAncestor.restype = ctypes.c_void_p
+        user.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+        user.SetForegroundWindow.restype = ctypes.c_int
+        target_hwnd = user.GetAncestor(root.winfo_id(), 2)  # GA_ROOT
+        user.SetForegroundWindow(target_hwnd)
+        root.update()
         foreground = user.GetForegroundWindow()
-        assert foreground == root.winfo_id(), (foreground, root.winfo_id())
+        assert foreground == target_hwnd, (foreground, target_hwnd, root.winfo_id())
 
         root.clipboard_clear()
         root.clipboard_append("PREVIOUS_CLIPBOARD")
@@ -72,14 +79,14 @@ def run():
         entry.focus_force()
         root.update()
         assert entry.selection_present(), "Entry must have active selection"
-        captured = capture_while_ui_pumps(root)
+        captured = capture_while_ui_pumps(root, target_hwnd)
         assert captured == "POCKET_SELECTED_TEXT_1942", (captured, "selected")
         assert root.clipboard_get() == "PREVIOUS_CLIPBOARD"
         print("PASS: selected text copied through SendInput Ctrl+C and clipboard restored")
 
         entry.selection_clear()
         root.update()
-        captured = capture_while_ui_pumps(root)
+        captured = capture_while_ui_pumps(root, target_hwnd)
         assert captured == "PREVIOUS_CLIPBOARD", (captured, "fallback")
         print("PASS: without selection, original clipboard remains the fallback")
     finally:

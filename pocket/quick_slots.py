@@ -49,6 +49,16 @@ def normalize_prefix(value, *, default=DEFAULT_PASTE_PREFIX):
     return value if isinstance(value, str) and value in allowed else default
 
 
+def normalized_prefix_pair(paste, copy):
+    """Migrate old profiles without accidentally assigning both actions one key."""
+    paste = normalize_prefix(paste, default=DEFAULT_PASTE_PREFIX)
+    copy = normalize_prefix(copy, default=DEFAULT_COPY_PREFIX)
+    if copy == paste:
+        copy = (DEFAULT_PASTE_PREFIX if paste != DEFAULT_PASTE_PREFIX
+                else DEFAULT_COPY_PREFIX)
+    return paste, copy
+
+
 def prefix_label(value):
     chosen = normalize_prefix(value)
     return next(label for label, identifier in PREFIX_CHOICES if identifier == chosen)

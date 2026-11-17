@@ -36,7 +36,8 @@ class DailyArchiveUpgradeTests(unittest.TestCase):
             self.assertEqual([x["text"] for x in page1],
                              [f"message {n}" for n in range(109, 99, -1)])
             self.assertEqual(page2[0]["text"], "message 99")
-            self.assertEqual(db.last_text(day)["text"], "message 109")
+            with patch.object(db, "load_text", side_effect=AssertionError("full read")):
+                self.assertEqual(db.last_text(day)["text"], "message 109")
             db.prune(days=0, on="2027-01-17")
             self.assertTrue(path.exists())
             self.assertEqual(len(db.load_text(day)), 110)

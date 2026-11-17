@@ -18,11 +18,14 @@ def _dialog(app, title, *, height=590):
     window.title("Pocket · " + title)
     window.configure(bg=c["BG"])
     window.resizable(True, True)
-    x = max(12, min(app.root.winfo_rootx() + 20,
-                    app.root.winfo_screenwidth() - 545))
-    y = max(12, min(app.root.winfo_rooty() + 30,
-                    app.root.winfo_screenheight() - height - 65))
-    window.geometry(f"525x{height}+{x}+{y}")
+    # Fit on smaller work laptops, retaining enough vertical room for actions.
+    screen_w = app.root.winfo_screenwidth()
+    screen_h = app.root.winfo_screenheight()
+    width = min(525, max(400, screen_w - 35))
+    height = min(height, max(450, screen_h - 80))
+    x = max(12, min(app.root.winfo_rootx() + 20, screen_w - width - 15))
+    y = max(12, min(app.root.winfo_rooty() + 30, screen_h - height - 45))
+    window.geometry(f"{width}x{height}+{x}+{y}")
     window.transient(app.root)
     app._modal = True
     def close():
@@ -47,29 +50,38 @@ def _title(window, name, detail, c):
              justify="left", anchor="w").pack(fill="x", padx=19, pady=(0, 13))
 
 
-def _categories(window, c, choices, initial, callback):
+def _categories(window, c, choices, initial, callback, *, available=None):
+    """Show every category; missing/empty groups remain visible but disabled."""
+    available = set(choices if available is None else available)
     options = {}
     area = tk.Frame(window, bg=c["PANEL"])
-    area.pack(fill="both", padx=16, pady=(0, 10), expand=True)
+    area.pack(fill="both", padx=16, pady=(0, 7), expand=True)
     for key in choices:
-        value = tk.BooleanVar(value=key in initial)
+        enabled = key in available
+        value = tk.BooleanVar(value=enabled and key in initial)
         options[key] = value
         check = tk.Checkbutton(
             area, variable=value, text=pb.LABELS[key], command=callback,
-            anchor="w", bg=c["PANEL"], fg=c["WHITE"], selectcolor=c["INPUT"],
+            anchor="w", bg=c["PANEL"], fg=c["WHITE"],
+            disabledforeground=c["MUTED"], selectcolor=c["INPUT"],
             activeforeground=c["ACCENT"], activebackground=c["PANEL"],
-            font=("Segoe UI", 9), padx=13, pady=5)
+            state="normal" if enabled else "disabled",
+            font=("Segoe UI", 9), padx=13, pady=4)
         check.pack(fill="x")
     def set_all(selected):
-        for flag in options.values():
-            flag.set(selected)
+        for key, flag in options.items():
+            flag.set(bool(selected and key in available))
         callback()
     toggles = tk.Frame(window, bg=c["BG"])
-    toggles.pack(fill="x", padx=19, pady=(0, 9))
-    tk.Button(toggles, text="Select all", command=lambda: set_all(True),
+    toggles.pack(fill="x", padx=19, pady=(0, 7))
+    tk.Button(toggles, text="Select available",
+              command=lambda: set_all(True),
               bg=c["CARD"], fg=c["WHITE"], relief="flat").pack(side="left")
     tk.Button(toggles, text="Clear", command=lambda: set_all(False),
               bg=c["CARD"], fg=c["WHITE"], relief="flat").pack(side="left", padx=7)
+    tk.Label(toggles, text="Dimmed = unavailable", bg=c["BG"],
+             fg=c["MUTED"], font=("Segoe UI", 8)
+             ).pack(side="right")
     return options
 
 
@@ -89,9 +101,11 @@ def create_backup(app):
     _title(window, "Create Backup",
            "Choose only what to transfer. Quick Slot contents and shortcuts "
            "are NEVER included. Clipboard RAM history cannot be backed up.", c)
-    initial = [key for key in pb.RECOMMENDED
-               if key != "cli" or app.commands_file]
-    options = _categories(window, c, pb.CATEGORIES, initial, lambda: None)
+    available = pb.available_export_categories(
+        app.data, commands_path=app.commands_file,
+        profile_dir=app.path.parent)
+    options = _categories(window, c, pb.CATEGORIES, available,
+                          lambda: None, available=available)
     tk.Label(window, text="The ZIP is local and NOT encrypted. "
              "CLI commands and clipboard history may contain sensitive data.",
              bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8),
@@ -141,17 +155,16 @@ def restore_backup(app):
     except (OSError, ValueError, TypeError) as exc:
         messagebox.showerror("Invalid backup", str(exc), parent=app.root)
         return
-    window, close, c = _dialog(app, "Restore Backup", height=650)
+    window, close, c = _dialog(app, "Restore Backup", height=755)
     _title(window, "Restore Backup",
            "Choose categories and preview their changes. Merge keeps local "
            "items when IDs conflict; Replace overwrites only selected categories. "
            "Restoring Settings applies their selected values in either mode.", c)
-    available = bundle["manifest"]["categories"]
-    initial = [x for x in available if x in pb.RECOMMENDED]
-    if not initial:
-        initial = available
-    message = tk.StringVar(value="")
+    available = pb.available_restore_categories(
+        bundle, commands_path=app.commands_file)
     method = tk.StringVar(value="merge")
+    # Every restorable category is checked on entry, including Clipboard.
+    # Missing groups stay visible but cannot be selected.
 
     def chosen():
         return [key for key, value in options.items() if value.get()]
@@ -159,7 +172,7 @@ def restore_backup(app):
     def preview():
         selected = chosen()
         if not selected:
-            message.set("Select at least one category.")
+            display_preview("Select at least one available category.")
             return
         try:
             current_commands = (cs.read_document(app.commands_file)
@@ -170,11 +183,12 @@ def restore_backup(app):
             for group, counts in plan["report"].items():
                 summary = ", ".join(f"{key}: {value}" for key, value in counts.items())
                 parts.append(f"{pb.LABELS[group]} — {summary}")
-            message.set("\n".join(parts))
+            display_preview("\n".join(parts))
         except (ValueError, TypeError, OSError) as exc:
-            message.set("Cannot preview this selection: " + str(exc))
+            display_preview("Cannot preview this selection: " + str(exc))
 
-    options = _categories(window, c, available, initial, preview)
+    options = _categories(window, c, pb.CATEGORIES, available, preview,
+                          available=available)
     choice = tk.Frame(window, bg=c["BG"])
     choice.pack(fill="x", padx=19, pady=(0, 8))
     for value, text in (("merge", "Merge · keep existing conflicts"),
@@ -183,10 +197,30 @@ def restore_backup(app):
                        command=preview, bg=c["BG"], fg=c["WHITE"],
                        selectcolor=c["INPUT"], activebackground=c["BG"],
                        activeforeground=c["WHITE"]).pack(anchor="w")
-    tk.Label(window, textvariable=message, fg=c["MUTED"], bg=c["PANEL"],
-             font=("Segoe UI", 8), wraplength=462, justify="left",
-             anchor="nw", padx=9, pady=7, height=5
-             ).pack(fill="x", padx=19, pady=(0, 10))
+    tk.Label(window, text="RESTORE PREVIEW  ·  scroll to review all categories",
+             bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8),
+             anchor="w").pack(fill="x", padx=19, pady=(0, 4))
+    preview_panel = tk.Frame(window, bg=c["PANEL"], height=127)
+    preview_panel.pack(fill="x", padx=16, pady=(0, 7))
+    preview_panel.pack_propagate(False)
+    scrollbar = tk.Scrollbar(preview_panel, orient="vertical",
+                             bg=c["CARD"], troughcolor=c["PANEL"])
+    scrollbar.pack(side="right", fill="y")
+    preview_text = tk.Text(
+        preview_panel, wrap="word", height=6, width=1,
+        bg=c["PANEL"], fg=c["SECONDARY"], relief="flat",
+        bd=0, padx=9, pady=7, highlightthickness=0,
+        font=("Segoe UI", 9), cursor="arrow", state="disabled",
+        yscrollcommand=scrollbar.set)
+    preview_text.pack(side="left", fill="both", expand=True)
+    scrollbar.configure(command=preview_text.yview)
+    def display_preview(content):
+        preview_text.configure(state="normal")
+        preview_text.delete("1.0", "end")
+        preview_text.insert("1.0", content)
+        preview_text.configure(state="disabled")
+        preview_text.yview_moveto(0)
+
     tk.Label(window, text="A recovery ZIP is saved before changing local data. "
              "Quick Slots remain local and unchanged. Reopen Pocket afterward.",
              fg=c["MUTED"], bg=c["BG"], font=("Segoe UI", 8),

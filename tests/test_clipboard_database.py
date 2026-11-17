@@ -28,7 +28,7 @@ class ClipboardDatabaseTests(unittest.TestCase):
             self.assertEqual(clipdb.normalize_days(invalid), 1)
         self.assertEqual(clipdb.normalize_days(5), 5)
         self.assertEqual(normalized["clipboard_autodelete_days"], 0)
-        self.assertEqual(normalized["clipboard_text_display_limit"], 30)
+        self.assertEqual(normalized["clipboard_text_display_limit"], 100)
         self.assertEqual(normalized["clipboard_db_image_display_limit"], 30)
         self.assertEqual(clipdb.normalize_autodelete_days(7), 7)
         self.assertEqual(clipdb.normalize_autodelete_days(30), 30)

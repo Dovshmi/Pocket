@@ -53,12 +53,35 @@ def _action(parent, title, callback, colors):
         takefocus=True)
 
 
+def _mini_pause_button(parent, app, colors):
+    """Accessible, single-line capture control sized for the Mini workspace."""
+    paused = app.settings["clipboard_paused"]
+    return tk.Button(
+        parent, text="Resume" if paused else "Pause",
+        command=app._toggle_clipboard_pause,
+        bg=colors["ACCENT_DARK"] if paused else colors["CARD"],
+        fg=colors["WHITE"] if paused else colors["SECONDARY"],
+        activebackground=colors["CARD_HOVER"],
+        activeforeground=colors["WHITE"], relief="flat", bd=0,
+        highlightthickness=1, highlightbackground=colors["BORDER"],
+        cursor="hand2", takefocus=True, font=("Segoe UI", 8, "bold"),
+        padx=6, pady=2)
+
+
 def build(app):
     c = themes.palette(app.theme)
     stored = app.settings.get("clipboard_storage") == "database"
+    mini_mode = app.display_mode == "mini"
+    description = ("LOCAL DATABASE · Saved on this PC" if stored
+                   else "RAM only · Never saved to disk")
+    if mini_mode:
+        # Keep the sensitive-filter indicator visible without spending another
+        # entire row on it. Avoid a long subtitle that would wrap in Mini.
+        description = (("LOCAL DATABASE" if stored else "RAM ONLY") +
+                       (" · Sensitive filter ON" if app.settings["clipboard_sensitive_filter"]
+                        else " · Sensitive filter OFF"))
     header = app._section_title(
-        app.body, "Clipboard history",
-        "LOCAL DATABASE · Saved on this PC" if stored else "RAM only · Never saved to disk",
+        app.body, "Clipboard history", description,
         "Clear text", app._clear_clipboard)
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
@@ -66,11 +89,12 @@ def build(app):
     # Place both native dropdowns on ONE compact row, including in Mini mode.
     # The date picker is intentionally hidden while RAM-only mode is selected.
     controls = tk.Frame(app.body, bg=c["BG"])
-    controls.pack(fill="x", pady=(2, 5))
+    controls.pack(fill="x", pady=(0, 2) if mini_mode else (2, 5))
     left = tk.Frame(controls, bg=c["BG"])
     left.pack(side="left", padx=(0, 6))
-    tk.Label(left, text="Storage", bg=c["BG"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8)).pack(side="left", padx=(0, 4))
+    if not mini_mode:
+        tk.Label(left, text="Storage", bg=c["BG"], fg=c["SECONDARY"],
+                 font=("Segoe UI", 8)).pack(side="left", padx=(0, 4))
     app.clipboard_storage_select = ttk.Combobox(
         left, style="Pocket.TCombobox", state="readonly",
         values=("RAM", "DATABASE"), width=9, takefocus=True)
@@ -85,9 +109,10 @@ def build(app):
     app.clipboard_storage_select.bind("<<ComboboxSelected>>", select_storage)
 
     app.clipboard_history_row = tk.Frame(controls, bg=c["BG"])
-    tk.Label(app.clipboard_history_row, text="Date", bg=c["BG"],
-             fg=c["SECONDARY"], font=("Segoe UI", 8)).pack(
-                 side="left", padx=(0, 4))
+    if not mini_mode:
+        tk.Label(app.clipboard_history_row, text="Date", bg=c["BG"],
+                 fg=c["SECONDARY"], font=("Segoe UI", 8)).pack(
+                     side="left", padx=(0, 4))
     app.clipboard_day_select = ttk.Combobox(
         app.clipboard_history_row, style="Pocket.TCombobox",
         state="readonly", width=11 if app.display_mode == "mini" else 18,
@@ -102,38 +127,46 @@ def build(app):
     app.clipboard_day_select.bind("<<ComboboxSelected>>", selected_day)
     if stored:
         app.clipboard_history_row.pack(side="left", padx=(2, 0))
-    privacy = tk.Frame(app.body, bg=c["BG"])
-    privacy.pack(fill="x", pady=(0, 6))
-    app.clipboard_pause_button = design.button(
-        privacy, "Resume capture" if app.settings["clipboard_paused"]
-        else "Pause capture", app._toggle_clipboard_pause,
-        app.theme, compact=True)
-    app.clipboard_pause_button.pack(side="left")
-    tk.Label(
-        privacy, text="Sensitive-text filter: " +
-        ("On" if app.settings["clipboard_sensitive_filter"] else "Off"),
-        bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8)
-    ).pack(side="right")
+    if not mini_mode:
+        privacy = tk.Frame(app.body, bg=c["BG"])
+        privacy.pack(fill="x", pady=(0, 6))
+        app.clipboard_pause_button = design.button(
+            privacy, "Resume capture" if app.settings["clipboard_paused"]
+            else "Pause capture", app._toggle_clipboard_pause,
+            app.theme, compact=True)
+        app.clipboard_pause_button.pack(side="left")
+        tk.Label(
+            privacy, text="Sensitive-text filter: " +
+            ("On" if app.settings["clipboard_sensitive_filter"] else "Off"),
+            bg=c["BG"], fg=c["MUTED"], font=("Segoe UI", 8)
+        ).pack(side="right")
 
-    # Same compact labelled switch used by Local / DashDash. No full-width tabs.
+    # Mini combines the Text/Images toggle and DB paging controls in one row.
+    # This preserves the familiar switch without shortening the history panel.
     switch = tk.Frame(app.body, bg=c["BG"])
-    switch.pack(side="top", anchor="e", pady=(0, 4))
+    if mini_mode:
+        switch.pack(fill="x", pady=(0, 2))
+        page_switch = tk.Frame(switch, bg=c["BG"])
+        page_switch.pack(side="right")
+    else:
+        switch.pack(side="top", anchor="e", pady=(0, 4))
+        page_switch = switch
     app.clipboard_page_buttons = {}
     left = tk.Button(
-        switch, text="Text", cursor="hand2", bd=0, relief="flat",
+        page_switch, text="Text", cursor="hand2", bd=0, relief="flat",
         font=("Segoe UI", 8, "bold"), takefocus=True,
         bg=c["BG"], padx=2, pady=1,
         command=lambda: show_page(app, "text"))
     left.pack(side="left", padx=(0, 5))
     app.clipboard_page_buttons["text"] = left
     toggle = tk.Canvas(
-        switch, width=44, height=22, bg=c["BG"], bd=0,
+        page_switch, width=44, height=22, bg=c["BG"], bd=0,
         highlightthickness=1, highlightbackground=c["BG"],
         highlightcolor=c["ACCENT"], takefocus=True, cursor="hand2")
     toggle.pack(side="left")
     app.clipboard_page_toggle = toggle
     right = tk.Button(
-        switch, text="Images", cursor="hand2", bd=0, relief="flat",
+        page_switch, text="Images", cursor="hand2", bd=0, relief="flat",
         font=("Segoe UI", 8, "bold"), takefocus=True,
         bg=c["BG"], padx=2, pady=1,
         command=lambda: show_page(app, "images"))
@@ -155,20 +188,24 @@ def build(app):
     _build_images_page(app, c)
     # Date paging is optional and keeps old records accessible without loading
     # all of them into memory. Keep the controls narrow in Mini.
-    nav = tk.Frame(app.body, bg=c["BG"])
+    nav = tk.Frame(switch if mini_mode else app.body, bg=c["BG"])
     app.clipboard_page_navigation = nav
     app.clipboard_prev_button = tk.Button(
-        nav, text="‹ Prev", command=lambda: app._clipboard_turn_page(-1),
+        nav, text="‹" if mini_mode else "‹ Prev",
+        command=lambda: app._clipboard_turn_page(-1),
         bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
-        font=("Segoe UI", 8), cursor="hand2", padx=5, pady=2)
+        font=("Segoe UI", 8), cursor="hand2",
+        padx=4 if mini_mode else 5, pady=1 if mini_mode else 2)
     app.clipboard_prev_button.pack(side="left")
     app.clipboard_page_status = tk.Label(
         nav, bg=c["BG"], fg=c["SECONDARY"], font=("Segoe UI", 8))
-    app.clipboard_page_status.pack(side="left", padx=6)
+    app.clipboard_page_status.pack(side="left", padx=4 if mini_mode else 6)
     app.clipboard_next_button = tk.Button(
-        nav, text="Next ›", command=lambda: app._clipboard_turn_page(1),
+        nav, text="›" if mini_mode else "Next ›",
+        command=lambda: app._clipboard_turn_page(1),
         bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
-        font=("Segoe UI", 8), cursor="hand2", padx=5, pady=2)
+        font=("Segoe UI", 8), cursor="hand2",
+        padx=4 if mini_mode else 5, pady=1 if mini_mode else 2)
     app.clipboard_next_button.pack(side="left")
     show_page(app, getattr(app, "clipboard_page", "text"))
     refresh_history_selector(app)
@@ -185,7 +222,13 @@ def _build_text_page(app, c):
     entry = design.entry(search_row, app.clipboard_query, app.theme, compact=True)
     app.clipboard_query_entry = entry
     entry.configure(width=20)
-    entry.pack(side="left", fill="x", expand=False, ipady=3)
+    entry.pack(side="left", fill="x", expand=False, ipady=2 if app.display_mode == "mini" else 3)
+    if app.display_mode == "mini":
+        # The former full-width Pause/Filter row is removed. Pause remains
+        # accessible directly beside the search field; the active filter is
+        # identified in the header subtitle for both Text and Images.
+        app.clipboard_pause_button = _mini_pause_button(search_row, app, c)
+        app.clipboard_pause_button.pack(side="right", padx=(4, 0))
     app.clipboard_query.trace_add("write", lambda *_: app._refresh_clipboard())
 
     app.clipboard_status = tk.Label(
@@ -310,10 +353,16 @@ def build_text_context_menu(app, colors, selected):
 
 def _build_images_page(app, c):
     parent = app.clipboard_images_page
+    image_status_row = tk.Frame(parent, bg=c["BG"])
+    image_status_row.pack(fill="x", pady=(0, 3))
     app.clipboard_images_status = tk.Label(
-        parent, bg=c["BG"], fg=c["MUTED"], text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
+        image_status_row, bg=c["BG"], fg=c["MUTED"],
+        text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
         font=("Segoe UI", 9), anchor="w")
-    app.clipboard_images_status.pack(fill="x", pady=(0, 3))
+    app.clipboard_images_status.pack(side="left", fill="x", expand=True)
+    if app.display_mode == "mini":
+        app.clipboard_image_pause_button = _mini_pause_button(image_status_row, app, c)
+        app.clipboard_image_pause_button.pack(side="right", padx=(4, 0))
     footer = tk.Frame(parent, bg=c["BG"])
     footer.pack(fill="x", pady=(4, 4))
     for title, action in (("Copy", lambda: copy_selected(app)),
@@ -413,14 +462,19 @@ def refresh_page_navigation(app):
         return
     database = app.settings.get("clipboard_storage") == "database"
     if database:
+        mini = app.display_mode == "mini"
         if not row.winfo_manager():
-            row.pack(fill="x", pady=(1, 2))
+            if mini:
+                row.pack(side="left", pady=(0, 0))
+            else:
+                row.pack(fill="x", pady=(1, 2))
         page = getattr(app, "clipboard_page", "text")
         offset = getattr(app, "_clipboard_page_index", {}).get(page, 0)
         limit = app.settings["clipboard_text_display_limit" if page == "text"
                              else "clipboard_db_image_display_limit"]
         app.clipboard_page_status.configure(
-            text=f"Items {offset + 1}–{offset + limit} · {page.title()}")
+            text=f"{offset + 1}–{offset + limit}" if mini
+            else f"Items {offset + 1}–{offset + limit} · {page.title()}")
         app.clipboard_prev_button.configure(state="normal" if offset else "disabled")
     elif row.winfo_manager():
         row.pack_forget()

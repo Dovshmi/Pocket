@@ -63,49 +63,45 @@ def build(app):
     app.clipboard_clear_button = next(
         (child for child in header.winfo_children() if isinstance(child, tk.Button)),
         None)
-    # Deliberately styled as a compact segmented RAM / DATABASE control.
-    mode_row = tk.Frame(app.body, bg=c["BG"])
-    mode_row.pack(fill="x", pady=(2, 8))
-    app.clipboard_storage_buttons = {}
+    # Place both native dropdowns on ONE compact row, including in Mini mode.
+    # The date picker is intentionally hidden while RAM-only mode is selected.
+    controls = tk.Frame(app.body, bg=c["BG"])
+    controls.pack(fill="x", pady=(2, 5))
+    left = tk.Frame(controls, bg=c["BG"])
+    left.pack(side="left", padx=(0, 6))
+    tk.Label(left, text="Storage", bg=c["BG"], fg=c["SECONDARY"],
+             font=("Segoe UI", 8)).pack(side="left", padx=(0, 4))
+    app.clipboard_storage_select = ttk.Combobox(
+        left, style="Pocket.TCombobox", state="readonly",
+        values=("RAM", "DATABASE"), width=9, takefocus=True)
+    app.clipboard_storage_select.set("DATABASE" if stored else "RAM")
+    app.clipboard_storage_select.pack(side="left")
 
-    def storage(mode):
-        app._clipboard_use_storage(mode)
+    def select_storage(_event=None):
+        chosen = app.clipboard_storage_select.get().strip().lower()
+        app._clipboard_use_storage(chosen)
+        return "break"
 
-    for mode, label in (("ram", "RAM"), ("database", "DATABASE")):
-        active = app.settings.get("clipboard_storage") == mode
-        button = tk.Button(
-            mode_row, text=("●  " if active else "") + label,
-            command=lambda chosen=mode: storage(chosen),
-            bg=c["ACCENT_DARK"] if active else c["CARD"],
-            fg=c["WHITE"] if active else c["MUTED"],
-            activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
-            relief="flat", bd=0, highlightthickness=1,
-            highlightbackground=c["ACCENT"] if active else c["BORDER"],
-            cursor="hand2", takefocus=True, font=("Segoe UI", 8, "bold"),
-            padx=10, pady=5)
-        button.pack(side="left", padx=(0, 5))
-        app.clipboard_storage_buttons[mode] = button
+    app.clipboard_storage_select.bind("<<ComboboxSelected>>", select_storage)
 
-    # One date selector for both types; it follows the active Text/Images page.
-    app.clipboard_history_row = tk.Frame(app.body, bg=c["BG"])
-    tk.Label(app.clipboard_history_row, text="History date",
-             bg=c["BG"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8)).pack(side="left", padx=(0, 8))
+    app.clipboard_history_row = tk.Frame(controls, bg=c["BG"])
+    tk.Label(app.clipboard_history_row, text="Date", bg=c["BG"],
+             fg=c["SECONDARY"], font=("Segoe UI", 8)).pack(
+                 side="left", padx=(0, 4))
     app.clipboard_day_select = ttk.Combobox(
         app.clipboard_history_row, style="Pocket.TCombobox",
-        state="readonly", width=19, takefocus=True)
-    app.clipboard_day_select.pack(side="left", fill="x", expand=False)
+        state="readonly", width=11 if app.display_mode == "mini" else 18,
+        takefocus=True)
+    app.clipboard_day_select.pack(side="left")
 
     def selected_day(_event=None):
         picked = app.clipboard_day_select.get()
-        day = picked[-10:]
-        app._clipboard_choose_day(day)
+        app._clipboard_choose_day(picked[-10:])
         return "break"
 
     app.clipboard_day_select.bind("<<ComboboxSelected>>", selected_day)
     if stored:
-        app.clipboard_history_row.pack(fill="x", pady=(0, 8))
-
+        app.clipboard_history_row.pack(side="left", padx=(2, 0))
     privacy = tk.Frame(app.body, bg=c["BG"])
     privacy.pack(fill="x", pady=(0, 6))
     app.clipboard_pause_button = design.button(
@@ -157,8 +153,26 @@ def build(app):
     app.clipboard_images_page = tk.Frame(app.body, bg=c["BG"])
     _build_text_page(app, c)
     _build_images_page(app, c)
+    # Date paging is optional and keeps old records accessible without loading
+    # all of them into memory. Keep the controls narrow in Mini.
+    nav = tk.Frame(app.body, bg=c["BG"])
+    app.clipboard_page_navigation = nav
+    app.clipboard_prev_button = tk.Button(
+        nav, text="‹ Prev", command=lambda: app._clipboard_turn_page(-1),
+        bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
+        font=("Segoe UI", 8), cursor="hand2", padx=5, pady=2)
+    app.clipboard_prev_button.pack(side="left")
+    app.clipboard_page_status = tk.Label(
+        nav, bg=c["BG"], fg=c["SECONDARY"], font=("Segoe UI", 8))
+    app.clipboard_page_status.pack(side="left", padx=6)
+    app.clipboard_next_button = tk.Button(
+        nav, text="Next ›", command=lambda: app._clipboard_turn_page(1),
+        bg=c["CARD"], fg=c["SECONDARY"], relief="flat", bd=0,
+        font=("Segoe UI", 8), cursor="hand2", padx=5, pady=2)
+    app.clipboard_next_button.pack(side="left")
     show_page(app, getattr(app, "clipboard_page", "text"))
     refresh_history_selector(app)
+    refresh_page_navigation(app)
 
 
 def _build_text_page(app, c):
@@ -371,7 +385,7 @@ def refresh_history_selector(app):
     from . import clipboard_database as db
     today = db.today()
     dates = app.clipboard_database.days(
-        page, days=app.settings["clipboard_days"])
+        page, days=app.settings["clipboard_autodelete_days"])
     if today not in dates:
         dates.insert(0, today)
     values = [("Today · " + date if date == today else date) for date in dates]
@@ -388,10 +402,31 @@ def refresh_history_selector(app):
             text="Clear day images" if page == "images" else "Clear day text")
 
 
+def refresh_page_navigation(app):
+    """The page controls provide access beyond the visible 10–100 items."""
+    row = getattr(app, "clipboard_page_navigation", None)
+    if row is None:
+        return
+    database = app.settings.get("clipboard_storage") == "database"
+    if database:
+        if not row.winfo_manager():
+            row.pack(fill="x", pady=(1, 2))
+        page = getattr(app, "clipboard_page", "text")
+        offset = getattr(app, "_clipboard_page_index", {}).get(page, 0)
+        limit = app.settings["clipboard_text_display_limit" if page == "text"
+                             else "clipboard_db_image_display_limit"]
+        app.clipboard_page_status.configure(
+            text=f"Items {offset + 1}–{offset + limit} · {page.title()}")
+        app.clipboard_prev_button.configure(state="normal" if offset else "disabled")
+    elif row.winfo_manager():
+        row.pack_forget()
+
+
 def show_page(app, page):
     page = page if page in ("text", "images") else "text"
     app.clipboard_page = page  # Remember across menu/layout switches in session.
     refresh_history_selector(app)
+    refresh_page_navigation(app)
     if app.clipboard_clear_button is not None:
         on_disk = app.settings.get("clipboard_storage") == "database"
         app.clipboard_clear_button.configure(
@@ -594,9 +629,12 @@ def refresh_images(app, *, force=False):
                   column=index if horizontal else index % columns,
                   sticky="nsew", padx=3, pady=3)
         app._clipboard_gallery_tiles[ident] = tile
-        picture = clipboard_images.decode_image(item["data"])
-        picture.thumbnail(thumb_size, Image.Resampling.LANCZOS)
-        photo = ImageTk.PhotoImage(picture, master=app.root)
+        try:
+            picture = clipboard_images.decode_image(_image_payload(app, item))
+            picture.thumbnail(thumb_size, Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(picture, master=app.root)
+        except (OSError, ValueError, MemoryError):
+            continue
         app._clipboard_gallery_photos.append(photo)
         label = tk.Label(
             tile, image=photo, bg=c["PANEL"], cursor="hand2",
@@ -640,12 +678,18 @@ def selected_image(app):
     return next((item for item in app.clipboard_images if item["id"] == ident), None)
 
 
+def _image_payload(app, item):
+    if "data" in item:
+        return item["data"]  # RAM screenshot, already in memory.
+    return app.clipboard_database.image_data(item)  # One disk read on demand.
+
+
 def copy_selected(app):
     item = selected_image(app)
     if item is None:
         return
     try:
-        clipboard_images.copy_image(item["data"])
+        clipboard_images.copy_image(_image_payload(app, item))
         app._clipboard_sequence = clipboard_images.sequence_number()
         _update_status(app)
         label = app.clipboard_images_status
@@ -659,7 +703,11 @@ def preview_selected(app):
     if item is None:
         return
     c = themes.palette(app.theme)
-    picture = clipboard_images.decode_image(item["data"])
+    try:
+        picture = clipboard_images.decode_image(_image_payload(app, item))
+    except (OSError, ValueError, MemoryError) as exc:
+        messagebox.showerror("Image preview", str(exc), parent=app.root)
+        return
     max_width = max(260, min(1120, app.root.winfo_screenwidth() - 100))
     max_height = max(200, min(760, app.root.winfo_screenheight() - 140))
     picture.thumbnail((max_width - 36, max_height - 80), Image.Resampling.LANCZOS)

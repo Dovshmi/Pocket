@@ -1010,9 +1010,29 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               "Restore preview text must be readable")
                         scrollbars = [w for w in widgets(restored[0])
                                       if isinstance(w, tk.Scrollbar)]
-                        check(bool(scrollbars) and
-                              bool(preview_boxes[0].cget("yscrollcommand")),
-                              "Restore preview needs its own vertical scrollbar")
+                        check(not scrollbars,
+                              "Restore preview must hide the visible scrollbar")
+                        preview_widget = preview_boxes[0]
+                        # Test actual scrolling with far more text than fits
+                        # the available preview height.
+                        preview_widget.configure(state="normal")
+                        preview_widget.delete("1.0", "end")
+                        preview_widget.insert("1.0", "\n".join(
+                            f"Backup category {i}" for i in range(80)))
+                        preview_widget.configure(state="disabled")
+                        app.root.update()
+                        preview_widget.yview_moveto(0.0)
+                        check(preview_widget.yview()[0] == 0.0,
+                              "Preview must begin at the first result")
+                        preview_widget.event_generate("<MouseWheel>", delta=-120)
+                        app.root.update()
+                        check(preview_widget.yview()[0] > 0.0,
+                              "Invisible preview scrolling must work with mouse wheel")
+                        preview_widget.yview_moveto(0.0)
+                        preview_widget.event_generate("<Button-5>")
+                        app.root.update()
+                        check(preview_widget.yview()[0] > 0.0,
+                              "Invisible preview scrolling must work with X11 wheel")
                         cancel = [w for w in widgets(restored[0])
                                   if isinstance(w, tk.Button)
                                   and w.cget("text") == "Cancel"]

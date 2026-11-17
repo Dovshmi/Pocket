@@ -288,6 +288,8 @@ def _build_text_page(app, c):
         for wheel in ("<MouseWheel>", "<Button-5>"):
             app.clipboard_list.bind(wheel, more_on_wheel, add="+")
 
+    app.clipboard_list.bind("<<ListboxSelect>>",
+                            lambda _evt: app._update_clipboard_text_status(), add="+")
     app.clipboard_list.bind("<Double-1>", lambda _evt: app._copy_clipboard_item())
 
     def copy_text(_event=None):

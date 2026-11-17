@@ -61,6 +61,72 @@ def filtered_settings(raw):
             if key not in QUICK_SLOT_KEYS}
 
 
+
+def available_export_categories(profile, *, commands_path=None, profile_dir=None):
+    """Find categories that actually contain exportable data on this computer.
+
+    A valid category without content is intentionally unavailable in the
+    interactive exporter. This does not affect legacy backup ZIP loading.
+    """
+    available = []
+    root = Path(profile_dir) if profile_dir else Path.cwd()
+    db = cdb.ClipboardDatabase(root)
+    for category in CATEGORIES:
+        if category == "notes":
+            present = bool(profile.get("notes"))
+        elif category == "links":
+            present = bool(profile.get("links"))
+        elif category == "cli":
+            present = False
+            if commands_path:
+                try:
+                    doc = cs.read_document(Path(commands_path))
+                    present = bool(doc["commands"] or profile.get("custom_commands"))
+                except (OSError, ValueError, TypeError):
+                    present = False
+        elif category == "settings":
+            present = bool(filtered_settings(profile.get("settings", {})))
+        elif category == "clipboard_text":
+            present = bool(db.days("text"))
+        else:
+            present = bool(db.days("images"))
+        if present:
+            available.append(category)
+    return tuple(available)
+
+
+def available_restore_categories(bundle, *, commands_path=None):
+    """Only enable categories with actual content inside the selected ZIP.
+
+    CLI additionally needs a writable local command-library destination.
+    All other categories are independent of the current computer's data.
+    """
+    payload = bundle["payload"]
+    files = bundle["files"]
+    available = []
+    for category in CATEGORIES:
+        if category not in payload:
+            continue
+        group = payload[category]
+        if category == "notes":
+            present = bool(group["notes"])
+        elif category == "links":
+            present = bool(group["links"])
+        elif category == "settings":
+            present = bool(filtered_settings(group["settings"]))
+        elif category == "cli":
+            present = bool(commands_path and
+                           (json.loads(files["cli/commands.json"])["commands"] or
+                            group.get("custom_commands")))
+        elif category == "clipboard_text":
+            present = any(bool(rows) for rows in group.values())
+        else:
+            present = bool(group)
+        if present:
+            available.append(category)
+    return tuple(available)
+
+
 def _encode(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True,
                       separators=(",", ":")).encode("utf-8")

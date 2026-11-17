@@ -684,6 +684,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               f"{mode}: keep text actions above the list")
                     app.clipboard_list.selection_clear(0, tk.END)
                     app.clipboard_list.selection_set(0)
+                    app.clipboard_list.event_generate("<<ListboxSelect>>")
+                    app.root.update()
+                    shown = len(app._clipboard_filtered)
+                    check(f"1 / {shown} selected · {shown} entries" in
+                          app.clipboard_status.cget("text"),
+                          f"{mode}: text selection status did not update")
+                    app.clipboard_list.selection_clear(0, tk.END)
+                    app.clipboard_list.event_generate("<<ListboxSelect>>")
+                    app.root.update()
+                    check(f"0 / {shown} selected · {shown} entries" in
+                          app.clipboard_status.cget("text"),
+                          f"{mode}: text selection status did not clear")
+                    app.clipboard_list.selection_set(0)
                     expected_text = app._clipboard_filtered[0]["text"]
                     menu_colors = clipboard_gallery.themes.palette(app.theme)
                     sample_menu = clipboard_gallery.build_text_context_menu(
@@ -884,16 +897,22 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
                     picker = common["ram_image_limit"]
-                    picker.set("100")
+                    picker.set("25")
                     picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
-                    check(app.settings["clipboard_image_limit"] == 100,
+                    check(app.settings["clipboard_image_limit"] == 25,
                           f"{mode}: RAM screenshot dropdown failed")
                     picker.set(str(old_limit))
                     picker.event_generate("<<ComboboxSelected>>")
                     app.root.update()
                     check(app.settings["clipboard_image_limit"] == old_limit,
                           f"{mode}: RAM count was not restored")
+                    check(tuple(common["ram_image_limit"]["values"]) ==
+                          ("10", "15", "20", "25", "30"),
+                          f"{mode}: RAM screenshot options do not match v1.38")
+                    check(tuple(common["db_text_display_limit"]["values"]) ==
+                          ("100", "300", "500", "800", "1000", "1200", "1500"),
+                          f"{mode}: DB text display options do not match v1.38")
                     check("Off" in common["clipboard_retention"]["values"][0],
                           f"{mode}: automatic history deletion is not opt-in")
                     # Only these four Clipboard history selectors intercept

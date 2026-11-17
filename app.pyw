@@ -5645,6 +5645,20 @@ class PocketDesk:
                 elif name == "quick_slot_hotkey":
                     action, number, target_hwnd = xy
                     self._quick_slot_hotkey(action, number, target_hwnd)
+                elif name == "quick_slots_config_changed":
+                    enabled, prefix = xy
+                    self._apply_quick_slots_config(enabled, prefix)
+                elif name == "quick_slots_config_conflict":
+                    if self.current_tab == "settings":
+                        self.root.after_idle(self._build_settings_refresh)
+                    self._warning(
+                        "Quick Slots shortcut unavailable",
+                        "Windows or another application already uses at least one "
+                        "key in that prefix. The previous Quick Slots shortcuts are unchanged.")
+                elif name == "quick_slots_hotkey_error":
+                    self._notify(
+                        "Pocket Quick Slots",
+                        "Numpad shortcut unavailable. Change the prefix in Settings.")
                 elif name == "quick_slot_save_result":
                     number, selected, error = xy
                     self._mark_active = False

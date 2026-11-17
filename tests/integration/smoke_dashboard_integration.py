@@ -912,6 +912,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "convert_enabled", "convert_mode_picker",
                                 "quick_slots_enabled", "quick_slots_paste_prefix_picker",
                                 "quick_slots_copy_prefix_picker",
+                                "record_quick_slots_paste", "record_quick_slots_copy",
+                                "create_pocket_backup", "restore_pocket_backup",
+                                "reset_default_settings",
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
@@ -925,6 +928,119 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               for key in ("extra_mini", "clipboard_paused",
                                           "sensitive_filter")),
                           f"{mode}: legacy checkbox indicators remain visible")
+                    if mode == "normal":
+                        # Open the actual dialogs, not just their buttons.
+                        # No file picker is exercised here; backup data stays
+                        # in the disposable CI test profile.
+                        for key, caption in (
+                                ("create_pocket_backup", "Create Backup"),
+                                ("reset_default_settings", "Default Settings")):
+                            common[key].invoke()
+                            app.root.update()
+                            dialogs = [widget for widget in app.root.winfo_children()
+                                       if isinstance(widget, tk.Toplevel)
+                                       and caption in widget.title()]
+                            check(len(dialogs) == 1,
+                                  f"{mode}: {caption} dialog did not open")
+                            if key == "create_pocket_backup":
+                                from pocket import portable_backup as pb
+                                labels = [widget.cget("text")
+                                          for widget in widgets(dialogs[0])
+                                          if isinstance(widget, tk.Checkbutton)]
+                                check(all(pb.LABELS[x] in labels for x in pb.CATEGORIES),
+                                      "Backup dialog lost categories")
+                                check(not any("Quick Slots" == title for title in labels),
+                                      "Quick Slots content must not be selectable")
+                                available = set(pb.available_export_categories(
+                                    app.data, commands_path=app.commands_file,
+                                    profile_dir=app.path.parent))
+                                for checkbox in (w for w in widgets(dialogs[0])
+                                                 if isinstance(w, tk.Checkbutton)):
+                                    key = next((k for k in pb.CATEGORIES
+                                                if pb.LABELS[k] == checkbox.cget("text")), None)
+                                    check(key is not None, "Unknown backup category")
+                                    enabled = key in available
+                                    check((checkbox.cget("state") == "normal") == enabled,
+                                          f"Create Backup: {key} availability mismatch")
+                                    check(bool(app.root.getvar(checkbox.cget("variable"))) == enabled,
+                                          f"Create Backup: {key} should start selected only if available")
+                            cancel_buttons = [
+                                widget for widget in widgets(dialogs[0])
+                                if isinstance(widget, tk.Button)
+                                and widget.cget("text") == "Cancel"]
+                            check(len(cancel_buttons) == 1,
+                                  f"{mode}: {caption} has no Cancel button")
+                            cancel_buttons[0].invoke()
+                            app.root.update()
+                            check(not app._modal and not dialogs[0].winfo_exists(),
+                                  f"{mode}: {caption} dialog did not close cleanly")
+                    if mode == "normal":
+                        # Restore a deliberately partial ZIP: Notes must be
+                        # selected automatically; all missing groups disabled.
+                        from unittest.mock import patch
+                        from pocket import portable_backup as pb
+                        partial = Path(profile) / "pocket-notes-only.zip"
+                        pb.make_backup(partial, app.data, selected=("notes",),
+                                       profile_dir=app.path.parent)
+                        with patch("pocket.backup_ui.filedialog.askopenfilename",
+                                   return_value=str(partial)):
+                            common["restore_pocket_backup"].invoke()
+                        app.root.update()
+                        restored = [w for w in app.root.winfo_children()
+                                    if isinstance(w, tk.Toplevel)
+                                    and "Restore Backup" in w.title()]
+                        check(len(restored) == 1, "Restore dialog did not open")
+                        boxes = [w for w in widgets(restored[0])
+                                 if isinstance(w, tk.Checkbutton)]
+                        check(len(boxes) == len(pb.CATEGORIES),
+                              "Restore should show every category")
+                        for box in boxes:
+                            key = next(k for k in pb.CATEGORIES
+                                       if pb.LABELS[k] == box.cget("text"))
+                            available = key == "notes"
+                            check((box.cget("state") == "normal") == available,
+                                  f"Restore: missing {key} must be disabled")
+                            check(bool(app.root.getvar(box.cget("variable"))) == available,
+                                  f"Restore: {key} initial selection wrong")
+                        preview_boxes = [w for w in widgets(restored[0])
+                                         if isinstance(w, tk.Text)]
+                        check(len(preview_boxes) == 1 and
+                              "Notes and reminders" in
+                              preview_boxes[0].get("1.0", "end"),
+                              "Restore preview text must be readable")
+                        scrollbars = [w for w in widgets(restored[0])
+                                      if isinstance(w, tk.Scrollbar)]
+                        check(not scrollbars,
+                              "Restore preview must hide the visible scrollbar")
+                        preview_widget = preview_boxes[0]
+                        # Test actual scrolling with far more text than fits
+                        # the available preview height.
+                        preview_widget.configure(state="normal")
+                        preview_widget.delete("1.0", "end")
+                        preview_widget.insert("1.0", "\n".join(
+                            f"Backup category {i}" for i in range(80)))
+                        preview_widget.configure(state="disabled")
+                        app.root.update()
+                        preview_widget.yview_moveto(0.0)
+                        check(preview_widget.yview()[0] == 0.0,
+                              "Preview must begin at the first result")
+                        preview_widget.event_generate("<MouseWheel>", delta=-120)
+                        app.root.update()
+                        check(preview_widget.yview()[0] > 0.0,
+                              "Invisible preview scrolling must work with mouse wheel")
+                        preview_widget.yview_moveto(0.0)
+                        preview_widget.event_generate("<Button-5>")
+                        app.root.update()
+                        check(preview_widget.yview()[0] > 0.0,
+                              "Invisible preview scrolling must work with X11 wheel")
+                        cancel = [w for w in widgets(restored[0])
+                                  if isinstance(w, tk.Button)
+                                  and w.cget("text") == "Cancel"]
+                        check(len(cancel) == 1, "Restore cancel button missing")
+                        cancel[0].invoke()
+                        app.root.update()
+                        check(not app._modal and not restored[0].winfo_exists(),
+                              "Restore dialog did not close cleanly")
                     check(common["theme_blue"].winfo_exists() and
                           common["mode_mini"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")
@@ -1032,7 +1148,10 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "change_hotkey", "change_convert_hotkey", "quick_search",
                         "clipboard_paused", "sensitive_filter",
                         "quick_slots_enabled", "quick_slots_paste_prefix_picker",
-                        "quick_slots_copy_prefix_picker")),
+                        "quick_slots_copy_prefix_picker",
+                        "record_quick_slots_paste", "record_quick_slots_copy",
+                        "create_pocket_backup", "restore_pocket_backup",
+                        "reset_default_settings")),
                         "Dashboard Settings is missing important controls")
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,
@@ -1670,8 +1789,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
         app._clipboard_on_new_text("SYNTHETIC DB TEST HISTORY")
         app._clipboard_on_new_image(_DbImage.new("RGB", (21, 19), "#234567"))
         app.root.update()
-        check(app.clipboard_database.load_text(_dbmod.today())[0]["text"] ==
-              "SYNTHETIC DB TEST HISTORY",
+        check(any(record["text"] == "SYNTHETIC DB TEST HISTORY"
+                  for record in app.clipboard_database.load_text(_dbmod.today())),
               "Database text was not written to its daily file")
         app.clipboard_page_buttons["images"].invoke()
         app.root.update()

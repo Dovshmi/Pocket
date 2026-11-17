@@ -8,9 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleaseVersionTests(unittest.TestCase):
-    def test_release_metadata_and_factory_version_match(self):
-        self.assertEqual(app_info.VERSION, "1.38.0")
-        self.assertEqual(app_info.version_label(), "v1.38.0")
+    def test_development_app_version_is_139_without_publishing_release(self):
+        # Pocket Settings now reports v1.39.0; stable download assets
+        # remain v1.38.0 until a separate explicit release is published.
+        self.assertEqual(app_info.VERSION, "1.39.0")
+        self.assertEqual(app_info.version_label(), "v1.39.0")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
 
     def test_release_workflow_has_new_tag_and_safe_build_gates(self):

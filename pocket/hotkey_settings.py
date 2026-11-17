@@ -8,7 +8,7 @@ DEFAULT_HOTKEY = {"ctrl": True, "shift": True, "alt": False, "win": False, "key"
 # Keyboard-layout conversion is configurable in Pocket Settings.
 DEFAULT_CONVERT_HOTKEY = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "V"}
 _LEGACY_CONVERT_DEFAULT = {"ctrl": True, "shift": False, "alt": True, "win": False, "key": "F9"}
-KEYS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + tuple("0123456789") + ("*",) + tuple(f"F{i}" for i in range(1, 13))
+KEYS = tuple("ABCDEFGHIJKLMNOPQRSTUVWXYZ") + tuple("0123456789") + ("*", "Space") + tuple(f"F{i}" for i in range(1, 13))
 MOD_ALT, MOD_CTRL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
 HOTKEY_ID = 0xB10
 NUMPAD_HOTKEY_ID = 0xB11
@@ -38,6 +38,8 @@ def hotkey_label(value) -> str:
 def key_code(key: str) -> int:
     if key == "*":
         return 0x38  # Standard Shift+8. Numpad multiply is registered separately.
+    if key == "Space":
+        return 0x20
     if key.startswith("F") and key[1:].isdigit():
         return 0x70 + int(key[1:]) - 1
     return ord(key)

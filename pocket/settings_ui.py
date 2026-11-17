@@ -441,6 +441,12 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
         app._set_quick_slots_copy_prefix,
         compact=compact, wheel_scroll_page=True)
+    _action(card, app, c, "record_quick_slots_paste",
+            "Record paste shortcut", "Press modifiers + any fixed Numpad1–9 key.",
+            "Record", lambda: app._open_quick_slots_recorder("paste"), compact=compact)
+    _action(card, app, c, "record_quick_slots_copy",
+            "Record save shortcut", "Press modifiers + any fixed Numpad1–9 key.",
+            "Record", lambda: app._open_quick_slots_recorder("save"), compact=compact)
     _divider(card, c)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",
@@ -458,6 +464,33 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
            c, size=8, muted=True, justify="left", anchor="w",
            wraplength=210 if compact else 350
            ).pack(fill="x", padx=13, pady=(10, 13))
+
+
+def _backup_controls(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Backup & Restore",
+                    "Portable, selective and offline. Quick Slots are never backed up.",
+                    compact=compact, wide=wide)
+    _action(card, app, c, "create_pocket_backup", "Create Backup",
+            "Select Notes, Links, CLI, Settings or saved Clipboard history.",
+            "Save ZIP", app._open_backup_dialog, compact=compact, primary=True)
+    _divider(card, c)
+    _action(card, app, c, "restore_pocket_backup", "Restore Backup",
+            "Preview, merge or replace selected data on another computer.",
+            "Open ZIP", app._open_restore_dialog, compact=compact)
+    _divider(card, c)
+    _label(card,
+           "Backups are not encrypted. Review CLI commands and clipboard "
+           "history before sharing a backup with anyone.",
+           c, size=8, muted=True, anchor="w", justify="left",
+           wraplength=200 if compact else 350).pack(
+               fill="x", padx=13, pady=(2, 13))
+
+    defaults = _section(parent, c, "Default Settings",
+                        "Restore preferences only, without deleting personal data.",
+                        compact=compact, wide=wide)
+    _action(defaults, app, c, "reset_default_settings", "Reset preferences",
+            "Choose appearance, menus, keyboard, clipboard or network.",
+            "Reset…", app._open_reset_settings_dialog, compact=compact)
 
 
 def build_settings(app, parent, *, wide=False):
@@ -500,6 +533,7 @@ def build_settings(app, parent, *, wide=False):
     _tools(right, app, c, wide=wide, compact=compact)
     _network_preferences(right, app, c, wide=wide, compact=compact)
     _privacy(right, app, c, wide=wide, compact=compact)
+    _backup_controls(right, app, c, wide=wide, compact=compact)
 
     # The footer is the last element of the scrollable Settings body in all
     # three layouts. It is not a floating overlay and obscures no controls.

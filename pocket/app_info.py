@@ -1,10 +1,10 @@
-"""Pocket author credit and public release version.
+"""Pocket author credit and current application version.
 
 Bump VERSION alongside the official Pocket release and Windows packages.
 """
 
 AUTHOR_CREDIT = "By. Rony Shmidov"
-VERSION = "1.38.0"
+VERSION = "1.39.0"
 
 
 def version_label() -> str:

@@ -111,6 +111,8 @@ from pocket import portable_storage
 from pocket import tool_icons
 from pocket import normal_navigation
 from pocket import data_recovery
+from pocket import backup_ui
+from pocket import shortcut_recording
 from pocket.task_manager import TaskManager
 from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
 
@@ -856,7 +858,7 @@ class PocketDesk:
         dialog.configure(bg=BG)
         dialog.resizable(False, False)
         dialog.transient(self.root)
-        dialog.geometry(f"390x425+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
+        dialog.geometry(f"390x480+{self.root.winfo_x()+30}+{self.root.winfo_y()+90}")
         selected = (self.convert_hotkey if is_convert else self.hotkey).copy()
         flags = {key: tk.BooleanVar(value=selected[key]) for key in ("ctrl","shift","alt","win")}
         key_var = tk.StringVar(value=selected["key"])
@@ -896,6 +898,38 @@ class PocketDesk:
         key_choices.pack(side="left")
         status = tk.Label(dialog, text="", fg=DANGER, bg=BG, font=(FONT, 8))
         status.pack(anchor="w", padx=18)
+        recording = {"active": False}
+        def start_recording():
+            recording["active"] = True
+            status.config(text="Recording · press Ctrl/Alt/Win + a key (Esc cancels)",
+                          fg=ACCENT)
+            dialog.focus_force()
+        tk.Button(dialog, text="● Record Shortcut", command=start_recording,
+                  bg=CARD, fg=ACCENT, relief="flat", padx=11, pady=7
+                  ).pack(anchor="w", padx=18, pady=(6, 3))
+        def on_recorded_key(event):
+            if not recording["active"]:
+                return None
+            if event.keysym == "Escape":
+                recording["active"] = False
+                status.config(text="Recording cancelled.", fg=MUTED)
+                return "break"
+            try:
+                candidate = shortcut_recording.hotkey_from_event(
+                    event.keysym, event.char, event.state)
+            except ValueError as exc:
+                status.config(text=str(exc), fg=DANGER)
+                return "break"
+            if candidate is None:
+                return "break"  # Wait until the user completes the chord.
+            recording["active"] = False
+            for name, var in flags.items():
+                var.set(candidate[name])
+            select(candidate["key"])
+            status.config(text="Captured " + hk.hotkey_label(candidate) +
+                          " · click Save shortcut", fg=ACCENT)
+            return "break"
+        dialog.bind("<KeyPress>", on_recorded_key, add="+")
         actions = tk.Frame(dialog, bg=BG)
         actions.pack(fill="x", padx=18, pady=(6, 14))
         def close():
@@ -945,6 +979,82 @@ class PocketDesk:
 
     def _open_convert_hotkey_picker(self, event=None):
         return self._open_hotkey_picker(event, action="convert")
+
+    def _open_quick_slots_recorder(self, action):
+        """Record only modifier keys; the Numpad1–9 suffix is non-editable."""
+        if action not in ("paste", "save"):
+            return
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Pocket · Record " + action.capitalize() + " shortcut")
+        dialog.configure(bg=BG)
+        dialog.geometry(f"385x195+{self.root.winfo_x()+26}+{self.root.winfo_y()+65}")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        self._modal = True
+        tk.Label(dialog, text="Record " + action.capitalize() + " shortcut",
+                 font=(FONT, 13, "bold"), fg=WHITE, bg=BG
+                 ).pack(anchor="w", padx=18, pady=(16, 7))
+        tk.Label(dialog, text="Press the modifiers with Numpad1–9. The number "
+                 "always stays fixed. Num Lock must be ON.",
+                 fg=SECONDARY, bg=BG, wraplength=340, justify="left"
+                 ).pack(anchor="w", padx=18)
+        status = tk.Label(dialog, text="Listening · press a Numpad number (Esc cancels)",
+                          fg=ACCENT, bg=BG, wraplength=345, justify="left")
+        status.pack(anchor="w", padx=18, pady=(10, 4))
+        def close():
+            self._modal = False
+            dialog.destroy()
+        def capture(event):
+            if event.keysym == "Escape":
+                close()
+                return "break"
+            try:
+                prefix = shortcut_recording.quick_slot_prefix_from_event(
+                    event.keysym, event.state)
+            except ValueError as exc:
+                status.config(text=str(exc), fg=DANGER)
+                return "break"
+            if prefix is None:
+                return "break"
+            other = self.settings["quick_slots_copy_prefix" if action == "paste"
+                                  else "quick_slots_paste_prefix"]
+            if prefix == other:
+                status.config(text="Copy and paste cannot share one shortcut.",
+                              fg=DANGER)
+                return "break"
+            if action == "paste":
+                self._set_quick_slots_paste_prefix(prefix)
+            else:
+                self._set_quick_slots_copy_prefix(prefix)
+            close()
+            return "break"
+        dialog.bind("<KeyPress>", capture)
+        tk.Button(dialog, text="Cancel", command=close, bg=CARD, fg=WHITE,
+                  relief="flat", padx=11).pack(anchor="e", padx=18, pady=4)
+        dialog.protocol("WM_DELETE_WINDOW", close)
+        dialog.grab_set()
+        dialog.focus_force()
+
+    def _open_backup_dialog(self):
+        return backup_ui.create_backup(self)
+
+    def _open_restore_dialog(self):
+        return backup_ui.restore_backup(self)
+
+    def _open_reset_settings_dialog(self):
+        return backup_ui.reset_settings(self, default_data)
+
+    def _exit_after_restore(self):
+        """Close without rewriting the just-imported profile from stale RAM."""
+        if self._save_job is not None:
+            self.root.after_cancel(self._save_job)
+            self._save_job = None
+        self.scan_cancel.set()
+        if self.tasks is not None:
+            self.tasks.stop()
+        if self.tray:
+            self.tray.stop()
+        self.root.destroy()
 
     def _build_shell(self):
         if self.display_mode == "mini":

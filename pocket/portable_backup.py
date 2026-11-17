@@ -103,6 +103,8 @@ def _get_clipboard(profile_dir, kind):
                 continue
             if file.is_symlink():
                 raise ValueError("Clipboard image cannot be a symbolic link")
+            if file.stat().st_size > 15 * 1024 * 1024:
+                raise ValueError("Clipboard image is too large: " + file.name)
             content = file.read_bytes()
             if not content.startswith(_IMAGE_SIG) or len(content) > 15 * 1024 * 1024:
                 raise ValueError("Invalid clipboard image " + file.name)
@@ -166,6 +168,11 @@ def make_backup(destination, profile, *, commands_path=None,
                   for name, b in media.items()},
     }
     target = Path(destination)
+    protected = {root / "data.json"}
+    if commands_path:
+        protected.add(Path(commands_path))
+    if target.resolve() in {item.resolve() for item in protected}:
+        raise ValueError("Backup destination cannot replace Pocket's active data")
     target.parent.mkdir(parents=True, exist_ok=True)
     staged = None
     try:
@@ -435,7 +442,8 @@ def apply_restore(bundle, current, *, selected, mode, profile_path,
     """
     from . import clipboard_database as cdb
     root = Path(profile_path).parent
-    cmds = cs.read_document(commands_path) if commands_path else None
+    cmds = (cs.read_document(commands_path)
+            if "cli" in selected and commands_path else None)
     plan = plan_restore(bundle, current, selected=selected, mode=mode,
                         current_commands=cmds)
     if "cli" in plan["groups"] and not commands_path:

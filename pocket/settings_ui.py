@@ -426,14 +426,21 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
     _clipboard_history_controls(card, app, c, compact=compact)
     _divider(card, c)
     _toggle(card, app, c, "quick_slots_enabled", "Enable Quick Slots",
-            "Numpad0 activates 5-second Save Mode; Numpad1–9 selects the slot.",
+            "Paste or save text directly with separate Numpad1–9 shortcuts.",
             app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
             compact=compact)
     _dropdown_field(
-        card, app, c, "quick_slots_prefix_picker", "Quick Slots key prefix",
-        "Only the modifiers change. Numpad0–9 remain fixed; Num Lock must be ON.",
-        quick_slots.PREFIX_CHOICES, app.settings["quick_slots_prefix"],
-        app._set_quick_slots_prefix, compact=compact, wheel_scroll_page=True)
+        card, app, c, "quick_slots_paste_prefix_picker", "Paste shortcut prefix",
+        "Default Ctrl+Alt + Numpad1–9; only modifier keys can change.",
+        quick_slots.PREFIX_CHOICES, app.settings["quick_slots_paste_prefix"],
+        app._set_quick_slots_paste_prefix,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
+        card, app, c, "quick_slots_copy_prefix_picker", "Save / Copy shortcut prefix",
+        "Default Ctrl+Win + Numpad1–9; only modifier keys can change.",
+        quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
+        app._set_quick_slots_copy_prefix,
+        compact=compact, wheel_scroll_page=True)
     _divider(card, c)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",

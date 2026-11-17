@@ -38,6 +38,9 @@ def reset_preferences(current, defaults, selected):
                 old_settings[key] = deepcopy(default_settings[key])
     if "appearance" in choices:
         result["theme"] = deepcopy(defaults.get("theme", "blue"))
+        for key in ("window_position", "window_positions"):
+            if key in defaults:
+                result[key] = deepcopy(defaults[key])
     if "menus" in choices:
         for key in ("extra_mini_pages", "extra_mini_page"):
             if key in defaults:

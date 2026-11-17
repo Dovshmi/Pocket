@@ -163,7 +163,7 @@ def restore_backup(app):
             return
         try:
             current_commands = (cs.read_document(app.commands_file)
-                                if app.commands_file else None)
+                                if "cli" in selected and app.commands_file else None)
             plan = pb.plan_restore(bundle, app.data, selected=selected,
                                    mode=method.get(), current_commands=current_commands)
             parts = []
@@ -204,7 +204,7 @@ def restore_backup(app):
                 return
             preview()  # Regenerate against the just-saved state.
             current_commands = (cs.read_document(app.commands_file)
-                                if app.commands_file else None)
+                                if "cli" in selected and app.commands_file else None)
             plan = pb.plan_restore(bundle, app.data, selected=selected,
                                    mode=method.get(), current_commands=current_commands)
         except (OSError, ValueError, TypeError) as exc:

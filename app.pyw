@@ -203,7 +203,9 @@ def default_data() -> dict:
                      "clipboard_image_limit": clipboard_images.MAX_IMAGES,
                      "use_windows_proxy": True, "convert_mode": "mark",
                      "convert_enabled": True, "clipboard_storage": "ram",
-                     "clipboard_days": 1},
+                     "clipboard_days": 1, "clipboard_autodelete_days": 0,
+                     "clipboard_text_display_limit": 30,
+                     "clipboard_db_image_display_limit": 30},
         "theme": "blue",
         "hotkey": hk.DEFAULT_HOTKEY.copy(),
         "convert_hotkey": hk.DEFAULT_CONVERT_HOTKEY.copy(),
@@ -245,6 +247,10 @@ def normalize_settings(raw):
             "convert_enabled": raw.get("convert_enabled") is not False,
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
             "clipboard_days": clipdb.normalize_days(raw.get("clipboard_days")),
+            # Earlier 1–5-day history is never deleted without opting in now.
+            "clipboard_autodelete_days": clipdb.normalize_autodelete_days(raw.get("clipboard_autodelete_days")),
+            "clipboard_text_display_limit": clipdb.normalize_display_limit(raw.get("clipboard_text_display_limit")),
+            "clipboard_db_image_display_limit": clipdb.normalize_display_limit(raw.get("clipboard_db_image_display_limit")),
             "clipboard_paused": raw.get("clipboard_paused") is True,
             "clipboard_sensitive_filter": raw.get("clipboard_sensitive_filter") is not False,
             "clipboard_image_limit": clipboard_images.normalize_limit(
@@ -419,13 +425,18 @@ class PocketDesk:
         self.clipboard_database = clipdb.ClipboardDatabase(self.path.parent)
         self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
         self._clipboard_capture_day = clipdb.today()
+        self._clipboard_page_index = {"text": 0, "images": 0}
         self._clipboard_error_pending = None
         if self.settings["clipboard_storage"] == "database":
             try:
                 self.clipboard_database.ensure_folders()
-                self.clipboard_database.update_retention(self.settings["clipboard_days"])
-                self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
-                self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
+                self.clipboard_database.migrate_screenshots()
+                self.clipboard_database.update_retention(self.settings["clipboard_autodelete_days"])
+                self.clipboard_items = self.clipboard_database.load_text(
+                    clipdb.today(), limit=self.settings["clipboard_text_display_limit"])
+                self.clipboard_images = self.clipboard_database.load_images(
+                    clipdb.today(), limit=self.settings["clipboard_db_image_display_limit"],
+                    metadata_only=True)
             except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
                 # An unavailable/corrupted optional history must not prevent
                 # the Notes, Commands or network tools from launching.
@@ -1627,29 +1638,35 @@ class PocketDesk:
         return self.settings["clipboard_storage"] == "database"
 
     def _clipboard_report_io_error(self, exc):
-        # Never include clipboard contents in messages or log files.
         message = f"Local clipboard history could not be saved or opened: {type(exc).__name__}: {exc}"
         if self.current_tab == "clipboard" and not getattr(self, "_clipboard_error_shown", False):
             self._clipboard_error_shown = True
             self._warning("Clipboard Database", message)
         else:
-            print("Pocket clipboard database I/O error: " + str(type(exc).__name__),
-                  file=sys.stderr)
+            # Do not include copied text in logs.
+            print("Pocket clipboard database I/O error: " + str(type(exc).__name__), file=sys.stderr)
+
+    def _clipboard_display_limit(self, page):
+        return self.settings["clipboard_text_display_limit" if page == "text"
+                             else "clipboard_db_image_display_limit"]
 
     def _clipboard_load_day(self, page, day=None):
-        if not self._clipboard_store_is_disk():
-            return
-        if page not in ("text", "images"):
+        """Load only one page; full-resolution PNGs remain on disk."""
+        if not self._clipboard_store_is_disk() or page not in ("text", "images"):
             return
         day = day or self._clipboard_view_days[page]
         try:
-            self.clipboard_database.prune(self.settings["clipboard_days"])
             self._clipboard_view_days[page] = day
+            limit = self._clipboard_display_limit(page)
+            offset = self._clipboard_page_index.get(page, 0)
             if page == "text":
-                self.clipboard_items = self.clipboard_database.load_text(day)
+                self.clipboard_items = self.clipboard_database.load_text(
+                    day, limit=limit, offset=offset)
             else:
-                self.clipboard_images = self.clipboard_database.load_images(day)
-                self._clipboard_selected_image_id = None
+                self.clipboard_images = self.clipboard_database.load_images(
+                    day, limit=limit, offset=offset, metadata_only=True)
+                self._clipboard_selected_image_id = (
+                    self.clipboard_images[0]["id"] if self.clipboard_images else None)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             self._clipboard_report_io_error(exc)
 
@@ -1657,17 +1674,43 @@ class PocketDesk:
         page = self.clipboard_page
         if not self._clipboard_store_is_disk() or not clipdb.valid_day(day):
             return
-        choices = set(self.clipboard_database.days(
-            page, days=self.settings["clipboard_days"])) | {clipdb.today()}
-        if day not in choices:
+        options = set(self.clipboard_database.days(
+            page, days=self.settings["clipboard_autodelete_days"])) | {clipdb.today()}
+        if day not in options:
             return
-        self._clipboard_view_days[page] = day
+        self._clipboard_page_index[page] = 0
         self._clipboard_load_day(page, day)
         if page == "text":
             self._refresh_clipboard()
         else:
             clipboard_gallery.refresh_images(self, force=True)
         clipboard_gallery.refresh_history_selector(self)
+
+    def _clipboard_turn_page(self, delta):
+        page = self.clipboard_page
+        if not self._clipboard_store_is_disk() or delta not in (-1, 1):
+            return
+        limit = self._clipboard_display_limit(page)
+        previous = self._clipboard_page_index[page]
+        proposed = max(0, previous + delta * limit)
+        if proposed == previous:
+            return
+        day = self._clipboard_view_days[page]
+        try:
+            next_row = (self.clipboard_database.load_text(day, limit=1, offset=proposed)
+                        if page == "text" else self.clipboard_database.load_images(
+                            day, limit=1, offset=proposed, metadata_only=True))
+            if not next_row:
+                return
+            self._clipboard_page_index[page] = proposed
+            self._clipboard_load_day(page)
+            if page == "text":
+                self._refresh_clipboard()
+            else:
+                clipboard_gallery.refresh_images(self, force=True)
+            clipboard_gallery.refresh_page_navigation(self)
+        except (OSError, ValueError, TypeError) as exc:
+            self._clipboard_report_io_error(exc)
 
     def _clipboard_use_storage(self, mode):
         if mode not in ("ram", "database") or self.settings["clipboard_storage"] == mode:
@@ -1680,10 +1723,13 @@ class PocketDesk:
         else:
             try:
                 self.clipboard_database.ensure_folders()
-                self.clipboard_database.prune(self.settings["clipboard_days"])
+                self.clipboard_database.migrate_screenshots()
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
                 self._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
-                self.clipboard_items = self.clipboard_database.load_text(clipdb.today())
-                self.clipboard_images = self.clipboard_database.load_images(clipdb.today())
+                self._clipboard_page_index = {"text": 0, "images": 0}
+                self._clipboard_load_day("text")
+                self._clipboard_load_day("images")
             except (OSError, ValueError, TypeError) as exc:
                 self.settings["clipboard_storage"] = previous
                 self.clipboard_items = self._ram_text_items
@@ -1692,48 +1738,68 @@ class PocketDesk:
                 return
         self._clipboard_selected_image_id = None
         self._clipboard_last = None
-        # Do not re-capture the currently held clipboard simply by switching.
         self._clipboard_sequence = clipboard_images.sequence_number()
         self.schedule_save()
         if self.current_tab == "clipboard":
             self.show_tab("clipboard")
 
-    def _set_clipboard_days(self, days):
-        days = clipdb.normalize_days(days)
-        if self.settings["clipboard_days"] == days:
+    def _set_clipboard_autodelete_days(self, days):
+        days = clipdb.normalize_autodelete_days(days)
+        if self.settings["clipboard_autodelete_days"] == days:
             return
-        self.settings["clipboard_days"] = days
+        self.settings["clipboard_autodelete_days"] = days
         if self._clipboard_store_is_disk():
             try:
+                self.clipboard_database.migrate_screenshots()
                 self.clipboard_database.update_retention(days)
                 for page in ("text", "images"):
                     known = set(self.clipboard_database.days(page, days=days))
                     if self._clipboard_view_days[page] not in known:
                         self._clipboard_view_days[page] = clipdb.today()
-                self._clipboard_load_day("text")
-                self._clipboard_load_day("images")
+                        self._clipboard_page_index[page] = 0
+                    self._clipboard_load_day(page)
             except (OSError, ValueError) as exc:
                 self._clipboard_report_io_error(exc)
         self.schedule_save()
         if self.current_tab == "clipboard":
             self.show_tab("clipboard")
 
+    def _set_clipboard_days(self, days):
+        """Legacy callback; the new auto-delete preference is opt-in."""
+        self._set_clipboard_autodelete_days(days)
+
+    def _set_clipboard_display_limit(self, page, value):
+        if page not in ("text", "images"):
+            return
+        key = "clipboard_text_display_limit" if page == "text" else "clipboard_db_image_display_limit"
+        limit = clipdb.normalize_display_limit(value, self.settings[key])
+        if self.settings[key] == limit:
+            return
+        self.settings[key] = limit
+        if self._clipboard_store_is_disk():
+            self._clipboard_page_index[page] = 0
+            self._clipboard_load_day(page)
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self.show_tab("clipboard")
+
     def _clipboard_on_new_text(self, value):
-        """Use one date file per day, without limiting DATABASE to RAM's 100."""
         day = clipdb.today()
         if self._clipboard_store_is_disk():
             if day != self._clipboard_capture_day:
-                self.clipboard_database.prune(self.settings["clipboard_days"])
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
                 self._clipboard_capture_day = day
-            items = self.clipboard_database.load_text(day)
-            is_duplicate = bool(items and items[0]["text"] == value)
-            if not is_duplicate:
-                clipboard_add(items, value, maximum=1_000_000_000)
-                self.clipboard_database.save_text(
-                    day, items, days=self.settings["clipboard_days"])
-            # Even copying a duplicate while browsing history returns to Today.
-            self._clipboard_view_days["text"] = day
-            self.clipboard_items = items
+            recent = self.clipboard_database.last_text(day)
+            if recent is None or recent["text"] != value:
+                fresh = []
+                clipboard_add(fresh, value)
+                if not fresh:
+                    return
+                self.clipboard_database.append_text(
+                    day, fresh[0], days=self.settings["clipboard_autodelete_days"])
+            self._clipboard_page_index["text"] = 0
+            self._clipboard_load_day("text", day)
             if self.current_tab == "clipboard":
                 clipboard_gallery.refresh_history_selector(self)
                 if self.clipboard_page == "text":
@@ -1749,23 +1815,21 @@ class PocketDesk:
         day = clipdb.today()
         if self._clipboard_store_is_disk():
             if day != self._clipboard_capture_day:
-                self.clipboard_database.prune(self.settings["clipboard_days"])
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
                 self._clipboard_capture_day = day
-            latest = self.clipboard_database.load_images(day)
             candidate = []
             if not clipboard_images.add_image(candidate, image):
                 return
             record = candidate[0]
-            match = next((item for item in latest
-                          if item["digest"] == record["digest"]), None)
-            if match is None:
+            latest = self.clipboard_database.load_images(day, limit=1)
+            duplicated = bool(latest and latest[0]["digest"] == record["digest"])
+            if not duplicated:
                 self.clipboard_database.save_image(day, record)
-                latest.insert(0, record)
-                match = record
-            # Duplicates still navigate back to the present day.
-            self._clipboard_view_days["images"] = day
-            self.clipboard_images = latest
-            self._clipboard_selected_image_id = match["id"]
+            self._clipboard_page_index["images"] = 0
+            self._clipboard_load_day("images", day)
+            self._clipboard_selected_image_id = (
+                latest[0]["id"] if duplicated else record["id"])
             if self.current_tab == "clipboard":
                 clipboard_gallery.refresh_history_selector(self)
                 if self.clipboard_page == "images":
@@ -1784,13 +1848,15 @@ class PocketDesk:
         if self._clipboard_store_is_disk() and clipdb.today() != self._clipboard_capture_day:
             self._clipboard_capture_day = clipdb.today()
             try:
-                self.clipboard_database.update_retention(self.settings["clipboard_days"])
+                self.clipboard_database.update_retention(
+                    self.settings["clipboard_autodelete_days"])
                 for page in ("text", "images"):
                     available = set(self.clipboard_database.days(
-                        page, days=self.settings["clipboard_days"]))
+                        page, days=self.settings["clipboard_autodelete_days"]))
                     if self._clipboard_view_days[page] not in available:
                         self._clipboard_view_days[page] = clipdb.today()
-                        self._clipboard_load_day(page)
+                        self._clipboard_page_index[page] = 0
+                    self._clipboard_load_day(page)
                 if self.current_tab == "clipboard":
                     clipboard_gallery.refresh_history_selector(self)
                     self._refresh_clipboard()
@@ -2009,13 +2075,18 @@ class PocketDesk:
         if self._clipboard_store_is_disk():
             self.clipboard_database.save_text(
                 self._clipboard_view_days["text"], updated,
-                days=self.settings["clipboard_days"])
-        self.clipboard_items[:] = updated
+                days=self.settings["clipboard_autodelete_days"])
+            self._clipboard_load_day("text")
+        else:
+            self.clipboard_items[:] = updated
 
     def _pin_clipboard_item(self):
         item = self._selected_clipboard_item()
         if item:
-            updated = [dict(row) for row in self.clipboard_items]
+            # Never truncate a whole day to the 10–100 visible rows.
+            updated = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
+                       if self._clipboard_store_is_disk() else
+                       [dict(row) for row in self.clipboard_items])
             for row in updated:
                 if row["id"] == item["id"]:
                     row["pinned"] = not row["pinned"]
@@ -2029,16 +2100,17 @@ class PocketDesk:
     def _delete_clipboard_item(self):
         item = self._selected_clipboard_item()
         if item:
-            updated = [row for row in self.clipboard_items if row["id"] != item["id"]]
+            all_items = (self.clipboard_database.load_text(self._clipboard_view_days["text"])
+                         if self._clipboard_store_is_disk() else self.clipboard_items)
+            updated = [row for row in all_items if row["id"] != item["id"]]
             try:
                 self._clipboard_write_text_view(updated)
             except (OSError, ValueError) as exc:
                 self._clipboard_report_io_error(exc)
                 return
-            self._refresh_clipboard()
             if self._clipboard_store_is_disk():
                 clipboard_gallery.refresh_history_selector(self)
-                self._refresh_clipboard()
+            self._refresh_clipboard()
 
     def _clipboard_delete_image(self, item):
         if self._clipboard_store_is_disk():

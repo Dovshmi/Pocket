@@ -170,7 +170,7 @@ def new_link(title, url, kind="url") -> dict:
 
 
 def default_data() -> dict:
-    n = new_note("Welcome", "Your notes live here.\n\nCreate another note with + New. Everything saves automatically.")
+    n = new_note("הבחשט מתקרר", "תקלה באזור הבוכרה, הכל תקין טבל החינקלי כבר קר.")
     # Factory shortcuts are seeded only for profiles without a data.json.
     # Never add/recreate these entries when loading an existing user profile.
     links = [
@@ -178,7 +178,7 @@ def default_data() -> dict:
         new_link("My GitHub", "https://github.com/Dovshmi"),
     ]
     layout = shortcut_folders.normalize(None, links)
-    folder_id = shortcut_folders.add_folder(layout, "Ushpelo")
+    folder_id = shortcut_folders.add_folder(layout, "אושפלו")
     for link in links:
         shortcut_folders.move(
             layout, shortcut_folders.link_key(link["id"]),

@@ -83,6 +83,26 @@ def slot_hotkeys(paste_prefix=DEFAULT_PASTE_PREFIX,
         yield (base + 0x10 + number - 1, modifier_flags(copy_prefix), key)
 
 
+def group_hotkeys(action, prefix, *, base):
+    """One 9-key group, addressable independently for conflict-safe swaps."""
+    if action not in ("paste", "save"):
+        raise ValueError("Invalid Quick Slot action")
+    for number in SLOT_NUMBERS:
+        yield (base + number - 1, modifier_flags(prefix), 0x60 + number)
+
+
+def register_group(register, unregister, hwnd, action, prefix, *, base):
+    """All-or-none single action registration; old group remains active."""
+    registered = set()
+    for hotkey_id, mods, key in group_hotkeys(action, prefix, base=base):
+        if not register(hwnd, hotkey_id, mods, key):
+            for previous in registered:
+                unregister(hwnd, previous)
+            return set()
+        registered.add(hotkey_id)
+    return registered
+
+
 def register_all(register, unregister, hwnd, paste_prefix,
                  copy_prefix=DEFAULT_COPY_PREFIX, *, base=PASTE_HOTKEY_BASE):
     """Atomic 18-key registration; undo partial success on a conflict."""

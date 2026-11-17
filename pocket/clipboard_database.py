@@ -40,8 +40,21 @@ def normalize_autodelete_days(value):
     return value if type(value) is int and 7 <= value <= 30 else 0
 
 
+TEXT_DISPLAY_CHOICES = (100, 300, 500, 800, 1000, 1200, 1500)
+
+
 def normalize_display_limit(value, default=30):
+    """Image DB options; kept independent from the text history limit."""
     return value if type(value) is int and value in range(10, 101, 10) else default
+
+
+def normalize_text_display_limit(value):
+    """v1.38 text-page choices, safely upgrading saved 1.37 preferences."""
+    if type(value) is not int or value < 1:
+        return 100
+    # Previously available 10–100 counts upgrade to 100. Other persisted
+    # integer counts round upward so a larger setting does not lose entries.
+    return next((count for count in TEXT_DISPLAY_CHOICES if value <= count), 1500)
 
 
 def today():
@@ -247,7 +260,7 @@ class ClipboardDatabase:
             return []
         if file.stat().st_size > 100_000_000:
             raise ValueError("Daily clipboard text file exceeds 100 MB")
-        if limit is not None and (type(limit) is not int or limit < 1 or limit > 1000):
+        if limit is not None and (type(limit) is not int or limit < 1 or limit > 1500):
             raise ValueError("Invalid text page limit")
         if type(offset) is not int or offset < 0:
             raise ValueError("Invalid text page offset")

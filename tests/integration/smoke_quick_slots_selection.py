@@ -87,14 +87,17 @@ def run():
         assert entry.selection_present(), "Entry must have active selection"
         captured = capture_while_ui_pumps(root, target_hwnd)
         assert captured == "POCKET_SELECTED_TEXT_1942", (captured, "selected")
-        assert root.clipboard_get() == "PREVIOUS_CLIPBOARD"
-        print("PASS: selected text copied through SendInput Ctrl+C and clipboard restored")
+        assert root.clipboard_get() == "POCKET_SELECTED_TEXT_1942"
+        print("PASS: selected text copied into Slot and normal Windows clipboard")
 
         entry.selection_clear()
+        root.clipboard_clear()
+        root.clipboard_append("NEW_EXISTING_CLIPBOARD")
         root.update()
         captured = capture_while_ui_pumps(root, target_hwnd)
-        assert captured == "PREVIOUS_CLIPBOARD", (captured, "fallback")
-        print("PASS: without selection, original clipboard remains the fallback")
+        assert captured == "NEW_EXISTING_CLIPBOARD", (captured, "fallback")
+        assert root.clipboard_get() == "NEW_EXISTING_CLIPBOARD"
+        print("PASS: without a selection, existing Windows clipboard is the fallback")
     finally:
         root.destroy()
 

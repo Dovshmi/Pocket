@@ -63,6 +63,9 @@ jobs:
       - name: Verify real selection copy and clipboard fallback (Windows)
         if: runner.os == 'Windows'
         run: python tests/integration/smoke_quick_slots_selection.py
+      - name: Exercise real Windows ASCII and Hebrew Quick Slot paste
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_quick_slots_paste.py
       - name: Exercise embedded Windows native inputs (Windows)
         if: runner.os == 'Windows'
         run: python tests/integration/smoke_native_inputs.py

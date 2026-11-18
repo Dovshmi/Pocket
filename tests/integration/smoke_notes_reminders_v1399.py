@@ -183,6 +183,17 @@ def run():
         clear_button = overview._reminders_clear_button
         assert add_button.cget("text") == "+"
         assert clear_button.cget("text") == "Clear"
+        palette = icon_themes.palette("blue")
+        for control in (add_button, clear_button):
+            assert control.cget("bg") == palette["BG"], (
+                "Header actions must be unboxed, not shaded action buttons")
+            assert control.cget("activebackground") == palette["BG"]
+            assert int(control.cget("highlightthickness")) == 0
+            assert int(control.cget("bd")) == 0
+        assert add_button.cget("fg") == palette["ACCENT"]
+        assert clear_button.cget("fg") == palette["DANGER"]
+        assert add_button.winfo_width() <= 36
+        assert clear_button.winfo_width() <= 55
         assert add_button.winfo_parent() == clear_button.winfo_parent(), (
             "New and Clear should share the results-count row below Search")
         assert add_button.winfo_parent() != overview.winfo_children()[0], (

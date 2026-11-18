@@ -111,7 +111,7 @@ class QuickSlotsTests(unittest.TestCase):
     def test_two_direct_prefixes_with_fixed_numpad_and_no_shift(self):
         self.assertEqual(quick_slots.normalize_prefix(None), "ctrl_alt")
         self.assertEqual(quick_slots.normalize_prefix(
-            None, default=quick_slots.DEFAULT_COPY_PREFIX), "ctrl_win")
+            None, default=quick_slots.DEFAULT_COPY_PREFIX), "ctrl_alt_win")
         self.assertTrue(quick_slots.distinct_prefixes("ctrl_alt", "ctrl_win"))
         self.assertFalse(quick_slots.distinct_prefixes("ctrl_alt", "ctrl_alt"))
         bindings = list(quick_slots.slot_hotkeys())
@@ -122,7 +122,7 @@ class QuickSlotsTests(unittest.TestCase):
             self.assertEqual(paste[2], 0x60 + number)
             self.assertEqual(save[2], paste[2])
             self.assertEqual(paste[1], quick_slots.modifier_flags("ctrl_alt"))
-            self.assertEqual(save[1], quick_slots.modifier_flags("ctrl_win"))
+            self.assertEqual(save[1], quick_slots.modifier_flags("ctrl_alt_win"))
             self.assertFalse((paste[1] | save[1]) & quick_slots.MOD_SHIFT)
             self.assertEqual(quick_slots.hotkey_action(paste[0]), ("paste", number))
             self.assertEqual(quick_slots.hotkey_action(save[0]), ("save", number))

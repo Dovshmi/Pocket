@@ -478,85 +478,225 @@ def open_standalone_form(root, reminder, on_save, on_close, theme="blue"):
 
 
 def build_overview(app, parent, *, colors):
-    """A separate view reached from Notes/More, without adding top-bar icons."""
+    """Polished, narrow-friendly hub for Note-linked and independent reminders."""
     c = colors
-    tk.Label(parent, text="Reminders", bg=c["BG"], fg=c["WHITE"],
-             font=(FONT, 17, "bold")).pack(anchor="w", pady=(2, 5))
-    tk.Label(parent, text="All your Note reminders in one place.",
-             bg=c["BG"], fg=c["MUTED"], font=(FONT, 9)).pack(anchor="w", pady=(0, 10))
-    notes_with_reminders = [
-        note for note in app.data["notes"] if notes.reminder_status(note)]
-    counts = {status: sum(notes.reminder_status(note) == status
-                          for note in notes_with_reminders)
-              for status in ("Upcoming", "Snoozed", "Completed")}
-    tk.Label(parent, text="   ".join(f"{name}: {count}" for name, count in counts.items()),
-             bg=c["BG"], fg=c["SECONDARY"], font=(FONT, 9, "bold"),
-             anchor="w").pack(fill="x", pady=(0, 10))
+    bg, panel, white = c["BG"], c["PANEL"], c["WHITE"]
+    import tkinter.font as tkfont
 
-    actions = tk.Frame(parent, bg=c["BG"])
-    actions.pack(fill="x", pady=(0, 10))
-    ttk.Button(actions, text="← Notes", command=lambda: app.show_tab("notes")).pack(
-        side="left")
-    ttk.Button(actions, text="Set reminder for active note",
-               command=lambda: app._edit_note_reminder(app.data["active_note"])).pack(
-                   side="right")
+    def text(parent_widget, caption, *, size=9, bold=False, fg=None, bg_color=None,
+             **kwargs):
+        return tk.Label(parent_widget, text=caption,
+                        bg=bg_color or bg, fg=fg or white,
+                        font=(FONT, size, "bold" if bold else "normal"), **kwargs)
 
-    status_filter = tk.StringVar(parent, "All")
-    filter_frame = tk.Frame(parent, bg=c["BG"])
-    filter_frame.pack(fill="x", pady=(0, 8))
-    tk.Label(filter_frame, text="Show", font=(FONT, 9), bg=c["BG"],
-             fg=c["SECONDARY"]).pack(side="left", padx=(0, 9))
-    choice = ttk.Combobox(filter_frame, textvariable=status_filter,
-                          values=("All", "Upcoming", "Snoozed", "Completed"),
-                          state="readonly", width=16)
-    choice.pack(side="left")
-    listing = tk.Frame(parent, bg=c["BG"])
-    listing.pack(fill="x")
+    def action(parent_widget, caption, callback, *, primary=False, danger=False, size=8):
+        color = c["ACCENT_DARK"] if primary else c["CARD"]
+        fore = c["WHITE"] if primary else (c["DANGER"] if danger else c["SECONDARY"])
+        return tk.Button(parent_widget, text=caption, command=callback,
+                         bg=color, fg=fore, activebackground=c["CARD_HOVER"],
+                         activeforeground=white, relief="flat", bd=0,
+                         padx=7, pady=5, font=(FONT, size, "bold"),
+                         cursor="hand2", takefocus=True,
+                         highlightthickness=1, highlightbackground=c["BORDER"])
 
-    def render(_event=None):
-        for child in listing.winfo_children():
+    # Header: one obvious, first-class "New reminder" action.
+    header = tk.Frame(parent, bg=bg)
+    header.pack(fill="x", pady=(0, 4))
+    action(header, "+ New", app._edit_standalone_reminder, primary=True,
+           size=9).pack(side="right")
+    text(header, "Reminders", size=17, bold=True).pack(side="left")
+    text(parent, "Scheduled tasks & reminders, all in one place.",
+         size=8, fg=c["MUTED"], anchor="w", justify="left",
+         wraplength=285).pack(fill="x", pady=(0, 12))
+
+    linked = [("note", item) for item in app.data["notes"]
+              if notes.reminder_status(item)]
+    independent = [("standalone", item) for item in app.data.get("reminders", [])
+                   if notes.reminder_status(item)]
+    items = linked + independent
+    statuses = ("Upcoming", "Snoozed", "Completed")
+    counts = {status: sum(notes.reminder_status(item) == status for _kind, item in items)
+              for status in statuses}
+
+    # A three-column summary without relying on unreadably tiny status pills.
+    summary = tk.Frame(parent, bg=bg)
+    summary.pack(fill="x", pady=(0, 12))
+    for idx, (status, caption) in enumerate(
+            (("Upcoming", "Upcoming"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
+        card = tk.Frame(summary, bg=panel, highlightthickness=1,
+                        highlightbackground=c["BORDER"])
+        card.grid(row=0, column=idx, sticky="nsew", padx=(0, 5) if idx < 2 else 0)
+        summary.grid_columnconfigure(idx, weight=1, uniform="reminders_summary")
+        text(card, str(counts[status]), size=16, bold=True, fg=c["ACCENT"],
+             bg_color=panel).pack(anchor="w", padx=9, pady=(7, 0))
+        text(card, caption, size=8, fg=c["SECONDARY"],
+             bg_color=panel).pack(anchor="w", padx=9, pady=(0, 7))
+
+    filter_state = getattr(app, "_reminders_status_filter", "All")
+    if filter_state not in ("All", *statuses):
+        filter_state = "All"
+    search = tk.StringVar(parent, getattr(app, "_reminders_search", ""))
+    selected = [filter_state]
+    control = tk.Frame(parent, bg=bg)
+    control.pack(fill="x", pady=(0, 8))
+    tabs = tk.Frame(control, bg=bg)
+    tabs.pack(fill="x")
+    filter_buttons = {}
+    results = tk.Frame(parent, bg=bg)
+
+    def set_filter(value):
+        selected[0] = value
+        app._reminders_status_filter = value
+        update_filters()
+        render()
+
+    for value, caption in (("All", "All"), ("Upcoming", "Next"),
+                           ("Snoozed", "Snoozed"), ("Completed", "Done")):
+        tabs.grid_columnconfigure(len(filter_buttons), weight=1, uniform="filter")
+        button = action(tabs, caption, lambda target=value: set_filter(target))
+        button.grid(row=0, column=len(filter_buttons), sticky="ew", padx=(0, 3))
+        filter_buttons[value] = button
+
+    def update_filters():
+        for value, button in filter_buttons.items():
+            active = value == selected[0]
+            button.configure(bg=c["ACCENT_DARK"] if active else c["CARD"],
+                             fg=white if active else c["SECONDARY"],
+                             highlightbackground=c["ACCENT"] if active else c["BORDER"])
+    update_filters()
+
+    search_bar = tk.Frame(parent, bg=c["INPUT"], highlightthickness=1,
+                          highlightbackground=c["BORDER"])
+    search_bar.pack(fill="x", pady=(4, 11))
+    text(search_bar, "⌕", size=12, fg=c["MUTED"],
+         bg_color=c["INPUT"]).pack(side="left", padx=(9, 5))
+    search_box = tk.Entry(search_bar, textvariable=search, font=(FONT, 9),
+                          bg=c["INPUT"], fg=white, insertbackground=white,
+                          relief="flat", bd=0, highlightthickness=0)
+    search_box.pack(side="left", fill="x", expand=True, ipady=7)
+    text(search_bar, "Search", size=8, fg=c["MUTED"],
+         bg_color=c["INPUT"]).pack(side="right", padx=8)
+    app._reminders_search_entry = search_box
+
+    results_title = tk.Frame(parent, bg=bg)
+    results_title.pack(fill="x", pady=(0, 7))
+    result_count = text(results_title, "YOUR REMINDERS", size=8, bold=True,
+                        fg=c["SECONDARY"])
+    result_count.pack(side="left")
+    results.pack(fill="x")
+
+    def render(*_args):
+        app._reminders_search = search.get()
+        for child in results.winfo_children():
             child.destroy()
-        entries = [n for n in notes_with_reminders
-                   if status_filter.get() in ("All", notes.reminder_status(n))]
-        entries.sort(key=lambda n: (notes.reminder_status(n) == "Completed",
-                                    n.get("reminder_at", "")))
-        if not entries:
-            tk.Label(listing, text="No reminders in this view.",
-                     bg=c["BG"], fg=c["MUTED"], font=(FONT, 9)).pack(
-                         anchor="w", pady=12)
+        needle = search.get().strip().casefold()
+        filtered = []
+        for source, item in items:
+            status = notes.reminder_status(item)
+            if selected[0] != "All" and status != selected[0]:
+                continue
+            haystack = f"{item.get('title', '')} {item.get('details','') if source == 'standalone' else ''}"
+            if needle and needle not in haystack.casefold():
+                continue
+            filtered.append((source, item))
+        filtered.sort(key=lambda pair: (
+            notes.reminder_status(pair[1]) == "Completed",
+            pair[1].get("reminder_at", "")))
+        result_count.configure(text=f"YOUR REMINDERS   ·   {len(filtered)}")
+
+        if not filtered:
+            empty = tk.Frame(results, bg=panel, highlightthickness=1,
+                             highlightbackground=c["BORDER"])
+            empty.pack(fill="x", pady=(4, 6))
+            text(empty, "Nothing here yet", bg_color=panel,
+                 size=11, bold=True).pack(pady=(16, 3))
+            text(empty, "Create a reminder or choose another filter.",
+                 bg_color=panel, fg=c["MUTED"], wraplength=260,
+                 size=8).pack(pady=(0, 13))
             return
-        for note in entries:
-            item = tk.Frame(listing, bg=c["PANEL"], highlightthickness=1,
+
+        for source, reminder in filtered:
+            status = notes.reminder_status(reminder)
+            uid = reminder["id"]
+            card = tk.Frame(results, bg=panel, highlightthickness=1,
                             highlightbackground=c["BORDER"])
-            item.pack(fill="x", pady=(0, 7))
-            tk.Label(item, text=(note.get("title") or "Note")[:52],
-                     bg=c["PANEL"], fg=c["WHITE"], font=(FONT, 10, "bold"),
-                     anchor="w").pack(fill="x", padx=9, pady=(8, 2))
-            when = notes.format_reminder(note)
-            tk.Label(item, text=f"{notes.reminder_status(note)} · {when}",
-                     bg=c["PANEL"], fg=c["SECONDARY"],
-                     font=(FONT, 8), anchor="w").pack(fill="x", padx=9)
-            buttons = tk.Frame(item, bg=c["PANEL"])
-            buttons.pack(fill="x", padx=8, pady=6)
-            def open_note(note_id=note["id"]):
-                app.data["active_note"] = note_id
-                app.show_tab("notes")
-            top_actions = tk.Frame(buttons, bg=c["PANEL"])
-            top_actions.pack(fill="x")
-            ttk.Button(top_actions, text="Open", command=open_note).pack(side="left")
-            ttk.Button(top_actions, text="Edit time",
-                       command=lambda note_id=note["id"]: app._edit_note_reminder(note_id)
-                       ).pack(side="right")
-            if notes.reminder_status(note) != "Completed":
-                # A second short row prevents button overflow inside 346px Mini.
-                bottom_actions = tk.Frame(buttons, bg=c["PANEL"])
-                bottom_actions.pack(fill="x", pady=(5, 0))
-                ttk.Button(bottom_actions, text="Snooze 15m",
-                           command=lambda note_id=note["id"]: app._manage_note_reminder(
-                               note_id, "snooze")).pack(side="left")
-                ttk.Button(bottom_actions, text="Done",
-                           command=lambda note_id=note["id"]: app._manage_note_reminder(
-                               note_id, "done")).pack(side="right")
-    choice.bind("<<ComboboxSelected>>", render)
+            card.pack(fill="x", pady=(0, 8))
+            stripe = tk.Frame(card, bg=(c["ACCENT"] if status == "Upcoming"
+                                        else c["MUTED"] if status == "Snoozed"
+                                        else c["BORDER"]), width=3)
+            stripe.pack(side="left", fill="y")
+            stripe.pack_propagate(False)
+            content = tk.Frame(card, bg=panel)
+            content.pack(side="left", fill="both", expand=True, padx=10, pady=(9, 8))
+
+            badges = tk.Frame(content, bg=panel)
+            badges.pack(fill="x", pady=(0, 5))
+            source_text = "▤ Note" if source == "note" else "◉ Reminder"
+            text(badges, source_text, fg=c["ACCENT"], bg_color=panel,
+                 size=8, bold=True).pack(side="left")
+            text(badges, status.upper() if status else "", size=7, bg_color=panel,
+                 fg=c["MUTED"]).pack(side="right")
+
+            text(content, (reminder.get("title") or "Untitled reminder")[:90],
+                 bg_color=panel, size=10, bold=True, anchor="w",
+                 wraplength=258, justify="left").pack(fill="x", pady=(0, 3))
+            text(content, "◷  " + notes.format_reminder(reminder).replace(" · sent", ""),
+                 fg=c["SECONDARY"], bg_color=panel, size=8, anchor="w").pack(
+                     fill="x", pady=(0, 4))
+
+            details = (reminder.get("details", "") if source == "standalone" else
+                       reminder.get("body", ""))
+            if isinstance(details, str) and details.strip():
+                snippet = " ".join(details.split())
+                if len(snippet) > 110:
+                    snippet = snippet[:107] + "…"
+                text(content, snippet, fg=c["MUTED"], bg_color=panel, size=8,
+                     anchor="w", justify="left", wraplength=258
+                     ).pack(fill="x", pady=(0, 5))
+
+            if source == "standalone" and reminder.get("responses"):
+                latest = reminder["responses"][-1]
+                text(content, "Reply · " + latest["time"], fg=c["ACCENT"],
+                     bg_color=panel, size=8, anchor="w").pack(fill="x")
+                last = " ".join(latest["text"].split())
+                text(content, last[:105] + ("…" if len(last) > 105 else ""),
+                     fg=c["SECONDARY"], bg_color=panel, size=8,
+                     anchor="w", wraplength=258, justify="left").pack(
+                         fill="x", pady=(0, 5))
+
+            buttons = tk.Frame(content, bg=panel)
+            buttons.pack(fill="x", pady=(5, 0))
+            primary_row = tk.Frame(buttons, bg=panel)
+            primary_row.pack(fill="x")
+            if source == "note":
+                def open_note(note_id=uid):
+                    app.data["active_note"] = note_id
+                    app.show_tab("notes")
+                action(primary_row, "Open note", open_note).pack(side="left")
+                edit = lambda ident=uid: app._edit_note_reminder(ident)
+            else:
+                action(primary_row, "Details",
+                       lambda ident=uid: app._edit_standalone_reminder(ident)
+                       ).pack(side="left")
+                edit = lambda ident=uid: app._edit_standalone_reminder(ident)
+            action(primary_row, "Edit", edit).pack(side="right")
+            if status != "Completed":
+                secondary = tk.Frame(buttons, bg=panel)
+                secondary.pack(fill="x", pady=(5, 0))
+                action(secondary, "Snooze 15m",
+                       lambda ident=uid, src=source:
+                           app._manage_note_reminder(ident, "snooze", source=src)
+                       ).pack(side="left")
+                action(secondary, "Done",
+                       lambda ident=uid, src=source:
+                           app._manage_note_reminder(ident, "done", source=src),
+                       primary=True).pack(side="right")
+            elif source == "standalone":
+                action(buttons, "Delete",
+                       lambda ident=uid: app._delete_standalone_reminder(ident),
+                       danger=True).pack(anchor="e", pady=(5, 0))
+
+    search.trace_add("write", render)
     render()
-    parent._reminders_filter = status_filter
+    parent._reminders_filter = selected
+

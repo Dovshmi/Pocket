@@ -1,0 +1,104 @@
+"""Windows integration: actual Quick Slot auto paste and clipboard-only flow.
+
+Run against a real foreground Tk text control on a Windows CI desktop.
+"""
+from __future__ import annotations
+
+import ctypes
+import os
+from pathlib import Path
+import sys
+import threading
+import time
+import tkinter as tk
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from pocket import quick_slots
+
+
+def run_on_worker(root, action):
+    complete = threading.Event()
+    result = {}
+
+    def worker():
+        try:
+            result["return"] = action()
+        except Exception as exc:
+            result["error"] = repr(exc)
+        finally:
+            complete.set()
+
+    threading.Thread(target=worker, daemon=True).start()
+    limit = time.monotonic() + 8
+
+    def poll():
+        if complete.is_set() or time.monotonic() >= limit:
+            root.quit()
+        else:
+            root.after(15, poll)
+
+    root.after(15, poll)
+    # The GUI thread must pump messages while Windows clipboard data is
+    # rendered and SendInput reaches the actual entry widget.
+    root.mainloop()
+    if not complete.is_set():
+        raise AssertionError("Timed out on Windows Quick Slot paste")
+    if "error" in result:
+        raise AssertionError("Windows Quick Slot paste failed: " + result["error"])
+
+
+def run():
+    if os.name != "nt":
+        print("SKIP: requires real Windows clipboard and input")
+        return
+    root = tk.Tk()
+    root.title("Pocket 1.39.1 paste modes")
+    root.geometry("560x190+140+140")
+    entry = tk.Entry(root, width=48, font=("Segoe UI", 13))
+    entry.pack(padx=14, pady=24)
+    try:
+        root.update()
+        root.deiconify()
+        root.lift()
+        root.focus_force()
+        entry.focus_force()
+        root.update()
+        user = ctypes.WinDLL("user32", use_last_error=True)
+        user.GetForegroundWindow.restype = ctypes.c_void_p
+        user.GetAncestor.argtypes = [ctypes.c_void_p, ctypes.c_uint]
+        user.GetAncestor.restype = ctypes.c_void_p
+        user.SetForegroundWindow.argtypes = [ctypes.c_void_p]
+        user.SetForegroundWindow.restype = ctypes.c_int
+        target = user.GetAncestor(root.winfo_id(), 2)  # GA_ROOT
+        user.SetForegroundWindow(target)
+        root.update()
+        assert user.GetForegroundWindow() == target, "Test foreground changed"
+
+        entry.delete(0, tk.END)
+        entry.focus_force()
+        root.clipboard_clear()
+        root.clipboard_append("PREVIOUS_CLIPBOARD_CONTENT")
+        root.update()
+        run_on_worker(root, lambda: quick_slots.paste_slot_text(
+            "PASTED_1391", target_hwnd=target, owner_hwnd=root.winfo_id()))
+        root.update()
+        assert entry.get() == "PASTED_1391", entry.get()
+        assert root.clipboard_get() == "PREVIOUS_CLIPBOARD_CONTENT", (
+            "Auto paste must preserve the previous clipboard")
+        print("PASS: real Windows Auto Paste inserts and preserves clipboard")
+
+        entry.delete(0, tk.END)
+        entry.focus_force()
+        root.update()
+        run_on_worker(root, lambda: quick_slots.copy_slot_to_clipboard(
+            "MANUAL_1391", owner_hwnd=root.winfo_id()))
+        assert entry.get() == "", "Clipboard-only mode must not auto-paste"
+        assert root.clipboard_get() == "MANUAL_1391", (
+            "Clipboard-only must stage actual Windows clipboard text")
+        print("PASS: real Windows clipboard-only stages text without pasting")
+    finally:
+        root.destroy()
+
+
+if __name__ == "__main__":
+    run()

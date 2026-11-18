@@ -105,6 +105,7 @@ from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
 from pocket import quick_slots
 from pocket import quick_slot_dialog
+from pocket import reminder_ui
 from pocket import keyboard_layout
 from pocket import marked_layout
 from pocket import single_instance
@@ -115,7 +116,7 @@ from pocket import data_recovery
 from pocket import backup_ui
 from pocket import shortcut_recording
 from pocket.task_manager import TaskManager
-from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder)
+from pocket.note_model import (new_note, ordered_notes, duplicate_note, normalize_note_direction, display_created_at, export_note_for_notepad, note_selection_ip, note_command_query, parse_reminder_time, normalize_note_reminder, reminder_is_due, format_reminder, complete_reminder, snooze_reminder)
 
 try:
     from tkinterdnd2 import DND_FILES, DND_TEXT, TkinterDnD
@@ -519,6 +520,8 @@ class PocketDesk:
         self._bidi_editor_active = False
         self._note_focus_pending = None
         self._modal = False
+        self._reminder_dialog = None
+        self._due_reminder_dialog = None
         self.pinned = False
         self._compact_return = False  # True after opening a tool from the launcher.
         self._compact_editing = False
@@ -1515,7 +1518,7 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if which not in self.settings["visible_tabs"] and which != "settings" and not (which == "home" and self.display_mode in ("dashboard", "compact")):
+        if which not in self.settings["visible_tabs"] and which not in ("settings", "reminders") and not (which == "home" and self.display_mode in ("dashboard", "compact")):
             which = "settings"
         self.current_tab = which
         # Always restore the shell body before replacing scrollable tool pages.
@@ -1526,14 +1529,17 @@ class PocketDesk:
             self.body = self._mini_root_body
         for child in self.body.winfo_children():
             child.destroy()
+        # Reminders is accessed from Notes/More; NEVER add a ninth Mini icon.
+        # Highlight the existing More/Settings tab while the overview is open.
+        navigation = "settings" if which == "reminders" else which
         if self.display_mode == "mini":
-            self._style_mini_icon_tabs(which)
+            self._style_mini_icon_tabs(navigation)
         if self.display_mode == "dashboard":
-            dashboard.style_nav(self, which)
+            dashboard.style_nav(self, navigation)
         if self.display_mode == "compact":
-            compact.style_nav(self, which)
+            compact.style_nav(self, navigation)
         if self.display_mode == "normal":
-            self._normal_nav_refresh(which)
+            self._normal_nav_refresh(navigation)
         else:
             for key, button in self.tab_buttons.items():
                 button.config(fg=ACCENT if key == which else SECONDARY,
@@ -1542,8 +1548,8 @@ class PocketDesk:
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
-        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet", "settings"))
-                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings"))
+        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet", "settings", "reminders"))
+                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings", "reminders"))
                 or (self.display_mode == "dashboard" and which == "home")):
             self._scrolling_tool_body()
         if which == "home":
@@ -1551,6 +1557,8 @@ class PocketDesk:
              else dashboard.build_home(self))
         elif which == "notes":
             self._build_notes()
+        elif which == "reminders":
+            reminder_ui.build_overview(self, self.body, colors=themes.palette(self.theme))
         elif which == "links":
             self._build_links()
         elif which == "ports":
@@ -1569,7 +1577,7 @@ class PocketDesk:
         self._place_popup(self._last_tray_xy)
         # Save the last user-selected tool, not transient Extra Mini/Home
         # navigation. On restart restore the tool if it is still visible.
-        if self.display_mode != "compact" and self.data.get("last_tab") != which:
+        if self.display_mode != "compact" and which != "reminders" and self.data.get("last_tab") != which:
             self.data["last_tab"] = which
             self.schedule_save()
 
@@ -1662,7 +1670,7 @@ class PocketDesk:
 
     def _open_compact_tool(self, destination, hit=None):
         """Leave the launcher and open the destination in the user's base layout."""
-        if destination != "settings" and destination not in self.settings["visible_tabs"]:
+        if destination not in ("settings", "reminders") and destination not in self.settings["visible_tabs"]:
             destination = "settings"
         if self.display_mode != "compact":
             return self.show_tab(destination)
@@ -3086,70 +3094,87 @@ class PocketDesk:
         if self.current_tab == "notes":
             self.refresh_note_list()
             self._load_selected_note()
+        elif self.current_tab == "reminders":
+            self.show_tab("reminders")
 
     def _edit_note_reminder(self, note_id):
+        """Calendar-based scheduling with hour/minute selection and quick presets."""
         note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
-        if not note:
+        if note is None:
             return
-        if getattr(self, "_reminder_dialog", None) and self._reminder_dialog.winfo_exists():
-            self._reminder_dialog.lift()
+        existing = getattr(self, "_reminder_dialog", None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
             return
         self._flush_current_note()
+        was_modal = self._modal
         self._modal = True
-        dialog = tk.Toplevel(self.root)
-        self._reminder_dialog = dialog
-        dialog.title("Pocket · Note notification")
-        dialog.configure(bg=BG)
-        dialog.resizable(False, False)
-        dialog.geometry(f"390x305+{max(0,self.root.winfo_x()+35)}+{max(0,self.root.winfo_y()+110)}")
-        dialog.transient(self.root)
-        try:
-            existing = datetime.fromisoformat(note["reminder_at"]).astimezone()
-            if existing <= datetime.now().astimezone():
-                existing = datetime.now().astimezone() + timedelta(hours=1)
-        except (ValueError, KeyError, TypeError):
-            existing = datetime.now().astimezone() + timedelta(hours=1)
-        date_var = tk.StringVar(value=existing.strftime("%Y-%m-%d"))
-        time_var = tk.StringVar(value=existing.strftime("%H:%M"))
-        tk.Label(dialog, text="Notify me about this note", bg=BG, fg=WHITE,
-                 font=(FONT, 14, "bold")).pack(anchor="w", padx=20, pady=(18, 4))
-        tk.Label(dialog, text=note["title"][:60], bg=BG, fg=MUTED,
-                 font=(FONT, 9)).pack(anchor="w", padx=20, pady=(0, 13))
-        fields = tk.Frame(dialog, bg=BG)
-        fields.pack(fill="x", padx=20)
-        for label, var in (("DATE  YYYY-MM-DD", date_var), ("TIME  HH:MM (24h)", time_var)):
-            line = tk.Frame(fields, bg=BG)
-            line.pack(fill="x", pady=(0, 9))
-            tk.Label(line, text=label, bg=BG, fg=SECONDARY,
-                     font=(FONT, 9), width=20, anchor="w").pack(side="left")
-            self._entry(line, var).pack(side="right", fill="x", expand=True, ipady=5)
-        tk.Label(dialog, text="Local computer time. Pocket must be running in the tray.",
-                 bg=BG, fg=MUTED, font=(FONT, 8), wraplength=350).pack(anchor="w", padx=20, pady=10)
-        actions = tk.Frame(dialog, bg=BG)
-        actions.pack(fill="x", padx=20, pady=(2, 10))
 
-        def close():
-            self._modal = False
-            dialog.destroy()
-
-        def save():
-            try:
-                when = parse_reminder_time(date_var.get(), time_var.get())
-            except ValueError as exc:
-                messagebox.showwarning("Invalid notification time", str(exc), parent=dialog)
-                return
-            note.update(reminder_enabled=True, reminder_at=when, reminder_sent_at="")
+        def save_reminder(when):
+            note.update(reminder_enabled=True, reminder_at=when, reminder_sent_at="",
+                        reminder_snoozed=False, reminder_draft="",
+                        reminder_add_response=False)
+            if self._write_now() is False:
+                raise OSError("Pocket could not save the reminder.")
             self._refresh_note_reminder_ui()
-            self._write_now()
-            close()
 
-        action_label(actions, "Cancel", close, fg=SECONDARY, bg=PANEL,
-                     font_size=9).pack(side="right", padx=(8, 0))
-        action_label(actions, "Save reminder", save, fg="#121622", bg=ACCENT,
-                     font_size=9).pack(side="right")
-        dialog.protocol("WM_DELETE_WINDOW", close)
-        dialog.bind("<Escape>", lambda _e: close())
-        dialog.grab_set()
+        def closed():
+            self._reminder_dialog = None
+            self._modal = was_modal
+
+        try:
+            self._reminder_dialog = reminder_ui.open_datetime_editor(
+                self.root, note, save_reminder, closed)
+        except Exception:
+            self._modal = was_modal
+            raise
+
+    def _display_due_reminder(self, note_id):
+        """Show one interactive reminder at a time, including with Pocket hidden."""
+        current = getattr(self, "_due_reminder_dialog", None)
+        if current is not None and current.winfo_exists():
+            current.lift()
+            return
+        note = next((item for item in self.data["notes"] if item["id"] == note_id), None)
+        if note is None or not reminder_is_due(note):
+            return
+        was_modal = self._modal
+        self._modal = True
+
+        def persist(action):
+            # The active editor may contain text which has not yet been synced.
+            self._flush_current_note()
+            prior = {key: note.get(key) for key in (
+                "body", "reminder_at", "reminder_sent_at", "reminder_enabled",
+                "reminder_snoozed", "reminder_draft", "reminder_add_response")}
+            try:
+                action()
+                if self._write_now() is False:
+                    raise OSError("The reminder change could not be saved.")
+            except Exception:
+                note.update(prior)
+                raise
+            if self.current_tab == "notes" and self.data["active_note"] == note_id:
+                self._load_selected_note()
+            else:
+                self._refresh_note_reminder_ui()
+
+        def done(response, checked):
+            persist(lambda: complete_reminder(note, response, checked))
+
+        def snooze(minutes, response, checked):
+            persist(lambda: snooze_reminder(note, minutes, response, checked))
+
+        def closed():
+            self._due_reminder_dialog = None
+            self._modal = was_modal
+
+        try:
+            self._due_reminder_dialog = reminder_ui.open_due_dialog(
+                self.root, note, done, snooze, closed)
+        except Exception:
+            self._modal = was_modal
+            raise
 
     def _toggle_note_pin(self, note_id: str):
         target = next((n for n in self.data["notes"] if n["id"] == note_id), None)
@@ -5830,18 +5855,21 @@ class PocketDesk:
             self.hide()
 
     def _reminder_poll(self):
-        """Deliver a due reminder only once; durable state survives restart."""
+        """Keep a due reminder pending until explicitly dismissed or snoozed.
+
+        Unlike the old one-way toast, opening a dialog does not mark it sent.
+        A crash/restart cannot silently consume an unanswered reminder.
+        """
+        current = getattr(self, "_due_reminder_dialog", None)
+        if current is not None and current.winfo_exists():
+            return
+        schedule = getattr(self, "_reminder_dialog", None)
+        if schedule is not None and schedule.winfo_exists():
+            return
         for note in self.data["notes"]:
             if reminder_is_due(note):
-                note["reminder_sent_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                self._write_now()
-                title = "Pocket reminder · " + (note.get("title") or "Note")[:40]
-                message = (note.get("body") or "Open Pocket to view the note").strip()[:200]
-                if self.tray and not self.tray.error:
-                    self.tray.notify(title, message, note_id=note["id"])
-                else:
-                    self.events.put(("note_reminder", (note["id"], title, message)))
-                self._refresh_note_reminder_ui()
+                self._display_due_reminder(note["id"])
+                break
 
 
     def _notify(self, title, message):
@@ -6018,10 +6046,8 @@ class PocketDesk:
                                                 justify="left")
                         self._last_ieee_error = str(xy)
                 elif name == "note_reminder":
-                    note_id, title, message = xy
-                    if self.preview or not self.tray or self.tray.error:
-                        self.show()
-                        messagebox.showinfo(title, message, parent=self.root)
+                    note_id, _title, _message = xy
+                    self._display_due_reminder(note_id)
                 elif name == "open_reminder":
                     self.show()
                     if "notes" in self.settings["visible_tabs"]:

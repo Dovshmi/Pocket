@@ -90,36 +90,25 @@ def run():
         assert len(selected) == 1, selected
         assert selected[0].endswith("13:05" + selected[0][-6:]), selected
         assert len(dismissed) == 1, dismissed
-        # A standalone record has its own title/details/time and makes no Note.
-        saved = []
-        form = reminder_ui.open_standalone_form(
-            root, None, lambda title, details, when: saved.append((title, details, when)),
-            lambda: None)
-        root.update()
-        form._submit_reminder()
-        assert not saved, "Empty standalone reminders must be rejected"
-        form._title_entry.insert(0, "Call customer")
-        form._details_text.insert("1.0", "Check the link status")
-        form._selected_time[0] = (datetime.now().astimezone() +
-                                  timedelta(hours=2)).isoformat(timespec="minutes")
-        form._submit_reminder()
-        assert len(saved) == 1, saved
-        assert saved[0][0] == "Call customer"
-        assert saved[0][1] == "Check the link status"
-        assert note["body"] == "Original text", "Creating a reminder changed Notes"
-
-        independent = reminder_store.make_reminder(*saved[0])
-        independent["reminder_at"] = saved[0][2]
+        # New independent reminders start with a calendar, then edit in-card.
+        independent = reminder_store.make_reminder(
+            "New reminder", "", (datetime.now().astimezone() +
+                                  timedelta(hours=2)).isoformat(timespec="minutes"))
         events = []
         from types import SimpleNamespace
+        def inline_save(ident, **fields):
+            assert ident == independent["id"]
+            return reminder_store.update_inline_fields(independent, **fields)
+
         app = SimpleNamespace(
             data={"notes": [note], "reminders": [independent]},
-            _edit_standalone_reminder=lambda *_args: events.append("new"),
+            _edit_standalone_reminder=lambda *_args: events.append("calendar"),
+            _save_standalone_inline=inline_save,
             _edit_note_reminder=lambda *_args: events.append("note"),
             _manage_note_reminder=lambda *a, **kw: events.append("manage"),
             _delete_standalone_reminder=lambda *_args: events.append("delete"),
             show_tab=lambda *_args: events.append("navigate"),
-            _reminders_status_filter="All")
+            _reminders_status_filter="All", _reminders_focus_new=independent["id"])
         overview = tk.Frame(root)
         overview.pack()
         reminder_ui.build_overview(
@@ -129,14 +118,31 @@ def run():
             for child in widget.winfo_children():
                 yield child
                 yield from descendants(child)
+
         buttons = [w for w in descendants(overview) if isinstance(w, tk.Button)]
-        assert any(w.cget("text") == "Details" for w in buttons), (
-            "Standalone card missing Details action")
+        assert not hasattr(reminder_ui, "open_standalone_form"), (
+            "Standalone title/Note must not open a separate form")
+        assert any(w.cget("text") == "Change time" for w in buttons)
+        assert not any(w.cget("text") == "Details" for w in buttons)
         assert any(w.cget("text") == "Snooze 15m" for w in buttons)
         next(w for w in buttons if w.cget("text") == "+ New").invoke()
-        assert events == ["new"]
+        assert events == ["calendar"]
+        title_field, note_field = app._reminders_inline_fields[independent["id"]]
+        assert isinstance(title_field, tk.Entry) and isinstance(note_field, tk.Text)
+        assert app._reminders_focus_new is None
+        title_field.delete(0, "end")
+        title_field.insert(0, "Call customer")
+        assert independent["title"] == "Call customer", independent
+        note_field.insert("1.0", "Check the link status")
+        note_field.edit_modified(True)
+        root.update()
+        assert independent["details"] == "Check the link status", independent
+        assert note["body"] == "Original text", "Editing a standalone reminder changed Notes"
+        assert len(app.data["notes"]) == 1, "No Note should be created by + New"
         assert app._reminders_status_filter == "All"
         assert app._reminders_search_entry.cget("bg") == icon_themes.palette("blue")["INPUT"]
+        assert app._reminders_summary.winfo_height() < 43, (
+            "The status counters must be compact")
 
         # The same reminder popup uses a standalone-specific response label.
         standalone_popup = reminder_ui.open_due_dialog(

@@ -3296,6 +3296,35 @@ class PocketDesk:
             return
         self._refresh_note_reminder_ui()
 
+    def _delete_reminder(self, reminder_id, source="standalone"):
+        """Remove reminder from the hub without deleting a linked Note."""
+        if source == "standalone":
+            return self._delete_standalone_reminder(reminder_id)
+        note = next((n for n in self.data["notes"] if n["id"] == reminder_id), None)
+        if note is None or not note.get("reminder_enabled"):
+            return
+        was_modal = self._modal
+        self._modal = True
+        try:
+            approved = messagebox.askyesno(
+                "Remove reminder?",
+                "Remove the reminder from this Note?\nThe Note and its text will be kept.",
+                parent=self.root)
+        finally:
+            self._modal = was_modal
+        if not approved:
+            return
+        self._flush_current_note()
+        prior = dict(note)
+        note.update(reminder_enabled=False, reminder_at="", reminder_sent_at="",
+                    reminder_snoozed=False, reminder_draft="",
+                    reminder_add_response=False)
+        if self._write_now() is False:
+            note.clear()
+            note.update(prior)
+            return
+        self._refresh_note_reminder_ui()
+
     def _display_due_reminder(self, note_id, source="note"):
         """One pending dialog for either a Note or standalone reminder."""
         current = getattr(self, "_due_reminder_dialog", None)

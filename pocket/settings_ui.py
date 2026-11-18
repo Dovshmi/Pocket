@@ -430,6 +430,12 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
             compact=compact)
     _dropdown_field(
+        card, app, c, "quick_slots_save_mode_picker", "Quick Slot save behavior",
+        "Auto Copy Selection sends Ctrl+C; Current Clipboard reads what you copied.",
+        quick_slots.SAVE_MODE_CHOICES, app.settings["quick_slots_save_mode"],
+        app._set_quick_slots_save_mode,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
         card, app, c, "quick_slots_paste_mode_picker", "Quick Slot paste behavior",
         "Auto Paste inserts immediately; Copy to Clipboard lets you press Ctrl+V.",
         quick_slots.PASTE_MODE_CHOICES, app.settings["quick_slots_paste_mode"],

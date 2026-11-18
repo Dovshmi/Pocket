@@ -2246,7 +2246,7 @@ class PocketDesk:
         save_mode = quick_slots.normalize_save_mode(
             self.settings.get("quick_slots_save_mode"))
         if action == "paste" and not quick_slots.valid_text(value):
-            self._notify_quick_slot("paste", f"Pocket · PASTE [{number}] failed",
+            self._notify_quick_slot("paste", f"Pocket · Paste [{number}] failed",
                                     "Slot is empty. Save text first.")
             return
         self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
@@ -2472,12 +2472,12 @@ class PocketDesk:
         if not self.settings.get("quick_slots_enabled", True):
             return False
         if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
-            self._notify_quick_slot("copy", f"Pocket · COPY [{number}] failed",
+            self._notify_quick_slot("copy", f"Pocket · Copy [{number}] failed",
                                     "Select or copy text first.")
             return False
         if (self.settings.get("clipboard_sensitive_filter", True)
                 and not clipboard_policy.should_capture(text)):
-            self._notify_quick_slot("copy", f"Pocket · COPY [{number}] blocked",
+            self._notify_quick_slot("copy", f"Pocket · Copy [{number}] blocked",
                                     "Sensitive-text filter blocked this value.")
             return False
         old = self.clipboard_slots.get(str(number))
@@ -2491,7 +2491,7 @@ class PocketDesk:
             if (self.settings.get("clipboard_sensitive_filter", True)
                     and not clipboard_policy.should_capture(old)):
                 self._notify_quick_slot("copy",
-                                        f"Pocket · COPY [{number}] blocked",
+                                        f"Pocket · Copy [{number}] blocked",
                                         "Old text cannot be saved to history.")
                 return False
             previous_modal = getattr(self, "_modal", False)
@@ -2533,7 +2533,7 @@ class PocketDesk:
                     self._clipboard_write_text_view(updated)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             self._clipboard_report_io_error(exc)
-            self._notify_quick_slot("copy", f"Pocket · COPY [{number}] failed",
+            self._notify_quick_slot("copy", f"Pocket · Copy [{number}] failed",
                                     "Could not preserve old text in history.")
             return False
 
@@ -5879,7 +5879,7 @@ class PocketDesk:
                     action = "Save/Copy" if xy == "save" else "Paste"
                     self._notify_quick_slot(
                         "copy" if xy == "save" else "paste",
-                        f"Pocket · {('COPY' if xy == 'save' else 'PASTE')} shortcut unavailable",
+                        f"Pocket · {('Copy' if xy == 'save' else 'Paste')} shortcut unavailable",
                         "Change its key combination in Settings.")
                 elif name == "quick_slot_save_result":
                     number, selected, error = xy
@@ -5887,7 +5887,7 @@ class PocketDesk:
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
                         self._notify_quick_slot(
-                            "copy", f"Pocket · COPY [{number}] failed", error)
+                            "copy", f"Pocket · Copy [{number}] failed", error)
                     else:
                         self._assign_clipboard_slot(number, selected)
                 elif name == "quick_slot_paste_result":
@@ -5895,7 +5895,7 @@ class PocketDesk:
                     self._mark_active = False
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
-                        verb = "COPY" if paste_mode == "clipboard" else "PASTE"
+                        verb = "Copy" if paste_mode == "clipboard" else "Paste"
                         self._notify_quick_slot(
                             "paste", f"Pocket · {verb} [{number}] failed", error)
                     else:

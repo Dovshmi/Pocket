@@ -245,6 +245,32 @@ class QuickSlotsTests(unittest.TestCase):
         fake.preserve_clipboard.assert_not_called()
         fake.put_text.assert_not_called()
 
+    def test_non_ascii_auto_paste_uses_unicode_clipboard_and_normal_ctrl_v(self):
+        for value in ("שלום עולם", "עברית 123 English", "café", "مرحبا", "日本語", "🙂"):
+            with self.subTest(value=value):
+                self.assertTrue(quick_slots.requires_clipboard_paste(value))
+                backend = FakeSelectionBackend("OLD", None)
+                backend.preserve_clipboard = Mock(
+                    side_effect=AssertionError("OLE must never run"))
+                backend.send_text = Mock(
+                    side_effect=AssertionError("Unicode SendInput must not run"))
+                quick_slots.paste_slot_text(value, target_hwnd=100, backend=backend)
+                self.assertEqual(backend.clipboard, value)
+                self.assertEqual(backend.keys, ["V"])
+                self.assertEqual(backend.restored, 0)
+                backend.preserve_clipboard.assert_not_called()
+                backend.send_text.assert_not_called()
+
+    def test_ascii_uses_non_clipboard_path_even_with_numbers_and_newlines(self):
+        for value in ("hostname-123", "192.168.0.1", "Line1\\nLine2"):
+            with self.subTest(value=value):
+                self.assertFalse(quick_slots.requires_clipboard_paste(value))
+                backend = FakeSelectionBackend("PREVIOUS", None)
+                quick_slots.paste_slot_text(value, target_hwnd=100, backend=backend)
+                self.assertEqual(backend.typed_text, [value])
+                self.assertEqual(backend.clipboard, "PREVIOUS")
+                self.assertEqual(backend.keys, ["TEXT"])
+
     def test_clipboard_only_mode_uses_normal_windows_copy_semantics(self):
         self.assertEqual(quick_slots.normalize_paste_mode(None), "auto")
         self.assertEqual(quick_slots.normalize_paste_mode("unknown"), "auto")

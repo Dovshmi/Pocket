@@ -2,11 +2,11 @@
 
 **Stable · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**
 
-Pocket v1.39.1 fixes Quick Slots auto-paste failures involving Windows OLE clipboard snapshot errors, such as the `CloseClipboard Failed` notification, and adds a persistent **Copy to Clipboard** mode.
+Pocket v1.39.1 fixes Quick Slots auto-paste failures involving Windows OLE clipboard snapshot/restore errors, such as the `CloseClipboard Failed` notification, and adds a persistent **Copy to Clipboard** mode.
 
-- **Auto Paste (default):** Tries the normal Ctrl+V path with restoration of the original multi-format clipboard. If the OLE snapshot fails before writing anything, it inserts text using native Unicode input instead, without changing the current clipboard.
+- **Auto Paste (default):** Types the selected slot through native Unicode input, without opening or modifying the existing Windows clipboard. No OLE snapshot, temporary replacement or restoration is needed.
 - **Copy to Clipboard:** In **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose Copy to Clipboard. Press the Quick Slot paste hotkey, then your ordinary `Ctrl+V`; the slot becomes the current clipboard contents and is intentionally not restored.
-- **Safety:** No retry after a clipboard write or paste has begun; avoids duplicate text injection. Existing Quick Slots, shortcuts and locally saved data stay intact.
+- **Safety:** Auto Paste checks the original foreground window before and during typing and does not manipulate existing clipboard formats. There is no risk of an OLE restore failure overwriting another app's clipboard. Existing Quick Slots, shortcuts and locally saved data stay intact.
 - **Offline:** No network or remote API is used for either paste mode.
 
 Automatic Unicode injection can be blocked by elevated, remote, or specialized applications; Copy to Clipboard provides a manual alternative in those cases.

@@ -1519,9 +1519,9 @@ class PocketDesk:
         # Anchor the expandable rows ABOVE this separator even when toggled
         # after the main page body has already been packed.
         self._mini_nav_separator = tk.Frame(outer, height=1, bg=BORDER)
+        self._mini_nav_separator.pack(fill="x")
         self._set_mini_overflow_visible(self._mini_nav_expanded)
         self._style_mini_icon_tabs(self.current_tab)
-        self._mini_nav_separator.pack(fill="x")
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body

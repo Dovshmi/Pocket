@@ -3210,7 +3210,16 @@ class PocketDesk:
         self._modal = True
 
         def save(title, details, when):
-            candidate = reminder_store.make_reminder(title, details, when)
+            unchanged_schedule = record is not None and when == record["reminder_at"]
+            if unchanged_schedule:
+                clean_title = title.strip()
+                if not clean_title or len(clean_title) > reminder_store.MAX_TITLE:
+                    raise ValueError("Enter a title (1–140 characters).")
+                if not isinstance(details, str) or len(details) > reminder_store.MAX_DETAILS:
+                    raise ValueError("Details must be under 4,000 characters.")
+                candidate = {"title": clean_title, "details": details}
+            else:
+                candidate = reminder_store.make_reminder(title, details, when)
             if record is None:
                 if len(self.data["reminders"]) >= reminder_store.MAX_REMINDERS:
                     raise ValueError("Too many reminders. Delete a finished reminder first.")

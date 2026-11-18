@@ -52,7 +52,7 @@ def run():
         print("SKIP: requires real Windows clipboard and input")
         return
     root = tk.Tk()
-    root.title("Pocket 1.39.2 paste modes")
+    root.title("Pocket 1.39.3 independent Quick Slot modes")
     root.geometry("560x190+140+140")
     entry = tk.Entry(root, width=48, font=("Segoe UI", 13))
     entry.pack(padx=14, pady=24)
@@ -114,6 +114,22 @@ def run():
         assert root.clipboard_get() == "MANUAL_1391", (
             "Clipboard-only must stage actual Windows clipboard text")
         print("PASS: real Windows clipboard-only stages text without pasting")
+
+        # Save behavior: existing clipboard is read directly; never inject
+        # Ctrl+C or alter the target field (useful for protected apps).
+        entry.delete(0, tk.END)
+        root.clipboard_clear()
+        root.clipboard_append("שלום מהקליפבורד 123")
+        root.update()
+        capture = {}
+        def save_from_clipboard():
+            capture["text"] = quick_slots.read_existing_clipboard(
+                owner_hwnd=root.winfo_id())
+        run_on_worker(root, save_from_clipboard)
+        assert capture["text"] == "שלום מהקליפבורד 123", capture
+        assert root.clipboard_get() == capture["text"]
+        assert entry.get() == "", "Use Current Clipboard must not auto-copy"
+        print("PASS: manual Save reads existing Hebrew clipboard without Ctrl+C")
     finally:
         root.destroy()
 

@@ -32,14 +32,30 @@ def run():
         root.update()
         assert window.winfo_viewable(), "Reminder must be visible while main Pocket window is hidden"
         entry = window._response_input
+        palette = icon_themes.palette("blue")
         assert entry.cget("state") == "disabled", "Input must be disabled by default"
+        assert entry.winfo_manager() == "", "Unchecked response field must be hidden"
+        collapsed_height = window.winfo_height()
+        assert abs(collapsed_height - window.winfo_reqheight()) <= 5, (
+            "Reminder must fit its contents rather than leave an empty footer gap")
         assert window._reminder_title_label.cget("text") == "בדיקת לקוח"
         assert window._reminder_content_view.get("1.0", "end-1c") == "Original text"
+        assert window._reminder_content_view.cget("bg") == palette["BG"]
+        assert window._reminder_separator.cget("bg") == palette["BORDER"]
+        assert isinstance(window._done_button, tk.Button), (
+            "Footer must not use white system-themed ttk.Button controls")
+        assert window._done_button.cget("bg") == palette["ACCENT_DARK"]
+        assert window._dismiss_button.cget("bg") == palette["CARD"]
+        assert window._snooze_button.cget("bg") == palette["CARD"]
         entry.insert("1.0", "blocked")
         assert entry.get("1.0", "end-1c") == "", "Disabled input accepted typing"
         window._response_enabled.set(True)
         root.update()
         assert entry.cget("state") == "normal", "Checkbox should enable the input"
+        assert entry.winfo_manager() == "pack", "Checked response field must appear"
+        assert window.winfo_height() > collapsed_height, (
+            "Response selection must resize the dialog to its content")
+        assert abs(window.winfo_height() - window.winfo_reqheight()) <= 5
         entry.insert("1.0", "a quick response")
         window._done_button.invoke()
         assert done == [("a quick response", True)], done
@@ -56,6 +72,8 @@ def run():
         ignored._response_enabled.set(False)
         root.update()
         assert ignored._response_input.cget("state") == "disabled"
+        assert ignored._response_input.winfo_manager() == ""
+        assert abs(ignored.winfo_height() - ignored.winfo_reqheight()) <= 5
         ignored._done_button.invoke()
         assert unchecked == [("", False)], unchecked
 
@@ -186,6 +204,7 @@ def run():
         root.update()
         assert "this reminder" in standalone_popup._response_checkbox.cget("text")
         assert standalone_popup._response_input.cget("state") == "disabled"
+        assert standalone_popup._response_input.winfo_manager() == ""
         assert standalone_popup._reminder_title_label.cget("text") == "Call customer"
         assert (standalone_popup._reminder_content_view.get("1.0", "end-1c")
                 == "Check the link status")
@@ -217,6 +236,8 @@ def run():
         root.update()
         viewer = long_popup._reminder_content_view
         assert viewer is not None
+        assert long_popup.winfo_height() <= 500, (
+            "A long Note should scroll, not create a tall reminder popup")
         assert viewer.get("1.0", "end-1c") == long_body
         assert viewer.yview()[1] < 1, "Full Note content should be scrollable"
         viewer.yview_moveto(1.0)

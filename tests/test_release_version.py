@@ -9,8 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_development_settings_version_is_v1399(self):
-        # Current source reports v1.39.9. Previously published downloads
-        # remain v1.39.8 until a separate release is built and published.
+        # Source and published release report v1.39.9.
         self.assertEqual(app_info.VERSION, "1.39.9")
         self.assertEqual(app_info.version_label(), "v1.39.9")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
@@ -50,8 +49,7 @@ class ReleaseVersionTests(unittest.TestCase):
                     "release-v1.39.9.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("confirm_version:", workflow)
-        self.assertIn("  push:\n    branches: [main]", workflow)
-        self.assertIn("startsWith(github.event.head_commit.message, '[release v1.39.9]')", workflow)
+        self.assertNotIn("  push:\n", workflow)
         self.assertIn("github.repository == 'Dovshmi/Pocket'", workflow)
         self.assertIn("app_info.VERSION == '1.39.9'", workflow)
         self.assertIn("github.ref == 'refs/heads/main'", workflow)
@@ -71,15 +69,15 @@ class ReleaseVersionTests(unittest.TestCase):
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("/releases/download/v1.39.8/Pocket-Portable-v1.39.8.zip",
+        self.assertIn("/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip",
                       readme)
-        self.assertIn("/releases/download/v1.39.8/Pocket-v1.39.8.exe", readme)
+        self.assertIn("/releases/download/v1.39.9/Pocket-v1.39.9.exe", readme)
         self.assertIn("# Pocket v1.39.8", notes)
         self.assertIn("Database", notes)
         self.assertIn("Clipboard", notes)
-        self.assertIn("/releases/download/v1.39.8/Pocket-Portable-v1.39.8.zip", readme)
-        self.assertIn("/releases/download/v1.39.8/Pocket-v1.39.8.exe", readme)
-        self.assertIn("/releases/download/v1.39.8/SHA256SUMS.txt", readme)
+        self.assertIn("/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip", readme)
+        self.assertIn("/releases/download/v1.39.9/Pocket-v1.39.9.exe", readme)
+        self.assertIn("/releases/download/v1.39.9/SHA256SUMS.txt", readme)
         self.assertIn("Quick Slots", readme)
         self.assertIn("Backup & Restore", readme)
         release_body = (ROOT / "docs" / "releases" / "v1.39.8.md").read_text(encoding="utf-8")

@@ -531,15 +531,6 @@ def build_settings(app, parent, *, wide=False):
            anchor="w", wraplength=225 if compact else 690
            ).pack(fill="x", pady=(4, 0))
 
-    # Accessible directly through the existing More/Settings tab in Mini.
-    # This shortcut does NOT add a ninth icon or change any menu positions.
-    reminders_link = tk.Frame(parent, bg=c["PANEL"], highlightthickness=1,
-                              highlightbackground=c["BORDER"])
-    reminders_link.pack(fill="x", pady=(0, 12))
-    _action(reminders_link, app, c, "open_reminders", "Reminders",
-            "Upcoming, snoozed and completed Note reminders.",
-            "Open", lambda: app.show_tab("reminders"), compact=compact)
-
     if wide:
         columns = tk.Frame(parent, bg=c["BG"])
         columns.pack(fill="x")

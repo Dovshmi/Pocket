@@ -20,7 +20,7 @@ def run():
                 assert result is accepted
                 native.assert_called_once_with(
                     "Replace Quick Slot [2]?",
-                    "Old: SVLAN 1557\n↓\nNew: SVLAN 11",
+                    "Old text: SVLAN 1557\n↓\nNew text: SVLAN 11",
                     parent=root)
             assert not any(isinstance(w, tk.Toplevel)
                            for w in root.winfo_children()), (

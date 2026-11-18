@@ -20,14 +20,14 @@ def run():
                 assert result is accepted
                 native.assert_called_once_with(
                     "Replace Quick Slot [2]?",
-                    "NEW: SVLAN 11   →   OLD: SVLAN 1557",
+                    "Old: SVLAN 1557\n↓\nNew: SVLAN 11",
                     parent=root)
             assert not any(isinstance(w, tk.Toplevel)
                            for w in root.winfo_children()), (
                 "Custom Tkinter replacement window should not be created")
     finally:
         root.destroy()
-    print("PASS: native Windows askyesno, New -> Old, both Yes/No outcomes")
+    print("PASS: native Windows askyesno, Old -> New, both Yes/No outcomes")
 
 
 if __name__ == "__main__":

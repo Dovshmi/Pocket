@@ -1516,9 +1516,12 @@ class PocketDesk:
                               "Settings" if key == "settings" else
                               menu_items.get(key, key.title()))
             self._mini_overflow_rows.append(extra)
+        # Anchor the expandable rows ABOVE this separator even when toggled
+        # after the main page body has already been packed.
+        self._mini_nav_separator = tk.Frame(outer, height=1, bg=BORDER)
         self._set_mini_overflow_visible(self._mini_nav_expanded)
         self._style_mini_icon_tabs(self.current_tab)
-        tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
+        self._mini_nav_separator.pack(fill="x")
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
@@ -1534,7 +1537,8 @@ class PocketDesk:
     def _set_mini_overflow_visible(self, expanded):
         for extra in getattr(self, "_mini_overflow_rows", ()):
             if expanded:
-                extra.pack(fill="x", padx=9, pady=(0, 4))
+                extra.pack(fill="x", padx=9, pady=(0, 4),
+                           before=getattr(self, "_mini_nav_separator", None))
             else:
                 extra.pack_forget()
         toggle = getattr(self, "mini_icon_tabs", {}).get("more")

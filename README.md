@@ -36,7 +36,7 @@ Pocket runs from the Windows system tray and opens on demand. It brings seven pr
 - **Clipboard Only option:** Under **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose **Copy to Clipboard** to stage a saved slot for ordinary manual `Ctrl+V`. This setting replaces the clipboard's current contents and does not auto-paste.
 - **Default and migration:** Auto Paste remains the default for existing users; preferences are saved locally. Your nine Quick Slots, hotkeys, Notes and command data are retained.
 
-[Release details](docs/releases/v1.39.1.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md)
+[Release details](docs/releases/v1.39.1.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md) · [Windows release build](.github/workflows/release-v1.39.1.yml)
 
 ## What's new in v1.39.0
 

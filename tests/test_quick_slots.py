@@ -379,7 +379,7 @@ class QuickSlotsTests(unittest.TestCase):
         copied.assert_called_once()
         pasted.assert_not_called()
         desk.events.put.assert_called_once_with(
-            ("quick_slot_paste_result", (1, None, "clipboard")))
+            ("quick_slot_paste_result", (1, "SLOT DATA", None, "clipboard")))
 
     def test_independent_save_and_paste_hotkey_combinations(self):
         class ImmediateThread:
@@ -429,7 +429,7 @@ class QuickSlotsTests(unittest.TestCase):
                             staged.assert_called_once()
                             pasted.assert_not_called()
                         desk.events.put.assert_called_with(
-                            ("quick_slot_paste_result", (1, None, paste_mode)))
+                            ("quick_slot_paste_result", (1, "STORED", None, paste_mode)))
 
     def _app(self):
         events = []

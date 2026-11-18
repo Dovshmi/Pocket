@@ -53,7 +53,28 @@ def normalize_paste_mode(value):
 
 
 NOTIFICATION_PREVIEW_LENGTH = 108
-REPLACEMENT_PREVIEW_LENGTH = 36
+REPLACEMENT_PREVIEW_LENGTH = 23
+
+DEFAULT_NOTIFICATION_MODE = "all"
+NOTIFICATION_CHOICES = (
+    ("Copy + Paste", "all"),
+    ("Copy only", "copy"),
+    ("Paste only", "paste"),
+    ("Off", "off"),
+)
+
+
+def normalize_notification_mode(value):
+    """Unknown or legacy preferences keep both notifications enabled."""
+    return value if value in ("all", "copy", "paste", "off") else DEFAULT_NOTIFICATION_MODE
+
+
+def notification_enabled(mode, operation):
+    """One setting controls which Quick Slot operations show native notices."""
+    if operation not in ("copy", "paste"):
+        raise ValueError("Unknown Quick Slot notification operation")
+    return normalize_notification_mode(mode) in ("all", operation)
+
 
 
 def notification_preview(value, max_length=NOTIFICATION_PREVIEW_LENGTH):
@@ -70,19 +91,16 @@ def slot_notification(action, number, value):
     """Readable native Windows notification for Save, Paste or Copy mode."""
     if number not in SLOT_NUMBERS:
         raise ValueError("Invalid Quick Slot number")
-    details = {
-        "saved": (f"Pocket · Saved [{number}]", "Saved"),
-        "pasted": (f"Pocket · Pasted [{number}]", "Pasted"),
-        "clipboard": (f"Pocket · Copied [{number}]", "Copied"),
-        "already": (f"Pocket · Unchanged [{number}]", "Already saved"),
+    titles = {
+        "saved": f"Pocket · COPY [{number}]",
+        "pasted": f"Pocket · PASTE [{number}]",
+        "clipboard": f"Pocket · COPY [{number}]",
+        "already": f"Pocket · COPY [{number}] (unchanged)",
     }
-    if action not in details:
+    if action not in titles:
         raise ValueError("Invalid Quick Slot notification action")
-    title, label = details[action]
-    message = f"{label}: {notification_preview(value)}"
-    if action == "clipboard":
-        message += "\nPress Ctrl+V."
-    return title, message
+    # No duplicated Saved/Pasted/Copied prefix in the message body.
+    return titles[action], notification_preview(value)
 
 
 def replacement_history_rows(rows, old_text, new_text, *, new_record, maximum=None):

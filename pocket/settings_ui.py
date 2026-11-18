@@ -29,7 +29,7 @@ TOOL_HELP = {
     "commands": "CLI library and manual backups",
     "subnet": "IPv4 subnet calculator",
     "clipboard": "RAM or optional local clipboard history",
-    "reminders": "Upcoming, Snoozed and Completed Note reminders",
+    "reminders": "Show Reminders and enable all Note and standalone reminder notifications",
 }
 TOOL_ICONS = {
     "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",

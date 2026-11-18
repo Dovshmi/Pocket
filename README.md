@@ -32,7 +32,7 @@ Pocket runs from the Windows system tray and opens on demand. It brings seven pr
 
 ## What's new in v1.39.1
 
-- **Quick Slot paste fix:** If Windows OLE cannot capture the previous clipboard safely, Auto Paste uses direct Unicode text input instead of failing before pasting. It does not change the clipboard during that fallback.
+- **Quick Slot paste fix:** Auto Paste now types text using Windows Unicode input directly, without ever taking over the clipboard. This avoids OLE snapshot and restoration failures, including `CloseClipboard Failed`.
 - **Clipboard Only option:** Under **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose **Copy to Clipboard** to stage a saved slot for ordinary manual `Ctrl+V`. This setting replaces the clipboard's current contents and does not auto-paste.
 - **Default and migration:** Auto Paste remains the default for existing users; preferences are saved locally. Your nine Quick Slots, hotkeys, Notes and command data are retained.
 

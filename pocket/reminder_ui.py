@@ -559,7 +559,7 @@ def build_overview(app, parent, *, colors):
 
     add_button = header_control(
         "+", app._edit_standalone_reminder,
-        foreground=c["ACCENT"], font_size=12, width=2)
+        foreground="#4DE0A2", font_size=15, width=2)
     add_button.pack(side="right", padx=(0, 2))
     clear_button = header_control(
         "Clear", lambda: app._clear_reminders(selected[0]),

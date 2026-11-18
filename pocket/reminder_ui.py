@@ -267,7 +267,6 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
                          font=(FONT, 10), relief="flat", bd=0, undo=True,
                          bg=c["INPUT"], fg=c["WHITE"],
                          insertbackground=c["ACCENT"], selectbackground=c["ACCENT_DARK"],
-                         disabledforeground=c["MUTED"],
                          highlightthickness=1, highlightbackground=c["BORDER"],
                          highlightcolor=c["ACCENT"])
     input_text.pack(fill="x", padx=20)

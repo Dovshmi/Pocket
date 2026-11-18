@@ -29,6 +29,10 @@ Open **Settings → Clipboard & privacy**:
 
 * **Enable Quick Slots:** ON/OFF for both global shortcut groups and the
   numbered Clipboard list entries. Disabling does not delete values.
+* **Quick Slot paste behavior:** **Auto Paste** (default for existing and new
+  users) inserts into the current application; **Copy to Clipboard** changes
+  the Windows clipboard to the selected slot and waits for your ordinary
+  `Ctrl+V`. The choice is saved across app restarts.
 * **Paste shortcut prefix:** default `Ctrl+Alt`.
 * **Save / Copy shortcut prefix:** default `Ctrl+Win`.
 
@@ -70,8 +74,20 @@ places the stored value in the clipboard, issues `Ctrl+V` to the
 original application, and attempts to restore the prior multi-format
 clipboard contents.
 
-Some elevated, remote, or protected applications refuse injected copy
-or paste input; those applications may require ordinary manual copy/paste.
+If OLE cannot snapshot the previous clipboard **before** the temporary
+clipboard is modified, Pocket falls back to Unicode keyboard input without
+changing the previous clipboard. This works in many ordinary Windows text
+fields but cannot be guaranteed for protected, elevated or specialized
+terminal applications. An error after the clipboard has been modified does
+not trigger another paste, avoiding duplicate input.
+
+If automatic paste is not accepted by a particular application, choose
+**Copy to Clipboard** in Settings and press `Ctrl+V` manually. This mode
+intentionally replaces the clipboard's prior contents rather than restoring
+them. It never attempts the OLE snapshot, and it never sends Ctrl+V for you.
+
+Some elevated, remote, or protected applications refuse injected copy,
+paste or Unicode input; those applications may require manual paste.
 
 ## Clipboard menu and ordering
 
@@ -121,4 +137,5 @@ other sensitive secrets in a Quick Slot. The profile is not encrypted.
 * `tests/integration/smoke_dashboard_integration.py`: verifies the
   nine entries and unchanged text panel geometry.
 
-This is work-in-progress on `feature/v1.39`; it is not a v1.39 release.
+Version 1.39.1 adds the optional clipboard-only mode and resilient
+clipboard snapshot fallback.

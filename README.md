@@ -22,13 +22,31 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 
 ---
 
-Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
+Pocket runs from the Windows system tray and opens on demand. It brings eight practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
 > **Pocket v1.39.8 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.8). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
-> **Offline-first:** Notes, CLI, subnet calculations, clipboard and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
+> **Source version v1.39.9:** The latest `main` source includes the new Reminders hub, expanded Mini navigation, standalone and Note-linked reminders, themed due popups and the updated Settings version. **The latest published Windows download remains v1.39.8** until the v1.39.9 binaries are built, validated and released. Download links above intentionally target the existing stable artifacts.
+>
+> **Offline-first:** Notes, CLI, subnet calculations, clipboard, reminders and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
+
+## What's new in v1.39.9 (source update)
+
+Pocket v1.39.9 introduces a dedicated **Reminders** tool without adding cloud dependencies or changing how other local tools work.
+
+- **Standalone and Note-linked reminders:** Set a date and time from the themed calendar; edit the standalone title and optional Note directly on its card. Scheduled reminders reopen after a restart if not dismissed.
+- **Pocket-style due popup:** Clean TITLE and NOTE sections, full scrollable Note content, a subtle horizontal separator, and a response field that appears only after selecting **Add response**. Completed responses can be appended to the Note with a timestamp or stored on independent reminders.
+- **Flexible Snooze:** One Snooze button offers **5, 10, 15, 20, 30, 40, 45, 50, 60, 90 and 120 minutes** without a second confirmation.
+- **Reminders hub:** Compact Upcoming/Snoozed/Done counters and matching filters, local search, a slightly larger **green +** icon and adjacent text-only **Clear** below Search. Clear confirms the scope before removing reminders from the selected status tab; it **never deletes Notes or their text**.
+- **Mini navigation:** The original first icon row stays in place and **More / Less** expands additional tools. Reminders is also available in Normal and Dashboard layouts.
+- **Master notification switch:** Hiding **Reminders** in Settings also silences notifications from Notes and standalone reminders. Existing reminders remain saved and resume when re-enabled.
+- **Local persistence and recovery:** Reminder state, drafts, replies and standalone entries stay in local data and selected backups. Settings shows **v1.39.9**.
+
+[Detailed v1.39.9 implementation notes](docs/REMINDERS_V1399_DEV.md) · [Release history](RELEASE_NOTES.md)
+
+> Windows users: version 1.39.9 has been merged into the source tree, but its release binaries are **not yet published**. Use the versioned **Development Preview** from [GitHub Actions](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) after successful workflow validation, or continue with the v1.39.8 stable downloads above.
 
 ## What's new in v1.39.8
 
@@ -147,6 +165,7 @@ Saving highlighted text behaves like Windows **Ctrl+C** and also updates the reg
 
 | Version | Main changes |
 | :--- | :--- |
+| **v1.39.9 — main source / pending Windows release** | New Reminders tool, themed popups, Snooze, green Add, status-scoped Clear and Settings switch |
 | **v1.39.8 — latest stable release** | Slightly roomier native Windows Quick Slot replacement dialog; no reminder changes |
 | **v1.39.7** | Polished Copy/Paste/Unchanged wording and vertical native Windows replacement dialog |
 | **v1.39.6** | Native Windows replacement dialog, clean COPY/PASTE notifications, optional notification modes |
@@ -223,7 +242,7 @@ These are **real Pocket screenshots from Windows GUI tests** (not mockups). The 
 
 **Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying. The **Commands-only Backup** remains a separate manual action; the new **Settings → Backup & Restore** creates a portable ZIP only on request.
 
-**Reminders** use Windows tray notifications while Pocket is running or minimized to the tray, with overdue unsent reminders checked at the next launch. Hiding the Clipboard menu stops clipboard monitoring. **Clipboard RAM mode never writes history to disk**; optional DATABASE mode writes plaintext text and screenshots locally under `ClipboardDatabase/` in Pocket's user data directory. Sensitive-text filtering is heuristic, and database mode should only be enabled where permitted. [Clipboard database and retention details](docs/CLIPBOARD_DATABASE.md).
+**Reminders (v1.39.9 source)** use a themed popup even while the main window is hidden, with overdue unhandled reminders checked after restart. Hiding the Reminders menu silences both Note-linked and standalone notifications without erasing their schedules. Hiding the Clipboard menu stops clipboard monitoring. **Clipboard RAM mode never writes history to disk**; optional DATABASE mode writes plaintext text and screenshots locally under `ClipboardDatabase/` in Pocket's user data directory. Sensitive-text filtering is heuristic, and database mode should only be enabled where permitted. [Clipboard database and retention details](docs/CLIPBOARD_DATABASE.md).
 
 ## Earlier improvements
 

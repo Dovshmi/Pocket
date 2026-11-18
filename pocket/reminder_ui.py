@@ -529,8 +529,28 @@ def build_overview(app, parent, *, colors):
             source_text = "▤ Note" if source == "note" else "◉ Reminder"
             text(badges, source_text, fg=c["ACCENT"], bg_color=panel,
                  size=8, bold=True).pack(side="left")
+            # Compact actions replace Done/Delete; two symbols sit together in
+            # the upper-right corner of each Reminder card.
+            controls = tk.Frame(badges, bg=panel)
+            controls.pack(side="right")
+            def icon_control(symbol, command, *, foreground, disabled=False):
+                button = tk.Button(
+                    controls, text=symbol, command=command, font=(FONT, 11, "bold"),
+                    width=2, relief="flat", bd=0, padx=0, pady=0,
+                    bg=panel, fg=foreground, activebackground=c["CARD_HOVER"],
+                    activeforeground=white, cursor="arrow" if disabled else "hand2")
+                if disabled:
+                    button.configure(state="disabled", disabledforeground=c["MUTED"])
+                return button
+            icon_control("×", lambda ident=uid, src=source:
+                         app._delete_reminder(ident, source=src),
+                         foreground=c["DANGER"]).pack(side="right")
+            icon_control("✓", lambda ident=uid, src=source:
+                         app._manage_note_reminder(ident, "done", source=src),
+                         foreground=c["ACCENT"], disabled=(status == "Completed")
+                         ).pack(side="right", padx=(0, 3))
             text(badges, status.upper() if status else "", size=7, bg_color=panel,
-                 fg=c["MUTED"]).pack(side="right")
+                 fg=c["MUTED"]).pack(side="right", padx=(0, 6))
 
             if source == "standalone":
                 # Inline editing: no secondary form or title/details popup.
@@ -639,7 +659,8 @@ def build_overview(app, parent, *, colors):
                 edit_time = lambda ident=uid: app._edit_note_reminder(ident)
             else:
                 edit_time = lambda ident=uid: app._edit_standalone_reminder(ident)
-            action(primary_row, "Change time", edit_time).pack(side="right")
+            action(primary_row, "Reactivate" if status == "Completed" else "Change time",
+                   edit_time, primary=(status == "Completed")).pack(side="right")
             if status != "Completed":
                 secondary = tk.Frame(buttons, bg=panel)
                 secondary.pack(fill="x", pady=(5, 0))
@@ -647,14 +668,6 @@ def build_overview(app, parent, *, colors):
                        lambda ident=uid, src=source:
                            app._manage_note_reminder(ident, "snooze", source=src)
                        ).pack(side="left")
-                action(secondary, "Done",
-                       lambda ident=uid, src=source:
-                           app._manage_note_reminder(ident, "done", source=src),
-                       primary=True).pack(side="right")
-            elif source == "standalone":
-                action(buttons, "Delete",
-                       lambda ident=uid: app._delete_standalone_reminder(ident),
-                       danger=True).pack(anchor="e", pady=(5, 0))
 
     search.trace_add("write", render)
     render()

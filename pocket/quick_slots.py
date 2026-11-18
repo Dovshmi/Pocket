@@ -15,6 +15,11 @@ DEFAULT_PREFIX = "ctrl_alt"  # Backward compatible name for paste.
 DEFAULT_PASTE_PREFIX = "ctrl_alt"
 DEFAULT_COPY_PREFIX = "ctrl_win"
 DEFAULT_PASTE_MODE = "auto"
+DEFAULT_SAVE_MODE = "selection"
+SAVE_MODE_CHOICES = (
+    ("Auto Copy Selection", "selection"),
+    ("Use Current Clipboard", "clipboard"),
+)
 PASTE_MODE_CHOICES = (("Auto Paste", "auto"), ("Copy to Clipboard", "clipboard"))
 PREFIX_CHOICES = (
     ("Ctrl+Alt", "ctrl_alt"),
@@ -35,6 +40,11 @@ MOD_NOREPEAT = 0x4000
 def valid_text(value):
     return (isinstance(value, str) and bool(value.strip())
             and len(value) <= MAX_TEXT_LENGTH)
+
+
+def normalize_save_mode(value):
+    """Legacy Quick Slot copy shortcuts continue capturing selected text."""
+    return value if value in ("selection", "clipboard") else DEFAULT_SAVE_MODE
 
 
 def normalize_paste_mode(value):
@@ -181,7 +191,7 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     shortcut should behave like normal Ctrl+C: if text is selected it also
     becomes the current clipboard content; otherwise the previous clipboard
     text is the fallback. The separate *paste* action still preserves the
-    user's original multi-format clipboard through OLE.
+    clipboard contents only when its configured mode asks it to.
     """
     if backend is None:
         from .marked_layout import WindowsMarkBackend
@@ -210,6 +220,24 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     if valid_text(before_text):
         return before_text
     raise MarkError("No selected text or existing text clipboard to save.")
+
+
+def read_existing_clipboard(*, owner_hwnd=0, backend=None):
+    """Use text already copied by the user; never inject Ctrl+C.
+
+    This deliberately reads the current clipboard even if the original
+    foreground window changed. It does not overwrite the clipboard.
+    """
+    if backend is None:
+        from .marked_layout import WindowsMarkBackend
+        backend = WindowsMarkBackend(owner_hwnd)
+    from .marked_layout import MarkError
+    if not backend.wait_keys_up():
+        raise MarkError("Release the shortcut keys and try again.")
+    text = backend.read_text()
+    if not valid_text(text):
+        raise MarkError("Clipboard has no usable text; copy text with Ctrl+C first.")
+    return text
 
 
 def copy_slot_to_clipboard(value, *, owner_hwnd=0, backend=None):

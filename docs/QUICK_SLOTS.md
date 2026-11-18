@@ -69,25 +69,17 @@ Do not store passwords or authentication tokens in Quick Slots.
 ### Pasting
 
 Press `Ctrl+Alt+NumpadN` (or the configured Paste prefix + NumpadN)
-while focused in the target Windows application. Pocket temporarily
-places the stored value in the clipboard, issues `Ctrl+V` to the
-original application, and attempts to restore the prior multi-format
-clipboard contents.
+while focused in the target Windows application.
 
-If OLE cannot snapshot the previous clipboard **before** the temporary
-clipboard is modified, Pocket falls back to Unicode keyboard input without
-changing the previous clipboard. This works in many ordinary Windows text
-fields but cannot be guaranteed for protected, elevated or specialized
-terminal applications. An error after the clipboard has been modified does
-not trigger another paste, avoiding duplicate input.
+- **Auto Paste** (default) inserts the slot using Windows Unicode keyboard
+  input. It does not access the system clipboard and never relies on OLE
+  snapshot or restoration; existing copied text/images stay unchanged.
+- **Copy to Clipboard** makes the slot the current Windows clipboard text,
+  without sending any paste shortcut. Press normal `Ctrl+V` to paste manually.
+  The previous clipboard is intentionally replaced.
 
-If automatic paste is not accepted by a particular application, choose
-**Copy to Clipboard** in Settings and press `Ctrl+V` manually. This mode
-intentionally replaces the clipboard's prior contents rather than restoring
-them. It never attempts the OLE snapshot, and it never sends Ctrl+V for you.
-
-Some elevated, remote, or protected applications refuse injected copy,
-paste or Unicode input; those applications may require manual paste.
+Some elevated, remote, or protected applications refuse injected keyboard
+input. Use **Copy to Clipboard** in Settings for those applications.
 
 ## Clipboard menu and ordering
 
@@ -126,7 +118,7 @@ other sensitive secrets in a Quick Slot. The profile is not encrypted.
 ## Implementation and checks
 
 * `pocket/quick_slots.py`: pure sorting/storage/hotkey mapping plus
-  one-shot selection capture and paste with OLE clipboard preservation.
+  one-shot selection capture and clipboard-independent Unicode Auto Paste.
 * `pocket/clipboard_gallery.py`: compact `[N]` badge in Listbox content,
   and a nine-item right-click submenu.
 * `app.pyw`: local profile migration, replacement dialogs, background

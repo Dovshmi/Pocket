@@ -1,9 +1,9 @@
-"""Exercise compact replacement Toplevel on a real Tk display (Windows/Xvfb)."""
+"""Verify Quick Slot replacement uses the native OS MessageBox API, not Toplevel."""
 import sys
 import tkinter as tk
 from pathlib import Path
+from unittest.mock import patch
 
-# Running this file directly sets sys.path to tests/integration, not repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from pocket import quick_slot_dialog
 
@@ -13,54 +13,21 @@ def run():
     root.withdraw()
     try:
         for accepted in (False, True):
-            found = []
-            def press_choice():
-                dialogs = [x for x in root.winfo_children()
-                           if isinstance(x, tk.Toplevel)]
-                assert len(dialogs) == 1, "Quick Slot dialog did not appear"
-                dialog = dialogs[0]
-                assert dialog.winfo_width() <= 420
-                assert dialog.winfo_height() <= 200
-                assert dialog.title() == "Replace Quick Slot [2]?"
-                frames = [x for x in dialog.winfo_children()
-                          if isinstance(x, tk.Frame)]
-                assert frames, "Missing compact content row"
-                body = frames[0]
-                cells = [x for x in body.winfo_children()
-                         if isinstance(x, tk.Frame)]
-                assert len(cells) == 2
-                left = min(cells, key=lambda x: x.winfo_rootx())
-                right = max(cells, key=lambda x: x.winfo_rootx())
-                left_text = [x.cget("text") for x in left.winfo_children()
-                             if isinstance(x, tk.Label)]
-                right_text = [x.cget("text") for x in right.winfo_children()
-                              if isinstance(x, tk.Label)]
-                assert left_text == ["NEW", "SVLAN 11"], left_text
-                assert right_text == ["OLD", "SVLAN 1557"], right_text
-                controls = frames[-1]
-                buttons = [x for x in controls.winfo_children()
-                           if isinstance(x, tk.Button)]
-                pressed = next(b for b in buttons
-                               if b.cget("text") == ("Yes" if accepted else "No"))
-                pressed.invoke()
-                found.append(True)
-            def safe_press():
-                try:
-                    press_choice()
-                except Exception as exc:
-                    found.append(exc)
-                    for window in root.winfo_children():
-                        if isinstance(window, tk.Toplevel):
-                            window.destroy()
-
-            root.after(160, safe_press)
-            result = quick_slot_dialog.confirm_replace(
-                root, "blue", 2, "SVLAN 1557", "SVLAN 11")
-            assert found == [True], found
-            assert result is accepted, result
+            with patch.object(quick_slot_dialog.messagebox, "askyesno",
+                              return_value=accepted) as native:
+                result = quick_slot_dialog.confirm_replace(
+                    root, "blue", 2, "SVLAN 1557", "SVLAN 11")
+                assert result is accepted
+                native.assert_called_once_with(
+                    "Replace Quick Slot [2]?",
+                    "NEW: SVLAN 11   →   OLD: SVLAN 1557",
+                    parent=root)
+            assert not any(isinstance(w, tk.Toplevel)
+                           for w in root.winfo_children()), (
+                "Custom Tkinter replacement window should not be created")
     finally:
         root.destroy()
-    print("PASS: compact New -> Old slot popup; No and Yes work")
+    print("PASS: native Windows askyesno, New -> Old, both Yes/No outcomes")
 
 
 if __name__ == "__main__":

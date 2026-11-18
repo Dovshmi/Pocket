@@ -85,6 +85,7 @@ from pocket import note_sync
 from pocket import native_bidi
 from pocket import native_inputs
 from pocket import mini_layout as mini
+from pocket import mini_nav
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import dashboard_notes_ui as dashboard_notes
@@ -223,7 +224,8 @@ def default_data() -> dict:
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
-        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard"],
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders"],
+                     "reminders_menu_configured": True,
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
@@ -252,7 +254,7 @@ def default_data() -> dict:
 
 VISIBLE_TABS = (("notes", "NOTES"), ("links", "SHORTCUTS"), ("ports", "PORTS"),
                 ("mac", "MAC"), ("commands", "COMMANDS"), ("subnet", "SUBNET"),
-                ("clipboard", "CLIPBOARD"))
+                ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"))
 
 
 def normalize_settings(raw):
@@ -260,7 +262,10 @@ def normalize_settings(raw):
     selected = raw.get("visible_tabs", [key for key, _ in VISIBLE_TABS])
     allowed = {key for key, _ in VISIBLE_TABS}
     if not isinstance(selected, list):
-        selected = list(allowed)
+        selected = [key for key, _ in VISIBLE_TABS]
+    # One-time upgrade introduces Reminders; marker preserves later hide/show.
+    if raw.get("reminders_menu_configured") is not True and "reminders" not in selected:
+        selected = [*selected, "reminders"]
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
@@ -269,7 +274,7 @@ def normalize_settings(raw):
     paste_prefix, copy_prefix = quick_slots.normalized_prefix_pair(
         raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
         raw.get("quick_slots_copy_prefix"))
-    return {"visible_tabs": visible,
+    return {"visible_tabs": visible, "reminders_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
@@ -522,6 +527,7 @@ class PocketDesk:
         self._modal = False
         self._reminder_dialog = None
         self._due_reminder_dialog = None
+        self._mini_nav_expanded = False
         self.pinned = False
         self._compact_return = False  # True after opening a tool from the launcher.
         self._compact_editing = False
@@ -1461,52 +1467,95 @@ class PocketDesk:
                          bg=PANEL, hover=CARD, padx=7, pady=5, font_size=7).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
-        # Eight compact icon tabs fit across the 346px mini window. Every
-        # visible tool has a permanent button; no hidden dropdown or overflow.
+        # The first row always retains the original eight 39px icon positions.
+        # When more tools exist, the last More tile opens another equal-width row.
         nav = tk.Frame(outer, bg=BG)
         nav.pack(fill="x", padx=9, pady=(1, 6))
-        self.tab_buttons = {}  # Full-size text-tab API remains unchanged.
+        self.tab_buttons = {}
         self.mini_icon_tabs = {}
-        for key, icon, caption in (
-            ("notes", "✎", "Notes"), ("links", "↗", "Links"),
-            ("ports", "⇄", "Ports"), ("mac", "▦", "MAC"),
-            ("commands", ">_", "CLI"), ("subnet", "⌗", "Subnet"),
-            ("clipboard", "▤", "Clip"), ("settings", "⚙", "More"),
-        ):
-            if key != "settings" and key not in self.settings["visible_tabs"]:
-                continue
-            tile = tk.Frame(nav, bg=BG, width=39, height=45, cursor="hand2",
-                            takefocus=1, highlightthickness=0)
+        menu_items = {
+            "notes": "Notes", "links": "Links", "ports": "Ports",
+            "mac": "MAC", "commands": "CLI", "subnet": "Subnet",
+            "clipboard": "Clip", "reminders": "Remind",
+            "settings": "More", "more": "More",
+        }
+        first, additional = mini_nav.plan_mini_icons(
+            [key for key, _ in VISIBLE_TABS if key in self.settings["visible_tabs"]])
+        self._mini_overflow_keys = tuple(k for row in additional for k in row)
+        self._mini_overflow_rows = []
+        if not additional:
+            self._mini_nav_expanded = False
+
+        def add_mini_tile(parent, key, caption):
+            tile = tk.Frame(parent, bg=BG, width=39, height=45,
+                            cursor="hand2", takefocus=1, highlightthickness=0)
             tile.pack(side="left", padx=(0, 1))
             tile.pack_propagate(False)
             glyph = tool_icons.label(tile, key, SECONDARY, BG, size=20,
                                      cursor="hand2", anchor="center")
             glyph.pack(fill="x", pady=(1, 0))
             caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
-                                      bg=BG, fg=MUTED, cursor="hand2", anchor="center")
+                                     bg=BG, fg=MUTED, cursor="hand2", anchor="center")
             caption_label.pack(fill="x")
+            action = (self._toggle_mini_more if key == "more"
+                      else lambda tool=key: self.show_tab(tool))
             for target in (tile, glyph, caption_label):
-                target.bind("<Button-1>", lambda _event, tool=key: self.show_tab(tool))
-            tile.bind("<Return>", lambda _event, tool=key: self.show_tab(tool))
-            tile.bind("<space>", lambda _event, tool=key: self.show_tab(tool))
+                target.bind("<Button-1>", lambda _event, callback=action: callback())
+            tile.bind("<Return>", lambda _event, callback=action: callback())
+            tile.bind("<space>", lambda _event, callback=action: callback())
             design.Tooltip(tile, f"{caption} · open {key}", self.theme)
             self.mini_icon_tabs[key] = (tile, glyph, caption_label)
+
+        for key in first:
+            add_mini_tile(nav, key, menu_items.get(key, key.title()))
+
+        for row_items in additional:
+            extra = tk.Frame(outer, bg=BG)
+            for key in row_items:
+                add_mini_tile(extra, key,
+                              "Settings" if key == "settings" else
+                              menu_items.get(key, key.title()))
+            self._mini_overflow_rows.append(extra)
+        self._set_mini_overflow_visible(self._mini_nav_expanded)
         self._style_mini_icon_tabs(self.current_tab)
         tk.Frame(outer, height=1, bg=BORDER).pack(fill="x")
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
 
+    def _toggle_mini_more(self):
+        if not getattr(self, "_mini_overflow_rows", ()):
+            self.show_tab("settings")
+            return
+        self._mini_nav_expanded = not self._mini_nav_expanded
+        self._set_mini_overflow_visible(self._mini_nav_expanded)
+        self._style_mini_icon_tabs(self.current_tab)
+
+    def _set_mini_overflow_visible(self, expanded):
+        for extra in getattr(self, "_mini_overflow_rows", ()):
+            if expanded:
+                extra.pack(fill="x", padx=9, pady=(0, 4))
+            else:
+                extra.pack_forget()
+        toggle = getattr(self, "mini_icon_tabs", {}).get("more")
+        if toggle:
+            toggle[2].configure(text="Less" if expanded else "More")
+
     def _style_mini_icon_tabs(self, selected):
-        """Show an active tab indicator while retaining labels on small screens."""
+        """Keep primary positions fixed and highlight visible destinations."""
         for key, (tile, glyph, caption) in getattr(self, "mini_icon_tabs", {}).items():
-            active = key == selected
-            bg = ACCENT_DARK if active else BG
-            tile.config(bg=bg)
-            glyph.config(bg=bg)
-            glyph.image = tool_icons.icon_image(glyph, key, ACCENT if active else SECONDARY, 20)
+            active = key == selected or (
+                key == "more" and (
+                    self._mini_nav_expanded or (
+                        selected in getattr(self, "_mini_overflow_keys", ()) and
+                        not self._mini_nav_expanded)))
+            color = ACCENT_DARK if active else BG
+            tile.config(bg=color)
+            glyph.config(bg=color)
+            glyph.image = tool_icons.icon_image(glyph, key,
+                                                ACCENT if active else SECONDARY, 20)
             glyph.config(image=glyph.image)
-            caption.config(bg=bg, fg=WHITE if active else MUTED)
+            caption.config(bg=color, fg=WHITE if active else MUTED)
 
     def _build_mini_settings(self):
         """Share the same themed Settings screen, optimized for Mini width."""
@@ -1518,7 +1567,7 @@ class PocketDesk:
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
-        if which not in self.settings["visible_tabs"] and which not in ("settings", "reminders") and not (which == "home" and self.display_mode in ("dashboard", "compact")):
+        if which not in self.settings["visible_tabs"] and which != "settings" and not (which == "home" and self.display_mode in ("dashboard", "compact")):
             which = "settings"
         self.current_tab = which
         # Always restore the shell body before replacing scrollable tool pages.
@@ -1529,23 +1578,14 @@ class PocketDesk:
             self.body = self._mini_root_body
         for child in self.body.winfo_children():
             child.destroy()
-        # Reminders is accessed from Notes/More; NEVER add a ninth Mini icon.
-        # Highlight the existing More/Settings tab while the overview is open.
-        navigation = "settings" if which == "reminders" else which
         if self.display_mode == "mini":
-            self._style_mini_icon_tabs("settings" if which == "reminders" else which)
+            self._style_mini_icon_tabs(which)
         if self.display_mode == "dashboard":
-            if which == "reminders":
-                dashboard.style_nav(self, "settings")
-            else:
-                dashboard.style_nav(self, which)
+            dashboard.style_nav(self, which)
         if self.display_mode == "compact":
             compact.style_nav(self, which)
         if self.display_mode == "normal":
-            if which == "reminders":
-                self._normal_nav_refresh("settings")
-            else:
-                self._normal_nav_refresh(which)
+            self._normal_nav_refresh(which)
         else:
             for key, button in self.tab_buttons.items():
                 button.config(fg=ACCENT if key == which else SECONDARY,
@@ -1584,7 +1624,7 @@ class PocketDesk:
         self._place_popup(self._last_tray_xy)
         # Save the last user-selected tool, not transient Extra Mini/Home
         # navigation. On restart restore the tool if it is still visible.
-        if self.display_mode != "compact" and which != "reminders" and self.data.get("last_tab") != which:
+        if self.display_mode != "compact" and self.data.get("last_tab") != which:
             self.data["last_tab"] = which
             self.schedule_save()
 
@@ -1677,7 +1717,7 @@ class PocketDesk:
 
     def _open_compact_tool(self, destination, hit=None):
         """Leave the launcher and open the destination in the user's base layout."""
-        if destination not in ("settings", "reminders") and destination not in self.settings["visible_tabs"]:
+        if destination != "settings" and destination not in self.settings["visible_tabs"]:
             destination = "settings"
         if self.display_mode != "compact":
             return self.show_tab(destination)

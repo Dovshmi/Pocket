@@ -430,6 +430,18 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
             compact=compact)
     _dropdown_field(
+        card, app, c, "quick_slots_save_mode_picker", "Quick Slot save behavior",
+        "Auto Copy Selection sends Ctrl+C; Current Clipboard reads what you copied.",
+        quick_slots.SAVE_MODE_CHOICES, app.settings["quick_slots_save_mode"],
+        app._set_quick_slots_save_mode,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
+        card, app, c, "quick_slots_paste_mode_picker", "Quick Slot paste behavior",
+        "Auto Paste inserts immediately; Copy to Clipboard lets you press Ctrl+V.",
+        quick_slots.PASTE_MODE_CHOICES, app.settings["quick_slots_paste_mode"],
+        app._set_quick_slots_paste_mode,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
         card, app, c, "quick_slots_paste_prefix_picker", "Paste shortcut prefix",
         "Default Ctrl+Alt + Numpad1–9; only modifier keys can change.",
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_paste_prefix"],
@@ -437,16 +449,10 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
         compact=compact, wheel_scroll_page=True)
     _dropdown_field(
         card, app, c, "quick_slots_copy_prefix_picker", "Save / Copy shortcut prefix",
-        "Default Ctrl+Win + Numpad1–9; only modifier keys can change.",
+        "Default Ctrl+Alt+Win + Numpad1–9; only modifier keys can change.",
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
         app._set_quick_slots_copy_prefix,
         compact=compact, wheel_scroll_page=True)
-    _action(card, app, c, "record_quick_slots_paste",
-            "Record paste shortcut", "Press modifiers + any fixed Numpad1–9 key.",
-            "Record", lambda: app._open_quick_slots_recorder("paste"), compact=compact)
-    _action(card, app, c, "record_quick_slots_copy",
-            "Record save shortcut", "Press modifiers + any fixed Numpad1–9 key.",
-            "Record", lambda: app._open_quick_slots_recorder("save"), compact=compact)
     _divider(card, c)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",

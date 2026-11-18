@@ -231,6 +231,38 @@ class WindowsMarkBackend:
             if memory:
                 self.kernel.GlobalFree(memory)
 
+    def send_text(self, text, *, target_hwnd=None):
+        """Fallback: type UTF-16 text directly without touching the clipboard.
+
+        KEYEVENTF_UNICODE enters text in most Windows edit controls. It is only
+        used when the OLE clipboard snapshot failed *before* any paste or write.
+        Protected or elevated targets may reject SendInput.
+        """
+        if not isinstance(text, str):
+            raise MarkError("No text to insert.")
+        utf16 = text.encode("utf-16-le")
+        # SendInput preserves order within a batch; limit per-call allocation.
+        for offset in range(0, len(utf16), 256):
+            if target_hwnd and self.foreground() != target_hwnd:
+                raise MarkError("The active window changed; stopped inserting text.")
+            chunk = utf16[offset:offset + 256]
+            inputs = []
+            for index in range(0, len(chunk), 2):
+                code_unit = int.from_bytes(chunk[index:index + 2], "little")
+                inputs.extend((
+                    _Input(1, _InputUnion(ki=_KeyInput(
+                        0, code_unit, 0x0004, 0, None))),
+                    _Input(1, _InputUnion(ki=_KeyInput(
+                        0, code_unit, 0x0004 | 0x0002, 0, None))),
+                ))
+            batch = (_Input * len(inputs))(*inputs)
+            sent = self.user.SendInput(
+                len(batch), batch, ctypes.sizeof(_Input))
+            if sent != len(batch):
+                raise MarkError(
+                    "Windows blocked direct text input; use Clipboard Only "
+                    "in Settings, then press Ctrl+V.")
+
     def pause_after_paste(self):
         # Let the foreground program finish consuming text before restoring OLE.
         time.sleep(0.22)

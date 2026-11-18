@@ -912,7 +912,6 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "convert_enabled", "convert_mode_picker",
                                 "quick_slots_enabled", "quick_slots_paste_prefix_picker",
                                 "quick_slots_copy_prefix_picker",
-                                "record_quick_slots_paste", "record_quick_slots_copy",
                                 "create_pocket_backup", "restore_pocket_backup",
                                 "reset_default_settings",
                                 "ram_image_limit", "db_image_display_limit",
@@ -1149,7 +1148,6 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "clipboard_paused", "sensitive_filter",
                         "quick_slots_enabled", "quick_slots_paste_prefix_picker",
                         "quick_slots_copy_prefix_picker",
-                        "record_quick_slots_paste", "record_quick_slots_copy",
                         "create_pocket_backup", "restore_pocket_backup",
                         "reset_default_settings")),
                         "Dashboard Settings is missing important controls")

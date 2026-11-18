@@ -8,14 +8,14 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.39.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0)
+[![Release](https://img.shields.io/badge/Stable-v1.39.4-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.4)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-Portable-v1.39.0.zip)** ·
-**[Download Standalone EXE v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-v1.39.0.exe)** ·
-[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/SHA256SUMS.txt) ·
+**[Download Portable ZIP v1.39.4](https://github.com/Dovshmi/Pocket/releases/download/v1.39.4/Pocket-Portable-v1.39.4.zip)** ·
+**[Download Standalone EXE v1.39.4](https://github.com/Dovshmi/Pocket/releases/download/v1.39.4/Pocket-v1.39.4.exe)** ·
+[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.4/SHA256SUMS.txt) ·
 [All Releases](https://github.com/Dovshmi/Pocket/releases)
 
 </div>
@@ -25,10 +25,46 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
-> **Pocket v1.39.0 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
+> **Pocket v1.39.4 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.4). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
 > **Offline-first:** Notes, CLI, subnet calculations, clipboard and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
+
+## What's new in v1.39.4
+
+- **Clearer Windows notifications:** Save, Paste and Copy-to-Clipboard messages show the Quick Slot number and a short preview of the actual text. Clipboard-only mode correctly prompts for Ctrl+V.
+- **New Save/Copy hotkey default:** New profiles use **Ctrl+Alt+Win+Numpad1–9**. Paste remains **Ctrl+Alt+Numpad1–9**. Existing preferences are preserved.
+- **Simpler Settings:** Removed the two Quick Slot Record buttons; the modifier dropdowns and the independent Save/Paste behaviors remain.
+
+[Release notes](docs/releases/v1.39.4.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+## What's new in v1.39.3
+
+**Independent Quick Slot Save and Paste controls:** Under **Settings → Clipboard & privacy**, set each operation separately, without changing the other:
+
+- **Quick Slot save behavior** — **Auto Copy Selection** (default: send Ctrl+C to the foreground app; fallback to existing text clipboard), or **Use Current Clipboard** (copy manually first; Save shortcut reads it without injecting Ctrl+C).
+- **Quick Slot paste behavior** — **Auto Paste** (default) or **Copy to Clipboard** (stage the slot; press Ctrl+V manually). In programs that reject injected Ctrl+V or misrender Hebrew, Copy to Clipboard plus normal Ctrl+V remains the reliable user-controlled fallback.
+- **Any combination** works; each preference is preserved after restart. Existing Quick Slots, hotkeys and profile data remain unchanged.
+
+**Non-ASCII note:** Auto Paste continues to use Windows Unicode clipboard + injected Ctrl+V for Hebrew; some remote, elevated, or specialized programs cannot accept injected keystrokes. For those applications select **Copy to Clipboard** and press Ctrl+V yourself. Pocket does not bypass application restrictions.
+
+[Release notes](docs/releases/v1.39.3.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+## What's new in v1.39.2
+
+**Hebrew and multilingual Quick Slots Auto Paste fix:** Pocket now chooses the appropriate paste method automatically. Pure ASCII text keeps the fast clipboard-independent input from v1.39.1; Hebrew, Arabic, accented letters, emojis and other non-ASCII text use native Windows **CF_UNICODETEXT + Ctrl+V** to avoid question marks in applications that cannot process simulated Unicode keystrokes.
+
+**Clipboard note:** During automatic pasting of non-ASCII text, the slot content remains in the Windows clipboard afterward. Pocket intentionally avoids the OLE clipboard restore that caused `CloseClipboard Failed` in v1.39.0. Existing manual **Copy to Clipboard** mode remains available, and Quick Slot values and shortcuts are retained without migration.
+
+[Release details](docs/releases/v1.39.2.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+## What's new in v1.39.1
+
+- **Quick Slot paste fix:** Auto Paste now types text using Windows Unicode input directly, without ever taking over the clipboard. This avoids OLE snapshot and restoration failures, including `CloseClipboard Failed`.
+- **Clipboard Only option:** Under **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose **Copy to Clipboard** to stage a saved slot for ordinary manual `Ctrl+V`. This setting replaces the clipboard's current contents and does not auto-paste.
+- **Default and migration:** Auto Paste remains the default for existing users; preferences are saved locally. Your nine Quick Slots, hotkeys, Notes and command data are retained.
+
+[Release details](docs/releases/v1.39.1.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md) · [Windows release build](.github/workflows/release-v1.39.1.yml)
 
 ## What's new in v1.39.0
 
@@ -61,25 +97,29 @@ With **Num Lock ON**, use the two separate global shortcuts:
 
 | Action | Default shortcut |
 | :--- | :--- |
-| Save selected text (or current clipboard text) to slot 1–9 | `Ctrl+Win+Numpad1–9` |
+| Save selected text or current clipboard text to slot 1–9 (separate Save behavior setting) | `Ctrl+Alt+Win+Numpad1–9` |
 | Paste saved slot 1–9 into the focused application | `Ctrl+Alt+Numpad1–9` |
 
-Saving highlighted text behaves like Windows **Ctrl+C** and also updates the regular clipboard. The paste operation preserves the existing clipboard. Both modifier prefixes can be changed independently in Settings; **Numpad1–9 cannot be reassigned**. An existing slot asks for confirmation before overwrite. All slot data stays on the local computer and is **not included in Backup & Restore**.
+Saving highlighted text behaves like Windows **Ctrl+C** and also updates the regular clipboard. Auto Paste preserves the existing clipboard for ASCII but, for Hebrew and other non-ASCII text, places Unicode text in the clipboard and uses Ctrl+V; that text remains copied afterward. Both modifier prefixes can be changed independently in Settings; **Numpad1–9 cannot be reassigned**. An existing slot asks for confirmation before overwrite. All slot data stays on the local computer and is **not included in Backup & Restore**.
 
 [Quick Slots usage and privacy](docs/QUICK_SLOTS.md)
 
 ### Record shortcuts & reset defaults
 
-- **Record Shortcut:** Capture a popup or Translate shortcut by pressing the desired keys in the Settings recorder, with the manual picker retained. Quick Slot recording changes modifiers only, never the numbered Numpad key. A conflicting shortcut keeps the previous configuration.
+- **Record Shortcut:** Capture a popup or Translate shortcut by pressing the desired keys in the Settings recorder, with the manual picker retained. Quick Slot modifiers are chosen from dropdowns; Quick Slot Record buttons are hidden. A conflicting shortcut keeps the previous configuration.
 - **Default Settings:** Reset selected groups (appearance, menus, keyboard, clipboard preferences, network) without deleting personal Notes, Links, CLI, Clipboard DATABASE files or saved Quick Slot text.
-- **Updated Settings:** The footer reports **v1.39.0**, with the backup/restore controls available in the regular Settings UI.
+- **Updated Settings (v1.39.0):** The footer reported **v1.39.0**, with the backup/restore controls available in the regular Settings UI.
 
 ### Version highlights
 
 | Version | Main changes |
 | :--- | :--- |
-| **v1.39.0 — latest stable release** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
-| **v1.38.0 — previous release** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
+| **v1.39.4 — latest stable release** | Readable Quick Slot notifications with text preview, updated Save default and simplified Settings |
+| **v1.39.3** | Independently configure Quick Slot automatic copy/save and paste; manual clipboard compatibility for selective apps |
+| **v1.39.2** | Fix Hebrew and multilingual Quick Slot Auto Paste through Unicode clipboard, keeping ASCII fast paste |
+| **v1.39.1** | Windows Quick Slot paste repair, optional Copy to Clipboard mode, safer fallback without replacing existing clipboard |
+| **v1.39.0** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
+| **v1.38.0** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
 | **v1.37 — incorporated into v1.38.0** | Optional local Clipboard DATABASE, EN/HE keyboard layout repair and Windows proxy selection |
 | **v1.36.0** | Native Windows text-input improvements, ordered port-check results, Mini Commands improvements |
 | **v1.35.1 / v1.35.0** | Clipboard alignment, Dashboard layout fixes, redesigned Settings and compact launcher |
@@ -195,16 +235,16 @@ Pocket remembers window placement, last active tool and supports **Blue, Dark Bl
 
 ### Portable ZIP — recommended for a work PC
 
-1. Download the **[Pocket-Portable-v1.39.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-Portable-v1.39.0.zip)** stable release.
+1. Download the **[Pocket-Portable-v1.39.4.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.4/Pocket-Portable-v1.39.4.zip)** stable release.
 2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
 3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
 4. Choose a window layout and theme in Settings.
 
-No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.0 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
+No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.4 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
 
 ### Standalone EXE
 
-Download **[Pocket-v1.39.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-v1.39.0.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+Download **[Pocket-v1.39.4.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.4/Pocket-v1.39.4.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
 
 > [!IMPORTANT]
 > Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

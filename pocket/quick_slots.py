@@ -13,7 +13,14 @@ MAX_TEXT_LENGTH = 20_000
 # navigation key events on Windows.
 DEFAULT_PREFIX = "ctrl_alt"  # Backward compatible name for paste.
 DEFAULT_PASTE_PREFIX = "ctrl_alt"
-DEFAULT_COPY_PREFIX = "ctrl_win"
+DEFAULT_COPY_PREFIX = "ctrl_alt_win"
+DEFAULT_PASTE_MODE = "auto"
+DEFAULT_SAVE_MODE = "selection"
+SAVE_MODE_CHOICES = (
+    ("Auto Copy Selection", "selection"),
+    ("Use Current Clipboard", "clipboard"),
+)
+PASTE_MODE_CHOICES = (("Auto Paste", "auto"), ("Copy to Clipboard", "clipboard"))
 PREFIX_CHOICES = (
     ("Ctrl+Alt", "ctrl_alt"),
     ("Ctrl", "ctrl"),
@@ -33,6 +40,48 @@ MOD_NOREPEAT = 0x4000
 def valid_text(value):
     return (isinstance(value, str) and bool(value.strip())
             and len(value) <= MAX_TEXT_LENGTH)
+
+
+def normalize_save_mode(value):
+    """Legacy Quick Slot copy shortcuts continue capturing selected text."""
+    return value if value in ("selection", "clipboard") else DEFAULT_SAVE_MODE
+
+
+def normalize_paste_mode(value):
+    """An existing profile must keep its automatic-paste behavior."""
+    return value if value in ("auto", "clipboard") else DEFAULT_PASTE_MODE
+
+
+NOTIFICATION_PREVIEW_LENGTH = 120
+
+
+def notification_preview(value, max_length=NOTIFICATION_PREVIEW_LENGTH):
+    """One-line bounded Windows notification preview, without changing saved data."""
+    if not isinstance(value, str) or not value.strip():
+        return "(No text)"
+    compact = " ".join(value.split())
+    if len(compact) > max_length:
+        return compact[:max_length - 1].rstrip() + "…"
+    return compact
+
+
+def slot_notification(action, number, value):
+    """Readable native Windows notification for Save, Paste or Copy mode."""
+    if number not in SLOT_NUMBERS:
+        raise ValueError("Invalid Quick Slot number")
+    details = {
+        "saved": (f"Pocket · Saved to Quick Slot {number}", "Saved text"),
+        "pasted": (f"Pocket · Pasted from Quick Slot {number}", "Pasted text"),
+        "clipboard": (f"Pocket · Copied Quick Slot {number} to clipboard", "Copied text"),
+        "already": (f"Pocket · Already saved in Quick Slot {number}", "Stored text"),
+    }
+    if action not in details:
+        raise ValueError("Invalid Quick Slot notification action")
+    title, label = details[action]
+    message = f"{label}:\n{notification_preview(value)}"
+    if action == "clipboard":
+        message += "\nPress Ctrl+V to paste."
+    return title, message
 
 
 def normalize_slots(raw):
@@ -174,7 +223,7 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     shortcut should behave like normal Ctrl+C: if text is selected it also
     becomes the current clipboard content; otherwise the previous clipboard
     text is the fallback. The separate *paste* action still preserves the
-    user's original multi-format clipboard through OLE.
+    clipboard contents only when its configured mode asks it to.
     """
     if backend is None:
         from .marked_layout import WindowsMarkBackend
@@ -185,7 +234,7 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
 
-    # Ctrl+Win+NumpadN has just been released. Allow the foreground app to
+    # The configured Save+NumpadN chord was just released. Allow Windows to
     # process the released Win modifier before injecting a plain Ctrl+C.
     backend.settle_hotkey_release() if hasattr(backend, "settle_hotkey_release") else None
     if backend.foreground() != target_hwnd:
@@ -205,8 +254,63 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     raise MarkError("No selected text or existing text clipboard to save.")
 
 
+def read_existing_clipboard(*, owner_hwnd=0, backend=None):
+    """Use text already copied by the user; never inject Ctrl+C.
+
+    This deliberately reads the current clipboard even if the original
+    foreground window changed. It does not overwrite the clipboard.
+    """
+    if backend is None:
+        from .marked_layout import WindowsMarkBackend
+        backend = WindowsMarkBackend(owner_hwnd)
+    from .marked_layout import MarkError
+    if not backend.wait_keys_up():
+        raise MarkError("Release the shortcut keys and try again.")
+    text = backend.read_text()
+    if not valid_text(text):
+        raise MarkError("Clipboard has no usable text; copy text with Ctrl+C first.")
+    return text
+
+
+def copy_slot_to_clipboard(value, *, owner_hwnd=0, backend=None):
+    """Stage the slot as the current Windows copy, for ordinary manual Ctrl+V.
+
+    Clipboard-only mode deliberately does not snapshot or restore OLE formats
+    and does not send Ctrl+V or require focus to remain in the same window.
+    """
+    if not valid_text(value):
+        raise ValueError("Quick Slot is empty.")
+    if backend is None:
+        from .marked_layout import WindowsMarkBackend
+        backend = WindowsMarkBackend(owner_hwnd)
+    from .marked_layout import MarkError
+    if not backend.wait_keys_up():
+        raise MarkError("Release the shortcut keys and try again.")
+    if hasattr(backend, "settle_hotkey_release"):
+        backend.settle_hotkey_release()
+    backend.put_text(value)
+
+
+def requires_clipboard_paste(value):
+    """Use CF_UNICODETEXT for text that can be mangled by injected key events.
+
+    Many Win32/native/remote input controls treat KEYEVENTF_UNICODE events as
+    unrepresentable characters (often '?'). A Unicode clipboard paste is
+    the compatible path for Hebrew and other non-ASCII characters.
+    """
+    return any(ord(character) > 0x7f for character in value)
+
+
 def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
-    """Paste into the original foreground window; preserve original formats."""
+    """Insert slot text into the original focused Windows application.
+
+    Plain ASCII uses direct Unicode SendInput without touching the clipboard.
+    Text containing non-ASCII characters (Hebrew, Arabic, accents, etc.) uses
+    CF_UNICODETEXT and an ordinary Ctrl+V, because some target applications
+    translate injected Unicode key events into '?' characters. The Unicode
+    text stays in the clipboard; no OLE snapshot/restore is attempted.
+    Protected or specialized targets may still require Clipboard Only.
+    """
     if not valid_text(value):
         raise ValueError("Quick Slot is empty.")
     if backend is None:
@@ -217,18 +321,18 @@ def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
         raise MarkError("The original window is no longer active.")
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
-
-    with backend.preserve_clipboard() as restore:
-        changed_by_us = None
-        try:
-            if backend.foreground() != target_hwnd:
-                raise MarkError("The original window is no longer active.")
-            backend.put_text(value)
-            changed_by_us = backend.sequence()
-            if backend.foreground() != target_hwnd:
-                raise MarkError("The active window changed; paste cancelled.")
-            backend.send_key("V")
-            backend.pause_after_paste()
-        finally:
-            if changed_by_us is not None and backend.sequence() == changed_by_us:
-                restore()
+    if hasattr(backend, "settle_hotkey_release"):
+        backend.settle_hotkey_release()
+    if backend.foreground() != target_hwnd:
+        raise MarkError("The active window changed; paste cancelled.")
+    if requires_clipboard_paste(value):
+        # Native Windows clipboard API, not OLE; do not attempt unreliable
+        # multi-format OLE restore (CloseClipboard Failed on some workstations).
+        # The copied Unicode text intentionally remains available for Ctrl+V.
+        backend.put_text(value)
+        if backend.foreground() != target_hwnd:
+            raise MarkError("The active window changed; text copied but not pasted.")
+        backend.send_key("V")
+        backend.pause_after_paste()
+    else:
+        backend.send_text(value, target_hwnd=target_hwnd)

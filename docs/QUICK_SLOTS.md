@@ -12,10 +12,10 @@ right-hand number pad with **Num Lock ON**. There is no Save Mode and
 | Action | Default global shortcut |
 | --- | --- |
 | Paste stored slot N | `Ctrl+Alt+Numpad1–9` |
-| Save selected text to slot N | `Ctrl+Win+Numpad1–9` |
+| Save selected text to slot N | `Ctrl+Alt+Win+Numpad1–9` |
 
 For example, to save a selected IP in slot 1, press
-`Ctrl+Win+Numpad1`. To paste it later, press `Ctrl+Alt+Numpad1`.
+`Ctrl+Alt+Win+Numpad1`. To paste it later, press `Ctrl+Alt+Numpad1`.
 The action is immediate: no second key sequence, mode timer, or extra
 window is needed.
 
@@ -29,14 +29,38 @@ Open **Settings → Clipboard & privacy**:
 
 * **Enable Quick Slots:** ON/OFF for both global shortcut groups and the
   numbered Clipboard list entries. Disabling does not delete values.
+* **Quick Slot save behavior:** **Auto Copy Selection** (default) sends
+  `Ctrl+C` to capture selected text in the focused app, using the existing
+  Windows clipboard as a fallback if nothing is selected. **Use Current
+  Clipboard** never sends `Ctrl+C`; first copy the text manually, then press
+  the Quick Slot Save hotkey. It reads that clipboard text and saves it in
+  the chosen slot. An empty/non-text clipboard is rejected. This setting
+  is independent of Paste behavior.
+* **Quick Slot paste behavior:** **Auto Paste** (default for existing and new
+  users) inserts into the current application; **Copy to Clipboard** changes
+  the Windows clipboard to the selected slot and waits for your ordinary
+  `Ctrl+V`. The choice is saved across app restarts.
 * **Paste shortcut prefix:** default `Ctrl+Alt`.
-* **Save / Copy shortcut prefix:** default `Ctrl+Win`.
+* **Save / Copy shortcut prefix:** default `Ctrl+Alt+Win`.
+
+**The two behavior dropdowns are independent.** For example, you can
+keep Auto Copy Selection enabled but set Paste to Copy to Clipboard
+for programs where Hebrew only pastes correctly with a physical Ctrl+V.
+Or select Use Current Clipboard for saving while keeping Auto Paste.
 
 Each dropdown chooses **only modifier keys**: `Ctrl+Alt`, `Ctrl`,
 `Ctrl+Win` or `Ctrl+Alt+Win`. The actual keys are always
 **Numpad1–9**; their numbers cannot be changed in Settings.
 Shift is intentionally not available because Windows can convert
 Shift+Numpad digits into navigation key events.
+
+The Quick Slot **Record** buttons are no longer shown in Settings.
+Use the modifier dropdowns instead; Numpad1–9 always remain fixed.
+
+Native Windows notifications after Save, Paste and Copy-to-Clipboard show the
+slot number and a short preview of its text (up to 120 characters). Clipboard
+Only correctly instructs you to press Ctrl+V. Previews may be visible in
+Windows notification history, so do not store secrets in Quick Slots.
 
 Copy and paste cannot use the same modifier prefix. If a replacement
 group conflicts with another application or Windows, the old working
@@ -46,18 +70,25 @@ Changes apply without restarting Pocket.
 ### Saving / copying
 
 1. Highlight text in any foreground Windows application.
-2. Press `Ctrl+Win+NumpadN` (or the configured Save prefix + NumpadN).
-3. Pocket waits for the `Ctrl+Win` shortcut to be released, then issues
+2. Press `Ctrl+Alt+Win+NumpadN` (or the configured Save prefix + NumpadN).
+3. Pocket waits for the configured Save shortcut to be released, then issues
    ordinary `Ctrl+C` to capture the selected text.
 4. If the application has no copyable selection, Pocket falls back to
    **text already in the Windows clipboard before this operation**.
-5. The selected text is saved in the numbered Quick Slot **and remains
-   in the Windows clipboard**, just like an ordinary Copy operation.
+5. In **Auto Copy Selection** mode, the selected text is saved in the
+   numbered Quick Slot **and remains in the Windows clipboard**, just like
+   an ordinary Copy operation.
    This deliberately avoids an unreliable OLE restore while copying selected
    text. If there is no selection, the existing clipboard is unchanged.
    No upload occurs.
 6. Replacing an occupied slot asks for confirmation; displaced automatic
    Favorites are removed rather than accumulating.
+
+**Use Current Clipboard mode:** instead of steps 1–5 above, copy text yourself
+using `Ctrl+C` or another copy action, then press the slot's Save shortcut.
+Pocket reads the current clipboard without sending an automatic copy
+keystroke. No clipboard modification occurs during this read. Both Save
+modes use the same replacement confirmation and privacy filter.
 
 The Sensitive Text Filter can reject recognized secret-looking text.
 Do not store passwords or authentication tokens in Quick Slots.
@@ -65,13 +96,22 @@ Do not store passwords or authentication tokens in Quick Slots.
 ### Pasting
 
 Press `Ctrl+Alt+NumpadN` (or the configured Paste prefix + NumpadN)
-while focused in the target Windows application. Pocket temporarily
-places the stored value in the clipboard, issues `Ctrl+V` to the
-original application, and attempts to restore the prior multi-format
-clipboard contents.
+while focused in the target Windows application.
 
-Some elevated, remote, or protected applications refuse injected copy
-or paste input; those applications may require ordinary manual copy/paste.
+- **Auto Paste** (default) uses Unicode keyboard input for ASCII-only
+  slots, leaving the existing clipboard untouched. For Hebrew, Arabic,
+  accented text, emoji or other non-ASCII characters, it uses Windows
+  `CF_UNICODETEXT` and sends `Ctrl+V` to the target instead. This prevents
+  `?` replacement by applications that mishandle Unicode key injection.
+  In that case the new text **remains in the clipboard** afterward, and
+  the original clipboard is not restored. This avoids OLE
+  `CloseClipboard Failed` errors.
+- **Copy to Clipboard** makes the slot the current Windows clipboard text,
+  without sending any paste shortcut. Press normal `Ctrl+V` to paste manually.
+  The previous clipboard is intentionally replaced.
+
+Some elevated, remote, or protected applications refuse injected keyboard
+input. Use **Copy to Clipboard** in Settings for those applications.
 
 ## Clipboard menu and ordering
 
@@ -110,7 +150,7 @@ other sensitive secrets in a Quick Slot. The profile is not encrypted.
 ## Implementation and checks
 
 * `pocket/quick_slots.py`: pure sorting/storage/hotkey mapping plus
-  one-shot selection capture and paste with OLE clipboard preservation.
+  one-shot selection capture and clipboard-independent Unicode Auto Paste.
 * `pocket/clipboard_gallery.py`: compact `[N]` badge in Listbox content,
   and a nine-item right-click submenu.
 * `app.pyw`: local profile migration, replacement dialogs, background
@@ -121,4 +161,5 @@ other sensitive secrets in a Quick Slot. The profile is not encrypted.
 * `tests/integration/smoke_dashboard_integration.py`: verifies the
   nine entries and unchanged text panel geometry.
 
-This is work-in-progress on `feature/v1.39`; it is not a v1.39 release.
+Version 1.39.1 adds the optional clipboard-only mode and resilient
+clipboard snapshot fallback.

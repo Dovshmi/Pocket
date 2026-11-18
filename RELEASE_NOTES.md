@@ -1,3 +1,81 @@
+# Pocket v1.39.4 — Clearer Quick Slot Notifications and Defaults
+
+**Stable patch · Windows 10/11 · Offline-first**
+
+- Native Windows Quick Slot notifications include the numbered slot and up to 120 characters of its actual text, for **Save**, **Auto Paste**, **Copy to Clipboard**, and **already saved** states.
+- Clipboard-only mode says **Press Ctrl+V to paste** rather than claiming text was pasted; errors identify the failed slot and operation.
+- **Save / Copy** defaults to **Ctrl+Alt+Win+Numpad1–9** in new installations and when resetting keyboard settings. **Paste** remains **Ctrl+Alt+Numpad1–9**. Existing explicit preferences and saved slots are preserved.
+- Removed Quick Slot Save/Paste **Record** buttons from Settings; separate modifier dropdowns and Save/Paste behavior controls remain.
+- All actions stay offline. Text previews can remain visible in Windows notifications; avoid saving sensitive text.
+
+[Detailed patch notes](docs/releases/v1.39.4.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
+# Pocket v1.39.3 — Separate Automatic Copy and Paste Controls
+
+**Stable patch release · Windows 10 / Windows 11 · Portable ZIP and standalone EXE**
+
+Quick Slots now have two separate preferences under **Settings → Clipboard & privacy**:
+
+- **Quick Slot save behavior:** **Auto Copy Selection** (legacy default) issues Ctrl+C and saves the selected text, falling back to existing clipboard text when the app offers no new selection. **Use Current Clipboard** reads previously copied text without simulating Ctrl+C; copy text yourself first.
+- **Quick Slot paste behavior:** **Auto Paste** (legacy default) inserts the saved slot immediately, or **Copy to Clipboard** places it in the Windows clipboard for a manual Ctrl+V.
+- **Independent selection:** any combination is supported, saved across restarts, with no change to existing hotkeys or stored slots.
+
+For programs where automatic Unicode paste of Hebrew is rejected or renders question marks, choose Copy to Clipboard for Paste and press regular Ctrl+V in that program. Windows does not guarantee injected keystrokes behave like genuine user paste in all applications; this version offers explicit control rather than making unsupported guarantees.
+
+The Quick Slot settings are still excluded from exported backups. Operations are local and offline.
+
+**Upgrade:** Fully quit Pocket, extract the updated portable ZIP into a new directory, and copy your old `data/` folder across. Do not mix older `_internal/` runtime files.
+
+[Detailed release notes](docs/releases/v1.39.3.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md)
+
+---
+
+# Pocket v1.39.2 — Hebrew & Multilingual Quick Slots Paste Fix
+
+**Stable patch release · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**
+
+Pocket 1.39.2 fixes Hebrew text becoming question marks when Quick Slots Auto Paste targets some Windows applications.
+
+- **ASCII-only slots:** Keep the reliable clipboard-independent Unicode keystroke insertion from 1.39.1.
+- **Hebrew and other non-ASCII slots:** Use native Windows `CF_UNICODETEXT` and standard `Ctrl+V`, avoiding target applications interpreting injected characters as `?`.
+- **Clipboard behavior:** After automatically pasting non-ASCII text, the slot stays in your clipboard. This is intentional: no attempt is made to restore the old clipboard through Windows OLE, which failed with `CloseClipboard Failed` on some workstations.
+- **Compatibility:** Manual **Copy to Clipboard** mode, existing slots, shortcuts, Notes, settings, CLI and network tools are unaffected. All actions are offline.
+
+### Upgrade
+
+Close Pocket fully, back up your portable `data/` directory, extract the 1.39.2 Portable ZIP into a **new folder**, and copy your old `data/` into it. Never mix old and new `_internal/` runtime files.
+
+Windows CI tests both paste paths with real Hebrew text, packages a portable ZIP and standalone EXE, verifies ZIP privacy/integrity and publishes `SHA256SUMS.txt`. Restricted workplace applications still need an on-device check.
+
+[Quick Slots guide](docs/QUICK_SLOTS.md) · [Detailed patch notes](docs/releases/v1.39.2.md)
+
+---
+
+# Pocket v1.39.1 — Quick Slots Clipboard Fix
+
+**Stable · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**
+
+Pocket v1.39.1 fixes Quick Slots auto-paste failures involving Windows OLE clipboard snapshot/restore errors, such as the `CloseClipboard Failed` notification, and adds a persistent **Copy to Clipboard** mode.
+
+- **Auto Paste (default):** Types the selected slot through native Unicode input, without opening or modifying the existing Windows clipboard. No OLE snapshot, temporary replacement or restoration is needed.
+- **Copy to Clipboard:** In **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose Copy to Clipboard. Press the Quick Slot paste hotkey, then your ordinary `Ctrl+V`; the slot becomes the current clipboard contents and is intentionally not restored.
+- **Safety:** Auto Paste checks the original foreground window before and during typing and does not manipulate existing clipboard formats. There is no risk of an OLE restore failure overwriting another app's clipboard. Existing Quick Slots, shortcuts and locally saved data stay intact.
+- **Offline:** No network or remote API is used for either paste mode.
+
+Automatic Unicode injection can be blocked by elevated, remote, or specialized applications; Copy to Clipboard provides a manual alternative in those cases.
+
+## Official Windows packages
+
+- [Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-Portable-v1.39.1.zip)
+- [Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-v1.39.1.exe)
+- [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/SHA256SUMS.txt)
+
+Builds are unsigned. Completely close Pocket before updating; install into a fresh folder, preserve only your local `data/` directory for portable upgrades, and never mix `_internal/` DLLs from old and new versions.
+
+---
+
 # Pocket v1.39.0 — Quick Slots, Portable Backups & Smarter Settings
 
 **Stable release · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**

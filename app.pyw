@@ -232,6 +232,8 @@ def default_data() -> dict:
                      "clipboard_text_display_limit": 100,
                      "clipboard_db_image_display_limit": 30,
                      "quick_slots_enabled": True,
+                     "quick_slots_save_mode": quick_slots.DEFAULT_SAVE_MODE,
+                     "quick_slots_paste_mode": quick_slots.DEFAULT_PASTE_MODE,
                      "quick_slots_paste_prefix": quick_slots.DEFAULT_PASTE_PREFIX,
                      "quick_slots_copy_prefix": quick_slots.DEFAULT_COPY_PREFIX},
         "theme": "blue",
@@ -277,6 +279,10 @@ def normalize_settings(raw):
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
             "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
+            "quick_slots_save_mode": quick_slots.normalize_save_mode(
+                raw.get("quick_slots_save_mode")),
+            "quick_slots_paste_mode": quick_slots.normalize_paste_mode(
+                raw.get("quick_slots_paste_mode")),
             "quick_slots_paste_prefix": paste_prefix,
             "quick_slots_copy_prefix": copy_prefix,
             "clipboard_storage": (raw.get("clipboard_storage") if raw.get("clipboard_storage") in ("ram", "database") else "ram"),
@@ -2119,7 +2125,11 @@ class PocketDesk:
             return "Disabled · saved slots are kept"
         paste = quick_slots.prefix_label(self.settings["quick_slots_paste_prefix"])
         copy = quick_slots.prefix_label(self.settings["quick_slots_copy_prefix"])
-        return f"Paste: {paste}+Num1–9 · Save: {copy}+Num1–9"
+        action = ("Paste" if self.settings.get("quick_slots_paste_mode", "auto") == "auto"
+                  else "Copy to clipboard")
+        save_action = ("Copy selected" if self.settings.get("quick_slots_save_mode", "selection") == "selection"
+                       else "Use clipboard")
+        return f"{action}: {paste}+Num1–9 · {save_action}: {copy}+Num1–9"
 
     def _apply_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
         """Apply only successfully registered direct hotkeys on Tk's thread."""
@@ -2141,6 +2151,24 @@ class PocketDesk:
                 self._refresh_clipboard()
             if self.current_tab == "settings":
                 self.root.after_idle(self._build_settings_refresh)
+
+    def _set_quick_slots_save_mode(self, value):
+        mode = quick_slots.normalize_save_mode(value)
+        if mode == self.settings.get("quick_slots_save_mode", "selection"):
+            return
+        self.settings["quick_slots_save_mode"] = mode
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self._refresh_clipboard()
+
+    def _set_quick_slots_paste_mode(self, value):
+        mode = quick_slots.normalize_paste_mode(value)
+        if mode == self.settings.get("quick_slots_paste_mode", "auto"):
+            return
+        self.settings["quick_slots_paste_mode"] = mode
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self._refresh_clipboard()
 
     def _set_quick_slots_enabled(self, enabled):
         enabled = bool(enabled)
@@ -2189,15 +2217,20 @@ class PocketDesk:
             self._apply_quick_slots_config(enabled, paste, copy)
 
     def _quick_slot_hotkey(self, action, number, target_hwnd):
-        """Direct save (Ctrl+Win) or paste (Ctrl+Alt) for Numpad1–9."""
+        """Direct configured Save or Paste shortcut for Numpad1–9."""
         if not self.settings["quick_slots_enabled"]:
             return
         if (action not in ("save", "paste") or
                 number not in quick_slots.SLOT_NUMBERS or self._mark_active):
             return
         value = self.clipboard_slots.get(str(number)) if action == "paste" else None
+        paste_mode = quick_slots.normalize_paste_mode(
+            self.settings.get("quick_slots_paste_mode"))
+        save_mode = quick_slots.normalize_save_mode(
+            self.settings.get("quick_slots_save_mode"))
         if action == "paste" and not quick_slots.valid_text(value):
-            self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
+            self._notify(f"Pocket · Quick Slot {number} is empty",
+                         "Save text to this slot before using the Paste shortcut.")
             return
         self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
         owner = self.root.winfo_id()
@@ -2205,22 +2238,30 @@ class PocketDesk:
         def worker():
             try:
                 if action == "save":
-                    selected = quick_slots.capture_selection_or_clipboard(
-                        target_hwnd=target_hwnd, owner_hwnd=owner)
+                    if save_mode == "clipboard":
+                        selected = quick_slots.read_existing_clipboard(
+                            owner_hwnd=owner)
+                    else:
+                        selected = quick_slots.capture_selection_or_clipboard(
+                            target_hwnd=target_hwnd, owner_hwnd=owner)
                     self.events.put(("quick_slot_save_result", (number, selected, None)))
                 else:
-                    quick_slots.paste_slot_text(
-                        value, target_hwnd=target_hwnd, owner_hwnd=owner)
-                    self.events.put(("quick_slot_paste_result", (number, None)))
+                    if paste_mode == "clipboard":
+                        quick_slots.copy_slot_to_clipboard(
+                            value, owner_hwnd=owner)
+                    else:
+                        quick_slots.paste_slot_text(
+                            value, target_hwnd=target_hwnd, owner_hwnd=owner)
+                    self.events.put(("quick_slot_paste_result", (number, value, None, paste_mode)))
             except (marked_layout.MarkError, OSError, RuntimeError, ValueError) as exc:
                 kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
                 payload = ((number, None, str(exc)) if action == "save"
-                           else (number, str(exc)))
+                           else (number, None, str(exc), paste_mode))
                 self.events.put((kind, payload))
             except Exception:
                 kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
                 payload = ((number, None, "Quick Slot action failed.") if action == "save"
-                           else (number, "Quick Slot action failed."))
+                           else (number, None, "Quick Slot action failed.", paste_mode))
                 self.events.put((kind, payload))
 
         threading.Thread(target=worker, name="PocketDeskQuickSlot",
@@ -2405,7 +2446,8 @@ class PocketDesk:
         del self.clipboard_slots[str(number)]
         self.schedule_save()
         self._refresh_clipboard()
-        self._notify("Pocket Quick Slots", f"Slot [{number}] cleared.")
+        self._notify(f"Pocket · Quick Slot {number} cleared",
+                     "The stored shortcut assignment was removed.")
         return True
 
     def _assign_clipboard_slot(self, number, text):
@@ -2413,15 +2455,17 @@ class PocketDesk:
         if not self.settings.get("quick_slots_enabled", True):
             return False
         if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
-            self._notify("Pocket Quick Slots", "Select or copy text first.")
+            self._notify(f"Pocket · Quick Slot {number} was not saved",
+                         "Select or copy text before saving it.")
             return False
         if (self.settings.get("clipboard_sensitive_filter", True)
                 and not clipboard_policy.should_capture(text)):
-            self._notify("Pocket Quick Slots", "Sensitive text cannot be saved while the filter is ON.")
+            self._notify(f"Pocket · Quick Slot {number} was not saved",
+                         "The sensitive-text filter blocked this value.")
             return False
         old = self.clipboard_slots.get(str(number))
         if old == text:
-            self._notify("Pocket Quick Slots", f"Slot [{number}] already contains this text.")
+            self._notify(*quick_slots.slot_notification("already", number, text))
             return True
         if old is not None:
             # Keep the Pocket popup alive while its modal confirmation is
@@ -2472,7 +2516,7 @@ class PocketDesk:
                     self.clipboard_list.activate(index)
                     self.clipboard_list.see(index)
                     break
-        self._notify("Pocket Quick Slots", f"Saved to [{number}].")
+        self._notify(*quick_slots.slot_notification("saved", number, text))
         return True
 
     def _pin_clipboard_item(self):
@@ -5806,17 +5850,20 @@ class PocketDesk:
                     self._mark_active = False
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
-                        self._notify("Pocket Quick Slots", error)
+                        self._notify(f"Pocket · Could not save Quick Slot {number}", error)
                     else:
                         self._assign_clipboard_slot(number, selected)
                 elif name == "quick_slot_paste_result":
-                    number, error = xy
+                    number, pasted_text, error, paste_mode = xy
                     self._mark_active = False
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
-                        self._notify("Pocket Quick Slots", error)
+                        verb = "copy" if paste_mode == "clipboard" else "paste"
+                        self._notify(f"Pocket · Could not {verb} Quick Slot {number}", error)
                     else:
-                        self._notify("Pocket Quick Slots", f"Pasted [{number}].")
+                        action = "clipboard" if paste_mode == "clipboard" else "pasted"
+                        self._notify(*quick_slots.slot_notification(
+                            action, number, pasted_text))
                 elif name == "mark_result":
                     self._mark_active = False
                     # Prevent the history monitor from recording transient Mark data.

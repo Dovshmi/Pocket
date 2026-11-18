@@ -78,18 +78,18 @@ class ModernSettingsTests(unittest.TestCase):
         factory = app["default_data"]()["settings"]
         self.assertTrue(factory["quick_slots_enabled"])
         self.assertEqual(factory["quick_slots_paste_prefix"], "ctrl_alt")
-        self.assertEqual(factory["quick_slots_copy_prefix"], "ctrl_win")
+        self.assertEqual(factory["quick_slots_copy_prefix"], "ctrl_alt_win")
         migrated = app["normalize_settings"](
             {"quick_slots_enabled": False, "quick_slots_prefix": "ctrl"})
         self.assertFalse(migrated["quick_slots_enabled"])
         self.assertEqual(migrated["quick_slots_paste_prefix"], "ctrl")
-        self.assertEqual(migrated["quick_slots_copy_prefix"], "ctrl_win")
+        self.assertEqual(migrated["quick_slots_copy_prefix"], "ctrl_alt_win")
         legacy_win = app["normalize_settings"]({"quick_slots_prefix": "ctrl_win"})
         self.assertEqual(legacy_win["quick_slots_paste_prefix"], "ctrl_win")
-        self.assertEqual(legacy_win["quick_slots_copy_prefix"], "ctrl_alt")
+        self.assertEqual(legacy_win["quick_slots_copy_prefix"], "ctrl_alt_win")
         self.assertEqual(app["normalize_settings"](
             {"quick_slots_copy_prefix": {"bad": True}})["quick_slots_copy_prefix"],
-            "ctrl_win")
+            "ctrl_alt_win")
         with TemporaryDirectory() as folder:
             file = Path(folder) / "data.json"
             data = app["default_data"]()
@@ -104,6 +104,20 @@ class ModernSettingsTests(unittest.TestCase):
             self.assertEqual(result["settings"]["quick_slots_copy_prefix"],
                              "ctrl_alt_win")
             self.assertEqual(result["clipboard_slots"], {})
+
+    def test_quick_slot_record_buttons_hidden_but_dropdowns_kept(self):
+        source = Path(settings_ui.__file__).read_text(encoding="utf-8")
+        self.assertNotIn('"record_quick_slots_paste"', source)
+        self.assertNotIn('"record_quick_slots_copy"', source)
+        self.assertIn('"quick_slots_paste_prefix_picker"', source)
+        self.assertIn('"quick_slots_copy_prefix_picker"', source)
+
+    def test_existing_explicit_ctrl_win_preference_is_preserved(self):
+        settings = app["normalize_settings"]({
+            "quick_slots_paste_prefix": "ctrl_alt",
+            "quick_slots_copy_prefix": "ctrl_win",
+        })
+        self.assertEqual(settings["quick_slots_copy_prefix"], "ctrl_win")
 
     def test_all_working_layouts_have_selection_cards(self):
         keys = [mode for mode, _icon, _title, _detail in settings_ui.LAYOUTS]

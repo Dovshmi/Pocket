@@ -24,7 +24,7 @@ def confirmation_labels(number, old_text, new_text):
 
 def confirmation_message(number, old_text, new_text):
     labels = confirmation_labels(number, old_text, new_text)
-    return f"Old: {labels['old']}\n↓\nNew: {labels['new']}"
+    return f"Old text: {labels['old']}\n↓\nNew text: {labels['new']}"
 
 
 def confirm_replace(root, theme, number, old_text, new_text):

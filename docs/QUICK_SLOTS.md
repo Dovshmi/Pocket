@@ -99,8 +99,10 @@ Changes apply without restarting Pocket.
    No upload occurs.
 6. Replacing an occupied slot opens the original **native Windows Yes/No
    MessageBox**, not a custom Tkinter window. The compact text is:
-   **Old: preview**, then **↓**, then **New: preview** on separate
-   lines. The slot number is in the title; previews are truncated to fit.
+   **Old text: preview**, then **↓**, then **New text: preview** on
+   separate lines. The slot number is in the title; previews can show
+   up to 30 characters each, allowing a little more room for the text.
+   Windows determines the final dialog dimensions.
    No/Escape never changes the slot.
 7. On Yes, the displaced OLD value is preserved in regular history **without
    a Pin**. If it already exists in today's history it is unpinned, not copied;

@@ -210,7 +210,7 @@ def run():
         outer.pack(fill="both", expand=True)
         host = SimpleNamespace(body=outer, display_mode="mini",
                                current_tab="reminders", _tool_scroll_canvas=None)
-        Desk._scrolling_tool_body(host, hide_scrollbar=True)
+        Desk._scrolling_tool_body(host)
         for i in range(45):
             tk.Label(host.body, text=f"Reminder number {i}").pack()
         root.update()

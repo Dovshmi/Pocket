@@ -8,10 +8,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleaseVersionTests(unittest.TestCase):
-    def test_stable_version_is_v1398(self):
-        self.assertEqual(app_info.VERSION, "1.39.8")
-        self.assertEqual(app_info.version_label(), "v1.39.8")
+    def test_development_settings_version_is_v1399(self):
+        # The in-development application reports v1.39.9 in Settings.
+        # Published artifacts, release workflows and download links remain v1.39.8.
+        self.assertEqual(app_info.VERSION, "1.39.9")
+        self.assertEqual(app_info.version_label(), "v1.39.9")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
+        settings = (ROOT / "pocket" / "settings_ui.py").read_text(encoding="utf-8")
+        self.assertIn('"Version " + app_info.version_label()', settings)
 
     def test_release_workflow_has_new_tag_and_safe_build_gates(self):
         workflow = (ROOT / ".github" / "workflows" /

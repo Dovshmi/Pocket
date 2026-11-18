@@ -107,6 +107,7 @@ from pocket import clipboard_gallery
 from pocket import quick_slots
 from pocket import quick_slot_dialog
 from pocket import reminder_ui
+from pocket import reminder_store
 from pocket import keyboard_layout
 from pocket import marked_layout
 from pocket import single_instance
@@ -213,6 +214,7 @@ def default_data() -> dict:
     return {
         "notes": [n],
         "active_note": n["id"],
+        "reminders": [],
         "links": links,
         "shortcut_folders": layout,
         "clipboard_slots": {},
@@ -366,6 +368,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
             note["direction"] = normalize_note_direction(note.get("direction"))
             normalize_note_reminder(note)
         update_untouched_starter_note(notes)
+        standalone = reminder_store.normalize_reminders(data.get("reminders"))
         for link in links:
             if link.get("kind") not in shortcuts.VALID_KINDS:
                 link["kind"] = "url"
@@ -388,7 +391,8 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 ("split", subnet_pref.get("split"), "/26"))
         }
         settings = normalize_settings(data.get("settings"))
-        return {"notes": notes, "active_note": active_id, "links": links,
+        return {"notes": notes, "active_note": active_id, "reminders": standalone,
+                "links": links,
                 "last_tab": restored_tab(data.get("last_tab"), settings),
                 "shortcut_folders": shortcut_folders.normalize(
                     data.get("shortcut_folders"), links),

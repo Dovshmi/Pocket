@@ -12,7 +12,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parent
 APP_DIR = ROOT / "build" / "portable-binaries" / "PocketDesk"
 PACKAGE_DIR = ROOT / "build" / "portable-package" / "Pocket-Portable"
-RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.39.5")
+RELEASE_VERSION = os.environ.get("POCKET_RELEASE_VERSION", "v1.39.6")
 if not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.]+)?", RELEASE_VERSION):
     raise ValueError("Invalid release version")
 OUTPUT = ROOT / "dist" / f"Pocket-Portable-{RELEASE_VERSION}.zip"

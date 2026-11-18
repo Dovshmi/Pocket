@@ -3196,67 +3196,80 @@ class PocketDesk:
             raise
 
     def _edit_standalone_reminder(self, reminder_id=None):
-        """Standalone reminders never create or modify Notes."""
-        record = next((r for r in self.data["reminders"]
-                       if r["id"] == reminder_id), None) if reminder_id else None
-        if reminder_id and record is None:
+        """Open only the calendar; then create a directly editable Reminder card."""
+        record = (next((r for r in self.data["reminders"]
+                        if r["id"] == reminder_id), None) if reminder_id else None)
+        if reminder_id is not None and record is None:
             return
-        existing_form = getattr(self, "_standalone_form", None)
-        if existing_form is not None and existing_form.winfo_exists():
-            existing_form.lift()
+        existing = getattr(self, "_reminder_dialog", None)
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
             return
         self._flush_current_note()
         was_modal = self._modal
         self._modal = True
+        new_id = [None]
 
-        def save(title, details, when):
-            unchanged_schedule = record is not None and when == record["reminder_at"]
-            if unchanged_schedule:
-                clean_title = title.strip()
-                if not clean_title or len(clean_title) > reminder_store.MAX_TITLE:
-                    raise ValueError("Enter a title (1–140 characters).")
-                if not isinstance(details, str) or len(details) > reminder_store.MAX_DETAILS:
-                    raise ValueError("Details must be under 4,000 characters.")
-                candidate = {"title": clean_title, "details": details}
-            else:
-                candidate = reminder_store.make_reminder(title, details, when)
+        def save_reminder(when):
             if record is None:
                 if len(self.data["reminders"]) >= reminder_store.MAX_REMINDERS:
                     raise ValueError("Too many reminders. Delete a finished reminder first.")
-                self.data["reminders"].append(candidate)
+                created = reminder_store.make_reminder("New reminder", "", when)
+                self.data["reminders"].append(created)
+                new_id[0] = created["id"]
             else:
+                # The calendar only changes the scheduled time, preserving all
+                # inline title/Note edits and existing response history.
                 prior = dict(record)
-                old_time = record["reminder_at"]
-                record["title"] = candidate["title"]
-                record["details"] = candidate["details"]
-                if when != old_time:
-                    record.update(reminder_at=candidate["reminder_at"],
-                                  reminder_sent_at="", reminder_snoozed=False,
-                                  reminder_draft="", reminder_add_response=False,
-                                  reminder_enabled=True)
+                candidate = reminder_store.make_reminder(
+                    record["title"], record.get("details", ""), when)
+                record.update(reminder_at=candidate["reminder_at"],
+                              reminder_sent_at="", reminder_snoozed=False,
+                              reminder_draft="", reminder_add_response=False,
+                              reminder_enabled=True)
             try:
                 if self._write_now() is False:
                     raise OSError("Pocket could not save the reminder.")
             except Exception:
                 if record is None:
-                    self.data["reminders"].remove(candidate)
+                    self.data["reminders"] = [r for r in self.data["reminders"]
+                                              if r["id"] != new_id[0]]
+                    new_id[0] = None
                 else:
                     record.clear()
                     record.update(prior)
                 raise
 
         def closed():
-            self._standalone_form = None
+            self._reminder_dialog = None
             self._modal = was_modal
             if self.current_tab == "reminders":
+                if new_id[0]:
+                    # Focus the just-created title inside its card (no extra popup).
+                    self._reminders_focus_new = new_id[0]
+                    self._reminders_status_filter = "All"
+                    self._reminders_search = ""
                 self._refresh_note_reminder_ui()
 
         try:
-            self._standalone_form = reminder_ui.open_standalone_form(
-                self.root, record, save, closed, theme=self.theme)
+            self._reminder_dialog = reminder_ui.open_datetime_editor(
+                self.root, record or {"title": "New reminder", "reminder_at": ""},
+                save_reminder, closed, theme=self.theme)
         except Exception:
             self._modal = was_modal
             raise
+
+    def _save_standalone_inline(self, reminder_id, *, title=None, details=None):
+        """Autosave direct edits; never generate a Note or reset due-state."""
+        record = next((r for r in self.data.get("reminders", [])
+                       if r["id"] == reminder_id), None)
+        if record is None:
+            return False
+        changed = reminder_store.update_inline_fields(
+            record, title=title, details=details)
+        if changed:
+            self.schedule_save()
+        return changed
 
     def _delete_standalone_reminder(self, reminder_id):
         """Delete only standalone records, after a clear confirmation."""

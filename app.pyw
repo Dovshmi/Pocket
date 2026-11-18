@@ -1533,13 +1533,19 @@ class PocketDesk:
         # Highlight the existing More/Settings tab while the overview is open.
         navigation = "settings" if which == "reminders" else which
         if self.display_mode == "mini":
-            self._style_mini_icon_tabs(navigation)
+            self._style_mini_icon_tabs("settings" if which == "reminders" else which)
         if self.display_mode == "dashboard":
-            dashboard.style_nav(self, navigation)
+            if which == "reminders":
+                dashboard.style_nav(self, "settings")
+            else:
+                dashboard.style_nav(self, which)
         if self.display_mode == "compact":
-            compact.style_nav(self, navigation)
+            compact.style_nav(self, which)
         if self.display_mode == "normal":
-            self._normal_nav_refresh(navigation)
+            if which == "reminders":
+                self._normal_nav_refresh("settings")
+            else:
+                self._normal_nav_refresh(which)
         else:
             for key, button in self.tab_buttons.items():
                 button.config(fg=ACCENT if key == which else SECONDARY,
@@ -1548,8 +1554,9 @@ class PocketDesk:
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
-        if ((self.display_mode == "mini" and which in ("ports", "mac", "subnet", "settings", "reminders"))
-                or (self.display_mode in ("normal", "dashboard") and which in ("ports", "mac", "commands", "subnet", "settings", "reminders"))
+        if ((self.display_mode == "mini" and (which in ("ports", "mac", "subnet", "settings") or which == "reminders"))
+                or (self.display_mode in ("normal", "dashboard") and
+                    (which in ("ports", "mac", "commands", "subnet", "settings") or which == "reminders"))
                 or (self.display_mode == "dashboard" and which == "home")):
             self._scrolling_tool_body()
         if which == "home":

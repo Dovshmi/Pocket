@@ -1,3 +1,17 @@
+# Pocket v1.39.6 — Native Windows Dialog and Clean, Optional Quick Slot Notifications
+
+**Windows correction release · Portable ZIP + standalone EXE · Offline-first**
+
+- Restores the original **native Windows Yes/No MessageBox** for overwriting an occupied Quick Slot. The title identifies its number, while one concise line shows **NEW: text → OLD: text**. No custom Tkinter popup is created.
+- Quick Slot success notices now show **Pocket · COPY [N]** or **Pocket · PASTE [N]** in the notification title, with **only the text preview** below it. Removed duplicated Saved/Pasted/Copied labels and the extra Ctrl+V line. Clipboard-only action uses COPY in the title.
+- Added one compact **Quick Slot notifications** selector under Settings → Clipboard & privacy: **Copy + Paste** (default), **Copy only**, **Paste only**, **Off**. Includes feedback for failed operations; the preference persists locally and resets with other keyboard/Quick Slot settings. Note reminders and alerts from unrelated tools are unaffected.
+- Replaced slot text is still retained as unpinned regular Clipboard history, and all v1.39.5 tray/backup features remain unchanged.
+- Quick Slot preferences, including notification choices, remain excluded from ZIP backup in line with existing Quick Slot privacy policy.
+
+[Release details](docs/releases/v1.39.6.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.5 — Compact Quick Slot Confirmations, History Safety and Tray Actions
 
 **Stable Windows patch · Offline-first · Portable ZIP and standalone EXE**

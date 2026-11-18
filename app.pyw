@@ -1148,7 +1148,7 @@ class PocketDesk:
         # No shared footer: its former Notepad action lives in the Notes editor.
         # The reclaimed height gives the Notes body and Shortcuts list more room.
 
-    def _scrolling_tool_body(self, *, hide_scrollbar=False):
+    def _scrolling_tool_body(self):
         """Scrollable tool content for either window mode.
 
         Frame content lives inside a canvas so a short work area or large
@@ -1164,7 +1164,7 @@ class PocketDesk:
         canvas.pack(side="left", fill="both", expand=True)
         # Reminders uses invisible canvas scrolling; other tools retain their
         # existing visible scrollbars. Never sacrifice canvas scroll range.
-        if not hide_scrollbar:
+        if self.current_tab != "reminders":
             scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
                                    style="Pocket.Vertical.TScrollbar")
             scroll.pack(side="right", fill="y")
@@ -1608,7 +1608,7 @@ class PocketDesk:
                 or (self.display_mode in ("normal", "dashboard") and
                     (which in ("ports", "mac", "commands", "subnet", "settings") or which == "reminders"))
                 or (self.display_mode == "dashboard" and which == "home")):
-            self._scrolling_tool_body(hide_scrollbar=(which == "reminders"))
+            self._scrolling_tool_body()
         if which == "home":
             (compact.build_home(self) if self.display_mode == "compact"
              else dashboard.build_home(self))

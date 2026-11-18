@@ -542,17 +542,29 @@ def build_overview(app, parent, *, colors):
     result_count = text(results_title, "YOUR REMINDERS", size=8, bold=True,
                         fg=c["SECONDARY"])
     result_count.pack(side="left")
-    # One compact add control at the far right, and Clear next to it.
-    # Clear always acts on the selected status tab, independent of search.
-    add_button = action(results_title, "+", app._edit_standalone_reminder,
-                        primary=True, size=10)
-    add_button.configure(padx=9, pady=2)
-    add_button.pack(side="right")
-    clear_button = action(results_title, "Clear",
-                          lambda: app._clear_reminders(selected[0]),
-                          danger=True, size=8)
-    clear_button.configure(padx=7, pady=3)
-    clear_button.pack(side="right", padx=(0, 5))
+    # Flat, unboxed text actions like the compact ✓ / × card controls.
+    # Keep Clear next to the + icon; selection (not Search) defines its scope.
+    def header_control(caption, command, *, foreground, font_size, width=None):
+        kwargs = {"width": width} if width is not None else {}
+        control = tk.Button(
+            results_title, text=caption, command=command,
+            font=(FONT, font_size, "bold"), bg=bg, fg=foreground,
+            activebackground=bg, activeforeground=white,
+            relief="flat", bd=0, highlightthickness=0,
+            padx=2, pady=1, cursor="hand2", **kwargs)
+        control.bind("<Enter>", lambda _event: control.configure(fg=white)
+                     if control.cget("state") == "normal" else None)
+        control.bind("<Leave>", lambda _event: control.configure(fg=foreground))
+        return control
+
+    add_button = header_control(
+        "+", app._edit_standalone_reminder,
+        foreground=c["ACCENT"], font_size=12, width=2)
+    add_button.pack(side="right", padx=(0, 2))
+    clear_button = header_control(
+        "Clear", lambda: app._clear_reminders(selected[0]),
+        foreground=c["DANGER"], font_size=8)
+    clear_button.pack(side="right", padx=(0, 8))
     parent._reminders_add_button = add_button
     parent._reminders_clear_button = clear_button
     results.pack(fill="x")

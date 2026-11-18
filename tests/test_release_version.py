@@ -9,8 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_development_settings_version_is_v1399(self):
-        # The in-development application reports v1.39.9 in Settings.
-        # Published artifacts, release workflows and download links remain v1.39.8.
+        # Current source reports v1.39.9. Previously published downloads
+        # remain v1.39.8 until a separate release is built and published.
         self.assertEqual(app_info.VERSION, "1.39.9")
         self.assertEqual(app_info.version_label(), "v1.39.9")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
@@ -40,10 +40,10 @@ class ReleaseVersionTests(unittest.TestCase):
         packager = (ROOT / "package_portable.py").read_text(encoding="utf-8")
         smoke = (ROOT / ".github" / "workflows" /
                  "mini-checks.yml").read_text(encoding="utf-8")
-        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.39.8")',
+        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.39.9")',
                       packager)
-        self.assertIn("Pocket-Portable-v1.39.8.zip", smoke)
-        self.assertIn("--version v1.39.8", smoke)
+        self.assertIn("Pocket-Portable-v1.39.9.zip", smoke)
+        self.assertIn("--version v1.39.9", smoke)
 
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

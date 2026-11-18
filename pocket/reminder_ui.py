@@ -61,7 +61,7 @@ def open_datetime_editor(root, note, on_save, on_close, theme="blue"):
     except (KeyError, TypeError, ValueError):
         current = now + timedelta(minutes=15)
 
-    window = _dialog(root, "Pocket · Set note reminder", 366, 445, theme=theme)
+    window = _dialog(root, "Pocket · Set reminder", 366, 445, theme=theme)
     c = window._reminder_colors
     window._selected_date = current.date()
     window._view_year = current.year
@@ -260,7 +260,10 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
                  anchor="w", pady=(6, 0))
 
     add_response = tk.BooleanVar(window, note.get("reminder_add_response") is True)
-    checked = ttk.Checkbutton(window, text="Add response to the bottom of this note",
+    standalone = note.get("kind") == "standalone"
+    caption = ("Save a response with this reminder"
+               if standalone else "Add response to the bottom of this note")
+    checked = ttk.Checkbutton(window, text=caption,
                               variable=add_response, style="Reminder.TCheckbutton")
     checked.pack(anchor="w", padx=20, pady=(5, 6))
     input_text = tk.Text(window, height=4, width=48, wrap="word",
@@ -337,6 +340,140 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
     if not add_response.get():
         done.focus_set()
     window.grab_set()  # Modal to Pocket, but does not block other Windows apps.
+    return window
+
+
+def open_standalone_form(root, reminder, on_save, on_close, theme="blue"):
+    """Create/edit a local reminder with title, details and a scheduled time.
+
+    The calendar is shared with Notes, but the record is independent.
+    """
+    c = themes.palette(theme)
+    window = _dialog(root, "Pocket · Reminder", 420, 404, theme=theme)
+    bg, white, muted = c["BG"], c["WHITE"], c["MUTED"]
+    tk.Label(window, text="New reminder" if reminder is None else "Edit reminder",
+             font=(FONT, 15, "bold"), bg=bg, fg=white).pack(
+                 anchor="w", padx=20, pady=(16, 4))
+    tk.Label(window, text="Saved locally. No Note will be created.",
+             font=(FONT, 9), bg=bg, fg=muted).pack(
+                 anchor="w", padx=20, pady=(0, 12))
+
+    def field_label(text):
+        tk.Label(window, text=text, font=(FONT, 9, "bold"), bg=bg,
+                 fg=c["SECONDARY"]).pack(anchor="w", padx=20, pady=(2, 4))
+
+    field_label("Title")
+    title = tk.Entry(window, font=(FONT, 11), relief="flat", bd=0,
+                     highlightthickness=1, highlightbackground=c["BORDER"],
+                     highlightcolor=c["ACCENT"], bg=c["INPUT"],
+                     fg=white, insertbackground=white)
+    title.pack(fill="x", padx=20, ipady=7)
+    if reminder:
+        title.insert(0, reminder.get("title", ""))
+    field_label("Details  ·  Optional")
+    details = tk.Text(window, height=4, wrap="word", font=(FONT, 9),
+                      bg=c["INPUT"], fg=white, insertbackground=white,
+                      highlightthickness=1, highlightbackground=c["BORDER"],
+                      highlightcolor=c["ACCENT"], bd=0, padx=7, pady=7)
+    details.pack(fill="x", padx=20)
+    if reminder:
+        details.insert("1.0", reminder.get("details", ""))
+
+    selected_time = [reminder.get("reminder_at", "") if reminder else ""]
+    when_text = tk.StringVar(
+        window, notes.format_reminder(reminder) if reminder else "Choose date and time")
+    time_row = tk.Frame(window, bg=bg)
+    time_row.pack(fill="x", padx=20, pady=(12, 7))
+    when = tk.Label(time_row, textvariable=when_text, font=(FONT, 9),
+                    bg=bg, fg=c["SECONDARY"])
+    when.pack(side="left", fill="x", expand=True, anchor="w")
+    window._time_label = when_text
+    message = tk.StringVar(window, "")
+    tk.Label(window, textvariable=message, bg=bg, fg=c["DANGER"],
+             font=(FONT, 8), wraplength=375).pack(anchor="w", padx=20)
+
+    calendar_window = [None]
+    def pick_time():
+        other = calendar_window[0]
+        if other is not None and other.winfo_exists():
+            other.lift()
+            return
+        try:
+            window.grab_release()
+        except tk.TclError:
+            pass
+
+        def choose(value):
+            selected_time[0] = value
+            try:
+                dt = datetime.fromisoformat(value).astimezone()
+                when_text.set(dt.strftime("%d %b %Y · %H:%M"))
+            except (TypeError, ValueError):
+                when_text.set("Time selected")
+            message.set("")
+
+        def calendar_closed():
+            calendar_window[0] = None
+            if window.winfo_exists():
+                window.lift()
+                window.grab_set()
+
+        calendar_window[0] = open_datetime_editor(
+            root, reminder or {"title": title.get() or "Reminder",
+                               "reminder_at": selected_time[0]},
+            choose, calendar_closed, theme=theme)
+
+    pick = tk.Button(time_row, text="Date & time", command=pick_time,
+                     font=(FONT, 9, "bold"), bg=c["CARD"], fg=white,
+                     activebackground=c["CARD_HOVER"],
+                     activeforeground=white, relief="flat", bd=0,
+                     padx=10, pady=6, cursor="hand2")
+    pick.pack(side="right")
+
+    footer = tk.Frame(window, bg=bg)
+    footer.pack(fill="x", side="bottom", padx=20, pady=13)
+    closed = False
+
+    def close():
+        nonlocal closed
+        if closed:
+            return
+        closed = True
+        window.destroy()
+        on_close()
+
+    def submit():
+        value = title.get().strip()
+        content = details.get("1.0", "end-1c")
+        if not value:
+            message.set("Enter a title.")
+            title.focus_set()
+            return
+        if not selected_time[0]:
+            message.set("Choose a date and time.")
+            return
+        try:
+            on_save(value, content, selected_time[0])
+        except Exception as exc:
+            message.set(str(exc))
+            return
+        close()
+
+    tk.Button(footer, text="Cancel", command=close, font=(FONT, 9),
+              bg=c["CARD"], fg=white, relief="flat", bd=0,
+              padx=13, pady=7).pack(side="right")
+    tk.Button(footer, text="Save reminder", command=submit,
+              font=(FONT, 9, "bold"), bg=c["ACCENT_DARK"], fg=white,
+              relief="flat", bd=0, padx=13, pady=7).pack(side="right", padx=(0, 8))
+    window.protocol("WM_DELETE_WINDOW", close)
+    window.bind("<Escape>", lambda _event: close())
+    window._title_entry = title
+    window._details_text = details
+    window._choose_time = pick_time
+    window._selected_time = selected_time
+    window._submit_reminder = submit
+    window.grab_set()
+    title.focus_set()
     return window
 
 

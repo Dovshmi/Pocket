@@ -44,11 +44,20 @@ def run():
                                if b.cget("text") == ("Yes" if accepted else "No"))
                 pressed.invoke()
                 found.append(True)
-            root.after(160, press_choice)
+            def safe_press():
+                try:
+                    press_choice()
+                except Exception as exc:
+                    found.append(exc)
+                    for window in root.winfo_children():
+                        if isinstance(window, tk.Toplevel):
+                            window.destroy()
+
+            root.after(160, safe_press)
             result = quick_slot_dialog.confirm_replace(
                 root, "blue", 2, "SVLAN 1557", "SVLAN 11")
+            assert found == [True], found
             assert result is accepted, result
-            assert found
     finally:
         root.destroy()
     print("PASS: compact New -> Old slot popup; No and Yes work")

@@ -1,7 +1,10 @@
 name: Publish Pocket v1.39.9 (Reminders)
 
-# Deliberately manual: merging v1.39.9 into main must not publish binaries.
+# Publish only on manual confirmation or on the specifically authorized
+# [release v1.39.9] commit. Other pushes/merges never publish.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm_version:
@@ -18,7 +21,10 @@ concurrency:
 
 jobs:
   release:
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.confirm_version == 'v1.39.9'
+    if: >-
+      github.repository == 'Dovshmi/Pocket' && github.ref == 'refs/heads/main' &&
+      ((github.event_name == 'workflow_dispatch' && inputs.confirm_version == 'v1.39.9') ||
+       (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[release v1.39.9]')))
     runs-on: windows-latest
     env:
       POCKET_RELEASE_VERSION: v1.39.9
@@ -33,7 +39,7 @@ jobs:
       - name: Compile Pocket and run all unit tests
         shell: pwsh
         run: |
-          python -c "from pocket import app_info; assert app_info.VERSION == '1.39.8', 'Release version mismatch'"
+          python -c "from pocket import app_info; assert app_info.VERSION == '1.39.9', 'Release version mismatch'"
           python -m py_compile app.pyw
           python -m compileall -q pocket
           python -m unittest discover -s tests -p "test_*.py" -v

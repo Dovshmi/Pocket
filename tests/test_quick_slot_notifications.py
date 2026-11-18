@@ -18,7 +18,7 @@ class QuickSlotNotificationTests(unittest.TestCase):
 
     def test_clipboard_mode_requests_manual_paste(self):
         title, detail = quick_slots.slot_notification("clipboard", 1, "test value")
-        self.assertIn("clipboard", title.lower())
+        self.assertIn("Copied", title)
         self.assertNotIn("Pasted", title)
         self.assertIn("Press Ctrl+V", detail)
         self.assertIn("test value", detail)

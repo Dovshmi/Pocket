@@ -167,6 +167,97 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         self.assertEqual(note, original)
         desk._refresh_note_reminder_ui.assert_not_called()
 
+    def test_hidden_reminders_menu_stops_both_notification_sources(self):
+        from pocket import reminder_store
+        note = self._note()
+        task = reminder_store.make_reminder(
+            "Independent reminder", "Keep this", (datetime.now().astimezone() +
+             timedelta(minutes=5)).isoformat(timespec="minutes"))
+        task["reminder_at"] = (datetime.now().astimezone() -
+                               timedelta(minutes=2)).isoformat(timespec="minutes")
+        delivered = []
+        settings = {"visible_tabs": ["notes", "clipboard"],
+                    "reminders_menu_configured": True}
+        desk = SimpleNamespace(
+            settings=settings, data={"notes": [note], "reminders": [task]},
+            _due_reminder_dialog=None, _reminder_dialog=None, _modal=False,
+            _display_due_reminder=lambda ident, source="note": delivered.append((ident, source)))
+        Desk._reminder_poll(desk)
+        self.assertEqual(delivered, [])
+        self.assertEqual(note["reminder_sent_at"], "")
+        self.assertEqual(task["reminder_sent_at"], "")
+        # Restoring the menu resumes overdue reminders without data loss.
+        settings["visible_tabs"].append("reminders")
+        Desk._reminder_poll(desk)
+        self.assertEqual(len(delivered), 1)
+        self.assertEqual(note["reminder_sent_at"], "")
+        self.assertEqual(task["reminder_sent_at"], "")
+
+    def test_reminder_switch_blocks_note_actions_but_keeps_existing_dates(self):
+        note = self._note()
+        original = dict(note)
+        desk = SimpleNamespace(
+            settings={"visible_tabs": ["notes"]}, data={"notes": [note]},
+            _edit_note_reminder=Mock())
+        Desk._toggle_note_reminder(desk, note["id"])
+        Desk._edit_note_reminder(desk, note["id"])
+        self.assertEqual(note, original)
+        desk._edit_note_reminder.assert_not_called()
+
+        # The UI setting must call the active-popup suspension on disable.
+        shell = SimpleNamespace(
+            settings={"visible_tabs": ["notes", "reminders"]},
+            _suspend_open_due_reminder=Mock(), _build_shell_refresh=Mock(),
+            schedule_save=Mock())
+        Desk._set_visible_tab(shell, "reminders", False)
+        self.assertNotIn("reminders", shell.settings["visible_tabs"])
+        shell._suspend_open_due_reminder.assert_called_once()
+        shell.schedule_save.assert_called_once()
+
+    def test_suspending_active_reminder_saves_draft_without_completion(self):
+        note = self._note()
+        dialog = SimpleNamespace(
+            winfo_exists=lambda: True, _source_record=note,
+            _response_enabled=SimpleNamespace(get=lambda: True),
+            _response_input=SimpleNamespace(get=lambda *_: "unsent reply"),
+            _suspend_without_completion=Mock())
+        desk = SimpleNamespace(
+            _due_reminder_dialog=dialog, _write_now=Mock(return_value=True))
+        Desk._suspend_open_due_reminder(desk)
+        self.assertEqual(note["reminder_draft"], "unsent reply")
+        self.assertTrue(note["reminder_add_response"])
+        self.assertEqual(note["reminder_sent_at"], "")
+        desk._write_now.assert_called_once()
+        dialog._suspend_without_completion.assert_called_once()
+
+    def test_saved_disabled_reminders_setting_survives_restart(self):
+        profile = APP["default_data"]()
+        profile["settings"]["visible_tabs"].remove("reminders")
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "data.json"
+            APP["save_data"](path, profile)
+            loaded = APP["load_data"](path)
+        self.assertFalse(APP["reminders_enabled"](loaded["settings"]))
+        self.assertEqual(loaded["reminders"], [])
+
+    def test_note_calendar_save_failure_rolls_back(self):
+        note = self._note()
+        original = dict(note)
+        captured = {}
+        desk = SimpleNamespace(
+            data={"notes": [note]}, _reminder_dialog=None, _modal=False,
+            _flush_current_note=Mock(), _write_now=Mock(return_value=False),
+            _refresh_note_reminder_ui=Mock(), root=object(), theme="blue")
+        with patch.object(APP["reminder_ui"], "open_datetime_editor",
+                          side_effect=lambda root, record, save, close, **kw:
+                              (captured.update(save=save) or
+                               SimpleNamespace(winfo_exists=lambda: True))):
+            Desk._edit_note_reminder(desk, note["id"])
+        with self.assertRaises(OSError):
+            captured["save"]((datetime.now().astimezone() +
+                              timedelta(minutes=35)).isoformat(timespec="minutes"))
+        self.assertEqual(note, original)
+
     def test_mini_top_icon_layout_is_unchanged_with_expandable_more(self):
         from pocket import mini_nav
         original = ["notes", "links", "ports", "mac", "commands",

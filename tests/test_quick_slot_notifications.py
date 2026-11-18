@@ -7,26 +7,40 @@ class QuickSlotNotificationTests(unittest.TestCase):
     def test_saved_text_and_slot_number(self):
         title, detail = quick_slots.slot_notification("saved", 2, "192.168.1.254")
         self.assertIn("2", title)
-        self.assertIn("COPY", title)
+        self.assertIn("Copy", title)
         self.assertIn("192.168.1.254", detail)
 
     def test_pasted_hebrew_text_and_slot_number(self):
         title, detail = quick_slots.slot_notification("pasted", 8, "שלום עולם")
         self.assertIn("8", title)
-        self.assertIn("PASTE", title)
+        self.assertIn("Paste", title)
         self.assertIn("שלום עולם", detail)
 
     def test_clipboard_mode_requests_manual_paste(self):
         title, detail = quick_slots.slot_notification("clipboard", 1, "test value")
-        self.assertIn("COPY", title)
-        self.assertNotIn("PASTE", title)
+        self.assertIn("Copy", title)
+        self.assertNotIn("Paste", title)
         self.assertNotIn("Press Ctrl+V", detail)
         self.assertIn("test value", detail)
 
     def test_existing_slot_gives_readable_text(self):
         title, detail = quick_slots.slot_notification("already", 4, "same value")
-        self.assertIn("unchanged", title)
+        self.assertIn("Unchanged", title)
         self.assertIn("same value", detail)
+
+    def test_all_titles_are_title_case_and_unchanged_stands_alone(self):
+        self.assertEqual(
+            quick_slots.slot_notification("saved", 3, "SVLAN 11"),
+            ("Pocket · Copy [3]", "SVLAN 11"))
+        self.assertEqual(
+            quick_slots.slot_notification("pasted", 3, "SVLAN 11"),
+            ("Pocket · Paste [3]", "SVLAN 11"))
+        self.assertEqual(
+            quick_slots.slot_notification("clipboard", 3, "SVLAN 11"),
+            ("Pocket · Copy [3]", "SVLAN 11"))
+        self.assertEqual(
+            quick_slots.slot_notification("already", 3, "SVLAN 11"),
+            ("Pocket · Unchanged [3]", "SVLAN 11"))
 
     def test_multiline_long_text_is_compact_and_bounded(self):
         preview = quick_slots.notification_preview("first\n  second\t" + "x" * 200)

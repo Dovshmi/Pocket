@@ -346,15 +346,20 @@ def build_overview(app, parent, *, colors):
             def open_note(note_id=note["id"]):
                 app.data["active_note"] = note_id
                 app.show_tab("notes")
-            ttk.Button(buttons, text="Open", command=open_note).pack(side="left")
-            ttk.Button(buttons, text="Edit time",
+            top_actions = tk.Frame(buttons, bg=c["PANEL"])
+            top_actions.pack(fill="x")
+            ttk.Button(top_actions, text="Open", command=open_note).pack(side="left")
+            ttk.Button(top_actions, text="Edit time",
                        command=lambda note_id=note["id"]: app._edit_note_reminder(note_id)
-                       ).pack(side="left", padx=(5, 0))
+                       ).pack(side="right")
             if notes.reminder_status(note) != "Completed":
-                ttk.Button(buttons, text="Snooze 15m",
+                # A second short row prevents button overflow inside 346px Mini.
+                bottom_actions = tk.Frame(buttons, bg=c["PANEL"])
+                bottom_actions.pack(fill="x", pady=(5, 0))
+                ttk.Button(bottom_actions, text="Snooze 15m",
                            command=lambda note_id=note["id"]: app._manage_note_reminder(
-                               note_id, "snooze")).pack(side="left", padx=(5, 0))
-                ttk.Button(buttons, text="Done",
+                               note_id, "snooze")).pack(side="left")
+                ttk.Button(bottom_actions, text="Done",
                            command=lambda note_id=note["id"]: app._manage_note_reminder(
                                note_id, "done")).pack(side="right")
     choice.bind("<<ComboboxSelected>>", render)

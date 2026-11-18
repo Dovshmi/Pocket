@@ -2650,6 +2650,10 @@ class PocketDesk:
                  font=(FONT, 13, "bold")).pack(side="left")
         action_label(bar, "+ New", self.add_note, bg=PANEL, fg=ACCENT,
                      font_size=8, padx=9, pady=5).pack(side="right")
+        # A Note-linked overview without adding/reflowing Mini's eight top icons.
+        action_label(bar, "Reminders", lambda: self.show_tab("reminders"),
+                     bg=BG, fg=SECONDARY, font_size=8,
+                     padx=7, pady=5).pack(side="right", padx=(0, 5))
         # One compact navigation row replaces the separate counter row plus
         # two-line listbox. The note selector still provides direct access to
         # large collections without taking vertical space from the editor.
@@ -2772,6 +2776,9 @@ class PocketDesk:
         if self.display_mode == "mini":
             return self._build_mini_notes()
         self._section_title(self.body, "My notes", "Ideas, reminders, quick thoughts", "+ New", self.add_note)
+        action_label(self.body, "Manage reminders", lambda: self.show_tab("reminders"),
+                     bg=BG, fg=ACCENT, font_size=8, padx=4,
+                     pady=2).pack(anchor="e", pady=(0, 4))
         main = tk.Frame(self.body, bg=BG)
         main.pack(fill="both", expand=True, pady=(0, 5))
 
@@ -3065,6 +3072,8 @@ class PocketDesk:
             if note.get("reminder_enabled"):
                 menu.add_command(label="Change notification time…",
                                  command=lambda: self._edit_note_reminder(note_id))
+            menu.add_command(label="View all reminders",
+                             command=lambda: self.show_tab("reminders"))
             menu.add_separator()
             menu.add_command(label="Delete note…", command=lambda: self._delete_note_by_id(note_id))
         return menu

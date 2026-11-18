@@ -232,11 +232,12 @@ def copy_slot_to_clipboard(value, *, owner_hwnd=0, backend=None):
 
 
 def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
-    """Auto-paste, preserving the original clipboard when the OLE snapshot works.
+    """Insert slot text into the original focused Windows application.
 
-    Some corporate apps provide an OLE clipboard object that cannot be read.
-    If the snapshot fails *before touching the clipboard*, use native Unicode
-    input instead; never silently discard the prior clipboard or paste twice.
+    Direct Unicode SendInput does not borrow the clipboard at all. It avoids
+    OLE CloseClipboard/OleFlushClipboard failures (including delayed-rendered
+    browser/Tk content) while leaving copied text, images and other formats
+    intact. Some elevated or specialized terminals may require Clipboard Only.
     """
     if not valid_text(value):
         raise ValueError("Quick Slot is empty.")
@@ -252,31 +253,4 @@ def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
         backend.settle_hotkey_release()
     if backend.foreground() != target_hwnd:
         raise MarkError("The active window changed; paste cancelled.")
-
-    snapshot_ready = False
-    try:
-        with backend.preserve_clipboard() as restore:
-            snapshot_ready = True
-            changed_by_us = None
-            try:
-                if backend.foreground() != target_hwnd:
-                    raise MarkError("The original window is no longer active.")
-                backend.put_text(value)
-                changed_by_us = backend.sequence()
-                if backend.foreground() != target_hwnd:
-                    raise MarkError("The active window changed; paste cancelled.")
-                backend.send_key("V")
-                backend.pause_after_paste()
-            finally:
-                if changed_by_us is not None and backend.sequence() == changed_by_us:
-                    restore()
-    except (MarkError, OSError):
-        if snapshot_ready:
-            # A failure after clipboard replacement or Ctrl+V is not safe to
-            # retry: doing so might paste twice or clobber another app's copy.
-            raise
-        if backend.foreground() != target_hwnd:
-            raise MarkError("The active window changed; paste cancelled.")
-        # This path never calls put_text or Ctrl+V, so the existing
-        # multi-format clipboard survives even when OleGetClipboard fails.
-        backend.send_text(value)
+    backend.send_text(value, target_hwnd=target_hwnd)

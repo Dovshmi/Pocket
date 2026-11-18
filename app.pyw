@@ -3100,7 +3100,9 @@ class PocketDesk:
         if not note:
             return
         if note.get("reminder_enabled"):
-            note.update(reminder_enabled=False, reminder_at="", reminder_sent_at="")
+            note.update(reminder_enabled=False, reminder_at="", reminder_sent_at="",
+                        reminder_snoozed=False, reminder_draft="",
+                        reminder_add_response=False)
             self._refresh_note_reminder_ui()
             self.schedule_save()
         else:

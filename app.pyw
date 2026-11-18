@@ -232,6 +232,7 @@ def default_data() -> dict:
                      "clipboard_text_display_limit": 100,
                      "clipboard_db_image_display_limit": 30,
                      "quick_slots_enabled": True,
+                     "quick_slots_save_mode": quick_slots.DEFAULT_SAVE_MODE,
                      "quick_slots_paste_mode": quick_slots.DEFAULT_PASTE_MODE,
                      "quick_slots_paste_prefix": quick_slots.DEFAULT_PASTE_PREFIX,
                      "quick_slots_copy_prefix": quick_slots.DEFAULT_COPY_PREFIX},
@@ -278,6 +279,8 @@ def normalize_settings(raw):
                              ("clipboard", "mark") else "mark"),
             "convert_enabled": raw.get("convert_enabled") is not False,
             "quick_slots_enabled": raw.get("quick_slots_enabled") is not False,
+            "quick_slots_save_mode": quick_slots.normalize_save_mode(
+                raw.get("quick_slots_save_mode")),
             "quick_slots_paste_mode": quick_slots.normalize_paste_mode(
                 raw.get("quick_slots_paste_mode")),
             "quick_slots_paste_prefix": paste_prefix,
@@ -2124,7 +2127,9 @@ class PocketDesk:
         copy = quick_slots.prefix_label(self.settings["quick_slots_copy_prefix"])
         action = ("Paste" if self.settings.get("quick_slots_paste_mode", "auto") == "auto"
                   else "Copy to clipboard")
-        return f"{action}: {paste}+Num1–9 · Save: {copy}+Num1–9"
+        save_action = ("Copy selected" if self.settings.get("quick_slots_save_mode", "selection") == "selection"
+                       else "Use clipboard")
+        return f"{action}: {paste}+Num1–9 · {save_action}: {copy}+Num1–9"
 
     def _apply_quick_slots_config(self, enabled, paste_prefix, copy_prefix):
         """Apply only successfully registered direct hotkeys on Tk's thread."""
@@ -2146,6 +2151,15 @@ class PocketDesk:
                 self._refresh_clipboard()
             if self.current_tab == "settings":
                 self.root.after_idle(self._build_settings_refresh)
+
+    def _set_quick_slots_save_mode(self, value):
+        mode = quick_slots.normalize_save_mode(value)
+        if mode == self.settings.get("quick_slots_save_mode", "selection"):
+            return
+        self.settings["quick_slots_save_mode"] = mode
+        self.schedule_save()
+        if self.current_tab == "clipboard":
+            self._refresh_clipboard()
 
     def _set_quick_slots_paste_mode(self, value):
         mode = quick_slots.normalize_paste_mode(value)
@@ -2212,6 +2226,8 @@ class PocketDesk:
         value = self.clipboard_slots.get(str(number)) if action == "paste" else None
         paste_mode = quick_slots.normalize_paste_mode(
             self.settings.get("quick_slots_paste_mode"))
+        save_mode = quick_slots.normalize_save_mode(
+            self.settings.get("quick_slots_save_mode"))
         if action == "paste" and not quick_slots.valid_text(value):
             self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
             return
@@ -2221,8 +2237,12 @@ class PocketDesk:
         def worker():
             try:
                 if action == "save":
-                    selected = quick_slots.capture_selection_or_clipboard(
-                        target_hwnd=target_hwnd, owner_hwnd=owner)
+                    if save_mode == "clipboard":
+                        selected = quick_slots.read_existing_clipboard(
+                            owner_hwnd=owner)
+                    else:
+                        selected = quick_slots.capture_selection_or_clipboard(
+                            target_hwnd=target_hwnd, owner_hwnd=owner)
                     self.events.put(("quick_slot_save_result", (number, selected, None)))
                 else:
                     if paste_mode == "clipboard":

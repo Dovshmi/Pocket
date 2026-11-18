@@ -104,6 +104,7 @@ from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
 from pocket import clipboard_gallery
 from pocket import quick_slots
+from pocket import quick_slot_dialog
 from pocket import keyboard_layout
 from pocket import marked_layout
 from pocket import single_instance
@@ -2468,39 +2469,54 @@ class PocketDesk:
             self._notify(*quick_slots.slot_notification("already", number, text))
             return True
         if old is not None:
-            # Keep the Pocket popup alive while its modal confirmation is
-            # shown; the same dialog works when invoked via a global hotkey.
+            # Never silently lose a displaced slot when the privacy filter
+            # forbids promoting it into ordinary clipboard history.
+            if (self.settings.get("clipboard_sensitive_filter", True)
+                    and not clipboard_policy.should_capture(old)):
+                self._notify(f"Pocket · Quick Slot {number} not replaced",
+                             "Old text is blocked by the sensitive-text filter.")
+                return False
             previous_modal = getattr(self, "_modal", False)
             self._modal = True
             try:
-                confirmed = messagebox.askyesno(
-                    "Replace Quick Slot",
-                    f"Slot [{number}] is already assigned. Replace it with new text?\\n\\n"
-                    "The previous value will no longer be a Quick Slot or Favorite "
-                    "unless you explicitly pin it again.",
-                    parent=self.root)
+                confirmed = quick_slot_dialog.confirm_replace(
+                    self.root, self.theme, number, old, text)
             finally:
                 self._modal = previous_modal
             if not confirmed:
                 return False
 
-        # A promoted historical Favorite must not remain starred after its
-        # Quick Slot is overwritten. Keep only the explicit slot assignment
-        # as the Favorite; never accumulate displaced pinned entries.
+        # Preserve displaced text in the regular history *before* updating
+        # the slot. Existing records are unpinned; previously unseen values
+        # become a normal unpinned entry (RAM or today's DATABASE journal).
+        # If persistence fails the old Quick Slot remains untouched.
         try:
-            if self._clipboard_store_is_disk():
-                records = self.clipboard_database.load_text(
-                    self._clipboard_view_days["text"])
-            else:
-                records = [dict(item) for item in self.clipboard_items]
-            replaced = {text, old}
-            if any(row["text"] in replaced and row.get("pinned") for row in records):
-                for row in records:
-                    if row["text"] in replaced:
-                        row["pinned"] = False
-                self._clipboard_write_text_view(records)
+            disk = self._clipboard_store_is_disk()
+            day = clipdb.today()
+            records = (self.clipboard_database.load_text(day) if disk else
+                       [dict(row) for row in self.clipboard_items])
+            displaced = ({
+                "id": uuid.uuid4().hex,
+                "text": old,
+                "pinned": False,
+                "time": datetime.now().strftime("%H:%M:%S"),
+            } if old is not None else None)
+            updated, changed = quick_slots.replacement_history_rows(
+                records, old, text, new_record=displaced,
+                maximum=None if disk else 100)
+            if changed:
+                if disk:
+                    self.clipboard_database.save_text(
+                        day, updated, days=self.settings["clipboard_autodelete_days"])
+                    if self._clipboard_view_days["text"] == day:
+                        self._clipboard_page_index["text"] = 0
+                        self._clipboard_load_day("text", day)
+                else:
+                    self._clipboard_write_text_view(updated)
         except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
             self._clipboard_report_io_error(exc)
+            self._notify(f"Pocket · Quick Slot {number} not replaced",
+                         "Could not preserve the previous text in history.")
             return False
 
         # Values are deliberately stored independently of the day-scoped DB
@@ -5871,6 +5887,15 @@ class PocketDesk:
                     self._notify("Pocket · Keyboard layout", xy)
                 elif name == "show":
                     self.show(xy)
+                elif name == "tray_settings":
+                    self.show(xy)
+                    self.show_tab("settings")
+                elif name == "tray_backup":
+                    self.show(xy)
+                    self._open_backup_dialog()
+                elif name == "tray_restore":
+                    self.show(xy)
+                    self._open_restore_dialog()
                 elif name == "hotkey_error":
                     self.hotkey_available = False
                     self.shortcut_hint.config(text="Hotkey unavailable · click to change", fg=DANGER)
@@ -6021,6 +6046,16 @@ def monitor_work_area(x, y):
         r = info.rcWork
         return r.left, r.top, r.right, r.bottom
     return (0, 0, u.GetSystemMetrics(0), u.GetSystemMetrics(1))
+
+
+# Tray menu labels and routed events are kept together for Windows and tests.
+TRAY_MENU_COMMANDS = (
+    (101, "Open Pocket", "show"),
+    (102, "Open Settings", "tray_settings"),
+    (103, "Create Backup", "tray_backup"),
+    (104, "Restore Backup", "tray_restore"),
+    (105, "Exit Pocket", "quit"),
+)
 
 
 # RegisterHotKey makes the combination available even while another app has
@@ -6246,14 +6281,19 @@ class WindowsTray:
             if not menu:
                 return
             try:
-                user.AppendMenuW(menu, 0x0, 101, "Open Pocket   (" + hk.hotkey_label(self.hotkey) + ")")
-                user.AppendMenuW(menu, 0x800, 0, None)  # separator
-                user.AppendMenuW(menu, 0x0, 103, "Exit Pocket")
+                for command_id, label, action in TRAY_MENU_COMMANDS:
+                    if action == "quit":
+                        user.AppendMenuW(menu, 0x800, 0, None)  # separator
+                    user.AppendMenuW(menu, 0x0, command_id, label)
                 x, y = cursor()
                 user.SetForegroundWindow(hwnd)
                 cmd = user.TrackPopupMenu(menu, 0x100 | 0x2, x, y, 0, hwnd, None)
-                if cmd:
-                    self.events.put(({101: "show", 103: "quit"}[cmd], (x, y)))
+                selected = next((action for command_id, _, action in
+                                 TRAY_MENU_COMMANDS if command_id == cmd), None)
+                if selected:
+                    # The tray runs in its own Win32 thread: Tk dialogs
+                    # always open on the existing Pocket UI thread.
+                    self.events.put((selected, (x, y)))
                     user.PostMessageW(hwnd, 0, 0, 0)
             finally:
                 user.DestroyMenu(menu)

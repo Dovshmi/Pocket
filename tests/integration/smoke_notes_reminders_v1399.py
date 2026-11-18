@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from pocket import note_model, reminder_ui
+from pocket import note_model, reminder_ui, icon_themes
 
 
 def run():
@@ -68,7 +68,22 @@ def run():
             root, note, lambda when: selected.append(when),
             lambda: dismissed.append(True))
         root.update()
-        editor._selected_date = date.today() + timedelta(days=3)
+        assert (editor.winfo_width(), editor.winfo_height()) == (366, 445), (
+            "Calendar should be more compact than the old 425×522 window")
+        assert editor.cget("bg") == icon_themes.palette("blue")["BG"], (
+            "Scheduler must match the Pocket theme")
+        assert editor._preset_picker.get() == "Custom time"
+        assert editor._hour_picker.cget("state") == "readonly"
+        editor._preset_picker.set("+15 minutes")
+        editor._apply_preset()
+        root.update()
+        assert editor._hour_picker.cget("state") == "disabled"
+        assert editor._minute_picker.cget("state") == "disabled"
+        editor._preset_picker.set("Custom time")
+        editor._apply_preset()
+        assert editor._hour_picker.cget("state") == "readonly"
+        assert editor._minute_picker.cget("state") == "readonly"
+        editor._choose_date(date.today() + timedelta(days=3))
         editor._hour_picker.set("13")
         editor._minute_picker.set("05")
         editor._save_reminder()

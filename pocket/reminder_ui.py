@@ -12,21 +12,21 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from . import note_model as notes
+from . import icon_themes as themes
 
 FONT = "Segoe UI"
-BG = "#F5F5F7"
-FG = "#20242A"
-MUTED = "#565D69"
 SNOOZE_LABELS = (
     ("5 minutes", 5), ("15 minutes", 15),
     ("30 minutes", 30), ("1 hour", 60),
 )
 
 
-def _dialog(root, title, width, height):
+def _dialog(root, title, width, height, theme="blue"):
+    c = themes.palette(theme)
     window = tk.Toplevel(root)
     window.title(title)
-    window.configure(bg=BG)
+    window.configure(bg=c["BG"])
+    window._reminder_colors = c
     window.resizable(False, False)
     window.update_idletasks()
     screen_w, screen_h = window.winfo_screenwidth(), window.winfo_screenheight()
@@ -35,11 +35,24 @@ def _dialog(root, title, width, height):
     window.geometry(f"{width}x{height}+{x}+{y}")
     window.attributes("-topmost", True)
     window.lift()
+    style = ttk.Style(window)
+    style.configure("Reminder.TCombobox", padding=3,
+                    foreground=c["WHITE"], background=c["CARD"],
+                    fieldbackground=c["INPUT"], arrowcolor=c["ACCENT"])
+    style.map("Reminder.TCombobox",
+              fieldbackground=[("disabled", c["CARD"]), ("readonly", c["INPUT"])],
+              foreground=[("disabled", c["MUTED"]), ("readonly", c["WHITE"])],
+              selectbackground=[("readonly", c["INPUT"])],
+              selectforeground=[("readonly", c["WHITE"])])
+    style.configure("Reminder.TCheckbutton", background=c["BG"],
+                    foreground=c["WHITE"], font=(FONT, 9))
+    style.map("Reminder.TCheckbutton", background=[("active", c["BG"])],
+              foreground=[("disabled", c["MUTED"])])
     return window
 
 
-def open_datetime_editor(root, note, on_save, on_close):
-    """Calendar with real date buttons, 24h dropdowns, and quick time presets."""
+def open_datetime_editor(root, note, on_save, on_close, theme="blue"):
+    """A compact Pocket-themed calendar, preset dropdown and 24h time fields."""
     now = datetime.now().astimezone()
     try:
         current = datetime.fromisoformat(note["reminder_at"]).astimezone()
@@ -47,88 +60,98 @@ def open_datetime_editor(root, note, on_save, on_close):
             current = now + timedelta(minutes=15)
     except (KeyError, TypeError, ValueError):
         current = now + timedelta(minutes=15)
-    window = _dialog(root, "Pocket · Set note reminder", 425, 522)
+
+    window = _dialog(root, "Pocket · Set note reminder", 366, 445, theme=theme)
+    c = window._reminder_colors
     window._selected_date = current.date()
     window._view_year = current.year
     window._view_month = current.month
     hour = tk.StringVar(window, current.strftime("%H"))
     minute = tk.StringVar(window, current.strftime("%M"))
+    preset = tk.StringVar(window, "Custom time")
     status = tk.StringVar(window, "")
 
-    head = tk.Frame(window, bg=BG)
-    head.pack(fill="x", padx=18, pady=(15, 4))
-    tk.Label(head, text="Set a reminder", font=(FONT, 13, "bold"),
-             fg=FG, bg=BG).pack(anchor="w")
-    tk.Label(head, text=(note.get("title") or "Note")[:58],
-             font=(FONT, 9), fg=MUTED, bg=BG).pack(anchor="w", pady=(4, 0))
+    def label(parent, text, *, size=9, bold=False, fg=None):
+        return tk.Label(parent, text=text, font=(FONT, size, "bold" if bold else "normal"),
+                        bg=c["BG"], fg=fg or c["WHITE"], anchor="w")
 
-    shortcuts = tk.Frame(window, bg=BG)
-    shortcuts.pack(fill="x", padx=16, pady=(10, 7))
-    def choose_in(minutes_delta):
-        target = datetime.now().astimezone() + timedelta(minutes=minutes_delta)
-        choose_date(target.date())
-        hour.set(target.strftime("%H"))
-        minute.set(target.strftime("%M"))
+    def button(parent, title, command, *, width=None):
+        options = {"width": width} if width else {}
+        return tk.Button(
+            parent, text=title, command=command,
+            font=(FONT, 9), relief="flat", bd=0, cursor="hand2",
+            bg=c["CARD"], fg=c["WHITE"], activebackground=c["CARD_HOVER"],
+            activeforeground=c["ACCENT"], padx=5, pady=3, **options)
 
-    def choose_tomorrow():
-        target = datetime.now().astimezone() + timedelta(days=1)
-        choose_date(target.date())
-        hour.set("09")
-        minute.set("00")
+    head = tk.Frame(window, bg=c["BG"])
+    head.pack(fill="x", padx=16, pady=(12, 4))
+    label(head, "Set a reminder", size=12, bold=True).pack(anchor="w")
+    label(head, (note.get("title") or "Note")[:55], size=8, fg=c["MUTED"]
+          ).pack(anchor="w", pady=(3, 0))
 
-    for label, fn in (
-        ("+15 min", lambda: choose_in(15)),
-        ("+1 hour", lambda: choose_in(60)),
-        ("Tomorrow 09:00", choose_tomorrow),
-    ):
-        ttk.Button(shortcuts, text=label, command=fn).pack(
-            side="left", padx=(0, 6))
+    quick = tk.Frame(window, bg=c["BG"])
+    quick.pack(fill="x", padx=16, pady=(8, 6))
+    label(quick, "When", size=9, fg=c["SECONDARY"]).pack(side="left", padx=(0, 10))
+    preset_picker = ttk.Combobox(
+        quick, textvariable=preset, state="readonly",
+        style="Reminder.TCombobox", font=(FONT, 9), width=23,
+        values=("Custom time", "+15 minutes", "+1 hour", "Tomorrow 09:00"))
+    preset_picker.pack(side="left", fill="x", expand=True)
+    window._preset_picker = preset_picker
 
-    bar = tk.Frame(window, bg=BG)
-    bar.pack(fill="x", padx=18, pady=(3, 4))
-    previous = ttk.Button(bar, text="‹", width=3)
+    month_bar = tk.Frame(window, bg=c["BG"])
+    month_bar.pack(fill="x", padx=16, pady=(2, 1))
+    previous = button(month_bar, "‹", lambda: step_month(-1), width=3)
     previous.pack(side="left")
-    month_label = tk.Label(bar, font=(FONT, 11, "bold"), fg=FG, bg=BG)
+    month_label = label(month_bar, "", size=10, bold=True)
     month_label.pack(side="left", expand=True)
-    following = ttk.Button(bar, text="›", width=3)
+    following = button(month_bar, "›", lambda: step_month(1), width=3)
     following.pack(side="right")
-    calendar_frame = tk.Frame(window, bg=BG)
-    calendar_frame.pack(fill="x", padx=18)
+
+    calendar_frame = tk.Frame(window, bg=c["BG"])
+    calendar_frame.pack(fill="x", padx=16)
+    window._calendar_frame = calendar_frame
     for col in range(7):
-        calendar_frame.grid_columnconfigure(col, weight=1, uniform="cal")
+        calendar_frame.grid_columnconfigure(col, weight=1, uniform="reminder_calendar")
 
     def redraw():
-        for widget in calendar_frame.winfo_children():
-            widget.destroy()
+        for child in calendar_frame.winfo_children():
+            child.destroy()
         month_label.configure(text=f"{calendar.month_name[window._view_month]} {window._view_year}")
-        for col, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
-            tk.Label(calendar_frame, text=name, bg=BG, fg=MUTED,
-                     font=(FONT, 8)).grid(row=0, column=col, pady=2)
+        for col, weekday in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+            tk.Label(calendar_frame, text=weekday, font=(FONT, 7),
+                     bg=c["BG"], fg=c["MUTED"]).grid(row=0, column=col, pady=(0, 1))
         weeks = calendar.Calendar(firstweekday=0).monthdatescalendar(
             window._view_year, window._view_month)
         while len(weeks) < 6:
             last = weeks[-1][-1]
-            weeks.append([last + timedelta(days=delta) for delta in range(1, 8)])
+            weeks.append([last + timedelta(days=i) for i in range(1, 8)])
         for row, week in enumerate(weeks, start=1):
             for col, day in enumerate(week):
-                selected = day == window._selected_date
-                in_month = day.month == window._view_month
-                button = tk.Button(
-                    calendar_frame, text=str(day.day), relief="flat",
-                    font=(FONT, 9, "bold" if selected else "normal"),
-                    bg="#DCEBFF" if selected else BG,
-                    fg="#111A2D" if selected else (FG if in_month else "#858A94"),
-                    activebackground="#CBDCFA",
-                    command=lambda value=day: choose_date(value))
-                button.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
+                active = day == window._selected_date
+                belongs = day.month == window._view_month
+                b = tk.Button(calendar_frame, text=f"{day.day}", cursor="hand2",
+                              font=(FONT, 8, "bold" if active else "normal"),
+                              relief="flat", bd=0, highlightthickness=0,
+                              bg=c["ACCENT_DARK"] if active else c["BG"],
+                              fg=c["WHITE"] if active else (
+                                  c["SECONDARY"] if belongs else c["MUTED"]),
+                              activebackground=c["CARD_HOVER"],
+                              activeforeground=c["WHITE"], padx=0, pady=1,
+                              command=lambda value=day: choose_date(value))
+                b.grid(row=row, column=col, sticky="ew", padx=1, pady=1)
 
-    def choose_date(day):
+    def choose_date(day, *, from_preset=False):
         window._selected_date = day
         window._view_year, window._view_month = day.year, day.month
+        if not from_preset and preset.get() != "Custom time":
+            preset.set("Custom time")
+            hours.configure(state="readonly")
+            minutes.configure(state="readonly")
         redraw()
 
-    def step_month(offset):
-        year, month = window._view_year, window._view_month + offset
+    def step_month(delta):
+        year, month = window._view_year, window._view_month + delta
         if month < 1:
             year, month = year - 1, 12
         elif month > 12:
@@ -136,31 +159,58 @@ def open_datetime_editor(root, note, on_save, on_close):
         window._view_year, window._view_month = year, month
         redraw()
 
-    previous.configure(command=lambda: step_month(-1))
-    following.configure(command=lambda: step_month(1))
-    redraw()
-
-    clock = tk.Frame(window, bg=BG)
-    clock.pack(pady=(13, 3))
-    tk.Label(clock, text="Time (24h)", font=(FONT, 9), fg=MUTED,
-             bg=BG).pack(side="left", padx=(0, 14))
+    clock = tk.Frame(window, bg=c["BG"])
+    clock.pack(pady=(10, 2))
+    label(clock, "Time (24h)", fg=c["SECONDARY"], size=9).pack(
+        side="left", padx=(0, 12))
     hours = ttk.Combobox(clock, textvariable=hour, state="readonly",
-                         width=5, values=[f"{i:02}" for i in range(24)])
+                         style="Reminder.TCombobox", font=(FONT, 9),
+                         width=3, values=[f"{i:02}" for i in range(24)])
     hours.pack(side="left")
-    tk.Label(clock, text=":", font=(FONT, 13, "bold"), fg=FG, bg=BG).pack(
-        side="left", padx=3)
+    tk.Label(clock, text=":", font=(FONT, 12, "bold"), fg=c["WHITE"],
+             bg=c["BG"]).pack(side="left", padx=3)
     minutes = ttk.Combobox(clock, textvariable=minute, state="readonly",
-                           width=5, values=[f"{i:02}" for i in range(60)])
+                           style="Reminder.TCombobox", font=(FONT, 9),
+                           width=3, values=[f"{i:02}" for i in range(60)])
     minutes.pack(side="left")
     window._hour_picker = hours
     window._minute_picker = minutes
+    window._choose_date = choose_date
 
-    tk.Label(window, text="Local computer time · Pocket must be running.",
-             bg=BG, fg=MUTED, font=(FONT, 8)).pack(pady=(7, 3))
-    tk.Label(window, textvariable=status, bg=BG, fg="#AD3741",
-             font=(FONT, 8), wraplength=385).pack(pady=(0, 2))
-    footer = tk.Frame(window, bg=BG)
-    footer.pack(fill="x", side="bottom", padx=18, pady=(8, 14))
+    def on_preset(_event=None):
+        choice = preset.get()
+        if choice == "Custom time":
+            hours.configure(state="readonly")
+            minutes.configure(state="readonly")
+            return
+        now_local = datetime.now().astimezone()
+        if choice == "+15 minutes":
+            target = now_local + timedelta(minutes=15)
+        elif choice == "+1 hour":
+            target = now_local + timedelta(hours=1)
+        elif choice == "Tomorrow 09:00":
+            target = (now_local + timedelta(days=1)).replace(
+                hour=9, minute=0, second=0, microsecond=0)
+        else:
+            preset.set("Custom time")
+            return
+        choose_date(target.date(), from_preset=True)
+        hour.set(target.strftime("%H"))
+        minute.set(target.strftime("%M"))
+        # Preset owns the time. Manual hour/minute selectors are visibly grey.
+        hours.configure(state="disabled")
+        minutes.configure(state="disabled")
+
+    preset_picker.bind("<<ComboboxSelected>>", on_preset)
+    window._apply_preset = on_preset
+    redraw()
+
+    label(window, "Local computer time · Pocket must be running.",
+          fg=c["MUTED"], size=8).pack(pady=(5, 1))
+    tk.Label(window, textvariable=status, bg=c["BG"], fg=c["DANGER"],
+             font=(FONT, 8), wraplength=330).pack(pady=(0, 1))
+    footer = tk.Frame(window, bg=c["BG"])
+    footer.pack(fill="x", side="bottom", padx=16, pady=(8, 13))
 
     closed = False
     def close():
@@ -185,14 +235,13 @@ def open_datetime_editor(root, note, on_save, on_close):
             return
         close()
 
-    ttk.Button(footer, text="Cancel", command=close).pack(side="right")
-    ttk.Button(footer, text="Save reminder", command=save).pack(
-        side="right", padx=(0, 8))
+    button(footer, "Cancel", close).pack(side="right")
+    button(footer, "Save reminder", save).pack(side="right", padx=(0, 8))
     window._save_reminder = save
     window.protocol("WM_DELETE_WINDOW", close)
     window.bind("<Escape>", lambda _event: close())
     window.focus_force()
-    window.grab_set()  # Retain the original scheduler's modal semantics.
+    window.grab_set()
     return window
 
 

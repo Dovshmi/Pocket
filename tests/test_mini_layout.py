@@ -69,7 +69,7 @@ class MiniLayoutTests(unittest.TestCase):
                           "quick_slots_save_mode": "selection",
                           "quick_slots_paste_mode": "auto",
                           "quick_slots_paste_prefix": "ctrl_alt",
-                          "quick_slots_copy_prefix": "ctrl_win", "clipboard_storage": "ram",
+                          "quick_slots_copy_prefix": "ctrl_alt_win", "clipboard_storage": "ram",
                           "clipboard_days": 1,
                           "clipboard_autodelete_days": 0,
                           "clipboard_text_display_limit": 100,

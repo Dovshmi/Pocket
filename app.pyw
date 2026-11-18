@@ -6069,10 +6069,18 @@ class PocketDesk:
             return
         if getattr(self, "_modal", False):
             return  # Don't interrupt another settings, backup or input dialog.
-        for note in self.data["notes"]:
-            if reminder_is_due(note):
-                self._display_due_reminder(note["id"])
-                break
+        candidates = [
+            (item.get("reminder_at", ""), "note", item["id"])
+            for item in self.data["notes"] if reminder_is_due(item)]
+        candidates += [
+            (item.get("reminder_at", ""), "standalone", item["id"])
+            for item in self.data.get("reminders", []) if reminder_store.is_due(item)]
+        if candidates:
+            _when, source, selected_id = min(candidates)
+            if source == "note":
+                self._display_due_reminder(selected_id)
+            else:
+                self._display_due_reminder(selected_id, source="standalone")
 
 
     def _notify(self, title, message):

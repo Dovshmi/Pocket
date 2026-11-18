@@ -3302,6 +3302,81 @@ class PocketDesk:
             self.schedule_save()
         return changed
 
+    def _clear_reminders(self, status_filter="All"):
+        """Clear one Reminders status tab, keeping every linked Note intact.
+
+        The search query is intentionally not a deletion filter: Clear operates
+        on the active All/Upcoming/Snoozed/Done tab, including hidden matches.
+        All changes are committed together or restored if saving fails.
+        """
+        if status_filter not in ("All", "Upcoming", "Snoozed", "Completed"):
+            return False
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return False
+        # A live popup may contain an unsaved reply. Do not delete its source.
+        for window_name in ("_due_reminder_dialog", "_reminder_dialog"):
+            existing = getattr(self, window_name, None)
+            if existing is not None and existing.winfo_exists():
+                existing.lift()
+                return False
+
+        def matches(item):
+            state = reminder_store.status(item)
+            return state is not None and (status_filter == "All" or state == status_filter)
+
+        linked = [note for note in self.data["notes"] if matches(note)]
+        standalone = [item for item in self.data.get("reminders", []) if matches(item)]
+        total = len(linked) + len(standalone)
+        if not total:
+            return False
+
+        scope_name = "All" if status_filter == "All" else (
+            "Done" if status_filter == "Completed" else status_filter)
+        scope_details = ("ALL reminders" if status_filter == "All"
+                         else f"reminders in {scope_name}")
+        explanation = (
+            f"Clear {total} {scope_details}?\n\n"
+            f"• {len(standalone)} independent reminder(s) will be deleted.\n"
+            f"• {len(linked)} Note-linked reminder(s) will be removed.\n\n"
+            "Your Notes and their text will NOT be deleted.\n"
+            "This affects the entire selected tab, even if Search is active.\n"
+            "This action cannot be undone."
+        )
+        was_modal = self._modal
+        self._modal = True
+        try:
+            confirmed = messagebox.askyesno(
+                "Clear reminders?", explanation,
+                icon="warning", default="no", parent=self.root)
+        finally:
+            self._modal = was_modal
+        if not confirmed:
+            return False
+
+        self._flush_current_note()
+        originals = [(note, dict(note)) for note in linked]
+        prior_reminders = self.data.get("reminders", [])
+        removed_ids = {item["id"] for item in standalone}
+        for note in linked:
+            note.update(reminder_enabled=False, reminder_at="", reminder_sent_at="",
+                        reminder_snoozed=False, reminder_draft="",
+                        reminder_add_response=False)
+        self.data["reminders"] = [
+            item for item in prior_reminders if item["id"] not in removed_ids]
+        try:
+            if self._write_now() is False:
+                raise OSError("Pocket could not save the cleared reminders.")
+        except Exception:
+            self.data["reminders"] = prior_reminders
+            for note, old in originals:
+                note.clear()
+                note.update(old)
+            # The regular save handler already reports disk errors. Most
+            # importantly, no in-memory reminders are lost on a failed write.
+            return False
+        self._refresh_note_reminder_ui()
+        return True
+
     def _delete_standalone_reminder(self, reminder_id):
         """Delete only standalone records, after a clear confirmation."""
         record = next((r for r in self.data["reminders"]

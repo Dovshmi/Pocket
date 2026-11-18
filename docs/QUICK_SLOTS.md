@@ -29,6 +29,13 @@ Open **Settings → Clipboard & privacy**:
 
 * **Enable Quick Slots:** ON/OFF for both global shortcut groups and the
   numbered Clipboard list entries. Disabling does not delete values.
+* **Quick Slot save behavior:** **Auto Copy Selection** (default) sends
+  `Ctrl+C` to capture selected text in the focused app, using the existing
+  Windows clipboard as a fallback if nothing is selected. **Use Current
+  Clipboard** never sends `Ctrl+C`; first copy the text manually, then press
+  the Quick Slot Save hotkey. It reads that clipboard text and saves it in
+  the chosen slot. An empty/non-text clipboard is rejected. This setting
+  is independent of Paste behavior.
 * **Quick Slot paste behavior:** **Auto Paste** (default for existing and new
   users) inserts into the current application; **Copy to Clipboard** changes
   the Windows clipboard to the selected slot and waits for your ordinary
@@ -55,13 +62,20 @@ Changes apply without restarting Pocket.
    ordinary `Ctrl+C` to capture the selected text.
 4. If the application has no copyable selection, Pocket falls back to
    **text already in the Windows clipboard before this operation**.
-5. The selected text is saved in the numbered Quick Slot **and remains
-   in the Windows clipboard**, just like an ordinary Copy operation.
+5. In **Auto Copy Selection** mode, the selected text is saved in the
+   numbered Quick Slot **and remains in the Windows clipboard**, just like
+   an ordinary Copy operation.
    This deliberately avoids an unreliable OLE restore while copying selected
    text. If there is no selection, the existing clipboard is unchanged.
    No upload occurs.
 6. Replacing an occupied slot asks for confirmation; displaced automatic
    Favorites are removed rather than accumulating.
+
+**Use Current Clipboard mode:** instead of steps 1–5 above, copy text yourself
+using `Ctrl+C` or another copy action, then press the slot's Save shortcut.
+Pocket reads the current clipboard without sending an automatic copy
+keystroke. No clipboard modification occurs during this read. Both Save
+modes use the same replacement confirmation and privacy filter.
 
 The Sensitive Text Filter can reject recognized secret-looking text.
 Do not store passwords or authentication tokens in Quick Slots.

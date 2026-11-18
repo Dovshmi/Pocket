@@ -192,6 +192,7 @@ def open_datetime_editor(root, note, on_save, on_close):
     window.protocol("WM_DELETE_WINDOW", close)
     window.bind("<Escape>", lambda _event: close())
     window.focus_force()
+    window.grab_set()  # Retain the original scheduler's modal semantics.
     return window
 
 
@@ -279,6 +280,7 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close):
     window.lift()
     if not add_response.get():
         done.focus_set()
+    window.grab_set()  # Modal to Pocket, but does not block other Windows apps.
     return window
 
 

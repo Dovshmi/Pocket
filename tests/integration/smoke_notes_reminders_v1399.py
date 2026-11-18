@@ -5,11 +5,11 @@ write any user's files.
 """
 import sys
 import tkinter as tk
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from pocket import note_model, reminder_ui, icon_themes
+from pocket import note_model, reminder_ui, icon_themes, reminder_store
 
 
 def run():
@@ -90,6 +90,63 @@ def run():
         assert len(selected) == 1, selected
         assert selected[0].endswith("13:05" + selected[0][-6:]), selected
         assert len(dismissed) == 1, dismissed
+        # A standalone record has its own title/details/time and makes no Note.
+        saved = []
+        form = reminder_ui.open_standalone_form(
+            root, None, lambda title, details, when: saved.append((title, details, when)),
+            lambda: None)
+        root.update()
+        form._submit_reminder()
+        assert not saved, "Empty standalone reminders must be rejected"
+        form._title_entry.insert(0, "Call customer")
+        form._details_text.insert("1.0", "Check the link status")
+        form._selected_time[0] = (datetime.now().astimezone() +
+                                  timedelta(hours=2)).isoformat(timespec="minutes")
+        form._submit_reminder()
+        assert len(saved) == 1, saved
+        assert saved[0][0] == "Call customer"
+        assert saved[0][1] == "Check the link status"
+        assert note["body"] == "Original text", "Creating a reminder changed Notes"
+
+        independent = reminder_store.make_reminder(*saved[0])
+        independent["reminder_at"] = saved[0][2]
+        events = []
+        from types import SimpleNamespace
+        app = SimpleNamespace(
+            data={"notes": [note], "reminders": [independent]},
+            _edit_standalone_reminder=lambda *_args: events.append("new"),
+            _edit_note_reminder=lambda *_args: events.append("note"),
+            _manage_note_reminder=lambda *a, **kw: events.append("manage"),
+            _delete_standalone_reminder=lambda *_args: events.append("delete"),
+            show_tab=lambda *_args: events.append("navigate"),
+            _reminders_status_filter="All")
+        overview = tk.Frame(root)
+        overview.pack()
+        reminder_ui.build_overview(
+            app, overview, colors=icon_themes.palette("blue"))
+        root.update()
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        buttons = [w for w in descendants(overview) if isinstance(w, tk.Button)]
+        assert any(w.cget("text") == "Details" for w in buttons), (
+            "Standalone card missing Details action")
+        assert any(w.cget("text") == "Snooze 15m" for w in buttons)
+        next(w for w in buttons if w.cget("text") == "+ New").invoke()
+        assert events == ["new"]
+        assert app._reminders_status_filter == "All"
+        assert app._reminders_search_entry.cget("bg") == icon_themes.palette("blue")["INPUT"]
+
+        # The same reminder popup uses a standalone-specific response label.
+        standalone_popup = reminder_ui.open_due_dialog(
+            root, {**independent, "kind": "standalone"},
+            lambda *_args: None, lambda *_args: None, lambda: None)
+        root.update()
+        assert "this reminder" in standalone_popup._response_checkbox.cget("text")
+        assert standalone_popup._response_input.cget("state") == "disabled"
+        standalone_popup._done_button.invoke()
+
     finally:
         root.destroy()
     print("PASS: editable response only after checked, Snooze and calendar selection")

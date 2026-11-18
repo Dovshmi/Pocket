@@ -258,6 +258,132 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
                               timedelta(minutes=35)).isoformat(timespec="minutes"))
         self.assertEqual(note, original)
 
+    @staticmethod
+    def _clear_fixture():
+        from pocket import reminder_store
+        from datetime import timedelta
+
+        def linked(state, index):
+            n = nm.new_note(f"Note {index}", f"Keep original {index}")
+            n["reminder_enabled"] = True
+            n["reminder_at"] = (datetime.now().astimezone() +
+                                timedelta(hours=1)).isoformat(timespec="minutes")
+            if state == "Snoozed":
+                n["reminder_snoozed"] = True
+                n["reminder_draft"] = "Unsent draft"
+                n["reminder_add_response"] = True
+            elif state == "Completed":
+                n["reminder_sent_at"] = datetime.now().astimezone().isoformat()
+            return n
+
+        def separate(state, index):
+            r = reminder_store.make_reminder(
+                f"Standalone {index}", f"Keep details {index}",
+                (datetime.now().astimezone() + timedelta(hours=1)).isoformat(timespec="minutes"))
+            if state == "Snoozed":
+                r["reminder_snoozed"] = True
+            elif state == "Completed":
+                r["reminder_sent_at"] = datetime.now().astimezone().isoformat()
+            return r
+
+        states = ("Upcoming", "Snoozed", "Completed")
+        linked_notes = [linked(state, i) for i, state in enumerate(states)]
+        untouched = nm.new_note("No reminder", "Keep this Note")
+        reminders = [separate(state, i) for i, state in enumerate(states)]
+        profile = {"notes": linked_notes + [untouched], "reminders": reminders}
+        return profile, linked_notes, untouched, reminders
+
+    @staticmethod
+    def _clear_desk(profile, *, saved=True):
+        return SimpleNamespace(
+            data=profile, settings={"visible_tabs": ["notes", "reminders"]},
+            _modal=False, root=object(),
+            _due_reminder_dialog=None, _reminder_dialog=None,
+            _flush_current_note=Mock(), _write_now=Mock(return_value=saved),
+            _refresh_note_reminder_ui=Mock())
+
+    def test_clear_all_removes_reminders_but_never_deletes_notes(self):
+        data, linked, untouched, originals = self._clear_fixture()
+        before_notes = [(n["id"], n["title"], n["body"]) for n in data["notes"]]
+        desk = self._clear_desk(data)
+        with patch.object(APP["messagebox"], "askyesno", return_value=True) as ask:
+            self.assertTrue(Desk._clear_reminders(desk, "All"))
+        self.assertEqual(data["reminders"], [])
+        self.assertEqual(len(data["notes"]), 4)
+        self.assertEqual(
+            [(n["id"], n["title"], n["body"]) for n in data["notes"]],
+            before_notes)
+        self.assertTrue(all(nm.reminder_status(n) is None for n in linked))
+        self.assertIsNone(nm.reminder_status(untouched))
+        self.assertEqual(desk._write_now.call_count, 1)
+        desk._refresh_note_reminder_ui.assert_called_once()
+        self.assertFalse(desk._modal)
+        self.assertIn("Notes and their text will NOT be deleted", ask.call_args.args[1])
+        self.assertEqual(ask.call_args.kwargs["default"], "no")
+
+    def test_clear_selected_status_deletes_only_that_category(self):
+        from pocket import reminder_store
+        for scope in ("Upcoming", "Snoozed", "Completed"):
+            with self.subTest(tab=scope):
+                data, linked, untouched, independent = self._clear_fixture()
+                original_notes = [(n["title"], n["body"]) for n in data["notes"]]
+                desk = self._clear_desk(data)
+                desk._reminders_search = "text not matching anything"
+                with patch.object(APP["messagebox"], "askyesno", return_value=True) as ask:
+                    self.assertTrue(Desk._clear_reminders(desk, scope))
+                self.assertEqual(
+                    [(n["title"], n["body"]) for n in data["notes"]],
+                    original_notes)
+                self.assertEqual(len(data["reminders"]), 2)
+                self.assertTrue(all(reminder_store.status(r) != scope for r in data["reminders"]))
+                self.assertEqual([nm.reminder_status(n) for n in linked].count(None), 1)
+                for i, state in enumerate(("Upcoming", "Snoozed", "Completed")):
+                    if state != scope:
+                        self.assertEqual(nm.reminder_status(linked[i]), state)
+                        self.assertTrue(any(r is independent[i] for r in data["reminders"]))
+                self.assertIsNone(nm.reminder_status(untouched))
+                self.assertIn("even if Search is active", ask.call_args.args[1])
+                desk._write_now.assert_called_once()
+
+    def test_clear_confirmation_cancel_and_failed_write_leave_data_intact(self):
+        for approved, saved in ((False, True), (True, False)):
+            with self.subTest(approved=approved, saved=saved):
+                data, linked, _, _ = self._clear_fixture()
+                prior_notes = [dict(n) for n in data["notes"]]
+                prior_reminders = list(data["reminders"])
+                desk = self._clear_desk(data, saved=saved)
+                with patch.object(APP["messagebox"], "askyesno", return_value=approved):
+                    self.assertFalse(Desk._clear_reminders(desk, "Completed"))
+                self.assertEqual(data["notes"], prior_notes)
+                self.assertEqual(data["reminders"], prior_reminders)
+                self.assertTrue(all(x is y for x, y in zip(data["reminders"], prior_reminders)))
+                self.assertEqual(desk._write_now.call_count, int(approved))
+                desk._refresh_note_reminder_ui.assert_not_called()
+
+    def test_clear_invalid_or_empty_scope_and_open_popup_are_noops(self):
+        data, linked, _, _ = self._clear_fixture()
+        desk = self._clear_desk(data)
+        with patch.object(APP["messagebox"], "askyesno") as ask:
+            self.assertFalse(Desk._clear_reminders(desk, "Invalid"))
+            self.assertFalse(Desk._clear_reminders(desk, "Done"))  # UI uses Completed.
+        ask.assert_not_called()
+        # A visible popup can hold a draft that must not be destroyed.
+        popup = SimpleNamespace(winfo_exists=lambda: True, lift=Mock())
+        desk._due_reminder_dialog = popup
+        self.assertFalse(Desk._clear_reminders(desk, "All"))
+        popup.lift.assert_called_once()
+        desk._write_now.assert_not_called()
+        self.assertEqual(len(data["reminders"]), 3)
+
+    def test_clear_done_does_not_remove_previous_note_response(self):
+        data, linked, _, _ = self._clear_fixture()
+        linked[-1]["body"] += "\n\nSaved response"
+        desk = self._clear_desk(data)
+        with patch.object(APP["messagebox"], "askyesno", return_value=True):
+            self.assertTrue(Desk._clear_reminders(desk, "Completed"))
+        self.assertEqual(linked[-1]["body"], "Keep original 2\n\nSaved response")
+        self.assertEqual(linked[-1]["title"], "Note 2")
+
     def test_mini_top_icon_layout_is_unchanged_with_expandable_more(self):
         from pocket import mini_nav
         original = ["notes", "links", "ports", "mac", "commands",

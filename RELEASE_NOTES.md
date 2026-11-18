@@ -1,3 +1,24 @@
+# Pocket v1.39.2 — Hebrew & Multilingual Quick Slots Paste Fix
+
+**Stable patch release · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**
+
+Pocket 1.39.2 fixes Hebrew text becoming question marks when Quick Slots Auto Paste targets some Windows applications.
+
+- **ASCII-only slots:** Keep the reliable clipboard-independent Unicode keystroke insertion from 1.39.1.
+- **Hebrew and other non-ASCII slots:** Use native Windows `CF_UNICODETEXT` and standard `Ctrl+V`, avoiding target applications interpreting injected characters as `?`.
+- **Clipboard behavior:** After automatically pasting non-ASCII text, the slot stays in your clipboard. This is intentional: no attempt is made to restore the old clipboard through Windows OLE, which failed with `CloseClipboard Failed` on some workstations.
+- **Compatibility:** Manual **Copy to Clipboard** mode, existing slots, shortcuts, Notes, settings, CLI and network tools are unaffected. All actions are offline.
+
+### Upgrade
+
+Close Pocket fully, back up your portable `data/` directory, extract the 1.39.2 Portable ZIP into a **new folder**, and copy your old `data/` into it. Never mix old and new `_internal/` runtime files.
+
+Windows CI tests both paste paths with real Hebrew text, packages a portable ZIP and standalone EXE, verifies ZIP privacy/integrity and publishes `SHA256SUMS.txt`. Restricted workplace applications still need an on-device check.
+
+[Quick Slots guide](docs/QUICK_SLOTS.md) · [Detailed patch notes](docs/releases/v1.39.2.md)
+
+---
+
 # Pocket v1.39.1 — Quick Slots Clipboard Fix
 
 **Stable · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**

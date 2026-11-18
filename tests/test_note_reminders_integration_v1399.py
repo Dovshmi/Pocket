@@ -133,6 +133,40 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         self.assertEqual(note["body"], "Keep original")
         self.assertEqual(note["reminder_draft"], "")
 
+    def test_x_removes_note_reminder_but_never_deletes_its_note(self):
+        note = self._note()
+        note["reminder_draft"] = "Draft"
+        desk = SimpleNamespace(
+            data={"notes": [note], "active_note": note["id"]},
+            _modal=False, root=object(), _flush_current_note=Mock(),
+            _write_now=Mock(return_value=True),
+            _refresh_note_reminder_ui=Mock())
+        with patch.object(APP["messagebox"], "askyesno", return_value=False):
+            Desk._delete_reminder(desk, note["id"], source="note")
+        self.assertTrue(note["reminder_enabled"])
+        self.assertEqual(note["reminder_draft"], "Draft")
+        with patch.object(APP["messagebox"], "askyesno", return_value=True):
+            Desk._delete_reminder(desk, note["id"], source="note")
+        self.assertEqual(desk.data["notes"], [note])
+        self.assertEqual(note["title"], "Task")
+        self.assertEqual(note["body"], "Keep original")
+        self.assertFalse(note["reminder_enabled"])
+        self.assertEqual(note["reminder_at"], "")
+        self.assertEqual(note["reminder_draft"], "")
+
+    def test_remove_note_reminder_rolls_back_on_save_failure(self):
+        note = self._note()
+        original = dict(note)
+        desk = SimpleNamespace(
+            data={"notes": [note], "active_note": note["id"]},
+            _modal=False, root=object(), _flush_current_note=Mock(),
+            _write_now=Mock(return_value=False),
+            _refresh_note_reminder_ui=Mock())
+        with patch.object(APP["messagebox"], "askyesno", return_value=True):
+            Desk._delete_reminder(desk, note["id"], source="note")
+        self.assertEqual(note, original)
+        desk._refresh_note_reminder_ui.assert_not_called()
+
     def test_mini_top_icon_layout_is_unchanged_with_expandable_more(self):
         from pocket import mini_nav
         original = ["notes", "links", "ports", "mac", "commands",

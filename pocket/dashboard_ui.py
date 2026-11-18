@@ -271,6 +271,7 @@ def build_home(app):
         ("⇄", "TCP port checks", "Diagnose network connectivity when you request it.", "ports"),
         ("▦", "MAC vendor lookup", "Identify vendors with your locally cached IEEE data.", "mac"),
         ("▣", "Clipboard history", "Search your current session's copied text.", "clipboard"),
+        ("♧", "Reminders", "Review upcoming, snoozed and completed notes.", "reminders"),
     )
     visible = [t for t in all_tools if t[3] in app.settings["visible_tabs"]]
     grid = tk.Frame(body, bg=c["BG"])

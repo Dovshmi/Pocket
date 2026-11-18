@@ -40,7 +40,8 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
             nm.complete_reminder(actual, actual["reminder_draft"], True)
             APP["save_data"](path, loaded)
             again = APP["load_data"](path)["notes"][0]
-            self.assertEqual(again["body"], "Keep original\n\nתשובה בעברית")
+            self.assertRegex(again["body"],
+                             r"^Keep original\n\n\d{2}/\d{2}/\d{4} \d{2}:\d{2}\nתשובה בעברית$")
             self.assertEqual(nm.reminder_status(again), "Completed")
 
     def test_due_check_does_not_mark_reminder_handled_before_user_action(self):
@@ -62,15 +63,16 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
             current_tab="notes", _modal=False, _due_reminder_dialog=None,
             _flush_current_note=Mock(), _write_now=Mock(return_value=True),
             _load_selected_note=Mock(), _refresh_note_reminder_ui=Mock(),
-            root=object())
+            root=object(), theme="blue")
         with patch.object(APP["reminder_ui"], "open_due_dialog",
-                          side_effect=lambda root, note, done, snooze, close: (
+                          side_effect=lambda root, note, done, snooze, close, **_kwargs: (
                               callbacks.update(done=done, snooze=snooze, close=close)
                               or SimpleNamespace(winfo_exists=lambda: True))):
             Desk._display_due_reminder(desk, note["id"])
         self.assertTrue(desk._modal)
         callbacks["done"]("append at bottom", True)
-        self.assertEqual(note["body"], "Keep original\n\nappend at bottom")
+        self.assertRegex(note["body"],
+                         r"^Keep original\n\n\d{2}/\d{2}/\d{4} \d{2}:\d{2}\nappend at bottom$")
         desk._write_now.assert_called_once()
         desk._load_selected_note.assert_called_once()
         callbacks["close"]()
@@ -85,9 +87,9 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
             current_tab="clipboard", _modal=False, _due_reminder_dialog=None,
             _flush_current_note=Mock(), _write_now=Mock(return_value=False),
             _load_selected_note=Mock(), _refresh_note_reminder_ui=Mock(),
-            root=object())
+            root=object(), theme="blue")
         with patch.object(APP["reminder_ui"], "open_due_dialog",
-                          side_effect=lambda r, n, done, snooze, close: (
+                          side_effect=lambda r, n, done, snooze, close, **_kwargs: (
                               callbacks.update(done=done, close=close) or
                               SimpleNamespace(winfo_exists=lambda: True))):
             Desk._display_due_reminder(desk, note["id"])
@@ -103,7 +105,7 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         note["reminder_add_response"] = True
         desk = SimpleNamespace(
             data={"notes": [note], "active_note": note["id"]},
-            _due_reminder_dialog=None, _modal=False, root=object(),
+            _due_reminder_dialog=None, _modal=False, root=object(), theme="blue",
             _flush_current_note=Mock(), _write_now=Mock(return_value=True),
             _refresh_note_reminder_ui=Mock())
         Desk._manage_note_reminder(desk, note["id"], "snooze")
@@ -117,7 +119,7 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         note["reminder_add_response"] = True
         desk = SimpleNamespace(
             data={"notes": [note], "active_note": note["id"]},
-            _due_reminder_dialog=None, _modal=False, root=object(),
+            _due_reminder_dialog=None, _modal=False, root=object(), theme="blue",
             _flush_current_note=Mock(), _write_now=Mock(return_value=True),
             _refresh_note_reminder_ui=Mock())
         with patch.object(APP["messagebox"], "askyesno", return_value=False):
@@ -131,16 +133,23 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         self.assertEqual(note["body"], "Keep original")
         self.assertEqual(note["reminder_draft"], "")
 
-    def test_mini_top_icon_layout_is_unchanged_and_reminders_use_more(self):
+    def test_mini_top_icon_layout_is_unchanged_with_expandable_more(self):
+        from pocket import mini_nav
+        original = ["notes", "links", "ports", "mac", "commands",
+                    "subnet", "clipboard"]
+        first, overflow = mini_nav.plan_mini_icons(original)
+        self.assertEqual(first, tuple(original + ["settings"]))
+        self.assertEqual(overflow, ())
+        first, overflow = mini_nav.plan_mini_icons(original + ["reminders"])
+        self.assertEqual(first, tuple(original + ["more"]))
+        self.assertEqual(overflow, (("reminders", "settings"),))
         app_source = (ROOT / "app.pyw").read_text(encoding="utf-8")
-        section = app_source.split("    def _build_mini_shell(self):", 1)[1].split(
-            "    def _style_mini_icon_tabs", 1)[0]
-        self.assertIn('("clipboard", "▤", "Clip"), ("settings", "⚙", "More"),', section)
-        self.assertNotIn('("reminders",', section)
-        self.assertEqual(section.count("tile = tk.Frame(nav"), 1)
+        self.assertIn('width=39, height=45', app_source)
+        self.assertIn('"Less" if expanded else "More"', app_source)
+        self.assertIn('self._mini_nav_separator', app_source)
         settings_source = (ROOT / "pocket/settings_ui.py").read_text(encoding="utf-8")
-        self.assertIn('"open_reminders"', settings_source)
-        self.assertIn('app.show_tab("reminders")', settings_source)
+        self.assertNotIn('"open_reminders"', settings_source)
+        self.assertIn('"reminders":', settings_source)
 
 
 if __name__ == "__main__":

@@ -64,8 +64,9 @@ Shift+Numpad digits into navigation key events.
 The Quick Slot **Record** buttons are no longer shown in Settings.
 Use the modifier dropdowns instead; Numpad1–9 always remain fixed.
 
-Native Windows Quick Slot notifications use **Pocket · COPY [N]** or
-**Pocket · PASTE [N]** as the title and put **only the text preview**
+Native Windows Quick Slot notifications use **Pocket · Copy [N]**,
+**Pocket · Paste [N]**, or **Pocket · Unchanged [N]** as the title, with
+no redundant Copy label for unchanged text. They put **only the text preview**
 (up to 108 characters) in the message body, avoiding duplicated action words.
 Copy-to-Clipboard mode still requires pressing Ctrl+V manually to paste.
 
@@ -98,8 +99,9 @@ Changes apply without restarting Pocket.
    No upload occurs.
 6. Replacing an occupied slot opens the original **native Windows Yes/No
    MessageBox**, not a custom Tkinter window. The compact text is:
-   **NEW: preview → OLD: preview**. The slot number is in the title;
-   previews are truncated to fit. No/Escape never changes the slot.
+   **Old: preview**, then **↓**, then **New: preview** on separate
+   lines. The slot number is in the title; previews are truncated to fit.
+   No/Escape never changes the slot.
 7. On Yes, the displaced OLD value is preserved in regular history **without
    a Pin**. If it already exists in today's history it is unpinned, not copied;
    if absent it is inserted as an unpinned entry. Applies to both RAM and

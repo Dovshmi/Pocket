@@ -448,6 +448,7 @@ class QuickSlotsTests(unittest.TestCase):
             _refresh_clipboard=lambda: events.append("refresh"),
             schedule_save=lambda: events.append("save"),
             _notify=lambda title, detail: events.append("notify"),
+            _notify_quick_slot=lambda action, title, detail: events.append("notify"),
             root=Mock(),
         )
         return desk, events

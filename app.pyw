@@ -3194,6 +3194,47 @@ class PocketDesk:
             self._modal = was_modal
             raise
 
+    def _manage_note_reminder(self, note_id, action):
+        """Overview actions: quick Snooze/Done, without changing Note placement."""
+        note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
+        if note is None or not note.get("reminder_enabled"):
+            return
+        popup = getattr(self, "_due_reminder_dialog", None)
+        if popup is not None and popup.winfo_exists():
+            popup.lift()
+            return
+        if action not in ("snooze", "done"):
+            raise ValueError("Unsupported reminder action")
+        if action == "done" and note.get("reminder_draft"):
+            previous_modal = self._modal
+            self._modal = True
+            try:
+                if not messagebox.askyesno(
+                        "Discard reminder draft?",
+                        "This reminder has an unsent response draft.\n"
+                        "Mark it done without adding the draft to the Note?",
+                        parent=self.root):
+                    return
+            finally:
+                self._modal = previous_modal
+        self._flush_current_note()
+        original = {key: note.get(key) for key in (
+            "body", "reminder_at", "reminder_sent_at", "reminder_enabled",
+            "reminder_snoozed", "reminder_draft", "reminder_add_response")}
+        try:
+            if action == "snooze":
+                snooze_reminder(note, 15, note.get("reminder_draft", ""),
+                                note.get("reminder_add_response", False))
+            else:
+                complete_reminder(note)
+            if self._write_now() is False:
+                raise OSError("Could not save the reminder update.")
+        except Exception as exc:
+            note.update(original)
+            messagebox.showerror("Pocket reminder", str(exc), parent=self.root)
+            return
+        self._refresh_note_reminder_ui()
+
     def _toggle_note_pin(self, note_id: str):
         target = next((n for n in self.data["notes"] if n["id"] == note_id), None)
         if target is None:

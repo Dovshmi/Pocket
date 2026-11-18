@@ -3182,7 +3182,7 @@ class PocketDesk:
 
         try:
             self._reminder_dialog = reminder_ui.open_datetime_editor(
-                self.root, note, save_reminder, closed)
+                self.root, note, save_reminder, closed, theme=self.theme)
         except Exception:
             self._modal = was_modal
             raise
@@ -3229,7 +3229,7 @@ class PocketDesk:
 
         try:
             self._due_reminder_dialog = reminder_ui.open_due_dialog(
-                self.root, note, done, snooze, closed)
+                self.root, note, done, snooze, closed, theme=self.theme)
         except Exception:
             self._modal = was_modal
             raise

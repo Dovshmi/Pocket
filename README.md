@@ -8,14 +8,14 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.39.7-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.7)
+[![Release](https://img.shields.io/badge/Stable-v1.39.8-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.8)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP v1.39.7](https://github.com/Dovshmi/Pocket/releases/download/v1.39.7/Pocket-Portable-v1.39.7.zip)** ·
-**[Download Standalone EXE v1.39.7](https://github.com/Dovshmi/Pocket/releases/download/v1.39.7/Pocket-v1.39.7.exe)** ·
-[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.7/SHA256SUMS.txt) ·
+**[Download Portable ZIP v1.39.8](https://github.com/Dovshmi/Pocket/releases/download/v1.39.8/Pocket-Portable-v1.39.8.zip)** ·
+**[Download Standalone EXE v1.39.8](https://github.com/Dovshmi/Pocket/releases/download/v1.39.8/Pocket-v1.39.8.exe)** ·
+[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.8/SHA256SUMS.txt) ·
 [All Releases](https://github.com/Dovshmi/Pocket/releases)
 
 </div>
@@ -25,10 +25,17 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
-> **Pocket v1.39.7 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.7). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
+> **Pocket v1.39.8 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.8). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
 > **Offline-first:** Notes, CLI, subnet calculations, clipboard and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
+
+## What's new in v1.39.8
+
+- **Slightly roomier native Windows Quick Slot replacement dialog:** The existing system Yes/No dialog still shows **Old text → New text** vertically, and the text preview now allows 30 characters instead of 23. Windows continues to determine the actual dialog dimensions.
+- **No other behavior changes:** Note reminders, time picking, snooze behavior and dashboards are not part of this patch; those improvements are being considered separately.
+
+[Release details](docs/releases/v1.39.8.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
 
 ## What's new in v1.39.7
 
@@ -140,7 +147,8 @@ Saving highlighted text behaves like Windows **Ctrl+C** and also updates the reg
 
 | Version | Main changes |
 | :--- | :--- |
-| **v1.39.7 — latest stable release** | Polished Copy/Paste/Unchanged wording and vertical native Windows replacement dialog |
+| **v1.39.8 — latest stable release** | Slightly roomier native Windows Quick Slot replacement dialog; no reminder changes |
+| **v1.39.7** | Polished Copy/Paste/Unchanged wording and vertical native Windows replacement dialog |
 | **v1.39.6** | Native Windows replacement dialog, clean COPY/PASTE notifications, optional notification modes |
 | **v1.39.5** | Compact Windows notices, New → Old replacement dialog, retained clipboard history and five-option tray menu |
 | **v1.39.4** | Readable Quick Slot notifications with text preview, updated Save default and simplified Settings |
@@ -264,16 +272,16 @@ Pocket remembers window placement, last active tool and supports **Blue, Dark Bl
 
 ### Portable ZIP — recommended for a work PC
 
-1. Download the **[Pocket-Portable-v1.39.7.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.7/Pocket-Portable-v1.39.7.zip)** stable release.
+1. Download the **[Pocket-Portable-v1.39.8.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.8/Pocket-Portable-v1.39.8.zip)** stable release.
 2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
 3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
 4. Choose a window layout and theme in Settings.
 
-No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.7 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
+No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.8 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
 
 ### Standalone EXE
 
-Download **[Pocket-v1.39.7.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.7/Pocket-v1.39.7.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+Download **[Pocket-v1.39.8.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.8/Pocket-v1.39.8.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
 
 > [!IMPORTANT]
 > Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).

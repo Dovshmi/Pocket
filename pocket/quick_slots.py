@@ -92,10 +92,10 @@ def slot_notification(action, number, value):
     if number not in SLOT_NUMBERS:
         raise ValueError("Invalid Quick Slot number")
     titles = {
-        "saved": f"Pocket · COPY [{number}]",
-        "pasted": f"Pocket · PASTE [{number}]",
-        "clipboard": f"Pocket · COPY [{number}]",
-        "already": f"Pocket · COPY [{number}] (unchanged)",
+        "saved": f"Pocket · Copy [{number}]",
+        "pasted": f"Pocket · Paste [{number}]",
+        "clipboard": f"Pocket · Copy [{number}]",
+        "already": f"Pocket · Unchanged [{number}]",
     }
     if action not in titles:
         raise ValueError("Invalid Quick Slot notification action")

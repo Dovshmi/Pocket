@@ -15,7 +15,7 @@ class ClipboardSettingsTests(unittest.TestCase):
     def test_bad_preferences_are_sanitized(self):
         prefs = app["normalize_settings"]({
                                         "visible_tabs": ["clipboard", "fake", "clipboard"]})
-        self.assertEqual(prefs["visible_tabs"], ["clipboard"])
+        self.assertEqual(prefs["visible_tabs"], ["clipboard", "reminders"])
 
     def test_note_reminder_due_once(self):
         from datetime import datetime, timedelta, timezone

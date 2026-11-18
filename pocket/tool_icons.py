@@ -8,7 +8,7 @@ from __future__ import annotations
 from PIL import Image, ImageDraw, ImageTk
 
 TOOLS = ("home", "notes", "links", "ports", "mac", "commands",
-         "subnet", "clipboard", "settings", "template", "shortcut", "more")
+         "subnet", "clipboard", "reminders", "settings", "template", "shortcut", "more")
 
 
 def _drawing(name, color, size):
@@ -59,6 +59,12 @@ def _drawing(name, color, size):
         line([(11, 8), (7, 15)])
         line([(13, 8), (17, 15)])
         line([(8, 18), (16, 18)])
+    elif name == "reminders":
+        # A simple alarm bell: consistent with the other locally drawn 20px icons.
+        line([(8, 17), (7, 15), (7, 10), (9, 6), (12, 5),
+              (15, 6), (17, 10), (17, 15), (16, 17)])
+        line([(5, 18), (19, 18)])
+        oval((11, 19), (13, 21))
     elif name == "clipboard":
         rect((5, 5), (19, 21))
         rect((9, 2), (15, 8), radius=1)

@@ -24,6 +24,7 @@ NAVIGATION = (
     ("commands", ">_", "Commands"),
     ("subnet", "⌗", "Subnet"),
     ("clipboard", "▣", "Clipboard"),
+    ("reminders", "♧", "Reminders"),
     ("settings", "⚙", "Settings"),
 )
 
@@ -36,6 +37,7 @@ PAGES = {
     "commands": ("Commands", "Search, edit and copy CLI references"),
     "subnet": ("Subnet", "IPv4 networks and address ranges"),
     "clipboard": ("Clipboard", "Session-only copied text"),
+    "reminders": ("Reminders", "Your Note reminders"),
     "settings": ("Settings", "Customize Pocket"),
 }
 
@@ -47,6 +49,7 @@ TOOL_DESCRIPTIONS = {
     "commands": "Run no commands",
     "subnet": "IPv4 ranges",
     "clipboard": "Saved text",
+    "reminders": "Local reminders",
 }
 
 # Match the screenshot's primary actions, with substitutions when hidden.

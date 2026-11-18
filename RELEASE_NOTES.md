@@ -1,3 +1,21 @@
+# Pocket v1.39.9 — Reminders, Smart Snooze & Compact Reminder UI
+
+**Source merged into main · Windows build/release pending · Offline-first**
+
+- **Independent reminders** now live alongside Note-linked reminders in a dedicated hub with Upcoming/Snoozed/Done tabs and local search. New reminders are created through a compact themed calendar, then edited inline without opening a second form.
+- **New due notification dialog:** Clear TITLE/NOTE hierarchy, unobtrusive horizontal divider, full scrollable Note content and dark Pocket-themed buttons. Response input only appears when checked, and the popup resizes to fit content. Optional replies are timestamped, preserving existing Note text.
+- **One-button Snooze:** Choose 5, 10, 15, 20, 30, 40, 45, 50, 60, 90 or 120 minutes. Snoozed draft replies survive app restarts.
+- **Mini navigation and Reminders display:** Expandable More/Less preserves the original first-row icon positions; Reminders is available in Mini, Normal and Dashboard.
+- **Compact controls:** The results heading holds a slightly larger **green +** without a background, and small text-only **Clear**. Clear applies to the selected status tab (All clears everything), asks for confirmation, and never deletes a linked Note or its body. Unsuccessful saves restore the prior state.
+- **Unified on/off setting:** Removing Reminders from visible menus also stops Note and independent due notifications; scheduled data remains intact and resumes after re-enabling.
+- **Settings:** Version is **v1.39.9** on the updated source branch/main. Updated local backups, recovery and regression tests cover the reminder data model and UI.
+
+**Distribution status:** The previous v1.39.8 ZIP/EXE remains the latest published stable release until 1.39.9 packages pass Windows CI and are explicitly published. Source/preview updates do not replace published download URLs.
+
+[Implementation and test notes](docs/REMINDERS_V1399_DEV.md) · [Latest CI](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml)
+
+---
+
 # Pocket v1.39.8 — A Little More Room in Quick Slot Replacement
 
 **Focused Windows UI patch · Offline-first · Portable ZIP and standalone EXE**

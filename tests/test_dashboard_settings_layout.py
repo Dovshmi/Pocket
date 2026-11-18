@@ -41,7 +41,7 @@ class DashboardSettingsLayoutTests(unittest.TestCase):
                 "_set_clipboard_sensitive_filter", "_hotkey_hint"):
             self.assertIn("app." + method, SHARED)
         self.assertEqual(len(themes.THEME_ORDER), 6)
-        self.assertEqual(len(settings_ui.TOOL_HELP), 7)
+        self.assertEqual(len(settings_ui.TOOL_HELP), len(settings_ui.TOOL_ICONS))
         for code in (ADAPTER, SHARED):
             self.assertNotIn("requests.get(", code)
             self.assertNotIn("urlopen(", code)

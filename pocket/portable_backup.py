@@ -19,6 +19,7 @@ from zipfile import ZipFile, ZIP_DEFLATED, BadZipFile
 from . import clipboard_database as cdb
 from . import command_store as cs
 from . import data_recovery
+from . import reminder_store
 from . import shortcut_folders
 
 VERSION = 1
@@ -74,7 +75,7 @@ def available_export_categories(profile, *, commands_path=None, profile_dir=None
     db = cdb.ClipboardDatabase(root)
     for category in CATEGORIES:
         if category == "notes":
-            present = bool(profile.get("notes"))
+            present = bool(profile.get("notes") or profile.get("reminders"))
         elif category == "links":
             present = bool(profile.get("links"))
         elif category == "cli":
@@ -110,7 +111,7 @@ def available_restore_categories(bundle, *, commands_path=None):
             continue
         group = payload[category]
         if category == "notes":
-            present = bool(group["notes"])
+            present = bool(group["notes"] or group.get("reminders"))
         elif category == "links":
             present = bool(group["links"])
         elif category == "settings":
@@ -192,7 +193,9 @@ def _archive_data(profile, groups, commands_path, profile_dir):
     if "notes" in groups:
         data["notes"] = {"notes": _items(profile["notes"], "notes",
                                         ("id", "title", "body")),
-                         "active_note": profile.get("active_note")}
+                         "active_note": profile.get("active_note"),
+                         "reminders": deepcopy(reminder_store.normalize_reminders(
+                             profile.get("reminders")))}
     if "links" in groups:
         data["links"] = {"links": _items(profile["links"], "links",
                                         ("id", "title", "url")),
@@ -332,6 +335,7 @@ def read_backup(source):
             if not isinstance(group, dict) or "notes" not in group:
                 raise ValueError("Invalid notes backup")
             _items(group["notes"], "notes", ("id", "title", "body"))
+            reminder_store.normalize_reminders(group.get("reminders"))
         elif category == "links":
             if not isinstance(group, dict) or "links" not in group:
                 raise ValueError("Invalid links backup")
@@ -412,6 +416,13 @@ def plan_restore(bundle, current, *, selected, mode="merge", current_commands=No
             if not updated:
                 raise ValueError("Cannot restore an empty notes list")
             profile["notes"] = updated
+            standalone = reminder_store.normalize_reminders(incoming.get("reminders"))
+            if mode == "replace":
+                profile["reminders"] = standalone
+            else:
+                imported, _standalone_counts = _merge_items(
+                    profile.get("reminders", []), standalone)
+                profile["reminders"] = reminder_store.normalize_reminders(imported)
             old_active = profile.get("active_note")
             wanted_active = incoming.get("active_note")
             profile["active_note"] = (old_active if mode == "merge" and

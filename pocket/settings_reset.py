@@ -11,7 +11,8 @@ RESET_GROUPS = (
 )
 SETTINGS_FIELDS = {
     "appearance": ("display_mode",),
-    "menus": ("visible_tabs", "extra_mini_enabled", "extra_mini_tiles"),
+    "menus": ("visible_tabs", "reminders_menu_configured",
+              "extra_mini_enabled", "extra_mini_tiles"),
     "keyboard": ("convert_enabled", "convert_mode", "quick_slots_enabled",
                  "quick_slots_paste_prefix", "quick_slots_copy_prefix",
                   "quick_slots_save_mode", "quick_slots_paste_mode",

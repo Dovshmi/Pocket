@@ -19,6 +19,7 @@ LABELS = {
     "commands": "CLI",
     "subnet": "Subnet",
     "clipboard": "Clip",
+    "reminders": "Remind",
     "settings": "Settings",
 }
 FULL_NAMES = {
@@ -29,6 +30,7 @@ FULL_NAMES = {
     "commands": "Commands",
     "subnet": "Subnet Calculator",
     "clipboard": "Clipboard",
+    "reminders": "Reminders",
     "settings": "Settings",
 }
 TILE_WIDTH = 52

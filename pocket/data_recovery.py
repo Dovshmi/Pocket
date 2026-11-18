@@ -28,6 +28,9 @@ def validate_payload(value) -> None:
             not isinstance(item.get(field), str) for field in ("id", "title", "body")
         ):
             raise ValueError("Invalid note in Pocket data")
+    # Legacy profiles have no independent-reminders field.
+    from . import reminder_store
+    reminder_store.normalize_reminders(value.get("reminders"))
     for item in value["links"]:
         if not isinstance(item, dict) or any(
             not isinstance(item.get(field), str) for field in ("id", "title", "url")

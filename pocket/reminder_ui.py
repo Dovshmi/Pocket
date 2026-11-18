@@ -346,10 +346,17 @@ def build_overview(app, parent, *, colors):
             def open_note(note_id=note["id"]):
                 app.data["active_note"] = note_id
                 app.show_tab("notes")
-            ttk.Button(buttons, text="Open Note", command=open_note).pack(side="left")
-            ttk.Button(buttons, text="Change time",
+            ttk.Button(buttons, text="Open", command=open_note).pack(side="left")
+            ttk.Button(buttons, text="Edit time",
                        command=lambda note_id=note["id"]: app._edit_note_reminder(note_id)
-                       ).pack(side="right")
+                       ).pack(side="left", padx=(5, 0))
+            if notes.reminder_status(note) != "Completed":
+                ttk.Button(buttons, text="Snooze 15m",
+                           command=lambda note_id=note["id"]: app._manage_note_reminder(
+                               note_id, "snooze")).pack(side="left", padx=(5, 0))
+                ttk.Button(buttons, text="Done",
+                           command=lambda note_id=note["id"]: app._manage_note_reminder(
+                               note_id, "done")).pack(side="right")
     choice.bind("<<ComboboxSelected>>", render)
     render()
     parent._reminders_filter = status_filter

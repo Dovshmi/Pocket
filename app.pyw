@@ -259,6 +259,11 @@ VISIBLE_TABS = (("notes", "NOTES"), ("links", "SHORTCUTS"), ("ports", "PORTS"),
                 ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"))
 
 
+def reminders_enabled(settings):
+    """The Reminders menu switch also controls ALL reminder notifications."""
+    return isinstance(settings, dict) and "reminders" in settings.get("visible_tabs", ())
+
+
 def normalize_settings(raw):
     raw = raw if isinstance(raw, dict) else {}
     selected = raw.get("visible_tabs", [key for key, _ in VISIBLE_TABS])
@@ -1659,6 +1664,8 @@ class PocketDesk:
         if key == "clipboard":
             self._clipboard_last = None
             self._clipboard_sequence = None
+        if key == "reminders" and not enabled:
+            self._suspend_open_due_reminder()
         self._build_shell_refresh()
         self.schedule_save()
 
@@ -3011,8 +3018,15 @@ class PocketDesk:
         self.title_var.set(n["title"])
         self.created_label.config(text=display_created_at(n.get("created_at", "")))
         self.phone_var.set(n.get("phone", ""))
-        self.reminder_action.config(text="☑ Notify me" if n.get("reminder_enabled") else "☐ Notify me")
-        self.reminder_detail.config(text=format_reminder(n))
+        available = reminders_enabled(self.settings)
+        self.reminder_action.config(
+            text=("☑ Notify me" if n.get("reminder_enabled") else "☐ Notify me")
+                 if available else "☐ Notify me (disabled)",
+            fg=SECONDARY if available else MUTED,
+            cursor="hand2" if available else "arrow")
+        self.reminder_detail.config(
+            text=format_reminder(n) if available else "Enable Reminders in Settings",
+            fg=MUTED, cursor="hand2" if available else "arrow")
         self.note_body.delete("1.0", tk.END)
         self.note_body.insert("1.0", n["body"])
         if self.bidi_editor is not None:
@@ -3123,13 +3137,16 @@ class PocketDesk:
             menu.add_command(label="Unpin from top" if note.get("pinned") else "Pin to top",
                              command=lambda: self._toggle_note_pin(note_id))
             menu.add_command(label="Duplicate note", command=lambda: self._duplicate_note(note_id))
+            reminder_state = "normal" if reminders_enabled(self.settings) else "disabled"
             menu.add_checkbutton(label="Notify me…", onvalue=True, offvalue=False,
                                  variable=tk.BooleanVar(value=note.get("reminder_enabled", False)),
+                                 state=reminder_state,
                                  command=lambda: self._toggle_note_reminder(note_id))
             if note.get("reminder_enabled"):
                 menu.add_command(label="Change notification time…",
+                                 state=reminder_state,
                                  command=lambda: self._edit_note_reminder(note_id))
-            menu.add_command(label="View all reminders",
+            menu.add_command(label="View all reminders", state=reminder_state,
                              command=lambda: self.show_tab("reminders"))
             menu.add_separator()
             menu.add_command(label="Delete note…", command=lambda: self._delete_note_by_id(note_id))
@@ -3146,6 +3163,8 @@ class PocketDesk:
             self._edit_note_reminder(note["id"])
 
     def _toggle_note_reminder(self, note_id):
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return
         note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
         if not note:
             return
@@ -3167,6 +3186,8 @@ class PocketDesk:
 
     def _edit_note_reminder(self, note_id):
         """Calendar-based scheduling with hour/minute selection and quick presets."""
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return
         note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
         if note is None:
             return
@@ -3179,11 +3200,17 @@ class PocketDesk:
         self._modal = True
 
         def save_reminder(when):
+            prior = dict(note)
             note.update(reminder_enabled=True, reminder_at=when, reminder_sent_at="",
                         reminder_snoozed=False, reminder_draft="",
                         reminder_add_response=False)
-            if self._write_now() is False:
-                raise OSError("Pocket could not save the reminder.")
+            try:
+                if self._write_now() is False:
+                    raise OSError("Pocket could not save the reminder.")
+            except Exception:
+                note.clear()
+                note.update(prior)
+                raise
             self._refresh_note_reminder_ui()
 
         def closed():
@@ -3199,6 +3226,8 @@ class PocketDesk:
 
     def _edit_standalone_reminder(self, reminder_id=None):
         """Open only the calendar; then create a directly editable Reminder card."""
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return
         record = (next((r for r in self.data["reminders"]
                         if r["id"] == reminder_id), None) if reminder_id else None)
         if reminder_id is not None and record is None:
@@ -3327,6 +3356,8 @@ class PocketDesk:
 
     def _display_due_reminder(self, note_id, source="note"):
         """One pending dialog for either a Note or standalone reminder."""
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return
         current = getattr(self, "_due_reminder_dialog", None)
         if current is not None and current.winfo_exists():
             current.lift()
@@ -3377,12 +3408,15 @@ class PocketDesk:
             displayed = {**item, "kind": "standalone"} if standalone else item
             self._due_reminder_dialog = reminder_ui.open_due_dialog(
                 self.root, displayed, done, snooze, closed, theme=self.theme)
+            self._due_reminder_dialog._source_record = item
         except Exception:
             self._modal = was_modal
             raise
 
-    def _manage_note_reminder(self, note_id, action, source="note"):
+    def _manage_note_reminder(self, note_id, action, source="note", minutes=15):
         """Shared overview actions for both types; never create a Note."""
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            return
         standalone = source == "standalone"
         records = self.data.get("reminders", []) if standalone else self.data["notes"]
         item = next((n for n in records if n["id"] == note_id), None)
@@ -3412,7 +3446,7 @@ class PocketDesk:
         try:
             if action == "snooze":
                 fn = reminder_store.snooze if standalone else snooze_reminder
-                fn(item, 15, item.get("reminder_draft", ""),
+                fn(item, minutes, item.get("reminder_draft", ""),
                    item.get("reminder_add_response", False))
             else:
                 (reminder_store.complete if standalone else complete_reminder)(item)
@@ -6108,12 +6142,47 @@ class PocketDesk:
         else:
             self.hide()
 
-    def _reminder_poll(self):
-        """Keep a due reminder pending until explicitly dismissed or snoozed.
+    def _suspend_open_due_reminder(self):
+        """Silence an already-visible reminder without completing or deleting it."""
+        current = getattr(self, "_due_reminder_dialog", None)
+        if current is None or not current.winfo_exists():
+            return
 
-        Unlike the old one-way toast, opening a dialog does not mark it sent.
-        A crash/restart cannot silently consume an unanswered reminder.
+        # Preserve any optional, unsubmitted draft before dismissing on disable.
+        item = getattr(current, "_source_record", None)
+        enabled = getattr(current, "_response_enabled", None)
+        entry = getattr(current, "_response_input", None)
+        if item is not None and enabled is not None and entry is not None:
+            checked = enabled.get() is True
+            draft = entry.get("1.0", "end-1c")[:4000] if checked else ""
+            old_draft = item.get("reminder_draft", "")
+            old_checked = item.get("reminder_add_response", False)
+            if (draft, checked) != (old_draft, old_checked):
+                item["reminder_draft"] = draft
+                item["reminder_add_response"] = checked
+                if self._write_now() is False:
+                    item["reminder_draft"] = old_draft
+                    item["reminder_add_response"] = old_checked
+
+        suspend = getattr(current, "_suspend_without_completion", None)
+        if callable(suspend):
+            suspend()
+        else:
+            current.destroy()
+            self._due_reminder_dialog = None
+            self._modal = False
+
+    def _reminder_poll(self):
+        """Deliver reminders only when their menu/notifications switch is enabled.
+
+        Hidden menus do not poll or pop up alerts for Notes or standalone items.
+        Pending notifications remain stored and resume when enabled again.
         """
+        if not reminders_enabled(getattr(self, "settings", {"visible_tabs": ["reminders"]})):
+            suspend = getattr(self, "_suspend_open_due_reminder", None)
+            if callable(suspend):
+                suspend()
+            return
         current = getattr(self, "_due_reminder_dialog", None)
         if current is not None and current.winfo_exists():
             return

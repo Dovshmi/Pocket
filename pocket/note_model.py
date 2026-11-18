@@ -132,7 +132,7 @@ def format_reminder(note):
 
 
 
-SNOOZE_MINUTES = (5, 15, 30, 60)
+SNOOZE_MINUTES = (5, 10, 15, 20, 30, 40, 45, 50, 60, 90, 120)
 
 
 def reminder_status(note):

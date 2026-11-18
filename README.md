@@ -8,14 +8,14 @@
 
 A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.39.0-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0)
+[![Release](https://img.shields.io/badge/Stable-v1.39.1-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.1)
 ![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
 
-**[Download Portable ZIP v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-Portable-v1.39.0.zip)** ·
-**[Download Standalone EXE v1.39.0](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/Pocket-v1.39.0.exe)** ·
-[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.0/SHA256SUMS.txt) ·
+**[Download Portable ZIP v1.39.1](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-Portable-v1.39.1.zip)** ·
+**[Download Standalone EXE v1.39.1](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-v1.39.1.exe)** ·
+[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/SHA256SUMS.txt) ·
 [All Releases](https://github.com/Dovshmi/Pocket/releases)
 
 </div>
@@ -25,10 +25,18 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 Pocket runs from the Windows system tray and opens on demand. It brings seven practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
-> **Pocket v1.39.0 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.0). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
+> **Pocket v1.39.1 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.1). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
 > **Offline-first:** Notes, CLI, subnet calculations, clipboard and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
+
+## What's new in v1.39.1
+
+- **Quick Slot paste fix:** If Windows OLE cannot capture the previous clipboard safely, Auto Paste uses direct Unicode text input instead of failing before pasting. It does not change the clipboard during that fallback.
+- **Clipboard Only option:** Under **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose **Copy to Clipboard** to stage a saved slot for ordinary manual `Ctrl+V`. This setting replaces the clipboard's current contents and does not auto-paste.
+- **Default and migration:** Auto Paste remains the default for existing users; preferences are saved locally. Your nine Quick Slots, hotkeys, Notes and command data are retained.
+
+[Release details](docs/releases/v1.39.1.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md)
 
 ## What's new in v1.39.0
 
@@ -72,13 +80,14 @@ Saving highlighted text behaves like Windows **Ctrl+C** and also updates the reg
 
 - **Record Shortcut:** Capture a popup or Translate shortcut by pressing the desired keys in the Settings recorder, with the manual picker retained. Quick Slot recording changes modifiers only, never the numbered Numpad key. A conflicting shortcut keeps the previous configuration.
 - **Default Settings:** Reset selected groups (appearance, menus, keyboard, clipboard preferences, network) without deleting personal Notes, Links, CLI, Clipboard DATABASE files or saved Quick Slot text.
-- **Updated Settings:** The footer reports **v1.39.0**, with the backup/restore controls available in the regular Settings UI.
+- **Updated Settings (v1.39.0):** The footer reported **v1.39.0**, with the backup/restore controls available in the regular Settings UI.
 
 ### Version highlights
 
 | Version | Main changes |
 | :--- | :--- |
-| **v1.39.0 — latest stable release** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
+| **v1.39.1 — latest stable release** | Windows Quick Slot paste repair, optional Copy to Clipboard mode, safer fallback without replacing existing clipboard |
+| **v1.39.0** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
 | **v1.38.0 — previous release** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
 | **v1.37 — incorporated into v1.38.0** | Optional local Clipboard DATABASE, EN/HE keyboard layout repair and Windows proxy selection |
 | **v1.36.0** | Native Windows text-input improvements, ordered port-check results, Mini Commands improvements |

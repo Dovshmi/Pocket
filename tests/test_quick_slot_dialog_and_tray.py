@@ -31,7 +31,7 @@ class QuickSlotDialogAndTrayTests(unittest.TestCase):
                 root, "blue", 2, "SVLAN 1557", "SVLAN 11"))
         ask.assert_called_once_with(
             "Replace Quick Slot [2]?",
-            "NEW: SVLAN 11   →   OLD: SVLAN 1557",
+            "Old: SVLAN 1557\n↓\nNew: SVLAN 11",
             parent=root)
         with patch.object(quick_slot_dialog.messagebox, "askyesno", return_value=True):
             self.assertTrue(quick_slot_dialog.confirm_replace(

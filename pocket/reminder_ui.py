@@ -36,7 +36,10 @@ def attach_snooze_menu(button, on_select, colors):
         try:
             menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
         finally:
-            menu.grab_release()
+            # Selecting an option can rebuild the Reminder card and destroy
+            # its Menu before tk_popup returns.
+            if menu.winfo_exists():
+                menu.grab_release()
 
     button.configure(command=open_menu)
     button._snooze_menu = menu
@@ -472,7 +475,9 @@ def build_overview(app, parent, *, colors):
     for value, caption in (("All", "All"), ("Upcoming", "Upcoming"),
                            ("Snoozed", "Snoozed"), ("Completed", "Done")):
         tabs.grid_columnconfigure(len(filter_buttons), weight=1, uniform="filter")
-        button = action(tabs, caption, lambda target=value: set_filter(target))
+        button = action(tabs, caption, lambda target=value: set_filter(target),
+                        size=7)
+        button.configure(padx=3)
         button.grid(row=0, column=len(filter_buttons), sticky="ew", padx=(0, 3))
         filter_buttons[value] = button
 

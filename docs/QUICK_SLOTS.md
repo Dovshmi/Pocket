@@ -43,6 +43,11 @@ Open **Settings → Clipboard & privacy**:
 * **Paste shortcut prefix:** default `Ctrl+Alt`.
 * **Save / Copy shortcut prefix:** default `Ctrl+Win`.
 
+**The two behavior dropdowns are independent.** For example, you can
+keep Auto Copy Selection enabled but set Paste to Copy to Clipboard
+for programs where Hebrew only pastes correctly with a physical Ctrl+V.
+Or select Use Current Clipboard for saving while keeping Auto Paste.
+
 Each dropdown chooses **only modifier keys**: `Ctrl+Alt`, `Ctrl`,
 `Ctrl+Win` or `Ctrl+Alt+Win`. The actual keys are always
 **Numpad1–9**; their numbers cannot be changed in Settings.

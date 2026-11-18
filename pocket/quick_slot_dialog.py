@@ -66,7 +66,7 @@ def confirm_replace(root, theme, number, old_text, new_text):
         tk.Label(frame, text=name, bg=c["CARD"], fg=c["MUTED"],
                  font=("Segoe UI", 8, "bold")).pack(pady=(6, 2))
         tk.Label(frame, text=value, bg=c["CARD"], fg=c["WHITE"],
-                 font=("Segoe UI", 9), anchor="center",
+                 font=("Segoe UI", 9), anchor="center", wraplength=146,
                  justify="center").pack(padx=4, fill="x")
     tk.Label(body, text="→", bg=c["BG"], fg=c["ACCENT"],
              font=("Segoe UI", 17, "bold")).grid(row=0, column=1, padx=9)

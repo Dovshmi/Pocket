@@ -1,10 +1,8 @@
 name: Publish Pocket v1.39.9 (Reminders)
 
-# Publish only on manual confirmation or on the specifically authorized
-# [release v1.39.9] commit. Other pushes/merges never publish.
+# The v1.39.9 release was published after explicit approval.
+# Further publication attempts require a manual workflow dispatch.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       confirm_version:
@@ -22,9 +20,8 @@ concurrency:
 jobs:
   release:
     if: >-
-      github.repository == 'Dovshmi/Pocket' && github.ref == 'refs/heads/main' &&
-      ((github.event_name == 'workflow_dispatch' && inputs.confirm_version == 'v1.39.9') ||
-       (github.event_name == 'push' && startsWith(github.event.head_commit.message, '[release v1.39.9]')))
+      github.repository == 'Dovshmi/Pocket' && github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' && inputs.confirm_version == 'v1.39.9'
     runs-on: windows-latest
     env:
       POCKET_RELEASE_VERSION: v1.39.9

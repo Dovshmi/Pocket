@@ -1,3 +1,23 @@
+# Pocket v1.39.3 — Separate Automatic Copy and Paste Controls
+
+**Stable patch release · Windows 10 / Windows 11 · Portable ZIP and standalone EXE**
+
+Quick Slots now have two separate preferences under **Settings → Clipboard & privacy**:
+
+- **Quick Slot save behavior:** **Auto Copy Selection** (legacy default) issues Ctrl+C and saves the selected text, falling back to existing clipboard text when the app offers no new selection. **Use Current Clipboard** reads previously copied text without simulating Ctrl+C; copy text yourself first.
+- **Quick Slot paste behavior:** **Auto Paste** (legacy default) inserts the saved slot immediately, or **Copy to Clipboard** places it in the Windows clipboard for a manual Ctrl+V.
+- **Independent selection:** any combination is supported, saved across restarts, with no change to existing hotkeys or stored slots.
+
+For programs where automatic Unicode paste of Hebrew is rejected or renders question marks, choose Copy to Clipboard for Paste and press regular Ctrl+V in that program. Windows does not guarantee injected keystrokes behave like genuine user paste in all applications; this version offers explicit control rather than making unsupported guarantees.
+
+The Quick Slot settings are still excluded from exported backups. Operations are local and offline.
+
+**Upgrade:** Fully quit Pocket, extract the updated portable ZIP into a new directory, and copy your old `data/` folder across. Do not mix older `_internal/` runtime files.
+
+[Detailed release notes](docs/releases/v1.39.3.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.2 — Hebrew & Multilingual Quick Slots Paste Fix
 
 **Stable patch release · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**

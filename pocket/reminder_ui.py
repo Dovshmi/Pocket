@@ -299,25 +299,21 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
         tk.Label(window, text="NOTE", bg=BG, fg=c["SECONDARY"],
                  font=(FONT, 8, "bold"), anchor="w").pack(
                      fill="x", padx=20, pady=(10, 4))
-        # A slim accent bar identifies read-only reminder content without
-        # making it resemble the editable response field.
-        note_row = tk.Frame(window, bg=BG)
-        note_row.pack(fill="x", padx=20)
-        tk.Frame(note_row, bg=c["ACCENT_DARK"], width=3).pack(
-            side="left", fill="y", padx=(0, 9))
+        # Read-only Note text remains unboxed and aligned with the title.
+        # The subtle horizontal separator below it marks the response section.
         viewer = tk.Text(
-            note_row, height=text_lines, width=49, font=(FONT, 9),
+            window, height=text_lines, width=49, font=(FONT, 9),
             wrap="word", relief="flat", bd=0, bg=BG, fg=FG,
             padx=0, pady=0, highlightthickness=0, cursor="arrow",
             takefocus=0)
-        viewer.pack(side="left", fill="x", expand=True)
+        viewer.pack(fill="x", padx=20)
         viewer.insert("1.0", content)
         viewer.configure(state="disabled")
         window._reminder_content_view = viewer
         if visual_lines > text_lines:
             tk.Label(window, text="Scroll to read the complete note",
                      bg=BG, fg=MUTED, font=(FONT, 8),
-                     anchor="w").pack(fill="x", padx=32, pady=(3, 0))
+                     anchor="w").pack(fill="x", padx=20, pady=(3, 0))
     else:
         window._reminder_content_view = None
 
@@ -463,11 +459,9 @@ def build_overview(app, parent, *, colors):
                          cursor="hand2", takefocus=True,
                          highlightthickness=1, highlightbackground=c["BORDER"])
 
-    # Header: one obvious, first-class "New reminder" action.
+    # A clean heading; creation and bulk actions live by the results counter.
     header = tk.Frame(parent, bg=bg)
     header.pack(fill="x", pady=(0, 4))
-    action(header, "+ New", app._edit_standalone_reminder, primary=True,
-           size=9).pack(side="right")
     text(header, "Reminders", size=17, bold=True).pack(side="left")
     text(parent, "Scheduled tasks & reminders, all in one place.",
          size=8, fg=c["MUTED"], anchor="w", justify="left",
@@ -548,6 +542,19 @@ def build_overview(app, parent, *, colors):
     result_count = text(results_title, "YOUR REMINDERS", size=8, bold=True,
                         fg=c["SECONDARY"])
     result_count.pack(side="left")
+    # One compact add control at the far right, and Clear next to it.
+    # Clear always acts on the selected status tab, independent of search.
+    add_button = action(results_title, "+", app._edit_standalone_reminder,
+                        primary=True, size=10)
+    add_button.configure(padx=9, pady=2)
+    add_button.pack(side="right")
+    clear_button = action(results_title, "Clear",
+                          lambda: app._clear_reminders(selected[0]),
+                          danger=True, size=8)
+    clear_button.configure(padx=7, pady=3)
+    clear_button.pack(side="right", padx=(0, 5))
+    parent._reminders_add_button = add_button
+    parent._reminders_clear_button = clear_button
     results.pack(fill="x")
 
     def render(*_args):
@@ -571,6 +578,13 @@ def build_overview(app, parent, *, colors):
             notes.reminder_status(pair[1]) == "Completed",
             pair[1].get("reminder_at", "")))
         result_count.configure(text=f"YOUR REMINDERS   ·   {len(filtered)}")
+        # Search may hide matches, but Clear always applies to the active tab.
+        scope_count = sum(selected[0] == "All" or
+                          notes.reminder_status(item) == selected[0]
+                          for _source, item in items)
+        clear_button.configure(
+            state="normal" if scope_count else "disabled",
+            disabledforeground=c["MUTED"])
 
         if not filtered:
             empty = tk.Frame(results, bg=panel, highlightthickness=1,

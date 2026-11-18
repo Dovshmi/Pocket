@@ -1,3 +1,16 @@
+# Pocket v1.39.7 — Polished Notification Titles and Clear Old-to-New Replacement
+
+**Stable Windows UI polish · Offline-first · Portable ZIP and standalone EXE**
+
+- Quick Slot notifications now read **Pocket · Copy [N]**, **Pocket · Paste [N]**, or **Pocket · Unchanged [N]**, with title-case labels instead of all caps. Unchanged is not prefixed by Copy.
+- The notification body still displays the text preview only, without repeating the operation; native Windows toast layout and the existing notification selector are unchanged. Failure titles use the same capitalization.
+- Replacing an occupied Quick Slot still uses the native Windows **Yes/No MessageBox**. It now displays three short lines in reading order: **Old: [preview]**, **↓**, then **New: [preview]**, with the slot number in the window title.
+- All v1.39.6 settings and v1.39.5 history/tray improvements remain available.
+
+[Release details](docs/releases/v1.39.7.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.6 — Native Windows Dialog and Clean, Optional Quick Slot Notifications
 
 **Windows correction release · Portable ZIP + standalone EXE · Offline-first**

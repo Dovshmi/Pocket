@@ -1432,11 +1432,44 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 app.root.update()
                 capture(app, output, "dashboard_home")
             if mode == "mini":
-                check(len(app.mini_icon_tabs) == len(app.settings["visible_tabs"])+1,
-                      "Mini navigation should show every enabled menu plus Settings")
+                overflow = bool(app._mini_overflow_rows)
+                count = len(app.settings["visible_tabs"]) + (2 if overflow else 1)
+                check(len(app.mini_icon_tabs) == count,
+                      "Mini should expose enabled menus, Settings and More when needed")
                 for key, (tile, glyph, caption) in app.mini_icon_tabs.items():
                     check(bool(tile.bind("<Return>")) and bool(tile.bind("<space>")),
                           f"Mini tool {key}: missing keyboard access")
+                if overflow:
+                    check(len([k for k in app.mini_icon_tabs if
+                               k in ("notes","links","ports","mac","commands","subnet","clipboard","more")]) == 8,
+                          "Mini first row no longer has the eight fixed icons")
+                    first_keys = ("notes", "links", "ports", "mac",
+                                  "commands", "subnet", "clipboard", "more")
+                    original = [(app.mini_icon_tabs[k][0].winfo_rootx(),
+                                 app.mini_icon_tabs[k][0].winfo_rooty())
+                                for k in first_keys]
+                    check(app.mini_icon_tabs["more"][2].cget("text") == "More",
+                          "Overflow must start collapsed as More")
+                    app._toggle_mini_more()
+                    app.root.update()
+                    check(app.mini_icon_tabs["more"][2].cget("text") == "Less",
+                          "Expanded More must become Less")
+                    check(all(row.winfo_manager() == "pack" for row in app._mini_overflow_rows),
+                          "Additional tools did not appear in a new icon row")
+                    check(all(app.mini_icon_tabs[k][0].winfo_rootx() == pos[0] and
+                              app.mini_icon_tabs[k][0].winfo_rooty() == pos[1]
+                              for k, pos in zip(first_keys, original)),
+                          "First-row icons moved during expansion")
+                    check("settings" in app.mini_icon_tabs and "reminders" in app.mini_icon_tabs,
+                          "Extra row must expose both Reminders and Settings")
+                    app._toggle_mini_more()
+                    app.root.update()
+                    check(app.mini_icon_tabs["more"][2].cget("text") == "More",
+                          "Less should collapse the secondary icon row")
+                else:
+                    check("settings" in app.mini_icon_tabs and
+                          app.mini_icon_tabs["settings"][2].cget("text") == "More",
+                          "With no overflow More must open Settings directly")
             app.show_tab("settings")
             app.root.update()
             names = [str(w.cget("text")) for w in widgets(app.body)

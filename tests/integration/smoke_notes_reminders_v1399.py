@@ -141,7 +141,7 @@ def run():
         assert len(app.data["notes"]) == 1, "No Note should be created by + New"
         assert app._reminders_status_filter == "All"
         assert app._reminders_search_entry.cget("bg") == icon_themes.palette("blue")["INPUT"]
-        assert app._reminders_summary.winfo_height() < 43, (
+        assert overview._reminders_summary.winfo_height() < 43, (
             "The status counters must be compact")
 
         # The same reminder popup uses a standalone-specific response label.

@@ -22,6 +22,9 @@ class QuickSlotDialogAndTrayTests(unittest.TestCase):
         long = quick_slot_dialog.confirmation_labels(3, "A" * 80, "שלום " * 20)
         self.assertLessEqual(len(long["old"]), quick_slots.REPLACEMENT_PREVIEW_LENGTH)
         self.assertLessEqual(len(long["new"]), quick_slots.REPLACEMENT_PREVIEW_LENGTH)
+        self.assertEqual(quick_slots.REPLACEMENT_PREVIEW_LENGTH, 30)
+        self.assertEqual(quick_slot_dialog.confirmation_message(
+            2, "old", "new"), "Old text: old\\n↓\\nNew text: new".replace("\\n", "\n"))
 
     def test_native_windows_confirmation_uses_messagebox_yes_no(self):
         from unittest.mock import Mock, patch
@@ -31,7 +34,7 @@ class QuickSlotDialogAndTrayTests(unittest.TestCase):
                 root, "blue", 2, "SVLAN 1557", "SVLAN 11"))
         ask.assert_called_once_with(
             "Replace Quick Slot [2]?",
-            "Old: SVLAN 1557\n↓\nNew: SVLAN 11",
+            "Old text: SVLAN 1557\n↓\nNew text: SVLAN 11",
             parent=root)
         with patch.object(quick_slot_dialog.messagebox, "askyesno", return_value=True):
             self.assertTrue(quick_slot_dialog.confirm_replace(

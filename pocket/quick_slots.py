@@ -231,13 +231,25 @@ def copy_slot_to_clipboard(value, *, owner_hwnd=0, backend=None):
     backend.put_text(value)
 
 
+def requires_clipboard_paste(value):
+    """Use CF_UNICODETEXT for text that can be mangled by injected key events.
+
+    Many Win32/native/remote input controls treat KEYEVENTF_UNICODE events as
+    unrepresentable characters (often '?'). A Unicode clipboard paste is
+    the compatible path for Hebrew and other non-ASCII characters.
+    """
+    return any(ord(character) > 0x7f for character in value)
+
+
 def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
     """Insert slot text into the original focused Windows application.
 
-    Direct Unicode SendInput does not borrow the clipboard at all. It avoids
-    OLE CloseClipboard/OleFlushClipboard failures (including delayed-rendered
-    browser/Tk content) while leaving copied text, images and other formats
-    intact. Some elevated or specialized terminals may require Clipboard Only.
+    Plain ASCII uses direct Unicode SendInput without touching the clipboard.
+    Text containing non-ASCII characters (Hebrew, Arabic, accents, etc.) uses
+    CF_UNICODETEXT and an ordinary Ctrl+V, because some target applications
+    translate injected Unicode key events into '?' characters. The Unicode
+    text stays in the clipboard; no OLE snapshot/restore is attempted.
+    Protected or specialized targets may still require Clipboard Only.
     """
     if not valid_text(value):
         raise ValueError("Quick Slot is empty.")
@@ -253,4 +265,14 @@ def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
         backend.settle_hotkey_release()
     if backend.foreground() != target_hwnd:
         raise MarkError("The active window changed; paste cancelled.")
-    backend.send_text(value, target_hwnd=target_hwnd)
+    if requires_clipboard_paste(value):
+        # Native Windows clipboard API, not OLE; do not attempt unreliable
+        # multi-format OLE restore (CloseClipboard Failed on some workstations).
+        # The copied Unicode text intentionally remains available for Ctrl+V.
+        backend.put_text(value)
+        if backend.foreground() != target_hwnd:
+            raise MarkError("The active window changed; text copied but not pasted.")
+        backend.send_key("V")
+        backend.pause_after_paste()
+    else:
+        backend.send_text(value, target_hwnd=target_hwnd)

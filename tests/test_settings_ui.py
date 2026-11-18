@@ -105,6 +105,47 @@ class ModernSettingsTests(unittest.TestCase):
                              "ctrl_alt_win")
             self.assertEqual(result["clipboard_slots"], {})
 
+    def test_one_quick_slot_notification_setting_is_defaulted_and_persisted(self):
+        from tempfile import TemporaryDirectory
+        from pocket import quick_slots
+        self.assertEqual(app["default_data"]()["settings"][
+            "quick_slots_notification_mode"], "all")
+        self.assertEqual(app["normalize_settings"]({})[
+            "quick_slots_notification_mode"], "all")
+        self.assertEqual(app["normalize_settings"]({
+            "quick_slots_notification_mode": "invalid"})[
+            "quick_slots_notification_mode"], "all")
+        self.assertEqual([v for _, v in quick_slots.NOTIFICATION_CHOICES],
+                         ["all", "copy", "paste", "off"])
+        with TemporaryDirectory() as directory:
+            location = Path(directory) / "data.json"
+            data = app["default_data"]()
+            data["settings"]["quick_slots_notification_mode"] = "paste"
+            app["save_data"](location, data)
+            self.assertEqual(app["load_data"](location)["settings"][
+                "quick_slots_notification_mode"], "paste")
+        self.assertIn('"quick_slots_notification_mode_picker"',
+                      Path(settings_ui.__file__).read_text(encoding="utf-8"))
+
+    def test_quick_slot_notification_filter_does_not_affect_other_notices(self):
+        from pocket import quick_slots
+        desk = SimpleNamespace(
+            settings={"quick_slots_notification_mode": "paste"},
+            schedule_save=Mock(), _notify=Mock())
+        target = app["PocketDesk"]
+        target._notify_quick_slot(desk, "copy", "COPY [3]", "old")
+        desk._notify.assert_not_called()
+        target._notify_quick_slot(desk, "paste", "PASTE [3]", "value")
+        desk._notify.assert_called_once_with("PASTE [3]", "value")
+        target._set_quick_slots_notification_mode(desk, "off")
+        desk.schedule_save.assert_called_once()
+        self.assertEqual(desk.settings["quick_slots_notification_mode"], "off")
+        target._notify_quick_slot(desk, "paste", "PASTE [3]", "value")
+        desk._notify.assert_called_once()
+        target._set_quick_slots_notification_mode(desk, "off")
+        desk.schedule_save.assert_called_once()
+        self.assertTrue(quick_slots.notification_enabled("all", "copy"))
+
     def test_quick_slot_record_buttons_hidden_but_dropdowns_kept(self):
         source = Path(settings_ui.__file__).read_text(encoding="utf-8")
         self.assertNotIn('"record_quick_slots_paste"', source)

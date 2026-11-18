@@ -1,8 +1,8 @@
 """Offline, native-looking reminder dialogs and the Note-linked overview.
 
 The Windows MessageBox cannot host user text entry. These are ordinary
-decorated child windows with system ttk controls, independent of Pocket's
-custom main popup, and require no optional libraries or network access.
+decorated child windows using Pocket-colored Tk controls and themed inputs,
+independent of the main popup and requiring no optional libraries or network.
 """
 from __future__ import annotations
 

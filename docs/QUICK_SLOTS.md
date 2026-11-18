@@ -64,10 +64,18 @@ Shift+Numpad digits into navigation key events.
 The Quick Slot **Record** buttons are no longer shown in Settings.
 Use the modifier dropdowns instead; Numpad1–9 always remain fixed.
 
-Native Windows notifications after Save, Paste and Copy-to-Clipboard show the
-slot number and a short preview of its text (up to 108 characters). Clipboard
-Only correctly instructs you to press Ctrl+V. Previews may be visible in
-Windows notification history, so do not store secrets in Quick Slots.
+Native Windows Quick Slot notifications use **Pocket · COPY [N]** or
+**Pocket · PASTE [N]** as the title and put **only the text preview**
+(up to 108 characters) in the message body, avoiding duplicated action words.
+Copy-to-Clipboard mode still requires pressing Ctrl+V manually to paste.
+
+Under **Settings → Clipboard & privacy → Quick Slot notifications**, choose
+**Copy + Paste** (default), **Copy only**, **Paste only**, or **Off** using one
+dropdown. This setting applies to both success and failure notices from Quick
+Slots; unrelated notices (including Note reminders) are unchanged. The selected
+mode is saved locally with other Quick Slot settings and is deliberately excluded
+from portable backup along with other Quick Slot preferences. Text previews may
+be visible in Windows notification history, so never store secrets in Quick Slots.
 
 Copy and paste cannot use the same modifier prefix. If a replacement
 group conflicts with another application or Windows, the old working
@@ -88,9 +96,10 @@ Changes apply without restarting Pocket.
    This deliberately avoids an unreliable OLE restore while copying selected
    text. If there is no selection, the existing clipboard is unchanged.
    No upload occurs.
-6. Replacing an occupied slot opens a compact Yes/No dialog showing **NEW**
-   text on the left, an arrow to the right, and **OLD** text on the right.
-   Both previews are shortened to fit. No/Escape never changes the slot.
+6. Replacing an occupied slot opens the original **native Windows Yes/No
+   MessageBox**, not a custom Tkinter window. The compact text is:
+   **NEW: preview → OLD: preview**. The slot number is in the title;
+   previews are truncated to fit. No/Escape never changes the slot.
 7. On Yes, the displaced OLD value is preserved in regular history **without
    a Pin**. If it already exists in today's history it is unpinned, not copied;
    if absent it is inserted as an unpinned entry. Applies to both RAM and

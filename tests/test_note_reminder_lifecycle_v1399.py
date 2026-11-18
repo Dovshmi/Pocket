@@ -7,13 +7,18 @@ from pocket import note_model as notes
 
 class NoteReminderLifecycleTests(unittest.TestCase):
     def test_response_never_modifies_existing_content(self):
+        instant = datetime(2026, 11, 18, 20, 17, tzinfo=timezone.utc)
+        stamp = instant.astimezone().strftime("%d/%m/%Y %H:%M")
         initial = "כותרת\nתוכן קיים\n"
-        result = notes.append_reminder_response(initial, "  הפעולה הושלמה  ", True)
+        result = notes.append_reminder_response(
+            initial, "  הפעולה הושלמה  ", True, now=instant)
         self.assertTrue(result.startswith(initial))
-        self.assertEqual(result, initial + "\nהפעולה הושלמה")
-        self.assertEqual(notes.append_reminder_response("hello", "world", True),
-                         "hello\n\nworld")
-        self.assertEqual(notes.append_reminder_response("", "  hello  ", True), "hello")
+        self.assertEqual(result, initial + "\n" + stamp + "\nהפעולה הושלמה")
+        self.assertEqual(notes.append_reminder_response(
+            "hello", "world", True, now=instant),
+            "hello\n\n" + stamp + "\nworld")
+        self.assertEqual(notes.append_reminder_response(
+            "", "  hello  ", True, now=instant), stamp + "\nhello")
 
     def test_no_checkbox_or_empty_response_never_writes(self):
         for checked, value in ((False, "typed"), (True, "  "), (False, "")):
@@ -26,8 +31,10 @@ class NoteReminderLifecycleTests(unittest.TestCase):
 
     def test_response_is_appended_once_and_marks_complete(self):
         note = notes.new_note("Task", "step 1")
-        self.assertTrue(notes.complete_reminder(note, "step 2", True))
-        self.assertEqual(note["body"], "step 1\n\nstep 2")
+        moment = datetime(2026, 11, 18, 20, 17, tzinfo=timezone.utc)
+        self.assertTrue(notes.complete_reminder(note, "step 2", True, now=moment))
+        stamp = moment.astimezone().strftime("%d/%m/%Y %H:%M")
+        self.assertEqual(note["body"], "step 1\n\n" + stamp + "\nstep 2")
         self.assertEqual(notes.reminder_status({**note, "reminder_enabled": True}),
                          "Completed")
 

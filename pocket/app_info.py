@@ -4,7 +4,7 @@ Bump VERSION alongside the official Pocket release and Windows packages.
 """
 
 AUTHOR_CREDIT = "By. Rony Shmidov"
-VERSION = "1.39.6"
+VERSION = "1.39.7"
 
 
 def version_label() -> str:

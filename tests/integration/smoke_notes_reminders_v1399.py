@@ -7,9 +7,16 @@ import sys
 import tkinter as tk
 from datetime import date, timedelta, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from tkinter import ttk
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from pocket import note_model, reminder_ui, icon_themes, reminder_store
+
+import runpy
+APP = runpy.run_path(str(Path(__file__).resolve().parents[2] / "app.pyw"),
+                     run_name="test_import")
+Desk = APP["PocketDesk"]
 
 
 def run():
@@ -179,6 +186,44 @@ def run():
         assert not any(w.cget("text") == "Change time" for w in finished_buttons)
         next(w for w in finished_buttons if w.cget("text") == "Reactivate").invoke()
         assert events[-1] == "calendar"
+
+        # Long reminder body is COMPLETE and readable in a scrollable viewer,
+        # not truncated to the title or to an arbitrary preview length.
+        long_body = "First line\n" + "\n".join(
+            "Customer action " + str(i) for i in range(80))
+        long_popup = reminder_ui.open_due_dialog(
+            root, {**note, "body": long_body}, lambda *_args: None,
+            lambda *_args: None, lambda: None)
+        root.update()
+        viewer = long_popup._reminder_content_view
+        assert viewer is not None
+        assert viewer.get("1.0", "end-1c") == long_body
+        assert viewer.yview()[1] < 1, "Full Note content should be scrollable"
+        viewer.yview_moveto(1.0)
+        assert viewer.yview()[0] > 0, "Could not scroll full Note content"
+        long_popup._done_button.invoke()
+
+        # The Mini Reminders page scrolls with the wheel, with no visible rail.
+        page = tk.Toplevel(root)
+        page.geometry("340x210")
+        outer = tk.Frame(page)
+        outer.pack(fill="both", expand=True)
+        host = SimpleNamespace(body=outer, display_mode="mini",
+                               current_tab="reminders", _tool_scroll_canvas=None)
+        Desk._scrolling_tool_body(host, hide_scrollbar=True)
+        for i in range(45):
+            tk.Label(host.body, text=f"Reminder number {i}").pack()
+        root.update()
+        assert not any(isinstance(w, ttk.Scrollbar) for w in outer.winfo_children()), (
+            "Reminder scroll rail should remain invisible")
+        canvas = host._tool_scroll_canvas
+        assert canvas.yview()[1] < 1, "Scrollable Reminder area not sized"
+        start = canvas.yview()[0]
+        wheel = SimpleNamespace(delta=-120, num=None, widget=host.body)
+        assert Desk._scroll_tool_on_wheel(host, wheel) == "break"
+        root.update()
+        assert canvas.yview()[0] > start, "Mini Reminder mouse wheel did not scroll"
+        page.destroy()
 
     finally:
         root.destroy()

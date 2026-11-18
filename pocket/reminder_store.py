@@ -38,6 +38,31 @@ def make_reminder(title, details="", when=None):
     }
 
 
+
+def update_inline_fields(item, *, title=None, details=None):
+    """Validate edits before mutating a standalone reminder in place.
+
+    Empty/oversized temporary input must not corrupt data.json. Only the
+    changed fields are saved; due time, status and reply history are untouched.
+    """
+    changes = {}
+    if title is not None:
+        if not isinstance(title, str):
+            raise ValueError("The reminder title must be text.")
+        value = title.strip()
+        if not value or len(value) > MAX_TITLE:
+            raise ValueError("Enter a title (1–140 characters).")
+        changes["title"] = value
+    if details is not None:
+        if not isinstance(details, str) or len(details) > MAX_DETAILS:
+            raise ValueError("The Note must be 4,000 characters or fewer.")
+        changes["details"] = details
+    changed = any(item.get(key) != value for key, value in changes.items())
+    if changed:
+        item.update(changes)
+    return changed
+
+
 def normalize_reminders(value):
     """Accept older profiles with no standalone list; reject malformed records."""
     if value is None:

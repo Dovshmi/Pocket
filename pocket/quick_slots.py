@@ -13,7 +13,7 @@ MAX_TEXT_LENGTH = 20_000
 # navigation key events on Windows.
 DEFAULT_PREFIX = "ctrl_alt"  # Backward compatible name for paste.
 DEFAULT_PASTE_PREFIX = "ctrl_alt"
-DEFAULT_COPY_PREFIX = "ctrl_win"
+DEFAULT_COPY_PREFIX = "ctrl_alt_win"
 DEFAULT_PASTE_MODE = "auto"
 DEFAULT_SAVE_MODE = "selection"
 SAVE_MODE_CHOICES = (
@@ -50,6 +50,38 @@ def normalize_save_mode(value):
 def normalize_paste_mode(value):
     """An existing profile must keep its automatic-paste behavior."""
     return value if value in ("auto", "clipboard") else DEFAULT_PASTE_MODE
+
+
+NOTIFICATION_PREVIEW_LENGTH = 120
+
+
+def notification_preview(value, max_length=NOTIFICATION_PREVIEW_LENGTH):
+    """One-line bounded Windows notification preview, without changing saved data."""
+    if not isinstance(value, str) or not value.strip():
+        return "(No text)"
+    compact = " ".join(value.split())
+    if len(compact) > max_length:
+        return compact[:max_length - 1].rstrip() + "…"
+    return compact
+
+
+def slot_notification(action, number, value):
+    """Readable native Windows notification for Save, Paste or Copy mode."""
+    if number not in SLOT_NUMBERS:
+        raise ValueError("Invalid Quick Slot number")
+    details = {
+        "saved": (f"Pocket · Saved to Quick Slot {number}", "Saved text"),
+        "pasted": (f"Pocket · Pasted from Quick Slot {number}", "Pasted text"),
+        "clipboard": (f"Pocket · Copied Quick Slot {number} to clipboard", "Copied text"),
+        "already": (f"Pocket · Already saved in Quick Slot {number}", "Stored text"),
+    }
+    if action not in details:
+        raise ValueError("Invalid Quick Slot notification action")
+    title, label = details[action]
+    message = f"{label}:\n{notification_preview(value)}"
+    if action == "clipboard":
+        message += "\nPress Ctrl+V to paste."
+    return title, message
 
 
 def normalize_slots(raw):
@@ -202,7 +234,7 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
 
-    # Ctrl+Win+NumpadN has just been released. Allow the foreground app to
+    # The configured Save+NumpadN chord was just released. Allow Windows to
     # process the released Win modifier before injecting a plain Ctrl+C.
     backend.settle_hotkey_release() if hasattr(backend, "settle_hotkey_release") else None
     if backend.foreground() != target_hwnd:

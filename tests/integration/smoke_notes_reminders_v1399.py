@@ -26,6 +26,8 @@ def run():
         assert window.winfo_viewable(), "Reminder must be visible while main Pocket window is hidden"
         entry = window._response_input
         assert entry.cget("state") == "disabled", "Input must be disabled by default"
+        assert window._reminder_title_label.cget("text") == "בדיקת לקוח"
+        assert window._reminder_content_view.get("1.0", "end-1c") == "Original text"
         entry.insert("1.0", "blocked")
         assert entry.get("1.0", "end-1c") == "", "Disabled input accepted typing"
         window._response_enabled.set(True)
@@ -107,6 +109,8 @@ def run():
             _edit_note_reminder=lambda *_args: events.append("note"),
             _manage_note_reminder=lambda *a, **kw: events.append("manage"),
             _delete_standalone_reminder=lambda *_args: events.append("delete"),
+            _delete_reminder=lambda *_args, **kwargs: events.append(
+                ("delete", kwargs.get("source"))),
             show_tab=lambda *_args: events.append("navigate"),
             _reminders_status_filter="All", _reminders_focus_new=independent["id"])
         overview = tk.Frame(root)
@@ -125,6 +129,15 @@ def run():
         assert any(w.cget("text") == "Change time" for w in buttons)
         assert not any(w.cget("text") == "Details" for w in buttons)
         assert any(w.cget("text") == "Snooze 15m" for w in buttons)
+        assert not any(w.cget("text") in ("Delete", "Done") for w in buttons)
+        assert sum(w.cget("text") == "×" for w in buttons) == 1
+        assert sum(w.cget("text") == "✓" for w in buttons) == 1
+        next(w for w in buttons if w.cget("text") == "✓").invoke()
+        assert events == ["manage"]
+        events.clear()
+        next(w for w in buttons if w.cget("text") == "×").invoke()
+        assert events == [("delete", "standalone")]
+        events.clear()
         next(w for w in buttons if w.cget("text") == "+ New").invoke()
         assert events == ["calendar"]
         title_field, note_field = app._reminders_inline_fields[independent["id"]]
@@ -151,7 +164,21 @@ def run():
         root.update()
         assert "this reminder" in standalone_popup._response_checkbox.cget("text")
         assert standalone_popup._response_input.cget("state") == "disabled"
+        assert standalone_popup._reminder_title_label.cget("text") == "Call customer"
+        assert (standalone_popup._reminder_content_view.get("1.0", "end-1c")
+                == "Check the link status")
         standalone_popup._done_button.invoke()
+
+        independent["reminder_sent_at"] = datetime.now().astimezone().isoformat()
+        completed = tk.Frame(root)
+        completed.pack()
+        reminder_ui.build_overview(app, completed, colors=icon_themes.palette("blue"))
+        root.update()
+        finished_buttons = [w for w in descendants(completed) if isinstance(w, tk.Button)]
+        assert any(w.cget("text") == "Reactivate" for w in finished_buttons)
+        assert not any(w.cget("text") == "Change time" for w in finished_buttons)
+        next(w for w in finished_buttons if w.cget("text") == "Reactivate").invoke()
+        assert events[-1] == "calendar"
 
     finally:
         root.destroy()

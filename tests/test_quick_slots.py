@@ -192,6 +192,21 @@ class QuickSlotsTests(unittest.TestCase):
         Desk._set_quick_slots_paste_prefix(desk, "ctrl")
         self.assertEqual(desk.settings["quick_slots_paste_prefix"], "ctrl")
 
+    def test_use_existing_clipboard_without_sending_ctrl_c(self):
+        backend = FakeSelectionBackend("שלום 123", "SHOULD NOT CAPTURE")
+        backend.send_key = Mock(side_effect=AssertionError("Never send Ctrl+C"))
+        self.assertEqual(quick_slots.read_existing_clipboard(backend=backend),
+                         "שלום 123")
+        self.assertEqual(backend.clipboard, "שלום 123")
+        backend.send_key.assert_not_called()
+        self.assertEqual(backend.restored, 0)
+        with self.assertRaisesRegex(MarkError, "copy text with Ctrl\\+C first"):
+            quick_slots.read_existing_clipboard(
+                backend=FakeSelectionBackend(None))
+        with self.assertRaisesRegex(MarkError, "copy text with Ctrl\\+C first"):
+            quick_slots.read_existing_clipboard(
+                backend=FakeSelectionBackend("   "))
+
     def test_copy_selected_text_into_slot_and_windows_clipboard(self):
         fake = FakeSelectionBackend("PREVIOUS", "SELECTED")
         self.assertEqual(
@@ -305,6 +320,15 @@ class QuickSlotsTests(unittest.TestCase):
 
     def test_new_mode_setting_is_persistent_and_validated(self):
         data = APP["default_data"]()
+        self.assertEqual(data["settings"]["quick_slots_save_mode"], "selection")
+        self.assertEqual(quick_slots.normalize_save_mode(None), "selection")
+        self.assertEqual(quick_slots.normalize_save_mode("invalid"), "selection")
+        self.assertEqual(quick_slots.normalize_save_mode("clipboard"), "clipboard")
+        self.assertEqual(APP["normalize_settings"]({})["quick_slots_save_mode"],
+                         "selection")
+        self.assertEqual(APP["normalize_settings"](
+            {"quick_slots_save_mode": "clipboard"})["quick_slots_save_mode"],
+            "clipboard")
         self.assertEqual(data["settings"]["quick_slots_paste_mode"], "auto")
         self.assertEqual(APP["normalize_settings"]({})["quick_slots_paste_mode"], "auto")
         self.assertEqual(APP["normalize_settings"](
@@ -320,6 +344,19 @@ class QuickSlotsTests(unittest.TestCase):
         Desk._set_quick_slots_paste_mode(desk, "clipboard")
         self.assertEqual(desk.settings["quick_slots_paste_mode"], "clipboard")
         desk.schedule_save.assert_called_once()
+        Desk._set_quick_slots_save_mode(desk, "clipboard")
+        self.assertEqual(desk.settings["quick_slots_save_mode"], "clipboard")
+        self.assertEqual(desk.settings["quick_slots_paste_mode"], "clipboard")
+        self.assertEqual(desk.schedule_save.call_count, 2)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            data["settings"] = desk.settings
+            APP["save_data"](path, data)
+            restored = APP["load_data"](path)
+            self.assertEqual(restored["settings"]["quick_slots_save_mode"],
+                             "clipboard")
+            self.assertEqual(restored["settings"]["quick_slots_paste_mode"],
+                             "clipboard")
 
     def test_slot_hotkey_manual_mode_routes_to_clipboard_not_paste(self):
         desk = object.__new__(Desk)
@@ -343,6 +380,56 @@ class QuickSlotsTests(unittest.TestCase):
         pasted.assert_not_called()
         desk.events.put.assert_called_once_with(
             ("quick_slot_paste_result", (1, None, "clipboard")))
+
+    def test_independent_save_and_paste_hotkey_combinations(self):
+        class ImmediateThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+            def start(self):
+                self.target()
+        for save_mode in ("selection", "clipboard"):
+            for paste_mode in ("auto", "clipboard"):
+                with self.subTest(save=save_mode, paste=paste_mode):
+                    desk = object.__new__(Desk)
+                    desk.settings = {
+                        "quick_slots_enabled": True,
+                        "quick_slots_save_mode": save_mode,
+                        "quick_slots_paste_mode": paste_mode,
+                    }
+                    desk.clipboard_slots = {"1": "STORED"}
+                    desk._mark_active = False
+                    desk.root = Mock()
+                    desk.events = Mock()
+                    desk._notify = Mock()
+                    with patch.object(APP["threading"], "Thread", ImmediateThread), \
+                         patch.object(quick_slots, "capture_selection_or_clipboard",
+                                      return_value="AUTO SELECTED") as selection, \
+                         patch.object(quick_slots, "read_existing_clipboard",
+                                      return_value="EXISTING CLIPBOARD") as current, \
+                         patch.object(quick_slots, "paste_slot_text") as pasted, \
+                         patch.object(quick_slots, "copy_slot_to_clipboard") as staged:
+                        Desk._quick_slot_hotkey(desk, "save", 1, 100)
+                        if save_mode == "selection":
+                            selection.assert_called_once()
+                            current.assert_not_called()
+                            desk.events.put.assert_called_with(
+                                ("quick_slot_save_result", (1, "AUTO SELECTED", None)))
+                        else:
+                            current.assert_called_once()
+                            selection.assert_not_called()
+                            desk.events.put.assert_called_with(
+                                ("quick_slot_save_result",
+                                 (1, "EXISTING CLIPBOARD", None)))
+                        desk._mark_active = False
+                        Desk._quick_slot_hotkey(desk, "paste", 1, 100)
+                        if paste_mode == "auto":
+                            pasted.assert_called_once()
+                            staged.assert_not_called()
+                        else:
+                            staged.assert_called_once()
+                            pasted.assert_not_called()
+                        desk.events.put.assert_called_with(
+                            ("quick_slot_paste_result", (1, None, paste_mode)))
 
     def _app(self):
         events = []

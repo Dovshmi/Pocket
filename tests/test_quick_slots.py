@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from pocket import quick_slots, clipboard_gallery
+from pocket.marked_layout import MarkError
 
 
 APP = runpy.run_path(
@@ -24,6 +25,8 @@ class FakeSelectionBackend:
         self.restored = 0
         self.keys = []
         self.settled = 0
+        self.snapshot_fails = False
+        self.typed_text = []
 
     def foreground(self):
         return 100
@@ -33,6 +36,8 @@ class FakeSelectionBackend:
 
     @contextmanager
     def preserve_clipboard(self):
+        if self.snapshot_fails:
+            raise MarkError("OleGetClipboard failed before clipboard access")
         original = self.clipboard
         def restore():
             self.clipboard = original
@@ -60,6 +65,10 @@ class FakeSelectionBackend:
     def put_text(self, value):
         self.clipboard = value
         self.counter += 1
+
+    def send_text(self, value):
+        self.keys.append("TEXT")
+        self.typed_text.append(value)
 
     def pause_after_paste(self):
         pass
@@ -230,6 +239,79 @@ class QuickSlotsTests(unittest.TestCase):
         self.assertEqual(fake.keys, ["V"])
         self.assertEqual(fake.restored, 1)
         self.assertEqual(fake.clipboard, "UNRELATED")
+
+    def test_clipboard_only_mode_uses_normal_windows_copy_semantics(self):
+        self.assertEqual(quick_slots.normalize_paste_mode(None), "auto")
+        self.assertEqual(quick_slots.normalize_paste_mode("unknown"), "auto")
+        self.assertEqual(quick_slots.normalize_paste_mode("clipboard"), "clipboard")
+        backend = FakeSelectionBackend("OLD", None)
+        backend.preserve_clipboard = Mock(side_effect=AssertionError(
+            "Clipboard-only must not call OLE"))
+        quick_slots.copy_slot_to_clipboard("NEW", backend=backend)
+        self.assertEqual(backend.clipboard, "NEW")
+        self.assertEqual(backend.keys, [])
+        self.assertEqual(backend.restored, 0)
+        self.assertEqual(backend.settled, 1)
+
+    def test_auto_paste_falls_back_without_touching_clipboard_if_ole_fails(self):
+        backend = FakeSelectionBackend("EXISTING_IMAGE_OR_TEXT", None)
+        backend.snapshot_fails = True
+        quick_slots.paste_slot_text("INSERTED", target_hwnd=100, backend=backend)
+        self.assertEqual(backend.clipboard, "EXISTING_IMAGE_OR_TEXT")
+        self.assertEqual(backend.typed_text, ["INSERTED"])
+        self.assertEqual(backend.keys, ["TEXT"])
+        self.assertEqual(backend.restored, 0)
+
+    def test_auto_paste_does_not_retry_if_write_fails_after_snapshot(self):
+        backend = FakeSelectionBackend("EXISTING", None)
+        def failed_put(_value):
+            raise MarkError("Clipboard temporarily locked")
+        backend.put_text = failed_put
+        with self.assertRaisesRegex(MarkError, "locked"):
+            quick_slots.paste_slot_text("INSERTED", target_hwnd=100, backend=backend)
+        self.assertEqual(backend.typed_text, [])
+        self.assertEqual(backend.clipboard, "EXISTING")
+
+    def test_new_mode_setting_is_persistent_and_validated(self):
+        data = APP["default_data"]()
+        self.assertEqual(data["settings"]["quick_slots_paste_mode"], "auto")
+        self.assertEqual(APP["normalize_settings"]({})["quick_slots_paste_mode"], "auto")
+        self.assertEqual(APP["normalize_settings"](
+            {"quick_slots_paste_mode": "clipboard"})["quick_slots_paste_mode"],
+            "clipboard")
+        self.assertEqual(APP["normalize_settings"](
+            {"quick_slots_paste_mode": "invalid"})["quick_slots_paste_mode"],
+            "auto")
+        desk = object.__new__(Desk)
+        desk.settings = APP["normalize_settings"]({})
+        desk.schedule_save = Mock()
+        desk.current_tab = "notes"
+        Desk._set_quick_slots_paste_mode(desk, "clipboard")
+        self.assertEqual(desk.settings["quick_slots_paste_mode"], "clipboard")
+        desk.schedule_save.assert_called_once()
+
+    def test_slot_hotkey_manual_mode_routes_to_clipboard_not_paste(self):
+        desk = object.__new__(Desk)
+        desk.settings = {"quick_slots_enabled": True,
+                         "quick_slots_paste_mode": "clipboard"}
+        desk.clipboard_slots = {"1": "SLOT DATA"}
+        desk._mark_active = False
+        desk.root = Mock()
+        desk.events = Mock()
+        desk._notify = Mock()
+        class ImmediateThread:
+            def __init__(self, *, target, **_kwargs):
+                self.target = target
+            def start(self):
+                self.target()
+        with patch.object(APP["threading"], "Thread", ImmediateThread), \
+             patch.object(quick_slots, "copy_slot_to_clipboard") as copied, \
+             patch.object(quick_slots, "paste_slot_text") as pasted:
+            Desk._quick_slot_hotkey(desk, "paste", 1, 100)
+        copied.assert_called_once()
+        pasted.assert_not_called()
+        desk.events.put.assert_called_once_with(
+            ("quick_slot_paste_result", (1, None, "clipboard")))
 
     def _app(self):
         events = []

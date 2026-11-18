@@ -67,8 +67,9 @@ def run():
         root.update()
         second._response_enabled.set(True)
         second._response_input.insert("1.0", "later")
-        second._snooze_minutes.set("30 minutes")
-        second._snooze_button.invoke()
+        assert second._snooze_button.cget("text") == "Snooze ▾"
+        assert second._snooze_menu.index("end") + 1 == len(reminder_ui.SNOOZE_LABELS)
+        second._snooze_menu.invoke(4)  # 30 minutes, no second confirmation.
         assert snoozed == [(30, "later", True)], snoozed
 
         selected = []
@@ -135,11 +136,25 @@ def run():
             "Standalone title/Note must not open a separate form")
         assert any(w.cget("text") == "Change time" for w in buttons)
         assert not any(w.cget("text") == "Details" for w in buttons)
-        assert any(w.cget("text") == "Snooze 15m" for w in buttons)
+        snooze_button = next(w for w in buttons if w.cget("text") == "Snooze ▾")
+        change_button = next(w for w in buttons if w.cget("text") == "Change time")
+        assert snooze_button.winfo_parent() == change_button.winfo_parent(), (
+            "Snooze and Change time must share a single row")
+        assert not any(w.cget("text") == "Snooze 15m" for w in buttons)
+        snooze_calls = []
+        app._manage_note_reminder = lambda *args, **kw: snooze_calls.append((args, kw))
+        snooze_button._snooze_menu.invoke(7)  # 50 minutes.
+        assert snooze_calls[0][1]["minutes"] == 50
+        app._manage_note_reminder = lambda *a, **kw: events.append("manage")
         assert not any(w.cget("text") == "Delete" for w in buttons)
         assert sum(w.cget("text") == "×" for w in buttons) == 1
         assert sum(w.cget("text") == "✓" for w in buttons) == 1
-        next(w for w in buttons if w.cget("text") == "✓").invoke()
+        upcoming_tick = next(w for w in buttons if w.cget("text") == "✓")
+        assert upcoming_tick.cget("fg") == icon_themes.palette("blue")["SECONDARY"]
+        assert upcoming_tick.cget("state") == "normal"
+        labels = [w.cget("text") for w in descendants(overview) if isinstance(w, tk.Label)]
+        assert "Upcoming" in labels and "Next" not in labels
+        upcoming_tick.invoke()
         assert events == ["manage"]
         events.clear()
         next(w for w in buttons if w.cget("text") == "×").invoke()
@@ -174,6 +189,8 @@ def run():
         assert standalone_popup._reminder_title_label.cget("text") == "Call customer"
         assert (standalone_popup._reminder_content_view.get("1.0", "end-1c")
                 == "Check the link status")
+        assert standalone_popup._reminder_content_view.cget("bg") == icon_themes.palette("blue")["BG"]
+        assert int(standalone_popup._reminder_content_view.cget("highlightthickness")) == 0
         standalone_popup._done_button.invoke()
 
         independent["reminder_sent_at"] = datetime.now().astimezone().isoformat()
@@ -183,6 +200,9 @@ def run():
         root.update()
         finished_buttons = [w for w in descendants(completed) if isinstance(w, tk.Button)]
         assert any(w.cget("text") == "Reactivate" for w in finished_buttons)
+        completed_tick = next(w for w in finished_buttons if w.cget("text") == "✓")
+        assert completed_tick.cget("state") == "disabled"
+        assert completed_tick.cget("disabledforeground") == icon_themes.palette("blue")["ACCENT"]
         assert not any(w.cget("text") == "Change time" for w in finished_buttons)
         next(w for w in finished_buttons if w.cget("text") == "Reactivate").invoke()
         assert events[-1] == "calendar"
@@ -202,6 +222,20 @@ def run():
         viewer.yview_moveto(1.0)
         assert viewer.yview()[0] > 0, "Could not scroll full Note content"
         long_popup._done_button.invoke()
+
+        # Turning off the menu closes an already-visible reminder without
+        # silently changing its status or appending the response.
+        suspended_done = []
+        suspended_close = []
+        pending = reminder_ui.open_due_dialog(
+            root, note,
+            lambda *_: suspended_done.append(True),
+            lambda *_: None,
+            lambda: suspended_close.append(True))
+        root.update()
+        pending._suspend_without_completion()
+        assert suspended_done == []
+        assert suspended_close == [True]
 
         # The Mini Reminders page scrolls with the wheel, with no visible rail.
         page = tk.Toplevel(root)

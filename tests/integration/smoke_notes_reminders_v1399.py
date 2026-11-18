@@ -73,16 +73,16 @@ def run():
         assert editor.cget("bg") == icon_themes.palette("blue")["BG"], (
             "Scheduler must match the Pocket theme")
         assert editor._preset_picker.get() == "Custom time"
-        assert editor._hour_picker.cget("state") == "readonly"
+        assert str(editor._hour_picker.cget("state")) == "readonly"
         editor._preset_picker.set("+15 minutes")
         editor._apply_preset()
         root.update()
-        assert editor._hour_picker.cget("state") == "disabled"
-        assert editor._minute_picker.cget("state") == "disabled"
+        assert str(editor._hour_picker.cget("state")) == "disabled"
+        assert str(editor._minute_picker.cget("state")) == "disabled"
         editor._preset_picker.set("Custom time")
         editor._apply_preset()
-        assert editor._hour_picker.cget("state") == "readonly"
-        assert editor._minute_picker.cget("state") == "readonly"
+        assert str(editor._hour_picker.cget("state")) == "readonly"
+        assert str(editor._minute_picker.cget("state")) == "readonly"
         editor._choose_date(date.today() + timedelta(days=3))
         editor._hour_picker.set("13")
         editor._minute_picker.set("05")

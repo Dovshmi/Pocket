@@ -23,6 +23,7 @@ def run():
             root, note, lambda text, checked: done.append((text, checked)),
             lambda *args: None, lambda: closed.append(True))
         root.update()
+        assert window.winfo_viewable(), "Reminder must be visible while main Pocket window is hidden"
         entry = window._response_input
         assert entry.cget("state") == "disabled", "Input must be disabled by default"
         entry.insert("1.0", "blocked")
@@ -34,6 +35,20 @@ def run():
         window._done_button.invoke()
         assert done == [("a quick response", True)], done
         assert closed == [True]
+
+        # A user who unchecks the box after typing must not save that text.
+        unchecked = []
+        ignored = reminder_ui.open_due_dialog(
+            root, note, lambda text, checked: unchecked.append((text, checked)),
+            lambda *_: None, lambda: None)
+        root.update()
+        ignored._response_enabled.set(True)
+        ignored._response_input.insert("1.0", "should not save")
+        ignored._response_enabled.set(False)
+        root.update()
+        assert ignored._response_input.cget("state") == "disabled"
+        ignored._done_button.invoke()
+        assert unchecked == [("", False)], unchecked
 
         snoozed = []
         second = reminder_ui.open_due_dialog(

@@ -1,3 +1,15 @@
+# Pocket v1.39.8 — A Little More Room in Quick Slot Replacement
+
+**Focused Windows UI patch · Offline-first · Portable ZIP and standalone EXE**
+
+- The **existing Windows Yes/No MessageBox** for replacing a Quick Slot uses slightly clearer labels (`Old text:` and `New text:`) while keeping the familiar **Old → ↓ → New** vertical layout.
+- Text previews in the confirmation are lengthened from **23 to 30 characters**, making more of the original and replacement values visible and allowing Windows to size the dialog naturally. Windows determines the physical width; no fixed-width custom window or Tkinter popup is introduced.
+- Everything else remains unchanged, including the Quick Slot notification wording/preferences, preservation of old text in Clipboard history, tray actions, Notes reminders and note editing. The proposed reminder workflow, snooze and dashboard are **not implemented** in this release.
+
+[Release details](docs/releases/v1.39.8.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.7 — Polished Notification Titles and Clear Old-to-New Replacement
 
 **Stable Windows UI polish · Offline-first · Portable ZIP and standalone EXE**

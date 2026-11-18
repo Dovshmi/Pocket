@@ -24,7 +24,7 @@ class QuickSlotDialogAndTrayTests(unittest.TestCase):
         self.assertLessEqual(len(long["new"]), quick_slots.REPLACEMENT_PREVIEW_LENGTH)
         self.assertEqual(quick_slots.REPLACEMENT_PREVIEW_LENGTH, 30)
         self.assertEqual(quick_slot_dialog.confirmation_message(
-            2, "old", "new"), "Old text: old\\n↓\\nNew text: new".replace("\\n", "\n"))
+            2, "old", "new"), "Old text: old\n↓\nNew text: new")
 
     def test_native_windows_confirmation_uses_messagebox_yes_no(self):
         from unittest.mock import Mock, patch

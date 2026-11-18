@@ -12,10 +12,10 @@ right-hand number pad with **Num Lock ON**. There is no Save Mode and
 | Action | Default global shortcut |
 | --- | --- |
 | Paste stored slot N | `Ctrl+Alt+Numpad1–9` |
-| Save selected text to slot N | `Ctrl+Win+Numpad1–9` |
+| Save selected text to slot N | `Ctrl+Alt+Win+Numpad1–9` |
 
 For example, to save a selected IP in slot 1, press
-`Ctrl+Win+Numpad1`. To paste it later, press `Ctrl+Alt+Numpad1`.
+`Ctrl+Alt+Win+Numpad1`. To paste it later, press `Ctrl+Alt+Numpad1`.
 The action is immediate: no second key sequence, mode timer, or extra
 window is needed.
 
@@ -41,7 +41,7 @@ Open **Settings → Clipboard & privacy**:
   the Windows clipboard to the selected slot and waits for your ordinary
   `Ctrl+V`. The choice is saved across app restarts.
 * **Paste shortcut prefix:** default `Ctrl+Alt`.
-* **Save / Copy shortcut prefix:** default `Ctrl+Win`.
+* **Save / Copy shortcut prefix:** default `Ctrl+Alt+Win`.
 
 **The two behavior dropdowns are independent.** For example, you can
 keep Auto Copy Selection enabled but set Paste to Copy to Clipboard
@@ -54,6 +54,14 @@ Each dropdown chooses **only modifier keys**: `Ctrl+Alt`, `Ctrl`,
 Shift is intentionally not available because Windows can convert
 Shift+Numpad digits into navigation key events.
 
+The Quick Slot **Record** buttons are no longer shown in Settings.
+Use the modifier dropdowns instead; Numpad1–9 always remain fixed.
+
+Native Windows notifications after Save, Paste and Copy-to-Clipboard show the
+slot number and a short preview of its text (up to 120 characters). Clipboard
+Only correctly instructs you to press Ctrl+V. Previews may be visible in
+Windows notification history, so do not store secrets in Quick Slots.
+
 Copy and paste cannot use the same modifier prefix. If a replacement
 group conflicts with another application or Windows, the old working
 group remains registered. The other group stays usable throughout.
@@ -62,8 +70,8 @@ Changes apply without restarting Pocket.
 ### Saving / copying
 
 1. Highlight text in any foreground Windows application.
-2. Press `Ctrl+Win+NumpadN` (or the configured Save prefix + NumpadN).
-3. Pocket waits for the `Ctrl+Win` shortcut to be released, then issues
+2. Press `Ctrl+Alt+Win+NumpadN` (or the configured Save prefix + NumpadN).
+3. Pocket waits for the configured Save shortcut to be released, then issues
    ordinary `Ctrl+C` to capture the selected text.
 4. If the application has no copyable selection, Pocket falls back to
    **text already in the Windows clipboard before this operation**.

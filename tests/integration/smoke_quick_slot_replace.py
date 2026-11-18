@@ -1,5 +1,10 @@
 """Exercise compact replacement Toplevel on a real Tk display (Windows/Xvfb)."""
+import sys
 import tkinter as tk
+from pathlib import Path
+
+# Running this file directly sets sys.path to tests/integration, not repo root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from pocket import quick_slot_dialog
 
 

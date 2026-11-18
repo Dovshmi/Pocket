@@ -386,6 +386,7 @@ def build_overview(app, parent, *, colors):
     # Tiny, single-line counters leave the vertical space for the actual list.
     summary = tk.Frame(parent, bg=bg)
     summary.pack(fill="x", pady=(0, 7))
+    parent._reminders_summary = summary
     for idx, (status, caption) in enumerate(
             (("Upcoming", "Next"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
         card = tk.Frame(summary, bg=panel, highlightthickness=1,

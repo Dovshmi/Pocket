@@ -23,6 +23,20 @@ class QuickSlotDialogAndTrayTests(unittest.TestCase):
         self.assertLessEqual(len(long["old"]), quick_slots.REPLACEMENT_PREVIEW_LENGTH)
         self.assertLessEqual(len(long["new"]), quick_slots.REPLACEMENT_PREVIEW_LENGTH)
 
+    def test_native_windows_confirmation_uses_messagebox_yes_no(self):
+        from unittest.mock import Mock, patch
+        root = Mock()
+        with patch.object(quick_slot_dialog.messagebox, "askyesno", return_value=False) as ask:
+            self.assertFalse(quick_slot_dialog.confirm_replace(
+                root, "blue", 2, "SVLAN 1557", "SVLAN 11"))
+        ask.assert_called_once_with(
+            "Replace Quick Slot [2]?",
+            "NEW: SVLAN 11   →   OLD: SVLAN 1557",
+            parent=root)
+        with patch.object(quick_slot_dialog.messagebox, "askyesno", return_value=True):
+            self.assertTrue(quick_slot_dialog.confirm_replace(
+                root, "blue", 2, "SVLAN 1557", "SVLAN 11"))
+
     def test_tray_menu_has_five_requested_actions_in_order(self):
         self.assertEqual(APP["TRAY_MENU_COMMANDS"], (
             (101, "Open Pocket", "show"),

@@ -37,7 +37,7 @@ class NavigationPolishTests(unittest.TestCase):
         self.assertIn('self.root.bind("<Control-k>", self._open_global_search)',source)
         self.assertIn("normal_navigation.install(self, tabs", source)
         self.assertIn("self._normal_nav_refresh(which)", source)
-        self.assertIn('tile.bind("<Return>", lambda _event, tool=key: self.show_tab(tool))',source)
+        self.assertIn('tile.bind("<Return>", lambda _event, callback=action: callback())',source)
         self.assertIn('tile.bind("<space>", lambda _event, tool=key: self.show_tab(tool))',source)
         self.assertEqual(layout.view_dimensions("normal"),(480,850))
         self.assertEqual(layout.view_dimensions("mini"),(346,530))

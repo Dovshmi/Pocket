@@ -2122,7 +2122,7 @@ class PocketDesk:
             return "Disabled · saved slots are kept"
         paste = quick_slots.prefix_label(self.settings["quick_slots_paste_prefix"])
         copy = quick_slots.prefix_label(self.settings["quick_slots_copy_prefix"])
-        action = ("Paste" if self.settings.get("quick_slots_paste_mode") == "auto"
+        action = ("Paste" if self.settings.get("quick_slots_paste_mode", "auto") == "auto"
                   else "Copy to clipboard")
         return f"{action}: {paste}+Num1–9 · Save: {copy}+Num1–9"
 

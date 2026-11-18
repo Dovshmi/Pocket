@@ -3195,6 +3195,83 @@ class PocketDesk:
             self._modal = was_modal
             raise
 
+    def _edit_standalone_reminder(self, reminder_id=None):
+        """Standalone reminders never create or modify Notes."""
+        record = next((r for r in self.data["reminders"]
+                       if r["id"] == reminder_id), None) if reminder_id else None
+        if reminder_id and record is None:
+            return
+        existing_form = getattr(self, "_standalone_form", None)
+        if existing_form is not None and existing_form.winfo_exists():
+            existing_form.lift()
+            return
+        self._flush_current_note()
+        was_modal = self._modal
+        self._modal = True
+
+        def save(title, details, when):
+            candidate = reminder_store.make_reminder(title, details, when)
+            if record is None:
+                if len(self.data["reminders"]) >= reminder_store.MAX_REMINDERS:
+                    raise ValueError("Too many reminders. Delete a finished reminder first.")
+                self.data["reminders"].append(candidate)
+            else:
+                prior = dict(record)
+                old_time = record["reminder_at"]
+                record["title"] = candidate["title"]
+                record["details"] = candidate["details"]
+                if when != old_time:
+                    record.update(reminder_at=candidate["reminder_at"],
+                                  reminder_sent_at="", reminder_snoozed=False,
+                                  reminder_draft="", reminder_add_response=False,
+                                  reminder_enabled=True)
+            try:
+                if self._write_now() is False:
+                    raise OSError("Pocket could not save the reminder.")
+            except Exception:
+                if record is None:
+                    self.data["reminders"].remove(candidate)
+                else:
+                    record.clear()
+                    record.update(prior)
+                raise
+
+        def closed():
+            self._standalone_form = None
+            self._modal = was_modal
+            if self.current_tab == "reminders":
+                self._refresh_note_reminder_ui()
+
+        try:
+            self._standalone_form = reminder_ui.open_standalone_form(
+                self.root, record, save, closed, theme=self.theme)
+        except Exception:
+            self._modal = was_modal
+            raise
+
+    def _delete_standalone_reminder(self, reminder_id):
+        """Delete only standalone records, after a clear confirmation."""
+        record = next((r for r in self.data["reminders"]
+                       if r["id"] == reminder_id), None)
+        if record is None:
+            return
+        old_modal = self._modal
+        self._modal = True
+        try:
+            approved = messagebox.askyesno(
+                "Delete reminder?", f"Delete '{record['title'][:64]}' permanently?",
+                parent=self.root)
+        finally:
+            self._modal = old_modal
+        if not approved:
+            return
+        original_index = self.data["reminders"].index(record)
+        self.data["reminders"].pop(original_index)
+        if self._write_now() is False:
+            self.data["reminders"].insert(original_index, record)
+            return
+        self._refresh_note_reminder_ui()
+
     def _display_due_reminder(self, note_id):
         """Show one interactive reminder at a time, including with Pocket hidden."""
         current = getattr(self, "_due_reminder_dialog", None)

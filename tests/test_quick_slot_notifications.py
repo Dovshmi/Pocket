@@ -25,14 +25,14 @@ class QuickSlotNotificationTests(unittest.TestCase):
 
     def test_existing_slot_gives_readable_text(self):
         title, detail = quick_slots.slot_notification("already", 4, "same value")
-        self.assertIn("Already", title)
+        self.assertIn("Unchanged", title)
         self.assertIn("same value", detail)
 
     def test_multiline_long_text_is_compact_and_bounded(self):
         preview = quick_slots.notification_preview("first\n  second\t" + "x" * 200)
         self.assertTrue(preview.startswith("first second "))
         self.assertTrue(preview.endswith("…"))
-        self.assertLessEqual(len(preview), 120)
+        self.assertLessEqual(len(preview), 108)
         self.assertNotIn("\n", preview)
 
     def test_invalid_slot_and_empty_value(self):

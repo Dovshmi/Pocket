@@ -137,6 +137,7 @@ def run():
             _delete_standalone_reminder=lambda *_args: events.append("delete"),
             _delete_reminder=lambda *_args, **kwargs: events.append(
                 ("delete", kwargs.get("source"))),
+            _clear_reminders=lambda scope: events.append(("clear", scope)),
             show_tab=lambda *_args: events.append("navigate"),
             _reminders_status_filter="All", _reminders_focus_new=independent["id"])
         overview = tk.Frame(root)
@@ -178,8 +179,32 @@ def run():
         next(w for w in buttons if w.cget("text") == "×").invoke()
         assert events == [("delete", "standalone")]
         events.clear()
-        next(w for w in buttons if w.cget("text") == "+ New").invoke()
+        add_button = overview._reminders_add_button
+        clear_button = overview._reminders_clear_button
+        assert add_button.cget("text") == "+"
+        assert clear_button.cget("text") == "Clear"
+        assert add_button.winfo_parent() == clear_button.winfo_parent(), (
+            "New and Clear should share the results-count row below Search")
+        assert add_button.winfo_parent() != overview.winfo_children()[0], (
+            "Plus must be removed from the page heading")
+        assert not any(w.cget("text") == "+ New" for w in buttons)
+        add_button.invoke()
         assert events == ["calendar"]
+        events.clear()
+        clear_button.invoke()
+        assert events == [("clear", "All")]
+        events.clear()
+        # Clear follows the selected status tab, not the search results.
+        completed_button = next(w for w in buttons if w.cget("text") == "Done")
+        completed_button.invoke()
+        assert clear_button.cget("state") == "disabled", (
+            "Clear must be disabled when the selected status has no reminders")
+        upcoming_button = next(w for w in buttons if w.cget("text") == "Upcoming")
+        upcoming_button.invoke()
+        assert clear_button.cget("state") == "normal"
+        clear_button.invoke()
+        assert events == [("clear", "Upcoming")]
+        events.clear()
         title_field, note_field = app._reminders_inline_fields[independent["id"]]
         assert isinstance(title_field, tk.Entry) and isinstance(note_field, tk.Text)
         assert app._reminders_focus_new is None

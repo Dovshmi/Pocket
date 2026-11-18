@@ -14,6 +14,8 @@ MAX_TEXT_LENGTH = 20_000
 DEFAULT_PREFIX = "ctrl_alt"  # Backward compatible name for paste.
 DEFAULT_PASTE_PREFIX = "ctrl_alt"
 DEFAULT_COPY_PREFIX = "ctrl_win"
+DEFAULT_PASTE_MODE = "auto"
+PASTE_MODE_CHOICES = (("Auto Paste", "auto"), ("Copy to Clipboard", "clipboard"))
 PREFIX_CHOICES = (
     ("Ctrl+Alt", "ctrl_alt"),
     ("Ctrl", "ctrl"),
@@ -33,6 +35,11 @@ MOD_NOREPEAT = 0x4000
 def valid_text(value):
     return (isinstance(value, str) and bool(value.strip())
             and len(value) <= MAX_TEXT_LENGTH)
+
+
+def normalize_paste_mode(value):
+    """An existing profile must keep its automatic-paste behavior."""
+    return value if value in ("auto", "clipboard") else DEFAULT_PASTE_MODE
 
 
 def normalize_slots(raw):
@@ -205,8 +212,32 @@ def capture_selection_or_clipboard(*, target_hwnd, owner_hwnd=0, backend=None):
     raise MarkError("No selected text or existing text clipboard to save.")
 
 
+def copy_slot_to_clipboard(value, *, owner_hwnd=0, backend=None):
+    """Stage the slot as the current Windows copy, for ordinary manual Ctrl+V.
+
+    Clipboard-only mode deliberately does not snapshot or restore OLE formats
+    and does not send Ctrl+V or require focus to remain in the same window.
+    """
+    if not valid_text(value):
+        raise ValueError("Quick Slot is empty.")
+    if backend is None:
+        from .marked_layout import WindowsMarkBackend
+        backend = WindowsMarkBackend(owner_hwnd)
+    from .marked_layout import MarkError
+    if not backend.wait_keys_up():
+        raise MarkError("Release the shortcut keys and try again.")
+    if hasattr(backend, "settle_hotkey_release"):
+        backend.settle_hotkey_release()
+    backend.put_text(value)
+
+
 def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
-    """Paste into the original foreground window; preserve original formats."""
+    """Auto-paste, preserving the original clipboard when the OLE snapshot works.
+
+    Some corporate apps provide an OLE clipboard object that cannot be read.
+    If the snapshot fails *before touching the clipboard*, use native Unicode
+    input instead; never silently discard the prior clipboard or paste twice.
+    """
     if not valid_text(value):
         raise ValueError("Quick Slot is empty.")
     if backend is None:
@@ -217,18 +248,35 @@ def paste_slot_text(value, *, target_hwnd, owner_hwnd=0, backend=None):
         raise MarkError("The original window is no longer active.")
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
+    if hasattr(backend, "settle_hotkey_release"):
+        backend.settle_hotkey_release()
+    if backend.foreground() != target_hwnd:
+        raise MarkError("The active window changed; paste cancelled.")
 
-    with backend.preserve_clipboard() as restore:
-        changed_by_us = None
-        try:
-            if backend.foreground() != target_hwnd:
-                raise MarkError("The original window is no longer active.")
-            backend.put_text(value)
-            changed_by_us = backend.sequence()
-            if backend.foreground() != target_hwnd:
-                raise MarkError("The active window changed; paste cancelled.")
-            backend.send_key("V")
-            backend.pause_after_paste()
-        finally:
-            if changed_by_us is not None and backend.sequence() == changed_by_us:
-                restore()
+    snapshot_ready = False
+    try:
+        with backend.preserve_clipboard() as restore:
+            snapshot_ready = True
+            changed_by_us = None
+            try:
+                if backend.foreground() != target_hwnd:
+                    raise MarkError("The original window is no longer active.")
+                backend.put_text(value)
+                changed_by_us = backend.sequence()
+                if backend.foreground() != target_hwnd:
+                    raise MarkError("The active window changed; paste cancelled.")
+                backend.send_key("V")
+                backend.pause_after_paste()
+            finally:
+                if changed_by_us is not None and backend.sequence() == changed_by_us:
+                    restore()
+    except (MarkError, OSError):
+        if snapshot_ready:
+            # A failure after clipboard replacement or Ctrl+V is not safe to
+            # retry: doing so might paste twice or clobber another app's copy.
+            raise
+        if backend.foreground() != target_hwnd:
+            raise MarkError("The active window changed; paste cancelled.")
+        # This path never calls put_text or Ctrl+V, so the existing
+        # multi-format clipboard survives even when OleGetClipboard fails.
+        backend.send_text(value)

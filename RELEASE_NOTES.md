@@ -1,3 +1,17 @@
+# Pocket v1.39.4 — Clearer Quick Slot Notifications and Defaults
+
+**Stable patch · Windows 10/11 · Offline-first**
+
+- Native Windows Quick Slot notifications include the numbered slot and up to 120 characters of its actual text, for **Save**, **Auto Paste**, **Copy to Clipboard**, and **already saved** states.
+- Clipboard-only mode says **Press Ctrl+V to paste** rather than claiming text was pasted; errors identify the failed slot and operation.
+- **Save / Copy** defaults to **Ctrl+Alt+Win+Numpad1–9** in new installations and when resetting keyboard settings. **Paste** remains **Ctrl+Alt+Numpad1–9**. Existing explicit preferences and saved slots are preserved.
+- Removed Quick Slot Save/Paste **Record** buttons from Settings; separate modifier dropdowns and Save/Paste behavior controls remain.
+- All actions stay offline. Text previews can remain visible in Windows notifications; avoid saving sensitive text.
+
+[Detailed patch notes](docs/releases/v1.39.4.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.3 — Separate Automatic Copy and Paste Controls
 
 **Stable patch release · Windows 10 / Windows 11 · Portable ZIP and standalone EXE**

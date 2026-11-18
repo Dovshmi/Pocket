@@ -66,7 +66,7 @@ class FakeSelectionBackend:
         self.clipboard = value
         self.counter += 1
 
-    def send_text(self, value):
+    def send_text(self, value, *, target_hwnd=None):
         self.keys.append("TEXT")
         self.typed_text.append(value)
 
@@ -233,12 +233,17 @@ class QuickSlotsTests(unittest.TestCase):
                 target_hwnd=100, backend=backend)
         self.assertEqual(backend.clipboard, "  ")
 
-    def test_paste_restores_original_clipboard(self):
+    def test_auto_paste_types_without_ever_opening_clipboard(self):
         fake = FakeSelectionBackend("UNRELATED", None)
+        fake.preserve_clipboard = Mock(side_effect=AssertionError("OLE is forbidden"))
+        fake.put_text = Mock(side_effect=AssertionError("Clipboard write is forbidden"))
         quick_slots.paste_slot_text("SLOT TEXT", target_hwnd=100, backend=fake)
-        self.assertEqual(fake.keys, ["V"])
-        self.assertEqual(fake.restored, 1)
+        self.assertEqual(fake.keys, ["TEXT"])
+        self.assertEqual(fake.typed_text, ["SLOT TEXT"])
+        self.assertEqual(fake.restored, 0)
         self.assertEqual(fake.clipboard, "UNRELATED")
+        fake.preserve_clipboard.assert_not_called()
+        fake.put_text.assert_not_called()
 
     def test_clipboard_only_mode_uses_normal_windows_copy_semantics(self):
         self.assertEqual(quick_slots.normalize_paste_mode(None), "auto")
@@ -253,7 +258,7 @@ class QuickSlotsTests(unittest.TestCase):
         self.assertEqual(backend.restored, 0)
         self.assertEqual(backend.settled, 1)
 
-    def test_auto_paste_falls_back_without_touching_clipboard_if_ole_fails(self):
+    def test_auto_paste_unaffected_by_ole_snapshot_failures(self):
         backend = FakeSelectionBackend("EXISTING_IMAGE_OR_TEXT", None)
         backend.snapshot_fails = True
         quick_slots.paste_slot_text("INSERTED", target_hwnd=100, backend=backend)
@@ -262,14 +267,14 @@ class QuickSlotsTests(unittest.TestCase):
         self.assertEqual(backend.keys, ["TEXT"])
         self.assertEqual(backend.restored, 0)
 
-    def test_auto_paste_does_not_retry_if_write_fails_after_snapshot(self):
+    def test_auto_paste_rejects_blocked_unicode_input_without_clipboard_changes(self):
         backend = FakeSelectionBackend("EXISTING", None)
-        def failed_put(_value):
-            raise MarkError("Clipboard temporarily locked")
-        backend.put_text = failed_put
-        with self.assertRaisesRegex(MarkError, "locked"):
+        def blocked_input(_text, **kwargs):
+            raise MarkError("Windows blocked direct input")
+        backend.send_text = blocked_input
+        with self.assertRaisesRegex(MarkError, "blocked"):
             quick_slots.paste_slot_text("INSERTED", target_hwnd=100, backend=backend)
-        self.assertEqual(backend.typed_text, [])
+        self.assertEqual(backend.keys, [])
         self.assertEqual(backend.clipboard, "EXISTING")
 
     def test_new_mode_setting_is_persistent_and_validated(self):

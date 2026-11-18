@@ -52,7 +52,7 @@ def run():
         print("SKIP: requires real Windows clipboard and input")
         return
     root = tk.Tk()
-    root.title("Pocket 1.39.1 paste modes")
+    root.title("Pocket 1.39.2 paste modes")
     root.geometry("560x190+140+140")
     entry = tk.Entry(root, width=48, font=("Segoe UI", 13))
     entry.pack(padx=14, pady=24)
@@ -85,7 +85,25 @@ def run():
         assert entry.get() == "PASTED_1391", entry.get()
         assert root.clipboard_get() == "PREVIOUS_CLIPBOARD_CONTENT", (
             "Auto paste must preserve the previous clipboard")
-        print("PASS: real Windows Auto Paste inserts and preserves clipboard")
+        print("PASS: real Windows ASCII Auto Paste inserts and preserves clipboard")
+
+        # Some enterprise and remote controls replace KEYEVENTF_UNICODE
+        # Hebrew with '?' instead of text. Non-ASCII must use CF_UNICODETEXT
+        # and actual Ctrl+V, without OLE clipboard preservation.
+        for multilingual in ("שלום עולם 123 English", "עברית עברית — مرحبا"):
+            entry.delete(0, tk.END)
+            entry.focus_force()
+            root.clipboard_clear()
+            root.clipboard_append("PREVIOUS_BEFORE_UNICODE")
+            root.update()
+            run_on_worker(root, lambda value=multilingual: quick_slots.paste_slot_text(
+                value, target_hwnd=target, owner_hwnd=root.winfo_id()))
+            root.update()
+            assert entry.get() == multilingual, (
+                f"Unicode auto-paste changed text: {entry.get()!r}")
+            assert root.clipboard_get() == multilingual, (
+                "Unicode copy must remain on clipboard for normal Ctrl+V")
+        print("PASS: real Windows Hebrew/Arabic Unicode clipboard auto-paste")
 
         entry.delete(0, tk.END)
         entry.focus_force()

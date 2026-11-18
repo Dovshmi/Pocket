@@ -93,10 +93,13 @@ def complete(item, response="", checked=False, *, now=None):
     if checked and isinstance(response, str) and response.strip():
         if len(response.strip()) > MAX_DETAILS:
             raise ValueError("Reminder response is too long")
-        item.setdefault("responses", []).append({
+        history = item.setdefault("responses", [])
+        history.append({
             "time": now.astimezone().strftime("%d/%m/%Y %H:%M"),
             "text": response.strip(),
         })
+        if len(history) > 200:
+            del history[:-200]
     item["reminder_sent_at"] = now.astimezone(timezone.utc).isoformat(timespec="seconds")
     item["reminder_snoozed"] = False
     item["reminder_draft"] = ""

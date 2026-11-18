@@ -271,84 +271,95 @@ def open_datetime_editor(root, note, on_save, on_close, theme="blue"):
 
 
 def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
-    """Pocket-themed reminder; input is disabled until Add response is checked."""
+    """Compact Pocket-themed due dialog; the optional response editor stays hidden."""
     standalone = note.get("kind") == "standalone"
-    # Display the COMPLETE saved Note/Reminder details, not only the title.
-    # Long texts scroll inside a read-only view instead of being truncated.
     content = note.get("details", "") if standalone else note.get("body", "")
     content = content if isinstance(content, str) else ""
+    # Keep the complete source text, but limit the visible height for long Notes.
     visual_lines = sum(max(1, (len(line) + 49) // 50) for line in content.split("\n"))
-    text_lines = min(7, max(3, visual_lines))
-    window_height = min(570, 398 + 21 * text_lines) if content.strip() else 370
-    window = _dialog(root, "Pocket · Reminder", 438, window_height, theme=theme)
+    text_lines = min(7, max(1, visual_lines))
+    window = _dialog(root, "Pocket · Reminder", 438, 280, theme=theme)
     c = window._reminder_colors
     BG, FG, MUTED = c["BG"], c["WHITE"], c["MUTED"]
     title = (note.get("title") or "Note").strip() or "Note"
+
     heading = tk.Frame(window, bg=BG)
-    heading.pack(fill="x", padx=20, pady=(13, 5))
+    heading.pack(fill="x", padx=20, pady=(13, 3))
     tk.Label(heading, text="Reminder", font=(FONT, 13, "bold"),
-             fg=FG, bg=BG).pack(anchor="w")
-    title_label = tk.Label(heading, text=title, font=(FONT, 10, "bold"),
-                           fg=FG, bg=BG, wraplength=396, justify="left")
-    title_label.pack(anchor="w", pady=(5, 0))
+             fg=c["ACCENT"], bg=BG, anchor="w").pack(fill="x", pady=(0, 9))
+    tk.Label(heading, text="TITLE", font=(FONT, 8, "bold"),
+             fg=c["SECONDARY"], bg=BG, anchor="w").pack(fill="x")
+    title_label = tk.Label(heading, text=title, font=(FONT, 12, "bold"),
+                           fg=FG, bg=BG, wraplength=398, justify="left",
+                           anchor="w")
+    title_label.pack(fill="x", pady=(3, 2))
     window._reminder_title_label = title_label
 
     if content.strip():
-        tk.Label(window, text="Note" if standalone else "Note content",
-                 bg=BG, fg=c["SECONDARY"], font=(FONT, 9, "bold")
-                 ).pack(anchor="w", padx=20, pady=(4, 3))
-        viewer = tk.Text(window, height=text_lines, width=49,
-                         font=(FONT, 9), wrap="word", relief="flat", bd=0,
-                         bg=BG, fg=FG, padx=0, pady=0,
-                         highlightthickness=0, cursor="arrow",
-                         takefocus=0)
-        viewer.pack(fill="x", padx=20, pady=(0, 5))
+        tk.Label(window, text="NOTE", bg=BG, fg=c["SECONDARY"],
+                 font=(FONT, 8, "bold"), anchor="w").pack(
+                     fill="x", padx=20, pady=(10, 4))
+        # A slim accent bar identifies read-only reminder content without
+        # making it resemble the editable response field.
+        note_row = tk.Frame(window, bg=BG)
+        note_row.pack(fill="x", padx=20)
+        tk.Frame(note_row, bg=c["ACCENT_DARK"], width=3).pack(
+            side="left", fill="y", padx=(0, 9))
+        viewer = tk.Text(
+            note_row, height=text_lines, width=49, font=(FONT, 9),
+            wrap="word", relief="flat", bd=0, bg=BG, fg=FG,
+            padx=0, pady=0, highlightthickness=0, cursor="arrow",
+            takefocus=0)
+        viewer.pack(side="left", fill="x", expand=True)
         viewer.insert("1.0", content)
         viewer.configure(state="disabled")
         window._reminder_content_view = viewer
         if visual_lines > text_lines:
-            tk.Label(window, text="Scroll to read the complete text",
-                     bg=BG, fg=MUTED, font=(FONT, 8)
-                     ).pack(anchor="w", padx=20)
+            tk.Label(window, text="Scroll to read the complete note",
+                     bg=BG, fg=MUTED, font=(FONT, 8),
+                     anchor="w").pack(fill="x", padx=32, pady=(3, 0))
     else:
         window._reminder_content_view = None
+
+    # Clearly separate information to read from the optional response.
+    separator = tk.Frame(window, bg=c["BORDER"], height=1)
+    separator.pack(fill="x", padx=20, pady=(14, 10))
+    window._reminder_separator = separator
 
     add_response = tk.BooleanVar(window, note.get("reminder_add_response") is True)
     caption = ("Save a response with this reminder"
                if standalone else "Add response to the bottom of this note")
-    checked = ttk.Checkbutton(window, text=caption,
-                              variable=add_response, style="Reminder.TCheckbutton")
-    checked.pack(anchor="w", padx=20, pady=(5, 6))
-    input_text = tk.Text(window, height=4, width=48, wrap="word",
-                         font=(FONT, 10), relief="flat", bd=0, undo=True,
-                         bg=c["INPUT"], fg=c["WHITE"],
-                         insertbackground=c["ACCENT"], selectbackground=c["ACCENT_DARK"],
-                         highlightthickness=1, highlightbackground=c["BORDER"],
-                         highlightcolor=c["ACCENT"])
-    input_text.pack(fill="x", padx=20)
+    checked = ttk.Checkbutton(window, text=caption, variable=add_response,
+                              style="Reminder.TCheckbutton")
+    checked.pack(anchor="w", padx=20, pady=(0, 4))
+    input_text = tk.Text(
+        window, height=3, width=48, wrap="word",
+        font=(FONT, 10), relief="flat", bd=0, undo=True,
+        bg=c["INPUT"], fg=FG, insertbackground=c["ACCENT"],
+        selectbackground=c["ACCENT_DARK"],
+        highlightthickness=1, highlightbackground=c["BORDER"],
+        highlightcolor=c["ACCENT"], padx=8, pady=6)
     draft = note.get("reminder_draft", "")
     if draft and add_response.get():
         input_text.insert("1.0", draft[:4000])
 
-    def sync_input(*_args):
-        input_text.configure(state="normal" if add_response.get() else "disabled",
-                             bg=c["INPUT"] if add_response.get() else c["CARD"])
-        if add_response.get():
-            input_text.focus_set()
+    def button(parent, caption, command=None, *, primary=False):
+        base = c["ACCENT_DARK"] if primary else c["CARD"]
+        foreground = FG if primary else c["SECONDARY"]
+        widget = tk.Button(
+            parent, text=caption, command=command, font=(FONT, 9, "bold"),
+            bg=base, fg=foreground,
+            activebackground=c["CARD_HOVER"], activeforeground=FG,
+            relief="flat", bd=0, highlightthickness=0,
+            cursor="hand2", padx=15, pady=7, takefocus=True)
+        widget.bind("<Enter>", lambda _event: widget.config(bg=c["CARD_HOVER"]))
+        widget.bind("<Leave>", lambda _event: widget.config(bg=base))
+        return widget
 
-    add_response.trace_add("write", sync_input)
-    sync_input()
-    window._response_input = input_text
-    window._response_enabled = add_response
-    window._response_checkbox = checked
-
-    description = tk.Label(
-        window, text="Response is optional. Closing dismisses this reminder.",
-        bg=BG, fg=MUTED, font=(FONT, 8))
-    description.pack(anchor="w", padx=20, pady=(6, 2))
-
+    # Keep actions in the document flow. side="bottom" created the enormous
+    # empty gap in short Reminders when the old dialog used a fixed height.
     footer = tk.Frame(window, bg=BG)
-    footer.pack(fill="x", padx=20, pady=(13, 12), side="bottom")
+    footer.pack(fill="x", padx=20, pady=(13, 14))
     closed = False
 
     def response():
@@ -371,16 +382,46 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
         window.destroy()
         on_close()
 
-    snooze = ttk.Button(footer, text="Snooze ▾")
+    snooze = button(footer, "Snooze ▾")
     snooze.pack(side="left")
     window._snooze_menu = attach_snooze_menu(
         snooze, lambda minutes: finish("snooze", minutes), c)
-    ttk.Button(footer, text="Dismiss", command=lambda: finish("done")).pack(
-        side="right")
-    done = ttk.Button(footer, text="Done", command=lambda: finish("done"))
-    done.pack(side="right", padx=(0, 7))
+    dismiss = button(footer, "Dismiss", lambda: finish("done"))
+    dismiss.pack(side="right")
+    done = button(footer, "Done", lambda: finish("done"), primary=True)
+    done.pack(side="right", padx=(0, 8))
     window._done_button = done
+    window._dismiss_button = dismiss
     window._snooze_button = snooze
+
+    def fit_dialog():
+        """Fit height to visible controls, keeping the window on screen."""
+        if not window.winfo_exists():
+            return
+        window.update_idletasks()
+        available = max(180, window.winfo_screenheight() - 80)
+        height = min(available, max(195, window.winfo_reqheight()))
+        x = window.winfo_x()
+        y = max(8, min(window.winfo_y(), window.winfo_screenheight() - height - 55))
+        window.geometry(f"438x{height}+{x}+{y}")
+
+    def sync_input(*_args):
+        enabled = add_response.get()
+        input_text.configure(state="normal" if enabled else "disabled")
+        if enabled:
+            if not input_text.winfo_manager():
+                input_text.pack(fill="x", padx=20, pady=(6, 0), before=footer)
+            input_text.focus_set()
+        else:
+            input_text.pack_forget()
+        fit_dialog()
+
+    add_response.trace_add("write", sync_input)
+    sync_input()
+    window._response_input = input_text
+    window._response_enabled = add_response
+    window._response_checkbox = checked
+    window._fit_reminder_dialog = fit_dialog
 
     def suspend_without_completion():
         """Settings can silence an open popup without marking it Done."""

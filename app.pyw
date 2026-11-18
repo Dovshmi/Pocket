@@ -5597,6 +5597,11 @@ class PocketDesk:
 
     def _notepad_poll(self):
         """Import Notepad changes after Ctrl+S; protect simultaneous Pocket edits."""
+        prompt = getattr(self, "_due_reminder_dialog", None)
+        if prompt is not None and prompt.winfo_exists():
+            # Defer external merge prompts until the reminder is handled.
+            # Never interrupt its optional reply with a second modal dialog.
+            return
         notes_by_id = {note["id"]: note for note in self.data["notes"]}
         for note_id, session in list(self._notepad_sessions.items()):
             note = notes_by_id.get(note_id)
@@ -5925,6 +5930,8 @@ class PocketDesk:
         schedule = getattr(self, "_reminder_dialog", None)
         if schedule is not None and schedule.winfo_exists():
             return
+        if getattr(self, "_modal", False):
+            return  # Don't interrupt another settings, backup or input dialog.
         for note in self.data["notes"]:
             if reminder_is_due(note):
                 self._display_due_reminder(note["id"])

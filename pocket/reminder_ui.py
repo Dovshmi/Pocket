@@ -16,9 +16,31 @@ from . import icon_themes as themes
 
 FONT = "Segoe UI"
 SNOOZE_LABELS = (
-    ("5 minutes", 5), ("15 minutes", 15),
-    ("30 minutes", 30), ("1 hour", 60),
+    ("5 minutes", 5), ("10 minutes", 10), ("15 minutes", 15),
+    ("20 minutes", 20), ("30 minutes", 30), ("40 minutes", 40),
+    ("45 minutes", 45), ("50 minutes", 50), ("1 hour", 60),
+    ("90 minutes", 90), ("2 hours", 120),
 )
+
+
+def attach_snooze_menu(button, on_select, colors):
+    """Use one Snooze button with a compact, themed popup of time options."""
+    menu = tk.Menu(
+        button, tearoff=False, bg=colors["CARD"], fg=colors["WHITE"],
+        activebackground=colors["ACCENT_DARK"], activeforeground=colors["WHITE"],
+        bd=1, relief="flat", font=(FONT, 9))
+    for caption, minutes in SNOOZE_LABELS:
+        menu.add_command(label=caption, command=lambda value=minutes: on_select(value))
+
+    def open_menu():
+        try:
+            menu.tk_popup(button.winfo_rootx(), button.winfo_rooty() + button.winfo_height())
+        finally:
+            menu.grab_release()
+
+    button.configure(command=open_menu)
+    button._snooze_menu = menu
+    return menu
 
 
 def _dialog(root, title, width, height, theme="blue"):
@@ -274,9 +296,9 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
                  ).pack(anchor="w", padx=20, pady=(4, 3))
         viewer = tk.Text(window, height=text_lines, width=49,
                          font=(FONT, 9), wrap="word", relief="flat", bd=0,
-                         bg=c["CARD"], fg=FG, padx=9, pady=7,
-                         highlightthickness=1, highlightbackground=c["BORDER"],
-                         cursor="arrow")
+                         bg=BG, fg=FG, padx=0, pady=0,
+                         highlightthickness=0, cursor="arrow",
+                         takefocus=0)
         viewer.pack(fill="x", padx=20, pady=(0, 5))
         viewer.insert("1.0", content)
         viewer.configure(state="disabled")
@@ -324,25 +346,18 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
 
     footer = tk.Frame(window, bg=BG)
     footer.pack(fill="x", padx=20, pady=(13, 12), side="bottom")
-    interval = tk.StringVar(window, "15 minutes")
-    picker = ttk.Combobox(footer, textvariable=interval, state="readonly",
-                          style="Reminder.TCombobox",
-                          width=11, values=[label for label, _ in SNOOZE_LABELS])
-    picker.pack(side="left")
-    window._snooze_minutes = interval
     closed = False
 
     def response():
         return (input_text.get("1.0", "end-1c")[:4000]
                 if add_response.get() else "")
 
-    def finish(kind):
+    def finish(kind, minutes=None):
         nonlocal closed
         if closed:
             return
         try:
             if kind == "snooze":
-                minutes = dict(SNOOZE_LABELS)[interval.get()]
                 on_snooze(minutes, response(), add_response.get())
             else:
                 on_done(response(), add_response.get())
@@ -353,15 +368,27 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
         window.destroy()
         on_close()
 
-    snooze = ttk.Button(footer, text="Snooze",
-                        command=lambda: finish("snooze"))
-    snooze.pack(side="left", padx=(6, 0))
+    snooze = ttk.Button(footer, text="Snooze ▾")
+    snooze.pack(side="left")
+    window._snooze_menu = attach_snooze_menu(
+        snooze, lambda minutes: finish("snooze", minutes), c)
     ttk.Button(footer, text="Dismiss", command=lambda: finish("done")).pack(
         side="right")
     done = ttk.Button(footer, text="Done", command=lambda: finish("done"))
     done.pack(side="right", padx=(0, 7))
     window._done_button = done
     window._snooze_button = snooze
+
+    def suspend_without_completion():
+        """Settings can silence an open popup without marking it Done."""
+        nonlocal closed
+        if closed:
+            return
+        closed = True
+        window.destroy()
+        on_close()
+
+    window._suspend_without_completion = suspend_without_completion
     window.protocol("WM_DELETE_WINDOW", lambda: finish("done"))
     window.bind("<Escape>", lambda _event: finish("done"))
     window.lift()
@@ -416,7 +443,7 @@ def build_overview(app, parent, *, colors):
     summary.pack(fill="x", pady=(0, 7))
     parent._reminders_summary = summary
     for idx, (status, caption) in enumerate(
-            (("Upcoming", "Next"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
+            (("Upcoming", "Upcoming"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
         card = tk.Frame(summary, bg=panel, highlightthickness=1,
                         highlightbackground=c["BORDER"])
         card.grid(row=0, column=idx, sticky="nsew", padx=(0, 4) if idx < 2 else 0)
@@ -442,7 +469,7 @@ def build_overview(app, parent, *, colors):
         update_filters()
         render()
 
-    for value, caption in (("All", "All"), ("Upcoming", "Next"),
+    for value, caption in (("All", "All"), ("Upcoming", "Upcoming"),
                            ("Snoozed", "Snoozed"), ("Completed", "Done")):
         tabs.grid_columnconfigure(len(filter_buttons), weight=1, uniform="filter")
         button = action(tabs, caption, lambda target=value: set_filter(target))
@@ -516,8 +543,7 @@ def build_overview(app, parent, *, colors):
             card = tk.Frame(results, bg=panel, highlightthickness=1,
                             highlightbackground=c["BORDER"])
             card.pack(fill="x", pady=(0, 8))
-            stripe = tk.Frame(card, bg=(c["ACCENT"] if status == "Upcoming"
-                                        else c["MUTED"] if status == "Snoozed"
+            stripe = tk.Frame(card, bg=(c["ACCENT"] if status == "Completed"
                                         else c["BORDER"]), width=3)
             stripe.pack(side="left", fill="y")
             stripe.pack_propagate(False)
@@ -540,17 +566,19 @@ def build_overview(app, parent, *, colors):
                     bg=panel, fg=foreground, activebackground=c["CARD_HOVER"],
                     activeforeground=white, cursor="arrow" if disabled else "hand2")
                 if disabled:
-                    button.configure(state="disabled", disabledforeground=c["MUTED"])
+                    button.configure(state="disabled", disabledforeground=foreground)
                 return button
             icon_control("×", lambda ident=uid, src=source:
                          app._delete_reminder(ident, source=src),
                          foreground=c["DANGER"]).pack(side="right")
             icon_control("✓", lambda ident=uid, src=source:
                          app._manage_note_reminder(ident, "done", source=src),
-                         foreground=c["ACCENT"], disabled=(status == "Completed")
+                         foreground=c["ACCENT"] if status == "Completed" else c["SECONDARY"],
+                         disabled=(status == "Completed")
                          ).pack(side="right", padx=(0, 3))
-            text(badges, status.upper() if status else "", size=7, bg_color=panel,
-                 fg=c["MUTED"]).pack(side="right", padx=(0, 6))
+            text(badges, status or "", size=7, bg_color=panel,
+                 fg=c["ACCENT"] if status == "Completed" else c["MUTED"]).pack(
+                     side="right", padx=(0, 6))
 
             if source == "standalone":
                 # Inline editing: no secondary form or title/details popup.
@@ -662,12 +690,13 @@ def build_overview(app, parent, *, colors):
             action(primary_row, "Reactivate" if status == "Completed" else "Change time",
                    edit_time, primary=(status == "Completed")).pack(side="right")
             if status != "Completed":
-                secondary = tk.Frame(buttons, bg=panel)
-                secondary.pack(fill="x", pady=(5, 0))
-                action(secondary, "Snooze 15m",
-                       lambda ident=uid, src=source:
-                           app._manage_note_reminder(ident, "snooze", source=src)
-                       ).pack(side="left")
+                snooze_button = action(primary_row, "Snooze ▾", lambda: None)
+                snooze_button.pack(side="right", padx=(0, 5))
+                attach_snooze_menu(
+                    snooze_button,
+                    lambda minutes, ident=uid, src=source:
+                        app._manage_note_reminder(
+                            ident, "snooze", source=src, minutes=minutes), c)
 
     search.trace_add("write", render)
     render()

@@ -231,7 +231,7 @@ class WindowsMarkBackend:
             if memory:
                 self.kernel.GlobalFree(memory)
 
-    def send_text(self, text):
+    def send_text(self, text, *, target_hwnd=None):
         """Fallback: type UTF-16 text directly without touching the clipboard.
 
         KEYEVENTF_UNICODE enters text in most Windows edit controls. It is only
@@ -243,6 +243,8 @@ class WindowsMarkBackend:
         utf16 = text.encode("utf-16-le")
         # SendInput preserves order within a batch; limit per-call allocation.
         for offset in range(0, len(utf16), 256):
+            if target_hwnd and self.foreground() != target_hwnd:
+                raise MarkError("The active window changed; stopped inserting text.")
             chunk = utf16[offset:offset + 256]
             inputs = []
             for index in range(0, len(chunk), 2):

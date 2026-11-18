@@ -62,7 +62,8 @@ class MiniLayoutTests(unittest.TestCase):
 
     def test_old_settings_keep_normal_display_mode(self):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"]}),
-                         {"visible_tabs": ["notes"], "display_mode": "normal", "extra_mini_enabled": False,
+                         {"visible_tabs": ["notes", "reminders"], "reminders_menu_configured": True,
+                          "display_mode": "normal", "extra_mini_enabled": False,
                           "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                           "use_windows_proxy": True, "convert_mode": "mark",
                           "convert_enabled": True, "quick_slots_enabled": True,
@@ -80,6 +81,11 @@ class MiniLayoutTests(unittest.TestCase):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"],
                                                     "display_mode": "mini"})["display_mode"],
                          "mini")
+        # After migration the user can hide Reminders and that choice stays.
+        hidden = app["normalize_settings"]({
+            "visible_tabs": ["notes"], "reminders_menu_configured": True})
+        self.assertEqual(hidden["visible_tabs"], ["notes"])
+        self.assertTrue(hidden["reminders_menu_configured"])
 
 
 if __name__ == "__main__":

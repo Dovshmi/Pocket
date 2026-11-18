@@ -11,7 +11,7 @@ from . import quick_slots
 
 
 def confirmation_labels(number, old_text, new_text):
-    """Use one compact left-to-right line: NEW → OLD."""
+    """Use a compact vertical old-to-new layout."""
     if number not in quick_slots.SLOT_NUMBERS:
         raise ValueError("Invalid Quick Slot")
     maximum = quick_slots.REPLACEMENT_PREVIEW_LENGTH
@@ -24,7 +24,7 @@ def confirmation_labels(number, old_text, new_text):
 
 def confirmation_message(number, old_text, new_text):
     labels = confirmation_labels(number, old_text, new_text)
-    return f"NEW: {labels['new']}   →   OLD: {labels['old']}"
+    return f"Old: {labels['old']}\n↓\nNew: {labels['new']}"
 
 
 def confirm_replace(root, theme, number, old_text, new_text):

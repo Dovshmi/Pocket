@@ -1,3 +1,26 @@
+# Pocket v1.39.1 — Quick Slots Clipboard Fix
+
+**Stable · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**
+
+Pocket v1.39.1 fixes Quick Slots auto-paste failures involving Windows OLE clipboard snapshot errors, such as the `CloseClipboard Failed` notification, and adds a persistent **Copy to Clipboard** mode.
+
+- **Auto Paste (default):** Tries the normal Ctrl+V path with restoration of the original multi-format clipboard. If the OLE snapshot fails before writing anything, it inserts text using native Unicode input instead, without changing the current clipboard.
+- **Copy to Clipboard:** In **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose Copy to Clipboard. Press the Quick Slot paste hotkey, then your ordinary `Ctrl+V`; the slot becomes the current clipboard contents and is intentionally not restored.
+- **Safety:** No retry after a clipboard write or paste has begun; avoids duplicate text injection. Existing Quick Slots, shortcuts and locally saved data stay intact.
+- **Offline:** No network or remote API is used for either paste mode.
+
+Automatic Unicode injection can be blocked by elevated, remote, or specialized applications; Copy to Clipboard provides a manual alternative in those cases.
+
+## Official Windows packages
+
+- [Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-Portable-v1.39.1.zip)
+- [Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/Pocket-v1.39.1.exe)
+- [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.1/SHA256SUMS.txt)
+
+Builds are unsigned. Completely close Pocket before updating; install into a fresh folder, preserve only your local `data/` directory for portable upgrades, and never mix `_internal/` DLLs from old and new versions.
+
+---
+
 # Pocket v1.39.0 — Quick Slots, Portable Backups & Smarter Settings
 
 **Stable release · Windows 10 / Windows 11 · Portable ZIP + standalone EXE**

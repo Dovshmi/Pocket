@@ -1,3 +1,17 @@
+# Pocket v1.39.5 — Compact Quick Slot Confirmations, History Safety and Tray Actions
+
+**Stable Windows patch · Offline-first · Portable ZIP and standalone EXE**
+
+- Native Windows Quick Slot notices retain the OS appearance, with shorter headings and text previews reduced from 120 to **108 characters**. Physical Windows notification dimensions are OS-controlled.
+- Replacing an occupied Quick Slot displays a small themed modal: **NEW text on the left → OLD text on the right**; Yes replaces, No/Escape cancels. Each preview is clipped to 36 visible characters.
+- **Clipboard history preservation:** before replacing a slot, Pocket unpins its old value if it already exists in history, or adds it as an unpinned regular history entry if absent. Avoids duplicate entries, works for RAM and local DATABASE. A failed history write aborts the replacement; the sensitive-text filter prevents unsafe promotion to history.
+- Native tray right-click commands are **Open Pocket, Open Settings, Create Backup, Restore Backup, Exit Pocket**, routed to the existing Tkinter dialogs from the UI thread.
+- Existing Quick Slots, hotkeys, themes, notes, commands, backups and unrelated functionality stay intact; no online service is introduced.
+
+[Release details](docs/releases/v1.39.5.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
+
+---
+
 # Pocket v1.39.4 — Clearer Quick Slot Notifications and Defaults
 
 **Stable patch · Windows 10/11 · Offline-first**

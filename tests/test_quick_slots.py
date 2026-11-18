@@ -440,6 +440,7 @@ class QuickSlotsTests(unittest.TestCase):
         desk = SimpleNamespace(
             clipboard_slots={"1": "OLD"},
             clipboard_items=original,
+            theme="blue",
             settings={"clipboard_storage": "ram",
                       "clipboard_sensitive_filter": False},
             _clipboard_store_is_disk=lambda: False,
@@ -453,7 +454,7 @@ class QuickSlotsTests(unittest.TestCase):
 
     def test_replace_occupied_slot_requires_confirmation(self):
         desk, events = self._app()
-        with patch.object(APP["messagebox"], "askyesno", return_value=False) as ask:
+        with patch.object(APP["quick_slot_dialog"], "confirm_replace", return_value=False) as ask:
             self.assertFalse(Desk._assign_clipboard_slot(desk, 1, "NEW"))
         ask.assert_called_once()
         self.assertEqual(desk.clipboard_slots, {"1": "OLD"})
@@ -461,13 +462,71 @@ class QuickSlotsTests(unittest.TestCase):
 
     def test_replace_unpins_promoted_favorite_no_ghost_favorite(self):
         desk, events = self._app()
-        with patch.object(APP["messagebox"], "askyesno", return_value=True):
+        with patch.object(APP["quick_slot_dialog"], "confirm_replace", return_value=True):
             self.assertTrue(Desk._assign_clipboard_slot(desk, 1, "NEW"))
         self.assertEqual(desk.clipboard_slots, {"1": "NEW"})
         self.assertFalse(desk.clipboard_items[1]["pinned"])
         self.assertFalse(desk.clipboard_items[0]["pinned"])
         self.assertEqual(events.count("save"), 1)
         self.assertEqual(quick_slots.merged_rows(desk.clipboard_slots, desk.clipboard_items)[0]["text"], "NEW")
+
+    def test_replace_unseen_slot_text_becomes_unpinned_ram_history(self):
+        desk, events = self._app()
+        desk.clipboard_items[:] = []
+        with patch.object(APP["quick_slot_dialog"], "confirm_replace", return_value=True):
+            self.assertTrue(Desk._assign_clipboard_slot(desk, 1, "NEW"))
+        self.assertEqual(desk.clipboard_slots["1"], "NEW")
+        self.assertEqual([r["text"] for r in desk.clipboard_items], ["OLD"])
+        self.assertIs(desk.clipboard_items[0]["pinned"], False)
+        self.assertEqual(events.count("save"), 1)
+
+    def test_replace_history_write_failure_leaves_slot_unchanged(self):
+        desk, events = self._app()
+        desk.clipboard_items[:] = []
+        desk._clipboard_write_text_view = Mock(side_effect=OSError("disk full"))
+        desk._clipboard_report_io_error = Mock()
+        with patch.object(APP["quick_slot_dialog"], "confirm_replace", return_value=True):
+            self.assertFalse(Desk._assign_clipboard_slot(desk, 1, "NEW"))
+        self.assertEqual(desk.clipboard_slots["1"], "OLD")
+        self.assertEqual(events.count("save"), 0)
+
+    def test_replace_unseen_slot_text_is_saved_to_database(self):
+        from pocket import clipboard_database as clipdb
+        with tempfile.TemporaryDirectory() as folder:
+            db = clipdb.ClipboardDatabase(folder)
+            desk, events = self._app()
+            desk.settings["clipboard_storage"] = "database"
+            desk.settings["clipboard_autodelete_days"] = 0
+            desk.clipboard_database = db
+            desk._clipboard_view_days = {"text": clipdb.today(), "images": clipdb.today()}
+            desk._clipboard_page_index = {"text": 0, "images": 0}
+            desk._clipboard_store_is_disk = lambda: True
+            desk._clipboard_load_day = Mock()
+            with patch.object(APP["quick_slot_dialog"], "confirm_replace", return_value=True):
+                self.assertTrue(Desk._assign_clipboard_slot(desk, 1, "NEW"))
+            rows = db.load_text(clipdb.today())
+            self.assertEqual([r["text"] for r in rows], ["OLD"])
+            self.assertIs(rows[0]["pinned"], False)
+            self.assertEqual(desk.clipboard_slots["1"], "NEW")
+            desk._clipboard_load_day.assert_called_once()
+
+    def test_replacement_history_reuses_old_entry_without_duplicates(self):
+        records = [
+            {"id": "a" * 32, "text": "OLD", "time": "12:00", "pinned": True},
+            {"id": "b" * 32, "text": "NEW", "time": "12:01", "pinned": True},
+        ]
+        new_record = {"id": "c" * 32, "text": "OLD", "time": "12:02",
+                      "pinned": False}
+        output, changed = quick_slots.replacement_history_rows(
+            records, "OLD", "NEW", new_record=new_record)
+        self.assertTrue(changed)
+        self.assertEqual(len(output), 2)
+        self.assertFalse(any(row["pinned"] for row in output))
+        self.assertTrue(all(row["pinned"] for row in records))
+        again, changed = quick_slots.replacement_history_rows(
+            output, "OLD", "NEW", new_record=new_record)
+        self.assertFalse(changed)
+        self.assertEqual(again, output)
 
     def test_new_profile_slot_persistence_does_not_modify_legacy_profiles(self):
         with tempfile.TemporaryDirectory() as folder:

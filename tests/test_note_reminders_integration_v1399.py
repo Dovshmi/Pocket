@@ -97,6 +97,40 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         self.assertEqual(note["reminder_sent_at"], "")
         self.assertTrue(desk._modal)
 
+    def test_overview_snooze_does_not_erase_unsent_draft(self):
+        note = self._note()
+        note["reminder_draft"] = "preserve this"
+        note["reminder_add_response"] = True
+        desk = SimpleNamespace(
+            data={"notes": [note], "active_note": note["id"]},
+            _due_reminder_dialog=None, _modal=False, root=object(),
+            _flush_current_note=Mock(), _write_now=Mock(return_value=True),
+            _refresh_note_reminder_ui=Mock())
+        Desk._manage_note_reminder(desk, note["id"], "snooze")
+        self.assertEqual(note["body"], "Keep original")
+        self.assertEqual(note["reminder_draft"], "preserve this")
+        self.assertEqual(nm.reminder_status(note), "Snoozed")
+
+    def test_overview_done_asks_before_discarding_response_draft(self):
+        note = self._note()
+        note["reminder_draft"] = "valuable"
+        note["reminder_add_response"] = True
+        desk = SimpleNamespace(
+            data={"notes": [note], "active_note": note["id"]},
+            _due_reminder_dialog=None, _modal=False, root=object(),
+            _flush_current_note=Mock(), _write_now=Mock(return_value=True),
+            _refresh_note_reminder_ui=Mock())
+        with patch.object(APP["messagebox"], "askyesno", return_value=False):
+            Desk._manage_note_reminder(desk, note["id"], "done")
+        self.assertEqual(note["reminder_draft"], "valuable")
+        self.assertEqual(note["reminder_sent_at"], "")
+        desk._write_now.assert_not_called()
+        with patch.object(APP["messagebox"], "askyesno", return_value=True):
+            Desk._manage_note_reminder(desk, note["id"], "done")
+        self.assertEqual(nm.reminder_status(note), "Completed")
+        self.assertEqual(note["body"], "Keep original")
+        self.assertEqual(note["reminder_draft"], "")
+
     def test_mini_top_icon_layout_is_unchanged_and_reminders_use_more(self):
         app_source = (ROOT / "app.pyw").read_text(encoding="utf-8")
         section = app_source.split("    def _build_mini_shell(self):", 1)[1].split(

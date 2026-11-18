@@ -144,24 +144,27 @@ def reminder_status(note):
     return "Snoozed" if note.get("reminder_snoozed") else "Upcoming"
 
 
-def append_reminder_response(body, response, add_response):
-    """Append only to the bottom; never reflow or replace existing note text."""
+def append_reminder_response(body, response, add_response, *, now=None):
+    """Append a dated response at the bottom, without touching existing lines."""
     prior = body if isinstance(body, str) else ""
     if not add_response or not isinstance(response, str) or not response.strip():
         return prior
     new_text = response.strip()
     if len(new_text) > 4000:
         raise ValueError("Reminder response is too long")
+    instant = now or datetime.now().astimezone()
+    # Show the local date and time ABOVE the response, in the Note's body.
+    timestamp = instant.astimezone().strftime("%d/%m/%Y %H:%M")
     separator = "" if not prior else ("\n" if prior.endswith("\n") else "\n\n")
-    return prior + separator + new_text
+    return prior + separator + timestamp + "\n" + new_text
 
 
 def complete_reminder(note, response="", add_response=False, *, now=None):
     """Mark delivered notification as handled and optionally append once."""
     prior = note.get("body", "")
-    updated = append_reminder_response(prior, response, add_response)
+    instant = now or datetime.now().astimezone()
+    updated = append_reminder_response(prior, response, add_response, now=instant)
     note["body"] = updated
-    instant = now or datetime.now(timezone.utc)
     note["reminder_sent_at"] = instant.astimezone(timezone.utc).isoformat(timespec="seconds")
     note["reminder_snoozed"] = False
     note["reminder_draft"] = ""

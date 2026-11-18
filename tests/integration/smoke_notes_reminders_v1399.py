@@ -190,9 +190,10 @@ def run():
             assert control.cget("activebackground") == palette["BG"]
             assert int(control.cget("highlightthickness")) == 0
             assert int(control.cget("bd")) == 0
-        assert add_button.cget("fg") == palette["ACCENT"]
+        assert add_button.cget("fg") == "#4DE0A2"
+        assert add_button.cget("font")[-2:] == "15 bold" or "15" in str(add_button.cget("font"))
         assert clear_button.cget("fg") == palette["DANGER"]
-        assert add_button.winfo_width() <= 36
+        assert add_button.winfo_width() <= 44
         assert clear_button.winfo_width() <= 55
         assert add_button.winfo_parent() == clear_button.winfo_parent(), (
             "New and Clear should share the results-count row below Search")

@@ -245,9 +245,11 @@ def open_datetime_editor(root, note, on_save, on_close, theme="blue"):
     return window
 
 
-def open_due_dialog(root, note, on_done, on_snooze, on_close):
-    """Windows-style reminder; input is impossible until Add response is checked."""
-    window = _dialog(root, "Pocket · Note reminder", 438, 326)
+def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
+    """Pocket-themed reminder; input is disabled until Add response is checked."""
+    window = _dialog(root, "Pocket · Note reminder", 438, 326, theme=theme)
+    c = window._reminder_colors
+    BG, FG, MUTED = c["BG"], c["WHITE"], c["MUTED"]
     title = (note.get("title") or "Note").strip() or "Note"
     heading = tk.Frame(window, bg=BG)
     heading.pack(fill="x", padx=20, pady=(18, 8))
@@ -259,10 +261,15 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close):
 
     add_response = tk.BooleanVar(window, note.get("reminder_add_response") is True)
     checked = ttk.Checkbutton(window, text="Add response to the bottom of this note",
-                              variable=add_response)
+                              variable=add_response, style="Reminder.TCheckbutton")
     checked.pack(anchor="w", padx=20, pady=(5, 6))
     input_text = tk.Text(window, height=4, width=48, wrap="word",
-                         font=(FONT, 10), relief="solid", bd=1, undo=True)
+                         font=(FONT, 10), relief="flat", bd=0, undo=True,
+                         bg=c["INPUT"], fg=c["WHITE"],
+                         insertbackground=c["ACCENT"], selectbackground=c["ACCENT_DARK"],
+                         disabledforeground=c["MUTED"],
+                         highlightthickness=1, highlightbackground=c["BORDER"],
+                         highlightcolor=c["ACCENT"])
     input_text.pack(fill="x", padx=20)
     draft = note.get("reminder_draft", "")
     if draft and add_response.get():
@@ -270,7 +277,7 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close):
 
     def sync_input(*_args):
         input_text.configure(state="normal" if add_response.get() else "disabled",
-                             bg="#FFFFFF" if add_response.get() else "#E4E6EA")
+                             bg=c["INPUT"] if add_response.get() else c["CARD"])
         if add_response.get():
             input_text.focus_set()
 
@@ -289,6 +296,7 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close):
     footer.pack(fill="x", padx=20, pady=(13, 12), side="bottom")
     interval = tk.StringVar(window, "15 minutes")
     picker = ttk.Combobox(footer, textvariable=interval, state="readonly",
+                          style="Reminder.TCombobox",
                           width=11, values=[label for label, _ in SNOOZE_LABELS])
     picker.pack(side="left")
     window._snooze_minutes = interval

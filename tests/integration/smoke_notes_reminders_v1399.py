@@ -217,6 +217,10 @@ def run():
         clear_button.invoke()
         assert events == [("clear", "Upcoming")]
         events.clear()
+        # Restore All after explicitly testing status filters; later checks
+        # verify the overview's original state and shouldn't inherit Upcoming.
+        next(w for w in buttons if w.cget("text") == "All").invoke()
+        assert app._reminders_status_filter == "All"
         title_field, note_field = app._reminders_inline_fields[independent["id"]]
         assert isinstance(title_field, tk.Entry) and isinstance(note_field, tk.Text)
         assert app._reminders_focus_new is None

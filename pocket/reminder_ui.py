@@ -343,145 +343,10 @@ def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
     return window
 
 
-def open_standalone_form(root, reminder, on_save, on_close, theme="blue"):
-    """Create/edit a local reminder with title, details and a scheduled time.
-
-    The calendar is shared with Notes, but the record is independent.
-    """
-    c = themes.palette(theme)
-    window = _dialog(root, "Pocket · Reminder", 420, 404, theme=theme)
-    bg, white, muted = c["BG"], c["WHITE"], c["MUTED"]
-    tk.Label(window, text="New reminder" if reminder is None else "Edit reminder",
-             font=(FONT, 15, "bold"), bg=bg, fg=white).pack(
-                 anchor="w", padx=20, pady=(16, 4))
-    tk.Label(window, text="Saved locally. No Note will be created.",
-             font=(FONT, 9), bg=bg, fg=muted).pack(
-                 anchor="w", padx=20, pady=(0, 12))
-
-    def field_label(text):
-        tk.Label(window, text=text, font=(FONT, 9, "bold"), bg=bg,
-                 fg=c["SECONDARY"]).pack(anchor="w", padx=20, pady=(2, 4))
-
-    field_label("Title")
-    title = tk.Entry(window, font=(FONT, 11), relief="flat", bd=0,
-                     highlightthickness=1, highlightbackground=c["BORDER"],
-                     highlightcolor=c["ACCENT"], bg=c["INPUT"],
-                     fg=white, insertbackground=white)
-    title.pack(fill="x", padx=20, ipady=7)
-    if reminder:
-        title.insert(0, reminder.get("title", ""))
-    field_label("Details  ·  Optional")
-    details = tk.Text(window, height=4, wrap="word", font=(FONT, 9),
-                      bg=c["INPUT"], fg=white, insertbackground=white,
-                      highlightthickness=1, highlightbackground=c["BORDER"],
-                      highlightcolor=c["ACCENT"], bd=0, padx=7, pady=7)
-    details.pack(fill="x", padx=20)
-    if reminder:
-        details.insert("1.0", reminder.get("details", ""))
-
-    selected_time = [reminder.get("reminder_at", "") if reminder else ""]
-    when_text = tk.StringVar(
-        window, notes.format_reminder(reminder) if reminder else "Choose date and time")
-    time_row = tk.Frame(window, bg=bg)
-    time_row.pack(fill="x", padx=20, pady=(12, 7))
-    when = tk.Label(time_row, textvariable=when_text, font=(FONT, 9),
-                    bg=bg, fg=c["SECONDARY"])
-    when.pack(side="left", fill="x", expand=True, anchor="w")
-    window._time_label = when_text
-    message = tk.StringVar(window, "")
-    tk.Label(window, textvariable=message, bg=bg, fg=c["DANGER"],
-             font=(FONT, 8), wraplength=375).pack(anchor="w", padx=20)
-
-    calendar_window = [None]
-    def pick_time():
-        other = calendar_window[0]
-        if other is not None and other.winfo_exists():
-            other.lift()
-            return
-        try:
-            window.grab_release()
-        except tk.TclError:
-            pass
-
-        def choose(value):
-            selected_time[0] = value
-            try:
-                dt = datetime.fromisoformat(value).astimezone()
-                when_text.set(dt.strftime("%d %b %Y · %H:%M"))
-            except (TypeError, ValueError):
-                when_text.set("Time selected")
-            message.set("")
-
-        def calendar_closed():
-            calendar_window[0] = None
-            if window.winfo_exists():
-                window.lift()
-                window.grab_set()
-
-        calendar_window[0] = open_datetime_editor(
-            root, reminder or {"title": title.get() or "Reminder",
-                               "reminder_at": selected_time[0]},
-            choose, calendar_closed, theme=theme)
-
-    pick = tk.Button(time_row, text="Date & time", command=pick_time,
-                     font=(FONT, 9, "bold"), bg=c["CARD"], fg=white,
-                     activebackground=c["CARD_HOVER"],
-                     activeforeground=white, relief="flat", bd=0,
-                     padx=10, pady=6, cursor="hand2")
-    pick.pack(side="right")
-
-    footer = tk.Frame(window, bg=bg)
-    footer.pack(fill="x", side="bottom", padx=20, pady=13)
-    closed = False
-
-    def close():
-        nonlocal closed
-        if closed:
-            return
-        closed = True
-        window.destroy()
-        on_close()
-
-    def submit():
-        value = title.get().strip()
-        content = details.get("1.0", "end-1c")
-        if not value:
-            message.set("Enter a title.")
-            title.focus_set()
-            return
-        if not selected_time[0]:
-            message.set("Choose a date and time.")
-            return
-        try:
-            on_save(value, content, selected_time[0])
-        except Exception as exc:
-            message.set(str(exc))
-            return
-        close()
-
-    tk.Button(footer, text="Cancel", command=close, font=(FONT, 9),
-              bg=c["CARD"], fg=white, relief="flat", bd=0,
-              padx=13, pady=7).pack(side="right")
-    tk.Button(footer, text="Save reminder", command=submit,
-              font=(FONT, 9, "bold"), bg=c["ACCENT_DARK"], fg=white,
-              relief="flat", bd=0, padx=13, pady=7).pack(side="right", padx=(0, 8))
-    window.protocol("WM_DELETE_WINDOW", close)
-    window.bind("<Escape>", lambda _event: close())
-    window._title_entry = title
-    window._details_text = details
-    window._choose_time = pick_time
-    window._selected_time = selected_time
-    window._submit_reminder = submit
-    window.grab_set()
-    title.focus_set()
-    return window
-
-
 def build_overview(app, parent, *, colors):
     """Polished, narrow-friendly hub for Note-linked and independent reminders."""
     c = colors
     bg, panel, white = c["BG"], c["PANEL"], c["WHITE"]
-    import tkinter.font as tkfont
 
     def text(parent_widget, caption, *, size=9, bold=False, fg=None, bg_color=None,
              **kwargs):
@@ -518,19 +383,17 @@ def build_overview(app, parent, *, colors):
     counts = {status: sum(notes.reminder_status(item) == status for _kind, item in items)
               for status in statuses}
 
-    # A three-column summary without relying on unreadably tiny status pills.
+    # Tiny, single-line counters leave the vertical space for the actual list.
     summary = tk.Frame(parent, bg=bg)
-    summary.pack(fill="x", pady=(0, 12))
+    summary.pack(fill="x", pady=(0, 7))
     for idx, (status, caption) in enumerate(
-            (("Upcoming", "Upcoming"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
+            (("Upcoming", "Next"), ("Snoozed", "Snoozed"), ("Completed", "Done"))):
         card = tk.Frame(summary, bg=panel, highlightthickness=1,
                         highlightbackground=c["BORDER"])
-        card.grid(row=0, column=idx, sticky="nsew", padx=(0, 5) if idx < 2 else 0)
+        card.grid(row=0, column=idx, sticky="nsew", padx=(0, 4) if idx < 2 else 0)
         summary.grid_columnconfigure(idx, weight=1, uniform="reminders_summary")
-        text(card, str(counts[status]), size=16, bold=True, fg=c["ACCENT"],
-             bg_color=panel).pack(anchor="w", padx=9, pady=(7, 0))
-        text(card, caption, size=8, fg=c["SECONDARY"],
-             bg_color=panel).pack(anchor="w", padx=9, pady=(0, 7))
+        text(card, f"{counts[status]}  {caption}", size=8, bold=True,
+             fg=c["SECONDARY"], bg_color=panel).pack(padx=6, pady=4)
 
     filter_state = getattr(app, "_reminders_status_filter", "All")
     if filter_state not in ("All", *statuses):
@@ -589,6 +452,7 @@ def build_overview(app, parent, *, colors):
         app._reminders_search = search.get()
         for child in results.winfo_children():
             child.destroy()
+        app._reminders_inline_fields = {}
         needle = search.get().strip().casefold()
         filtered = []
         for source, item in items:
@@ -599,7 +463,9 @@ def build_overview(app, parent, *, colors):
             if needle and needle not in haystack.casefold():
                 continue
             filtered.append((source, item))
+        focus_new = getattr(app, "_reminders_focus_new", None)
         filtered.sort(key=lambda pair: (
+            pair[1]["id"] != focus_new if focus_new else True,
             notes.reminder_status(pair[1]) == "Completed",
             pair[1].get("reminder_at", "")))
         result_count.configure(text=f"YOUR REMINDERS   ·   {len(filtered)}")
@@ -637,22 +503,90 @@ def build_overview(app, parent, *, colors):
             text(badges, status.upper() if status else "", size=7, bg_color=panel,
                  fg=c["MUTED"]).pack(side="right")
 
-            text(content, (reminder.get("title") or "Untitled reminder")[:90],
-                 bg_color=panel, size=10, bold=True, anchor="w",
-                 wraplength=258, justify="left").pack(fill="x", pady=(0, 3))
+            if source == "standalone":
+                # Inline editing: no secondary form or title/details popup.
+                title_var = tk.StringVar(content, reminder["title"])
+                title_field = tk.Entry(
+                    content, textvariable=title_var, font=(FONT, 10, "bold"),
+                    bg=c["INPUT"], fg=white, insertbackground=white,
+                    selectbackground=c["ACCENT_DARK"], relief="flat", bd=0,
+                    highlightthickness=1, highlightbackground=c["BORDER"],
+                    highlightcolor=c["ACCENT"])
+                title_field.pack(fill="x", ipady=5, pady=(0, 5))
+                text(content, "Note  ·  Optional", bg_color=panel, size=8,
+                     fg=c["SECONDARY"], anchor="w").pack(fill="x", pady=(0, 3))
+                note_field = tk.Text(
+                    content, height=2, wrap="word", font=(FONT, 9),
+                    bg=c["INPUT"], fg=white, insertbackground=white,
+                    selectbackground=c["ACCENT_DARK"], relief="flat", bd=0,
+                    highlightthickness=1, highlightbackground=c["BORDER"],
+                    highlightcolor=c["ACCENT"], padx=5, pady=4)
+                note_field.pack(fill="x", pady=(0, 5))
+                note_field.insert("1.0", reminder.get("details", ""))
+                note_field.edit_modified(False)
+                error = tk.StringVar(content, "")
+                error_label = tk.Label(content, textvariable=error, font=(FONT, 8),
+                                       bg=panel, fg=c["DANGER"], anchor="w")
+                error_label.pack(fill="x")
+                app._reminders_inline_fields[uid] = (title_field, note_field)
+
+                def title_changed(*_unused, ident=uid, var=title_var, notice=error):
+                    try:
+                        if var.get().strip():
+                            app._save_standalone_inline(ident, title=var.get())
+                            notice.set("")
+                    except ValueError as exc:
+                        notice.set(str(exc))
+
+                title_var.trace_add("write", title_changed)
+
+                def title_finished(_event=None, ident=uid, var=title_var):
+                    current_item = next((r for r in app.data.get("reminders", [])
+                                         if r["id"] == ident), None)
+                    if current_item is not None and not var.get().strip():
+                        var.set(current_item["title"])
+
+                title_field.bind("<FocusOut>", title_finished)
+                title_field.bind("<Return>", lambda _event, field=title_field:
+                                 (field.tk_focusNext().focus_set(), "break")[-1])
+
+                def note_changed(_event=None, ident=uid, widget=note_field,
+                                 notice=error):
+                    if not widget.winfo_exists() or not widget.edit_modified():
+                        return
+                    widget.edit_modified(False)
+                    try:
+                        app._save_standalone_inline(
+                            ident, details=widget.get("1.0", "end-1c"))
+                        notice.set("")
+                    except ValueError as exc:
+                        notice.set(str(exc))
+
+                note_field.bind("<<Modified>>", note_changed)
+
+                if focus_new == uid:
+                    app._reminders_focus_new = None
+                    def focus_title(widget=title_field):
+                        if widget.winfo_exists():
+                            widget.focus_set()
+                            widget.selection_range(0, "end")
+                    title_field.after_idle(focus_title)
+            else:
+                text(content, (reminder.get("title") or "Untitled note")[:90],
+                     bg_color=panel, size=10, bold=True, anchor="w",
+                     wraplength=258, justify="left").pack(fill="x", pady=(0, 3))
+                body = reminder.get("body", "")
+                if isinstance(body, str) and body.strip():
+                    snippet = " ".join(body.split())
+                    if len(snippet) > 110:
+                        snippet = snippet[:107] + "…"
+                    text(content, snippet, fg=c["MUTED"], bg_color=panel, size=8,
+                         anchor="w", justify="left", wraplength=258
+                         ).pack(fill="x", pady=(0, 5))
+
             text(content, "◷  " + notes.format_reminder(reminder).replace(" · sent", ""),
                  fg=c["SECONDARY"], bg_color=panel, size=8, anchor="w").pack(
                      fill="x", pady=(0, 4))
-
-            details = (reminder.get("details", "") if source == "standalone" else
-                       reminder.get("body", ""))
-            if isinstance(details, str) and details.strip():
-                snippet = " ".join(details.split())
-                if len(snippet) > 110:
-                    snippet = snippet[:107] + "…"
-                text(content, snippet, fg=c["MUTED"], bg_color=panel, size=8,
-                     anchor="w", justify="left", wraplength=258
-                     ).pack(fill="x", pady=(0, 5))
 
             if source == "standalone" and reminder.get("responses"):
                 latest = reminder["responses"][-1]
@@ -673,13 +607,10 @@ def build_overview(app, parent, *, colors):
                     app.data["active_note"] = note_id
                     app.show_tab("notes")
                 action(primary_row, "Open note", open_note).pack(side="left")
-                edit = lambda ident=uid: app._edit_note_reminder(ident)
+                edit_time = lambda ident=uid: app._edit_note_reminder(ident)
             else:
-                action(primary_row, "Details",
-                       lambda ident=uid: app._edit_standalone_reminder(ident)
-                       ).pack(side="left")
-                edit = lambda ident=uid: app._edit_standalone_reminder(ident)
-            action(primary_row, "Edit", edit).pack(side="right")
+                edit_time = lambda ident=uid: app._edit_standalone_reminder(ident)
+            action(primary_row, "Change time", edit_time).pack(side="right")
             if status != "Completed":
                 secondary = tk.Frame(buttons, bg=panel)
                 secondary.pack(fill="x", pady=(5, 0))

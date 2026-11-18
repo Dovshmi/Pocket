@@ -2217,7 +2217,7 @@ class PocketDesk:
             self._apply_quick_slots_config(enabled, paste, copy)
 
     def _quick_slot_hotkey(self, action, number, target_hwnd):
-        """Direct save (Ctrl+Win) or paste (Ctrl+Alt) for Numpad1–9."""
+        """Direct configured Save or Paste shortcut for Numpad1–9."""
         if not self.settings["quick_slots_enabled"]:
             return
         if (action not in ("save", "paste") or
@@ -2229,7 +2229,8 @@ class PocketDesk:
         save_mode = quick_slots.normalize_save_mode(
             self.settings.get("quick_slots_save_mode"))
         if action == "paste" and not quick_slots.valid_text(value):
-            self._notify("Pocket Quick Slots", f"Slot [{number}] is empty.")
+            self._notify(f"Pocket · Quick Slot {number} is empty",
+                         "Save text to this slot before using the Paste shortcut.")
             return
         self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
         owner = self.root.winfo_id()
@@ -2251,16 +2252,16 @@ class PocketDesk:
                     else:
                         quick_slots.paste_slot_text(
                             value, target_hwnd=target_hwnd, owner_hwnd=owner)
-                    self.events.put(("quick_slot_paste_result", (number, None, paste_mode)))
+                    self.events.put(("quick_slot_paste_result", (number, value, None, paste_mode)))
             except (marked_layout.MarkError, OSError, RuntimeError, ValueError) as exc:
                 kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
                 payload = ((number, None, str(exc)) if action == "save"
-                           else (number, str(exc), paste_mode))
+                           else (number, None, str(exc), paste_mode))
                 self.events.put((kind, payload))
             except Exception:
                 kind = "quick_slot_save_result" if action == "save" else "quick_slot_paste_result"
                 payload = ((number, None, "Quick Slot action failed.") if action == "save"
-                           else (number, "Quick Slot action failed.", paste_mode))
+                           else (number, None, "Quick Slot action failed.", paste_mode))
                 self.events.put((kind, payload))
 
         threading.Thread(target=worker, name="PocketDeskQuickSlot",
@@ -2445,7 +2446,8 @@ class PocketDesk:
         del self.clipboard_slots[str(number)]
         self.schedule_save()
         self._refresh_clipboard()
-        self._notify("Pocket Quick Slots", f"Slot [{number}] cleared.")
+        self._notify(f"Pocket · Quick Slot {number} cleared",
+                     "The stored shortcut assignment was removed.")
         return True
 
     def _assign_clipboard_slot(self, number, text):
@@ -2453,15 +2455,17 @@ class PocketDesk:
         if not self.settings.get("quick_slots_enabled", True):
             return False
         if number not in quick_slots.SLOT_NUMBERS or not quick_slots.valid_text(text):
-            self._notify("Pocket Quick Slots", "Select or copy text first.")
+            self._notify(f"Pocket · Quick Slot {number} was not saved",
+                         "Select or copy text before saving it.")
             return False
         if (self.settings.get("clipboard_sensitive_filter", True)
                 and not clipboard_policy.should_capture(text)):
-            self._notify("Pocket Quick Slots", "Sensitive text cannot be saved while the filter is ON.")
+            self._notify(f"Pocket · Quick Slot {number} was not saved",
+                         "The sensitive-text filter blocked this value.")
             return False
         old = self.clipboard_slots.get(str(number))
         if old == text:
-            self._notify("Pocket Quick Slots", f"Slot [{number}] already contains this text.")
+            self._notify(*quick_slots.slot_notification("already", number, text))
             return True
         if old is not None:
             # Keep the Pocket popup alive while its modal confirmation is
@@ -2512,7 +2516,7 @@ class PocketDesk:
                     self.clipboard_list.activate(index)
                     self.clipboard_list.see(index)
                     break
-        self._notify("Pocket Quick Slots", f"Saved to [{number}].")
+        self._notify(*quick_slots.slot_notification("saved", number, text))
         return True
 
     def _pin_clipboard_item(self):
@@ -5846,19 +5850,20 @@ class PocketDesk:
                     self._mark_active = False
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
-                        self._notify("Pocket Quick Slots", error)
+                        self._notify(f"Pocket · Could not save Quick Slot {number}", error)
                     else:
                         self._assign_clipboard_slot(number, selected)
                 elif name == "quick_slot_paste_result":
-                    number, error, paste_mode = xy
+                    number, pasted_text, error, paste_mode = xy
                     self._mark_active = False
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
-                        self._notify("Pocket Quick Slots", error)
+                        verb = "copy" if paste_mode == "clipboard" else "paste"
+                        self._notify(f"Pocket · Could not {verb} Quick Slot {number}", error)
                     else:
-                        status = (f"Copied [{number}] to clipboard. Press Ctrl+V."
-                                  if paste_mode == "clipboard" else f"Pasted [{number}].")
-                        self._notify("Pocket Quick Slots", status)
+                        action = "clipboard" if paste_mode == "clipboard" else "pasted"
+                        self._notify(*quick_slots.slot_notification(
+                            action, number, pasted_text))
                 elif name == "mark_result":
                     self._mark_active = False
                     # Prevent the history monitor from recording transient Mark data.

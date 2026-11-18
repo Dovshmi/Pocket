@@ -1,6 +1,6 @@
 # Pocket v1.39.9 — Reminders, Smart Snooze & Compact Reminder UI
 
-**Source merged into main · Windows build/release pending · Offline-first**
+**Stable release published · Windows Portable ZIP and standalone EXE · Offline-first**
 
 - **Independent reminders** now live alongside Note-linked reminders in a dedicated hub with Upcoming/Snoozed/Done tabs and local search. New reminders are created through a compact themed calendar, then edited inline without opening a second form.
 - **New due notification dialog:** Clear TITLE/NOTE hierarchy, unobtrusive horizontal divider, full scrollable Note content and dark Pocket-themed buttons. Response input only appears when checked, and the popup resizes to fit content. Optional replies are timestamped, preserving existing Note text.
@@ -10,7 +10,7 @@
 - **Unified on/off setting:** Removing Reminders from visible menus also stops Note and independent due notifications; scheduled data remains intact and resumes after re-enabling.
 - **Settings:** Version is **v1.39.9** on the updated source branch/main. Updated local backups, recovery and regression tests cover the reminder data model and UI.
 
-**Distribution status:** The previous v1.39.8 ZIP/EXE remains the latest published stable release until 1.39.9 packages pass Windows CI and are explicitly published. Source/preview updates do not replace published download URLs.
+**Distribution status:** Pocket v1.39.9 is the latest published stable release. Its [Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip), [Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe), and [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/SHA256SUMS.txt) are available on [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9).
 
 [Implementation and test notes](docs/REMINDERS_V1399_DEV.md) · [Latest CI](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml)
 

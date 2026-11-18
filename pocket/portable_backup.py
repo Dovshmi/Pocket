@@ -39,7 +39,7 @@ MAX_JSON = 100 * 1024 * 1024
 QUICK_SLOT_KEYS = frozenset(("quick_slots_enabled",
                              "quick_slots_paste_prefix", "quick_slots_copy_prefix",
                              "quick_slots_prefix", "quick_slots_paste_mode",
-                             "quick_slots_save_mode"))
+                             "quick_slots_save_mode", "quick_slots_notification_mode"))
 _IMAGE_NAME = re.compile(
     r"\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(?:-\d{6})?_[0-9a-f]{32}\.png"
 )

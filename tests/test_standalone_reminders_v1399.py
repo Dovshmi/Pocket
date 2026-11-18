@@ -18,6 +18,56 @@ def future(minutes=90):
 
 
 class StandaloneRemindersTests(unittest.TestCase):
+    def test_new_starts_with_calendar_only_then_creates_inline_card(self):
+        notes = [note_model.new_note("Don't touch", "Original")]
+        desk = SimpleNamespace(
+            data={"notes": notes, "reminders": []}, current_tab="reminders",
+            root=object(), theme="blue", _modal=False, _reminder_dialog=None,
+            _flush_current_note=Mock(), _write_now=Mock(return_value=True),
+            _refresh_note_reminder_ui=Mock())
+        callbacks = {}
+        with patch.object(APP["reminder_ui"], "open_datetime_editor",
+                          side_effect=lambda root, record, save, close, **kwargs:
+                              (callbacks.update(save=save, close=close, record=record)
+                               or SimpleNamespace(winfo_exists=lambda: True))):
+            Desk._edit_standalone_reminder(desk)
+        self.assertEqual(desk.data["reminders"], [])
+        self.assertEqual(callbacks["record"]["title"], "New reminder")
+        chosen = future()
+        callbacks["save"](chosen)
+        callbacks["close"]()
+        self.assertEqual(len(desk.data["reminders"]), 1)
+        item = desk.data["reminders"][0]
+        self.assertEqual(item["title"], "New reminder")
+        self.assertEqual(item["details"], "")
+        self.assertEqual(item["reminder_at"], chosen)
+        self.assertEqual(notes[0]["body"], "Original")
+        self.assertEqual(desk._reminders_focus_new, item["id"])
+        self.assertEqual(desk._reminders_status_filter, "All")
+        desk._refresh_note_reminder_ui.assert_called_once()
+
+    def test_inline_title_and_note_autosave_without_resetting_schedule(self):
+        record = reminder_store.make_reminder("New reminder", "", future())
+        original_time = record["reminder_at"]
+        desk = SimpleNamespace(
+            data={"reminders": [record]}, schedule_save=Mock())
+        self.assertTrue(Desk._save_standalone_inline(
+            desk, record["id"], title="Customer callback"))
+        self.assertTrue(Desk._save_standalone_inline(
+            desk, record["id"], details="Spoke to customer"))
+        self.assertEqual(record["title"], "Customer callback")
+        self.assertEqual(record["details"], "Spoke to customer")
+        self.assertEqual(record["reminder_at"], original_time)
+        self.assertEqual(record["responses"], [])
+        self.assertEqual(desk.schedule_save.call_count, 2)
+        with self.assertRaises(ValueError):
+            Desk._save_standalone_inline(desk, record["id"], title=" ")
+        with self.assertRaises(ValueError):
+            Desk._save_standalone_inline(desk, record["id"], details="x" * 4001)
+        self.assertEqual(record["title"], "Customer callback")
+        self.assertEqual(record["details"], "Spoke to customer")
+        self.assertEqual(desk.schedule_save.call_count, 2)
+
     def test_create_independent_reminder_and_store_after_restart(self):
         data = APP["default_data"]()
         prior_notes = [dict(n) for n in data["notes"]]

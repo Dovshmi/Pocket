@@ -152,7 +152,7 @@ def append_reminder_response(body, response, add_response):
     new_text = response.strip()
     if len(new_text) > 4000:
         raise ValueError("Reminder response is too long")
-    separator = "" if not prior else ("\\n" if prior.endswith("\\n") else "\\n\\n")
+    separator = "" if not prior else ("\n" if prior.endswith("\n") else "\n\n")
     return prior + separator + new_text
 
 

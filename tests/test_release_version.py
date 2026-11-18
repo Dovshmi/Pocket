@@ -17,7 +17,7 @@ class ReleaseVersionTests(unittest.TestCase):
         settings = (ROOT / "pocket" / "settings_ui.py").read_text(encoding="utf-8")
         self.assertIn('"Version " + app_info.version_label()', settings)
 
-    def test_release_workflow_has_new_tag_and_safe_build_gates(self):
+    def test_previous_stable_release_workflow_is_preserved(self):
         workflow = (ROOT / ".github" / "workflows" /
                     "release-v1.39.8.yml").read_text(encoding="utf-8")
         self.assertIn("POCKET_RELEASE_VERSION: v1.39.8", workflow)
@@ -44,6 +44,26 @@ class ReleaseVersionTests(unittest.TestCase):
                       packager)
         self.assertIn("Pocket-Portable-v1.39.9.zip", smoke)
         self.assertIn("--version v1.39.9", smoke)
+
+    def test_v1399_release_workflow_requires_manual_confirmation(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "release-v1.39.9.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("confirm_version:", workflow)
+        self.assertNotIn("  push:\n", workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("inputs.confirm_version == 'v1.39.9'", workflow)
+        self.assertIn("POCKET_RELEASE_VERSION: v1.39.9", workflow)
+        self.assertIn("tag_name: v1.39.9", workflow)
+        self.assertIn("softprops/action-gh-release@v2", workflow)
+        self.assertIn("make_latest: true", workflow)
+        self.assertIn("smoke_notes_reminders_v1399.py", workflow)
+        self.assertIn("Pocket-Portable-v1.39.9.zip", workflow)
+        self.assertIn("Pocket-v1.39.9.exe", workflow)
+        self.assertIn("docs/releases/v1.39.9.md", workflow)
+        release_body = (ROOT / "docs" / "releases" / "v1.39.9.md").read_text(encoding="utf-8")
+        self.assertIn("Pocket v1.39.9", release_body)
+        self.assertIn("Clear", release_body)
 
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")

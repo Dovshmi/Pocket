@@ -52,7 +52,8 @@ def normalize_paste_mode(value):
     return value if value in ("auto", "clipboard") else DEFAULT_PASTE_MODE
 
 
-NOTIFICATION_PREVIEW_LENGTH = 120
+NOTIFICATION_PREVIEW_LENGTH = 108
+REPLACEMENT_PREVIEW_LENGTH = 36
 
 
 def notification_preview(value, max_length=NOTIFICATION_PREVIEW_LENGTH):
@@ -70,18 +71,52 @@ def slot_notification(action, number, value):
     if number not in SLOT_NUMBERS:
         raise ValueError("Invalid Quick Slot number")
     details = {
-        "saved": (f"Pocket · Saved to Quick Slot {number}", "Saved text"),
-        "pasted": (f"Pocket · Pasted from Quick Slot {number}", "Pasted text"),
-        "clipboard": (f"Pocket · Copied Quick Slot {number} to clipboard", "Copied text"),
-        "already": (f"Pocket · Already saved in Quick Slot {number}", "Stored text"),
+        "saved": (f"Pocket · Saved [{number}]", "Saved"),
+        "pasted": (f"Pocket · Pasted [{number}]", "Pasted"),
+        "clipboard": (f"Pocket · Copied [{number}]", "Copied"),
+        "already": (f"Pocket · Unchanged [{number}]", "Already saved"),
     }
     if action not in details:
         raise ValueError("Invalid Quick Slot notification action")
     title, label = details[action]
-    message = f"{label}:\n{notification_preview(value)}"
+    message = f"{label}: {notification_preview(value)}"
     if action == "clipboard":
-        message += "\nPress Ctrl+V to paste."
+        message += "\nPress Ctrl+V."
     return title, message
+
+
+def replacement_history_rows(rows, old_text, new_text, *, new_record, maximum=None):
+    """Preserve a displaced slot as unpinned history without duplicate entries.
+
+    This pure, copy-on-write transformation does not update the live Slot or
+    write any storage. Callers persist the result *before* replacing the Slot.
+    """
+    updated = [dict(row) for row in rows]
+    changed = False
+    old_seen = False
+    for row in updated:
+        if row.get("text") == old_text:
+            old_seen = True
+        if row.get("text") in (old_text, new_text) and row.get("pinned"):
+            row["pinned"] = False
+            changed = True
+    if old_text and not old_seen:
+        if (not isinstance(new_record, dict) or new_record.get("text") != old_text
+                or new_record.get("pinned") is not False):
+            raise ValueError("Invalid displaced Quick Slot history record")
+        updated.insert(0, dict(new_record))
+        changed = True
+    if maximum is not None:
+        if type(maximum) is not int or maximum < 1:
+            raise ValueError("Invalid clipboard history limit")
+        while len(updated) > maximum:
+            victim = next((i for i in range(len(updated) - 1, -1, -1)
+                           if not updated[i].get("pinned")), None)
+            if victim is None:
+                break
+            updated.pop(victim)
+            changed = True
+    return updated, changed
 
 
 def normalize_slots(raw):

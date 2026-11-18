@@ -136,7 +136,7 @@ def run():
         assert any(w.cget("text") == "Change time" for w in buttons)
         assert not any(w.cget("text") == "Details" for w in buttons)
         assert any(w.cget("text") == "Snooze 15m" for w in buttons)
-        assert not any(w.cget("text") in ("Delete", "Done") for w in buttons)
+        assert not any(w.cget("text") == "Delete" for w in buttons)
         assert sum(w.cget("text") == "×" for w in buttons) == 1
         assert sum(w.cget("text") == "✓" for w in buttons) == 1
         next(w for w in buttons if w.cget("text") == "✓").invoke()

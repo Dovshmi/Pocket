@@ -1,6 +1,6 @@
 # Pocket v1.39.9 — Reminders implementation
 
-**Source merged into `main` for v1.39.9; downloadable Windows release pending.** The latest published public ZIP/EXE remains v1.39.8 until an explicitly approved 1.39.9 release.
+**Released in v1.39.9:** The source is merged into `main`, and the validated [Portable ZIP and standalone EXE](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9) are publicly available.
 
 ## Features
 

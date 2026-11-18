@@ -66,6 +66,7 @@ class MiniLayoutTests(unittest.TestCase):
                           "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                           "use_windows_proxy": True, "convert_mode": "mark",
                           "convert_enabled": True, "quick_slots_enabled": True,
+                          "quick_slots_paste_mode": "auto",
                           "quick_slots_paste_prefix": "ctrl_alt",
                           "quick_slots_copy_prefix": "ctrl_win", "clipboard_storage": "ram",
                           "clipboard_days": 1,

@@ -71,9 +71,14 @@ Do not store passwords or authentication tokens in Quick Slots.
 Press `Ctrl+Alt+NumpadN` (or the configured Paste prefix + NumpadN)
 while focused in the target Windows application.
 
-- **Auto Paste** (default) inserts the slot using Windows Unicode keyboard
-  input. It does not access the system clipboard and never relies on OLE
-  snapshot or restoration; existing copied text/images stay unchanged.
+- **Auto Paste** (default) uses Unicode keyboard input for ASCII-only
+  slots, leaving the existing clipboard untouched. For Hebrew, Arabic,
+  accented text, emoji or other non-ASCII characters, it uses Windows
+  `CF_UNICODETEXT` and sends `Ctrl+V` to the target instead. This prevents
+  `?` replacement by applications that mishandle Unicode key injection.
+  In that case the new text **remains in the clipboard** afterward, and
+  the original clipboard is not restored. This avoids OLE
+  `CloseClipboard Failed` errors.
 - **Copy to Clipboard** makes the slot the current Windows clipboard text,
   without sending any paste shortcut. Press normal `Ctrl+V` to paste manually.
   The previous clipboard is intentionally replaced.

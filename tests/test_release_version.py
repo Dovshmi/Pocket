@@ -45,12 +45,15 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn("Pocket-Portable-v1.39.9.zip", smoke)
         self.assertIn("--version v1.39.9", smoke)
 
-    def test_v1399_release_workflow_requires_manual_confirmation(self):
+    def test_v1399_release_workflow_requires_explicit_authorization(self):
         workflow = (ROOT / ".github" / "workflows" /
                     "release-v1.39.9.yml").read_text(encoding="utf-8")
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("confirm_version:", workflow)
-        self.assertNotIn("  push:\n", workflow)
+        self.assertIn("  push:\n    branches: [main]", workflow)
+        self.assertIn("startsWith(github.event.head_commit.message, '[release v1.39.9]')", workflow)
+        self.assertIn("github.repository == 'Dovshmi/Pocket'", workflow)
+        self.assertIn("app_info.VERSION == '1.39.9'", workflow)
         self.assertIn("github.ref == 'refs/heads/main'", workflow)
         self.assertIn("inputs.confirm_version == 'v1.39.9'", workflow)
         self.assertIn("POCKET_RELEASE_VERSION: v1.39.9", workflow)

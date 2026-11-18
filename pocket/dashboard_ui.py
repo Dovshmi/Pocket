@@ -19,6 +19,7 @@ NAVIGATION = (
     ("commands", ">_", "Commands"),
     ("subnet", "⌗", "Subnet Calculator"),
     ("clipboard", "▣", "Clipboard"),
+    ("reminders", "♧", "Reminders"),
     ("settings", "⚙", "Settings"),
 )
 
@@ -31,6 +32,7 @@ TITLES = {
     "commands": ("Command library", "Search, edit and copy CLI commands. Never execute them."),
     "subnet": ("Subnet calculator", "Explore IPv4 masks, ranges and subnet divisions."),
     "clipboard": ("Clipboard history", "Session-only copied text; never saved to disk."),
+    "reminders": ("Reminders", "Upcoming, snoozed and completed Note reminders."),
     "settings": ("Preferences", "Choose your layout, theme and visible tools."),
 }
 

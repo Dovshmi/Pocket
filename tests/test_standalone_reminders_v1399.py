@@ -143,6 +143,9 @@ class StandaloneRemindersTests(unittest.TestCase):
             bundle = portable_backup.read_backup(output)
             self.assertEqual(bundle["payload"]["notes"]["reminders"][0]["id"], item["id"])
             dest = APP["default_data"]()
+            # Merge identical note IDs; a fresh starter Note naturally has a different UUID.
+            dest["notes"] = [dict(n) for n in data["notes"]]
+            dest["active_note"] = data["active_note"]
             restored = portable_backup.plan_restore(bundle, dest, selected=("notes",),
                                                     mode="merge")["profile"]
             self.assertEqual(restored["reminders"][0]["title"], "Local task")

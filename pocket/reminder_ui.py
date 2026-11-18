@@ -247,20 +247,48 @@ def open_datetime_editor(root, note, on_save, on_close, theme="blue"):
 
 def open_due_dialog(root, note, on_done, on_snooze, on_close, theme="blue"):
     """Pocket-themed reminder; input is disabled until Add response is checked."""
-    window = _dialog(root, "Pocket · Note reminder", 438, 326, theme=theme)
+    standalone = note.get("kind") == "standalone"
+    # Display the COMPLETE saved Note/Reminder details, not only the title.
+    # Long texts scroll inside a read-only view instead of being truncated.
+    content = note.get("details", "") if standalone else note.get("body", "")
+    content = content if isinstance(content, str) else ""
+    visual_lines = sum(max(1, (len(line) + 49) // 50) for line in content.split("\n"))
+    text_lines = min(7, max(3, visual_lines))
+    window_height = min(570, 398 + 21 * text_lines) if content.strip() else 370
+    window = _dialog(root, "Pocket · Reminder", 438, window_height, theme=theme)
     c = window._reminder_colors
     BG, FG, MUTED = c["BG"], c["WHITE"], c["MUTED"]
     title = (note.get("title") or "Note").strip() or "Note"
     heading = tk.Frame(window, bg=BG)
-    heading.pack(fill="x", padx=20, pady=(18, 8))
-    tk.Label(heading, text="Reminder", font=(FONT, 14, "bold"),
+    heading.pack(fill="x", padx=20, pady=(13, 5))
+    tk.Label(heading, text="Reminder", font=(FONT, 13, "bold"),
              fg=FG, bg=BG).pack(anchor="w")
-    tk.Label(heading, text=title[:72], font=(FONT, 10),
-             fg=FG, bg=BG, wraplength=396, justify="left").pack(
-                 anchor="w", pady=(6, 0))
+    title_label = tk.Label(heading, text=title, font=(FONT, 10, "bold"),
+                           fg=FG, bg=BG, wraplength=396, justify="left")
+    title_label.pack(anchor="w", pady=(5, 0))
+    window._reminder_title_label = title_label
+
+    if content.strip():
+        tk.Label(window, text="Note" if standalone else "Note content",
+                 bg=BG, fg=c["SECONDARY"], font=(FONT, 9, "bold")
+                 ).pack(anchor="w", padx=20, pady=(4, 3))
+        viewer = tk.Text(window, height=text_lines, width=49,
+                         font=(FONT, 9), wrap="word", relief="flat", bd=0,
+                         bg=c["CARD"], fg=FG, padx=9, pady=7,
+                         highlightthickness=1, highlightbackground=c["BORDER"],
+                         cursor="arrow")
+        viewer.pack(fill="x", padx=20, pady=(0, 5))
+        viewer.insert("1.0", content)
+        viewer.configure(state="disabled")
+        window._reminder_content_view = viewer
+        if visual_lines > text_lines:
+            tk.Label(window, text="Scroll to read the complete text",
+                     bg=BG, fg=MUTED, font=(FONT, 8)
+                     ).pack(anchor="w", padx=20)
+    else:
+        window._reminder_content_view = None
 
     add_response = tk.BooleanVar(window, note.get("reminder_add_response") is True)
-    standalone = note.get("kind") == "standalone"
     caption = ("Save a response with this reminder"
                if standalone else "Add response to the bottom of this note")
     checked = ttk.Checkbutton(window, text=caption,

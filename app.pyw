@@ -3272,57 +3272,68 @@ class PocketDesk:
             return
         self._refresh_note_reminder_ui()
 
-    def _display_due_reminder(self, note_id):
-        """Show one interactive reminder at a time, including with Pocket hidden."""
+    def _display_due_reminder(self, note_id, source="note"):
+        """One pending dialog for either a Note or standalone reminder."""
         current = getattr(self, "_due_reminder_dialog", None)
         if current is not None and current.winfo_exists():
             current.lift()
             return
-        note = next((item for item in self.data["notes"] if item["id"] == note_id), None)
-        if note is None or not reminder_is_due(note):
+        standalone = source == "standalone"
+        records = self.data.get("reminders", []) if standalone else self.data["notes"]
+        item = next((entry for entry in records if entry["id"] == note_id), None)
+        if item is None or not reminder_store.is_due(item):
             return
         was_modal = self._modal
         self._modal = True
 
         def persist(action):
-            # The active editor may contain text which has not yet been synced.
             self._flush_current_note()
-            prior = {key: note.get(key) for key in (
-                "body", "reminder_at", "reminder_sent_at", "reminder_enabled",
-                "reminder_snoozed", "reminder_draft", "reminder_add_response")}
+            # Clone the mutable responses list as well as the scalar fields.
+            original = {key: (list(value) if key == "responses" else value)
+                        for key, value in item.items()}
             try:
                 action()
                 if self._write_now() is False:
                     raise OSError("The reminder change could not be saved.")
             except Exception:
-                note.update(prior)
+                item.clear()
+                item.update(original)
                 raise
-            if self.current_tab == "notes" and self.data["active_note"] == note_id:
+            if not standalone and self.current_tab == "notes" and self.data["active_note"] == note_id:
                 self._load_selected_note()
             else:
                 self._refresh_note_reminder_ui()
 
         def done(response, checked):
-            persist(lambda: complete_reminder(note, response, checked))
+            if standalone:
+                persist(lambda: reminder_store.complete(item, response, checked))
+            else:
+                persist(lambda: complete_reminder(item, response, checked))
 
         def snooze(minutes, response, checked):
-            persist(lambda: snooze_reminder(note, minutes, response, checked))
+            if standalone:
+                persist(lambda: reminder_store.snooze(item, minutes, response, checked))
+            else:
+                persist(lambda: snooze_reminder(item, minutes, response, checked))
 
         def closed():
             self._due_reminder_dialog = None
             self._modal = was_modal
 
         try:
+            displayed = {**item, "kind": "standalone"} if standalone else item
             self._due_reminder_dialog = reminder_ui.open_due_dialog(
-                self.root, note, done, snooze, closed, theme=self.theme)
+                self.root, displayed, done, snooze, closed, theme=self.theme)
         except Exception:
             self._modal = was_modal
             raise
 
-    def _manage_note_reminder(self, note_id, action):
-        """Overview actions: quick Snooze/Done, without changing Note placement."""
-        note = next((n for n in self.data["notes"] if n["id"] == note_id), None)
-        if note is None or not note.get("reminder_enabled"):
+    def _manage_note_reminder(self, note_id, action, source="note"):
+        """Shared overview actions for both types; never create a Note."""
+        standalone = source == "standalone"
+        records = self.data.get("reminders", []) if standalone else self.data["notes"]
+        item = next((n for n in records if n["id"] == note_id), None)
+        if item is None or not item.get("reminder_enabled"):
             return
         popup = getattr(self, "_due_reminder_dialog", None)
         if popup is not None and popup.winfo_exists():
@@ -3330,32 +3341,33 @@ class PocketDesk:
             return
         if action not in ("snooze", "done"):
             raise ValueError("Unsupported reminder action")
-        if action == "done" and note.get("reminder_draft"):
+        if action == "done" and item.get("reminder_draft"):
             previous_modal = self._modal
             self._modal = True
             try:
                 if not messagebox.askyesno(
                         "Discard reminder draft?",
                         "This reminder has an unsent response draft.\n"
-                        "Mark it done without adding the draft to the Note?",
+                        "Mark it done without saving that draft?",
                         parent=self.root):
                     return
             finally:
                 self._modal = previous_modal
         self._flush_current_note()
-        original = {key: note.get(key) for key in (
-            "body", "reminder_at", "reminder_sent_at", "reminder_enabled",
-            "reminder_snoozed", "reminder_draft", "reminder_add_response")}
+        original = {key: (list(value) if key == "responses" else value)
+                    for key, value in item.items()}
         try:
             if action == "snooze":
-                snooze_reminder(note, 15, note.get("reminder_draft", ""),
-                                note.get("reminder_add_response", False))
+                fn = reminder_store.snooze if standalone else snooze_reminder
+                fn(item, 15, item.get("reminder_draft", ""),
+                   item.get("reminder_add_response", False))
             else:
-                complete_reminder(note)
+                (reminder_store.complete if standalone else complete_reminder)(item)
             if self._write_now() is False:
                 raise OSError("Could not save the reminder update.")
         except Exception as exc:
-            note.update(original)
+            item.clear()
+            item.update(original)
             messagebox.showerror("Pocket reminder", str(exc), parent=self.root)
             return
         self._refresh_note_reminder_ui()

@@ -442,6 +442,14 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
         app._set_quick_slots_paste_mode,
         compact=compact, wheel_scroll_page=True)
     _dropdown_field(
+        card, app, c, "quick_slots_notification_mode_picker",
+        "Quick Slot notifications",
+        "Choose which shortcut actions show Windows notifications.",
+        quick_slots.NOTIFICATION_CHOICES,
+        app.settings["quick_slots_notification_mode"],
+        app._set_quick_slots_notification_mode,
+        compact=compact, wheel_scroll_page=True)
+    _dropdown_field(
         card, app, c, "quick_slots_paste_prefix_picker", "Paste shortcut prefix",
         "Default Ctrl+Alt + Numpad1–9; only modifier keys can change.",
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_paste_prefix"],

@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-autoopen-upload
+  group: pocket-extra-excel-preview-20261120-manual-db-upload
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44770793158'
-      SOURCE_COMMIT: '9f1a9fd5198e91551fac3782dcc18c88adee8279'
+      SOURCE_RUN_ID: '44784826265'
+      SOURCE_COMMIT: '22c36620af317a8d4cf6ed3a36a170a3f8df3955'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Local-Database-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip")
+          p = Path("dist/Pocket-Extra-Local-Database-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Experimental-AutoOpen-Portable.zip > SHA256SUMS-AutoOpen.txt)
+          (cd dist && sha256sum Pocket-Extra-Local-Database-Portable.zip > SHA256SUMS-Local-Database.txt)
 
       - name: Write experimental release notes
         run: |
@@ -66,14 +66,20 @@ jobs:
           (such as 8826004 / 88-26004) are matched. Workbook reading is local and
           read-only; no spreadsheet or customer data is bundled or uploaded.
 
-          **Protected / IRM workbook automatic open:** If the file cannot be read
-          as a standard XLSX, Pocket uses local Microsoft Excel automation.
-          It reuses an exact already-open workbook or launches an isolated
-          invisible Excel instance and opens the file read-only using your
-          signed-in authorized Office identity. You normally do NOT need to
-          open Excel manually. It disables macros and link updates for the
-          dedicated instance, closes its own file without saving, never exports
-          workbook data and cannot bypass permissions or login prompts.
+          **Two modes in Extra:**
+          - Local: identical read-only source Excel search as before. Protected
+            files use locally installed Microsoft Excel with existing permissions.
+          - Database: create or refresh an on-disk SQLite search index ONLY by
+            clicking Sync database. Indexed rows are encrypted for the current
+            Windows account with DPAPI, and search tokens are keyed hashes.
+            Searches never re-open Excel or import the entire workbook into RAM.
+            Previous database is kept if a manual sync is cancelled or fails.
+            The source Excel file is never modified.
+
+          IMPORTANT: IRM programmatic access does not necessarily authorize
+          a persistent external copy of company data. Manual Sync displays
+          an explicit workplace-authorization warning. Keep the database
+          and portable folder within company-approved storage only.
 
           Built from the isolated `experiment/extra-excel-lookup` branch.
           This is a **pre-release**, not the stable Pocket v1.39.9 download.
@@ -84,7 +90,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip dist/SHA256SUMS-AutoOpen.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Local-Database-Portable.zip dist/SHA256SUMS-Local-Database.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

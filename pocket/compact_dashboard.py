@@ -25,6 +25,7 @@ NAVIGATION = (
     ("subnet", "⌗", "Subnet"),
     ("clipboard", "▣", "Clipboard"),
     ("reminders", "♧", "Reminders"),
+    ("extra", "▦", "Extra"),
     ("settings", "⚙", "Settings"),
 )
 
@@ -38,6 +39,7 @@ PAGES = {
     "subnet": ("Subnet", "IPv4 networks and address ranges"),
     "clipboard": ("Clipboard", "Session-only copied text"),
     "reminders": ("Reminders", "Your Note reminders"),
+    "extra": ("Extra", "Offline Excel workbook search"),
     "settings": ("Settings", "Customize Pocket"),
 }
 
@@ -50,6 +52,7 @@ TOOL_DESCRIPTIONS = {
     "subnet": "IPv4 ranges",
     "clipboard": "Saved text",
     "reminders": "Local reminders",
+    "extra": "Read-only Excel search",
 }
 
 # Match the screenshot's primary actions, with substitutions when hidden.
@@ -58,6 +61,7 @@ ICON_COLORS = {
     "commands": "#26BBFF", "notes": "#73E67D",
     "clipboard": "#C16CFF", "subnet": "#20CCF3",
     "links": "#68C9FF", "ports": "#FFBF64", "mac": "#84D8E3",
+    "extra": "#63DCA8",
 }
 
 

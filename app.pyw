@@ -21,6 +21,7 @@ if "--self-test-deps" in __import__("sys").argv:
         if _test_sys.platform == "win32":
             import pythoncom as _test_office_pythoncom
             import win32com.client as _test_office_client
+            import win32crypt as _test_db_crypto
         from PIL import Image as _test_image, ImageDraw as _test_draw
         from PIL import ImageTk as _test_imagetk, _imaging as _test_imaging
         if _test_unicodedata.normalize("NFC", "e\u0301") != "\u00e9":

@@ -3,3 +3,7 @@ tkinterdnd2>=0.4.4,<0.8
 
 # Render the six selectable PocketDesk icons locally.
 Pillow>=10.0,<13
+
+# Excel Extra: local, read-only readers for modern and legacy workbooks.
+openpyxl>=3.1,<4
+xlrd>=2.0.1,<3

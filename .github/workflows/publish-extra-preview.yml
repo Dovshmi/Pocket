@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-r2
+  group: pocket-extra-excel-preview-20261120-irm-upload
   cancel-in-progress: false
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
     if: github.repository == 'Dovshmi/Pocket'
     runs-on: ubuntu-latest
     env:
-      TAG: extra-excel-preview-20261120-r2
+      TAG: extra-excel-preview-20261120
       SOURCE_RUN_ID: '44768762911'
       SOURCE_COMMIT: 'bec80fe67c1c6eb3deacfc8e69c69163f137c03d'
       GH_TOKEN: ${{ github.token }}
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Experimental-Portable.zip")
+          p = Path("dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Experimental-Portable.zip > SHA256SUMS.txt)
+          (cd dist && sha256sum Pocket-Extra-Experimental-IRM-Fix-Portable.zip > SHA256SUMS-IRM-Fix.txt)
 
       - name: Write experimental release notes
         run: |
@@ -81,15 +81,8 @@ jobs:
 
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/Pocket-Extra-Experimental-Portable.zip dist/SHA256SUMS.txt \
-              --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$TAG" dist/Pocket-Extra-Experimental-Portable.zip dist/SHA256SUMS.txt \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$SOURCE_COMMIT" \
-              --title "Pocket Extra — Excel Lookup (Experimental Windows)" \
-              --prerelease \
-              --notes-file release-notes.md
-          fi
+          # Add a new, distinctly named asset. Keep the original preview intact.
+          gh release upload "$TAG" dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip dist/SHA256SUMS-IRM-Fix.txt \
+            --repo "$GITHUB_REPOSITORY"
+
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

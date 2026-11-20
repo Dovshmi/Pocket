@@ -20,6 +20,7 @@ LABELS = {
     "subnet": "Subnet",
     "clipboard": "Clip",
     "reminders": "Remind",
+    "extra": "Extra",
     "settings": "Settings",
 }
 FULL_NAMES = {
@@ -31,6 +32,7 @@ FULL_NAMES = {
     "subnet": "Subnet Calculator",
     "clipboard": "Clipboard",
     "reminders": "Reminders",
+    "extra": "Excel lookup",
     "settings": "Settings",
 }
 TILE_WIDTH = 52

@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import hashlib
+import sys
+import types
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -91,6 +93,92 @@ class ExtraExcelLookupTests(unittest.TestCase):
             path.write_bytes(b"test")
             self.assertTrue(_matches_file(path, str(path)))
             self.assertFalse(_matches_file(path, str(path.with_name("other.xlsx"))))
+
+    def test_excel_com_automatically_opens_read_only_and_closes_own_instance(self):
+        """Test the Windows COM call contract without Excel or private files."""
+        from pocket import extra_excel_com as bridge
+
+        activity = []
+
+        class FakeSheet:
+            Name = "Office protected sheet"
+
+            def __init__(self):
+                self.UsedRange = types.SimpleNamespace(
+                    Row=1, Column=1, Rows=types.SimpleNamespace(Count=2),
+                    Columns=types.SimpleNamespace(Count=2))
+
+            def Cells(self, row, col):
+                return (row, col)
+
+            def Range(self, first, last):
+                return types.SimpleNamespace(
+                    Value2=(("Customer", "Group code"), ("Example", "88-26004")))
+
+        class FakeWorkbook:
+            Worksheets = [FakeSheet()]
+
+            def Close(self, **kwargs):
+                activity.append(("close", kwargs))
+
+        class FakeWorkbooks:
+            def __iter__(self):
+                return iter(())
+
+            def Open(self, **kwargs):
+                activity.append(("open", kwargs))
+                return FakeWorkbook()
+
+        class FakeExcel:
+            def __init__(self):
+                self.Workbooks = FakeWorkbooks()
+                self.Visible = True
+                self.DisplayAlerts = True
+                self.EnableEvents = True
+                self.AutomationSecurity = 1
+                self.AskToUpdateLinks = True
+
+            def Quit(self):
+                activity.append(("quit",))
+
+        instance = FakeExcel()
+        fake_client = types.ModuleType("win32com.client")
+        def not_open(_prog_id):
+            raise RuntimeError("Excel not already running")
+        fake_client.GetActiveObject = not_open
+        fake_client.DispatchEx = lambda _prog_id: instance
+        fake_win32com = types.ModuleType("win32com")
+        fake_win32com.__path__ = []
+        fake_win32com.client = fake_client
+        fake_pythoncom = types.ModuleType("pythoncom")
+        fake_pythoncom.CoInitialize = lambda: activity.append(("initialize",))
+        fake_pythoncom.CoUninitialize = lambda: activity.append(("uninitialize",))
+
+        with patch.dict(sys.modules, {
+            "pythoncom": fake_pythoncom,
+            "win32com": fake_win32com,
+            "win32com.client": fake_client,
+        }), patch.object(bridge.sys, "platform", "win32"):
+            sheets = []
+            for sheet_name, rows in bridge.iter_open_excel_sheets("C:/example.xlsx"):
+                sheets.append((sheet_name, list(rows)))
+
+        self.assertEqual(sheets, [("Office protected sheet", [
+            (1, ("Customer", "Group code")),
+            (2, ("Example", "88-26004")),
+        ])])
+        self.assertEqual(instance.AutomationSecurity, 3)
+        self.assertFalse(instance.Visible)
+        self.assertFalse(instance.EnableEvents)
+        self.assertFalse(instance.DisplayAlerts)
+        opened = [row[1] for row in activity if row[0] == "open"]
+        self.assertEqual(len(opened), 1)
+        self.assertTrue(opened[0]["ReadOnly"])
+        self.assertEqual(opened[0]["UpdateLinks"], 0)
+        self.assertFalse(opened[0]["AddToMru"])
+        self.assertIn(("close", {"SaveChanges": False}), activity)
+        self.assertIn(("quit",), activity)
+        self.assertEqual(activity[-1], ("uninitialize",))
 
     def test_bounded_search_and_bad_paths(self):
         with tempfile.TemporaryDirectory() as folder:

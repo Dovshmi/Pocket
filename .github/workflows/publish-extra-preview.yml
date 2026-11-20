@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120
+  group: pocket-extra-excel-preview-20261120-r2
   cancel-in-progress: false
 
 jobs:
@@ -22,9 +22,9 @@ jobs:
     if: github.repository == 'Dovshmi/Pocket'
     runs-on: ubuntu-latest
     env:
-      TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44749922593'
-      SOURCE_COMMIT: '22d10f2b38a576b2ad3a31549261ef61f239ed2b'
+      TAG: extra-excel-preview-20261120-r2
+      SOURCE_RUN_ID: '44768762911'
+      SOURCE_COMMIT: 'bec80fe67c1c6eb3deacfc8e69c69163f137c03d'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -65,6 +65,13 @@ jobs:
           and view matching rows. Numeric group codes with separator differences
           (such as 8826004 / 88-26004) are matched. Workbook reading is local and
           read-only; no spreadsheet or customer data is bundled or uploaded.
+
+          **IRM/encrypted workbook fix:** If a protected XLSX cannot be parsed
+          as a standard ZIP, open that exact file in desktop Microsoft Excel
+          using your existing work account, leave it open, then search in Pocket.
+          The fallback reads through the existing Excel session only when
+          programmatic access is permitted. It never opens, saves or exports
+          the workbook and does not bypass Microsoft Office permissions.
 
           Built from the isolated `experiment/extra-excel-lookup` branch.
           This is a **pre-release**, not the stable Pocket v1.39.9 download.

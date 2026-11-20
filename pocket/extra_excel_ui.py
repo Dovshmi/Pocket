@@ -24,7 +24,7 @@ def build(app, parent):
 
     label(parent, "Extra  /  Excel lookup", size=18 if wide else 13,
           bold=True).pack(fill="x", pady=(0, 5))
-    label(parent, "Live Excel search or a fast, manually synced encrypted database.",
+    label(parent, "Live Excel search or a fast, manually synced SQLite database.",
           size=9, muted=True, wraplength=650 if wide else 280).pack(
               fill="x", pady=(0, 10))
 
@@ -66,7 +66,7 @@ def build(app, parent):
     database_panel = design.panel(parent, app.theme)
     db_top = tk.Frame(database_panel, bg=colors["PANEL"])
     db_top.pack(fill="x", padx=10, pady=(9, 6))
-    db_title = label(db_top, "ENCRYPTED DATABASE  ·  MANUAL SYNC ONLY",
+    db_title = label(db_top, "SQLITE DATABASE  ·  MANUAL SYNC ONLY",
                      bold=True, size=8, bg=colors["PANEL"])
     db_title.pack(anchor="w")
     db_info_label = label(database_panel, "", size=8, muted=True,
@@ -269,7 +269,7 @@ def build(app, parent):
                 status, value = messages.get_nowait()
             except queue.Empty:
                 if kind == "sync":
-                    set_status(f"Syncing encrypted database: {counter['rows']:,} rows read…")
+                    set_status(f"Syncing SQLite database: {counter['rows']:,} rows read…")
                 app.root.after(120, poll)
                 return
             busy = False
@@ -342,7 +342,7 @@ def build(app, parent):
             set_status(str(exc))
             return
         clear_results()
-        set_status("Searching the encrypted on-disk index…")
+        set_status("Searching the local SQLite index…")
         work("database", lambda cancel, report: db.search_database(
             term, cancelled=cancel.is_set))
 
@@ -360,15 +360,15 @@ def build(app, parent):
             set_status("Choose the Excel source to sync.")
             return
         if not messagebox.askyesno(
-            "Create encrypted local database?",
-            "This will create an OFFLINE, PERSISTENT copy of all populated Excel "
-            "rows in Pocket's local data folder, encrypted for this Windows user.\n\n"
+            "Create plain SQLite database?",
+            "This creates an OFFLINE, UNENCRYPTED copy of all populated Excel "
+            "rows in Pocket's local data folder as normal, readable SQLite.\n\n"
             "Programmatic access to an IRM workbook does not necessarily authorize "
             "saving a separate copy. Confirm your workplace policy permits it.\n\n"
             "Continue with a manual Sync?",
             icon="warning", parent=app.root):
             return
-        set_status("Reading Excel and building the encrypted database…")
+        set_status("Reading Excel and building the plain SQLite database…")
         work("sync", lambda cancel, report: db.sync_database(
             source_path, cancelled=cancel.is_set, on_progress=report))
 

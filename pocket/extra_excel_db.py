@@ -153,10 +153,15 @@ def _linked_path(path):
 
 
 def same_source(path, db_info):
-    """A manual path selection must not accidentally query another workbook."""
+    """Compare exact files, tolerating Windows short-name and mapped-path aliases."""
     if not path:
         return True
-    return _linked_path(path) == _linked_path(db_info["source"])
+    if _linked_path(path) == _linked_path(db_info["source"]):
+        return True
+    try:
+        return os.path.samefile(str(path), db_info["source"])
+    except (OSError, ValueError):
+        return False
 
 
 def sync_database(source_path, db_path=None, *, cancelled=None,

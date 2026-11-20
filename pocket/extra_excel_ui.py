@@ -116,7 +116,8 @@ def build(app, parent):
         relief="flat", font=("Segoe UI", 9), exportselection=False)
     list_scroll = tk.Scrollbar(results_wrap, command=result_list.yview)
     result_list.configure(yscrollcommand=list_scroll.set)
-    list_scroll.pack(side="right", fill="y")
+    if not compact:
+        list_scroll.pack(side="right", fill="y")
     result_list.pack(side="left", fill="both", expand=True)
 
     label(details_panel, "ALL COLUMNS / SELECTED ROW", size=9, bold=True,
@@ -131,7 +132,8 @@ def build(app, parent):
         font=("Segoe UI", 9), padx=10, pady=8)
     detail_scroll = tk.Scrollbar(detail_wrap, command=details.yview)
     details.configure(yscrollcommand=detail_scroll.set)
-    detail_scroll.pack(side="right", fill="y")
+    if not compact:
+        detail_scroll.pack(side="right", fill="y")
     details.pack(side="left", fill="both", expand=True)
     details.tag_configure("headline", foreground=colors["ACCENT"],
                           font=("Segoe UI", 10, "bold"))
@@ -282,9 +284,15 @@ def build(app, parent):
                 if value is None:
                     set_status("Sync cancelled. Existing database was preserved.")
                 else:
-                    update_db_info()
-                    set_status(f"Database updated: {value['rows']:,} rows. "
-                               "Future searches will not open Excel.")
+                    verified = update_db_info()
+                    if verified is None:
+                        set_status(
+                            "Sync finished, but the index could not be opened. "
+                            "Check the database status above; do not delete your "
+                            "source workbook. Local search is still available.")
+                    else:
+                        set_status(f"Database ready: {verified['rows']:,} rows. "
+                                   "Future searches will not open Excel.")
                 return
             hits, capped = value
             if not hits:

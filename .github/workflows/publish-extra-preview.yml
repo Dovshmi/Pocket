@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-irm-upload
+  group: pocket-extra-excel-preview-20261120-autoopen-upload
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44768762911'
-      SOURCE_COMMIT: 'bec80fe67c1c6eb3deacfc8e69c69163f137c03d'
+      SOURCE_RUN_ID: '44770793158'
+      SOURCE_COMMIT: '9f1a9fd5198e91551fac3782dcc18c88adee8279'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip")
+          p = Path("dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Experimental-IRM-Fix-Portable.zip > SHA256SUMS-IRM-Fix.txt)
+          (cd dist && sha256sum Pocket-Extra-Experimental-AutoOpen-Portable.zip > SHA256SUMS-AutoOpen.txt)
 
       - name: Write experimental release notes
         run: |
@@ -66,12 +66,14 @@ jobs:
           (such as 8826004 / 88-26004) are matched. Workbook reading is local and
           read-only; no spreadsheet or customer data is bundled or uploaded.
 
-          **IRM/encrypted workbook fix:** If a protected XLSX cannot be parsed
-          as a standard ZIP, open that exact file in desktop Microsoft Excel
-          using your existing work account, leave it open, then search in Pocket.
-          The fallback reads through the existing Excel session only when
-          programmatic access is permitted. It never opens, saves or exports
-          the workbook and does not bypass Microsoft Office permissions.
+          **Protected / IRM workbook automatic open:** If the file cannot be read
+          as a standard XLSX, Pocket uses local Microsoft Excel automation.
+          It reuses an exact already-open workbook or launches an isolated
+          invisible Excel instance and opens the file read-only using your
+          signed-in authorized Office identity. You normally do NOT need to
+          open Excel manually. It disables macros and link updates for the
+          dedicated instance, closes its own file without saving, never exports
+          workbook data and cannot bypass permissions or login prompts.
 
           Built from the isolated `experiment/extra-excel-lookup` branch.
           This is a **pre-release**, not the stable Pocket v1.39.9 download.
@@ -82,7 +84,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Experimental-IRM-Fix-Portable.zip dist/SHA256SUMS-IRM-Fix.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Experimental-AutoOpen-Portable.zip dist/SHA256SUMS-AutoOpen.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

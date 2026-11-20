@@ -18,6 +18,9 @@ if "--self-test-deps" in __import__("sys").argv:
         import unicodedata as _test_unicodedata
         import _tkinter as _test_native_tk
         import tkinter as _test_tk
+        if _test_sys.platform == "win32":
+            import pythoncom as _test_office_pythoncom
+            import win32com.client as _test_office_client
         from PIL import Image as _test_image, ImageDraw as _test_draw
         from PIL import ImageTk as _test_imagetk, _imaging as _test_imaging
         if _test_unicodedata.normalize("NFC", "e\u0301") != "\u00e9":

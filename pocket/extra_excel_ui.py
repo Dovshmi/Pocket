@@ -64,8 +64,6 @@ def build(app, parent):
           bg=colors["PANEL"], muted=True, size=8,
           wraplength=640 if wide else 260).pack(fill="x", padx=11, pady=(0, 10))
 
-    state_var = tk.StringVar(master=app.root, value="Choose a workbook, then search.")
-    label(parent, "", muted=True).pack_forget()  # No extra spacer or network status.
     state_label = label(parent, "", size=9, muted=True,
                         wraplength=700 if wide else 280)
     state_label.pack(fill="x", pady=(0, 9))
@@ -228,5 +226,4 @@ def build(app, parent):
     run_button.pack(side="right")
     entry.bind("<Return>", start_search)
     path_field.bind("<Return>", lambda _event: entry.focus_set())
-    state_var.set("")
     entry.focus_set()

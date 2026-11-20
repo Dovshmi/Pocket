@@ -95,6 +95,56 @@ def _source_sheets(path, cancelled):
         yield from iter_open_excel_sheets(path, cancelled=cancelled)
 
 
+def _readonly_connection(path):
+    """Open an existing SQLite database without writing or creating anything.
+
+    The portable Pocket folder may live on a mapped network drive. On Windows,
+    Path.resolve().as_uri() can become file://server/share/... which SQLite
+    rejects as an unsupported URI authority. Try the canonical URI first,
+    then a native Windows filename, without ever running write statements.
+    """
+    path = Path(path)
+    if not path.is_file():
+        raise DatabaseUnavailable("No database exists. Press Sync to create one.")
+    errors = []
+    try:
+        connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro",
+                                     uri=True, timeout=4)
+        connection.execute("PRAGMA query_only=ON")
+        return connection
+    except (sqlite3.Error, ValueError, OSError) as exc:
+        errors.append(exc)
+        try:
+            connection.close()
+        except (NameError, UnboundLocalError):
+            pass
+
+    # Windows has valid native UNC/mapped paths that fail SQLite URI parsing.
+    # File existence is checked again to avoid creating files on a missing path.
+    if not path.is_file():
+        raise DatabaseUnavailable("Database file is missing.") from errors[-1]
+    try:
+        connection = sqlite3.connect(str(path), timeout=4)
+        connection.execute("PRAGMA query_only=ON")
+        return connection
+    except sqlite3.Error as exc:
+        try:
+            connection.close()
+        except (NameError, UnboundLocalError):
+            pass
+        raise DatabaseUnavailable(
+            "Cannot open local database (SQLite: " +
+            (getattr(exc, "sqlite_errorname", None) or type(exc).__name__) +
+            "). Check the folder permissions and disk availability."
+        ) from exc
+
+
+def _safe_db_error(exc):
+    """Return diagnostic SQL error code without leaking file names or data."""
+    code = getattr(exc, "sqlite_errorname", None)
+    return " (" + code + ")" if code else " (" + type(exc).__name__ + ")"
+
+
 def _metadata(connection, name, codec):
     row = connection.execute(
         "SELECT payload FROM meta WHERE key = ?", (name,)).fetchone()
@@ -131,8 +181,7 @@ def read_info(db_path=None, *, codec=None):
         return None
     cipher = codec if codec is not None else WindowsUserCodec()
     try:
-        uri = path.resolve().as_uri() + "?mode=ro"
-        with closing(sqlite3.connect(uri, uri=True, timeout=3)) as connection:
+        with closing(_readonly_connection(path)) as connection:
             schema = connection.execute(
                 "SELECT value FROM metadata WHERE key='schema'").fetchone()
             if not schema or schema[0] != SCHEMA_VERSION:
@@ -140,7 +189,9 @@ def read_info(db_path=None, *, codec=None):
             details = json.loads(_metadata(connection, "details", cipher))
             return details
     except (sqlite3.DatabaseError, ValueError, UnicodeError) as exc:
-        raise DatabaseUnavailable("Database is unavailable or damaged.") from exc
+        raise DatabaseUnavailable(
+            "Database cannot be read" + _safe_db_error(exc) +
+            ". The original Excel workbook is unaffected.") from exc
     except Exception as exc:
         if isinstance(exc, DatabaseUnavailable):
             raise
@@ -279,8 +330,7 @@ def search_database(query, db_path=None, *, limit=lookup.MAX_RESULTS,
     cipher = codec if codec is not None else WindowsUserCodec()
     hits = []
     try:
-        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True,
-                                          timeout=3)) as connection:
+        with closing(_readonly_connection(path)) as connection:
             key = _metadata(connection, "secret", cipher)
             tokens = _query_terms(query, key)
             code = lookup.normalize_group_code(query)
@@ -328,7 +378,9 @@ def search_database(query, db_path=None, *, limit=lookup.MAX_RESULTS,
                         return sorted(hits[:limit], key=lambda x: not x.exact), True
             return sorted(hits, key=lambda x: not x.exact), False
     except sqlite3.DatabaseError as exc:
-        raise DatabaseUnavailable("Database search failed; try manual Sync.") from exc
+        raise DatabaseUnavailable(
+            "Database search failed" + _safe_db_error(exc) +
+            ". Verify the database before attempting another Sync.") from exc
 
 
 def delete_database(db_path=None):

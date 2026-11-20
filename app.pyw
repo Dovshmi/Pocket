@@ -1182,7 +1182,8 @@ class PocketDesk:
         canvas.pack(side="left", fill="both", expand=True)
         # Reminders uses invisible canvas scrolling; other tools retain their
         # existing visible scrollbars. Never sacrifice canvas scroll range.
-        if self.current_tab != "reminders":
+        if self.current_tab != "reminders" and not (
+                self.current_tab == "extra" and self.display_mode == "mini"):
             scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
                                    style="Pocket.Vertical.TScrollbar")
             scroll.pack(side="right", fill="y")
@@ -1213,7 +1214,7 @@ class PocketDesk:
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
-        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home", "reminders"):
+        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home", "reminders", "extra"):
             return None
         delta = getattr(event, "delta", 0)
         if delta:

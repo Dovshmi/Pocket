@@ -45,3 +45,8 @@ preview-*.png
 
 # Explicitly published offline IEEE data; keep personal vendor caches ignored.
 !offline-data/vendors.json
+
+# Never commit manually synced Excel database or incomplete encrypted snapshots.
+**/extra_excel_index.sqlite3
+**/extra_excel_index.sqlite3-*
+**/.pocket-extra-*.sqlite3

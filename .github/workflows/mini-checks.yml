@@ -93,7 +93,7 @@ jobs:
       # A one-time, opt-in documentation refresh. Ordinary test runs do not
       # mutate tracked images or cause screenshot-only commit noise.
       - name: Publish selected real Windows screenshots for README
-        if: ${{ runner.os == 'Windows' && github.event_name == 'push' && contains(github.event.head_commit.message, '[refresh screenshots]') }}
+        if: ${{ runner.os == 'Windows' && github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[refresh screenshots]') }}
         shell: pwsh
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit

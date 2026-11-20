@@ -1588,7 +1588,7 @@ class PocketDesk:
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
             return self._open_compact_tool(which)
-        if self.current_tab == "extra" and which != "extra":
+        if self.current_tab == "extra":
             self._extra_excel_cancel.set()
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
@@ -1652,7 +1652,7 @@ class PocketDesk:
         self._place_popup(self._last_tray_xy)
         # Save the last user-selected tool, not transient Extra Mini/Home
         # navigation. On restart restore the tool if it is still visible.
-        if self.display_mode != "compact" and self.data.get("last_tab") != which:
+        if self.display_mode != "compact" and which != "extra" and self.data.get("last_tab") != which:
             self.data["last_tab"] = which
             self.schedule_save()
 

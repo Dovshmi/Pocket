@@ -30,11 +30,12 @@ TOOL_HELP = {
     "subnet": "IPv4 subnet calculator",
     "clipboard": "RAM or optional local clipboard history",
     "reminders": "Show Reminders and enable all Note and standalone reminder notifications",
+    "extra": "Private, read-only search across local Excel workbook sheets",
 }
 TOOL_ICONS = {
     "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
     "commands": ">_", "subnet": "⌗", "clipboard": "▤",
-    "reminders": "♧",
+    "reminders": "♧", "extra": "⌕",
 }
 
 

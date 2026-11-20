@@ -107,6 +107,7 @@ from pocket import clipboard_gallery
 from pocket import quick_slots
 from pocket import quick_slot_dialog
 from pocket import reminder_ui
+from pocket import extra_excel_ui
 from pocket import reminder_store
 from pocket import keyboard_layout
 from pocket import marked_layout
@@ -226,8 +227,8 @@ def default_data() -> dict:
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
-        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders"],
-                     "reminders_menu_configured": True,
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
+                     "reminders_menu_configured": True, "extra_menu_configured": True,
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
@@ -256,7 +257,8 @@ def default_data() -> dict:
 
 VISIBLE_TABS = (("notes", "NOTES"), ("links", "SHORTCUTS"), ("ports", "PORTS"),
                 ("mac", "MAC"), ("commands", "COMMANDS"), ("subnet", "SUBNET"),
-                ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"))
+                ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"),
+                ("extra", "EXTRA"))
 
 
 def reminders_enabled(settings):
@@ -273,6 +275,8 @@ def normalize_settings(raw):
     # One-time upgrade introduces Reminders; marker preserves later hide/show.
     if raw.get("reminders_menu_configured") is not True and "reminders" not in selected:
         selected = [*selected, "reminders"]
+    if raw.get("extra_menu_configured") is not True and "extra" not in selected:
+        selected = [*selected, "extra"]
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
@@ -282,6 +286,7 @@ def normalize_settings(raw):
         raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
         raw.get("quick_slots_copy_prefix"))
     return {"visible_tabs": visible, "reminders_menu_configured": True,
+            "extra_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
@@ -541,6 +546,10 @@ class PocketDesk:
         self._compact_return = False  # True after opening a tool from the launcher.
         self._compact_editing = False
         self._extra_mini_previous_tab = "notes"
+        # Extra Excel lookup: never persisted; the workbook remains read-only.
+        self._extra_excel_path = ""
+        self._extra_excel_work_token = 0
+        self._extra_excel_cancel = threading.Event()
         self.current_tab = restored_tab(self.data.get("last_tab"), self.settings)
         self._last_tray_xy = None
         self._dragging_window = False
@@ -1487,7 +1496,7 @@ class PocketDesk:
         menu_items = {
             "notes": "Notes", "links": "Links", "ports": "Ports",
             "mac": "MAC", "commands": "CLI", "subnet": "Subnet",
-            "clipboard": "Clip", "reminders": "Remind",
+            "clipboard": "Clip", "reminders": "Remind", "extra": "Extra",
             "settings": "More", "more": "More",
         }
         first, additional = mini_nav.plan_mini_icons(
@@ -1579,6 +1588,8 @@ class PocketDesk:
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
             return self._open_compact_tool(which)
+        if self.current_tab == "extra" and which != "extra":
+            self._extra_excel_cancel.set()
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -1609,9 +1620,9 @@ class PocketDesk:
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
-        if ((self.display_mode == "mini" and (which in ("ports", "mac", "subnet", "settings") or which == "reminders"))
+        if ((self.display_mode == "mini" and (which in ("ports", "mac", "subnet", "settings", "extra") or which == "reminders"))
                 or (self.display_mode in ("normal", "dashboard") and
-                    (which in ("ports", "mac", "commands", "subnet", "settings") or which == "reminders"))
+                    (which in ("ports", "mac", "commands", "subnet", "settings", "extra") or which == "reminders"))
                 or (self.display_mode == "dashboard" and which == "home")):
             self._scrolling_tool_body()
         if which == "home":
@@ -1633,6 +1644,8 @@ class PocketDesk:
             self._build_subnet()
         elif which == "clipboard":
             self._build_clipboard()
+        elif which == "extra":
+            extra_excel_ui.build(self, self.body)
         elif which == "settings":
             self._build_settings()
         # Preserve a user-moved position when changing tabs.

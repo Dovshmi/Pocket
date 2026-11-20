@@ -24,7 +24,7 @@ def build(app, parent):
 
     title = label(parent, "Extra  /  Excel lookup", size=18 if wide else 13, bold=True)
     title.pack(fill="x", pady=(0, 5))
-    label(parent, "Search all sheets, read-only. Protected files: keep them open in desktop Excel.",
+    label(parent, "Offline read-only search. Protected workbooks use Excel automatically.",
           size=9, muted=True, wraplength=650 if wide else 280).pack(fill="x", pady=(0, 11))
 
     source = design.panel(parent, app.theme)
@@ -168,7 +168,7 @@ def build(app, parent):
         hits = []
         result_list.delete(0, "end")
         show_details(None)
-        set_status("Searching locally (protected books may use your open Excel)…")
+        set_status("Searching locally (Microsoft Excel may open a protected book in the background)…")
         run_button.configure(state="disabled")
         pending = queue.Queue(maxsize=1)
 

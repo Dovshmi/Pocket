@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-manual-db-upload
+  group: pocket-extra-excel-preview-20261120-db-fix-mini-scroll-upload
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44784826265'
-      SOURCE_COMMIT: '22c36620af317a8d4cf6ed3a36a170a3f8df3955'
+      SOURCE_RUN_ID: '44794282857'
+      SOURCE_COMMIT: '81f34400ab6186d7208c955855c9b0ad7052b00a'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Local-Database-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Local-Database-Portable.zip")
+          p = Path("dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Local-Database-Portable.zip > SHA256SUMS-Local-Database.txt)
+          (cd dist && sha256sum Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip > SHA256SUMS-Database-Fix.txt)
 
       - name: Write experimental release notes
         run: |
@@ -76,6 +76,13 @@ jobs:
             Previous database is kept if a manual sync is cancelled or fails.
             The source Excel file is never modified.
 
+          **Fix in this ZIP:** Existing database search/read now supports native
+          Windows paths when SQLite URI parsing fails for a mapped/network folder.
+          New indexes are verified before replacing existing data. Sync only
+          reports readiness if SQLite can actually read the index.
+          Mini Extra hides the page, results and details scrollbar rails while
+          preserving mouse-wheel/touchpad scrolling in all three areas.
+
           IMPORTANT: IRM programmatic access does not necessarily authorize
           a persistent external copy of company data. Manual Sync displays
           an explicit workplace-authorization warning. Keep the database
@@ -90,7 +97,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Local-Database-Portable.zip dist/SHA256SUMS-Local-Database.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip dist/SHA256SUMS-Database-Fix.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

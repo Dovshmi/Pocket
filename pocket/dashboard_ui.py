@@ -20,6 +20,7 @@ NAVIGATION = (
     ("subnet", "⌗", "Subnet Calculator"),
     ("clipboard", "▣", "Clipboard"),
     ("reminders", "♧", "Reminders"),
+    ("extra", "▦", "Extra"),
     ("settings", "⚙", "Settings"),
 )
 
@@ -33,6 +34,7 @@ TITLES = {
     "subnet": ("Subnet calculator", "Explore IPv4 masks, ranges and subnet divisions."),
     "clipboard": ("Clipboard history", "Session-only copied text; never saved to disk."),
     "reminders": ("Reminders", "Upcoming, snoozed and completed Note reminders."),
+    "extra": ("Extra — Excel lookup", "Read-only local search across all workbook sheets."),
     "settings": ("Preferences", "Choose your layout, theme and visible tools."),
 }
 
@@ -272,6 +274,7 @@ def build_home(app):
         ("▦", "MAC vendor lookup", "Identify vendors with your locally cached IEEE data.", "mac"),
         ("▣", "Clipboard history", "Search your current session's copied text.", "clipboard"),
         ("♧", "Reminders", "Review upcoming, snoozed and completed notes.", "reminders"),
+        ("▦", "Extra — Excel", "Search workbook columns without opening Excel.", "extra"),
     )
     visible = [t for t in all_tools if t[3] in app.settings["visible_tabs"]]
     grid = tk.Frame(body, bg=c["BG"])

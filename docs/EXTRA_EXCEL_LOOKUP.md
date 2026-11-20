@@ -13,8 +13,8 @@ Modern `.xlsx`, macro-enabled `.xlsm`, templates `.xltx`/`.xltm`, and legacy `.x
 
 ## Privacy and safety
 
-- The source file is opened **read-only** and is never modified or saved by Pocket.
-- Pocket does not launch Excel, perform workbook recalculation, run macros or write a cache/index/database.
+- The source file is opened **read-only** and is never modified or saved by Pocket. If a rights-managed or encrypted `.xlsx` file is not a normal ZIP archive, Pocket instead reads the exact workbook **already open in desktop Excel** under the current signed-in Windows/Office account, without opening, saving or exporting the workbook.
+- Pocket does not launch Excel, perform workbook recalculation, run macros or write a cache/index/database. For protected files, first open the workbook yourself in Excel and complete the normal organizational permission prompts. If Office restrictions prohibit access through automation, the lookup cannot bypass those restrictions.
 - Search results, queries and chosen file path are **not persisted** to `data.json`, logs, history, backups or the repo. The chosen path is kept in memory for the current Pocket session only.
 - All searching runs on the computer where Pocket is executing. Pocket makes **no HTTP/API requests** for this feature.
 - Worksheets are streamed on demand so a large workbook does not need to be loaded into Pocket's result list. Only the first 120 matching rows are shown to keep the UI responsive; refine your search when there are too many results.
@@ -24,7 +24,7 @@ Modern `.xlsx`, macro-enabled `.xlsm`, templates `.xltx`/`.xltm`, and legacy `.x
 
 ## Development
 
-Install the additional Excel readers through `requirements.txt`. The standard Pocket Windows build scripts use `requirements-build.txt`, which includes these dependencies and bundles them through normal imports.
+Install the additional Excel readers and Windows-only `pywin32` bridge through `requirements.txt`. The standard Pocket Windows build scripts use `requirements-build.txt`, which includes these dependencies and bundles them through normal imports.
 
 To run the focused tests:
 

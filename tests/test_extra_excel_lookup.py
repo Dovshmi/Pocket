@@ -4,10 +4,12 @@ from __future__ import annotations
 import hashlib
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from openpyxl import Workbook
 
+from pocket.extra_excel_com import _as_matrix, _matches_file
 from pocket.extra_excel_lookup import (
     display_value, match_quality, normalize_group_code, search_workbook,
 )
@@ -55,6 +57,40 @@ class ExtraExcelLookupTests(unittest.TestCase):
             self.assertEqual(len(search_workbook(path, "10.1.2")[0]), 1)
             self.assertEqual(len(search_workbook(path, "example-vrf")[0]), 1)
             self.assertEqual(len(search_workbook(path, "לקוח בדיקה")[0]), 1)
+
+    def test_protected_xlsx_falls_back_to_open_excel_without_file_writes(self):
+        """A non-ZIP .xlsx must use a read-only Office session, never export data."""
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "protected.xlsx"
+            path.write_bytes(b"encrypted OLE workbook, not a zip archive")
+            before = hashlib.sha256(path.read_bytes()).digest()
+
+            def already_open_workbook(_path, **kwargs):
+                self.assertEqual(str(_path), str(path))
+                yield "Protected FG", iter([
+                    (1, ("Customer", "Group code", "VDOM")),
+                    (2, ("Example only", "88-26004", "demo-vdom")),
+                ])
+
+            with patch("pocket.extra_excel_com.iter_open_excel_sheets",
+                       side_effect=already_open_workbook) as office:
+                matches, capped = search_workbook(path, "8826004")
+            self.assertFalse(capped)
+            self.assertEqual(len(matches), 1)
+            self.assertEqual((matches[0].sheet, matches[0].row), ("Protected FG", 2))
+            self.assertTrue(matches[0].exact)
+            self.assertEqual(office.call_count, 1)
+            self.assertEqual(hashlib.sha256(path.read_bytes()).digest(), before)
+
+    def test_native_excel_matrix_and_exact_path_matching(self):
+        self.assertEqual(_as_matrix(42, 1, 1), ((42,),))
+        self.assertEqual(_as_matrix((42, 43), 1, 2), ((42, 43),))
+        self.assertEqual(_as_matrix(((42,), (43,)), 2, 1), ((42,), (43,)))
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "reference.xlsx"
+            path.write_bytes(b"test")
+            self.assertTrue(_matches_file(path, str(path)))
+            self.assertFalse(_matches_file(path, str(path.with_name("other.xlsx"))))
 
     def test_bounded_search_and_bad_paths(self):
         with tempfile.TemporaryDirectory() as folder:

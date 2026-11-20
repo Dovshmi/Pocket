@@ -22,6 +22,9 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 
 ---
 
+> [!NOTE]
+> **Experimental branch: Extra / Excel lookup.** This branch adds a local, read-only search across every sheet and populated column of a chosen Excel workbook, including normalized group-code formats such as 8826004 and 88-26004. The lookup does not persist the workbook path, queries, or results, and does not modify the source file. **The stable v1.39.9 downloads above do not include Extra.** See [Extra Excel lookup guide](docs/EXTRA_EXCEL_LOOKUP.md).
+
 Pocket runs from the Windows system tray and opens on demand. It brings eight practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]

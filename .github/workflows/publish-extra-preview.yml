@@ -1,0 +1,88 @@
+name: Publish Pocket Extra Excel experimental ZIP
+
+# One-time publication from the isolated experimental branch. No stable release
+# or main-branch files are modified by this workflow.
+on:
+  push:
+    branches:
+      - experiment/extra-excel-lookup
+    paths:
+      - .github/workflows/publish-extra-preview.yml
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: pocket-extra-excel-preview-20261120
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Dovshmi/Pocket'
+    runs-on: ubuntu-latest
+    env:
+      TAG: extra-excel-preview-20261120
+      SOURCE_RUN_ID: '44749922593'
+      SOURCE_COMMIT: '22d10f2b38a576b2ad3a31549261ef61f239ed2b'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Download Windows ZIP from successfully tested Pocket build
+        run: |
+          mkdir -p incoming dist
+          gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+            --name Pocket-Development-Preview-Windows --dir incoming
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Experimental-Portable.zip
+
+      - name: Validate actual Windows EXE and ZIP integrity
+        run: |
+          python - <<'PY'
+          import zipfile
+          from pathlib import Path
+          p = Path("dist/Pocket-Extra-Experimental-Portable.zip")
+          assert p.is_file() and p.stat().st_size > 1_000_000
+          with zipfile.ZipFile(p) as z:
+              assert z.testzip() is None, "ZIP archive failed integrity check"
+              items = z.namelist()
+              assert "Pocket-Portable/PocketDesk.exe" in items, "Portable EXE missing"
+              assert any(n.startswith("Pocket-Portable/_internal/") for n in items), "Runtime missing"
+              for n in items:
+                  parts = n.split("/")
+                  assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
+          print("Verified tested portable ZIP and bundled PocketDesk.exe")
+          PY
+          (cd dist && sha256sum Pocket-Extra-Experimental-Portable.zip > SHA256SUMS.txt)
+
+      - name: Write experimental release notes
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Pocket Extra — Excel lookup (experimental Windows preview)
+
+          This ZIP includes `PocketDesk.exe` and the complete `_internal` portable runtime.
+          Extract the ZIP first, then run `Pocket-Portable/PocketDesk.exe`.
+
+          **Extra**: Select a local Excel workbook, search all sheets and columns,
+          and view matching rows. Numeric group codes with separator differences
+          (such as 8826004 / 88-26004) are matched. Workbook reading is local and
+          read-only; no spreadsheet or customer data is bundled or uploaded.
+
+          Built from the isolated `experiment/extra-excel-lookup` branch.
+          This is a **pre-release**, not the stable Pocket v1.39.9 download.
+          The packaged executable is unsigned and should only be used when
+          workplace policies permit it.
+          EOF
+
+      - name: Publish GitHub pre-release with direct ZIP download
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/Pocket-Extra-Experimental-Portable.zip dist/SHA256SUMS.txt \
+              --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" dist/Pocket-Extra-Experimental-Portable.zip dist/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$SOURCE_COMMIT" \
+              --title "Pocket Extra — Excel Lookup (Experimental Windows)" \
+              --prerelease \
+              --notes-file release-notes.md
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

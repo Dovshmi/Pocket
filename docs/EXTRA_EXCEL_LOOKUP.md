@@ -1,88 +1,50 @@
-# Pocket Extra — Excel lookup (experimental)
+# Pocket Extra — Local + Plain SQLite (Experimental)
 
-Feature branch: `experiment/extra-excel-lookup`. Stable Pocket `main` is unchanged.
+This feature is on `experiment/extra-excel-lookup`, not stable `main`.
 
-## Two search modes
+## Two independent search modes
 
-**Local** (default) preserves the existing behavior. Each search reads the selected
-Excel workbook directly. Protected files are read through the authorized Microsoft
-Excel desktop application, opened invisibly read-only if needed. Local mode **never
-creates a database** and does not cache the workbook in RAM.
+**Local:** The existing search opens the selected Excel workbook on each search, using the standard openpyxl reader or authorized Microsoft Excel COM for protected books. Local mode is unchanged: no cached rows, no created database, and no saved search history.
 
-**Database** searches a **manually created, encrypted SQLite index on disk**, without
-opening Excel, reconnecting to a mapped drive or loading the entire source file
-into RAM. Results include original sheet, physical row and every populated column.
-The same code normalization applies in both modes: `8826004` equals `88-26004`
-or `88 26004`. Other fields use case-insensitive substring search.
+**Database:** A fast, normal, unencrypted SQLite database. Searches use an on-disk token index; they **do not open Excel, reload the workbook into RAM, access the Internet, or synchronize automatically**. The database stores all populated Excel columns as readable JSON, the source worksheet and original row number, along with indexed substring and normalized group-code search tokens.
 
-## Manual sync workflow
+Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
-1. Go to **Extra** and select **Database**.
-2. Choose an Excel source file using **Browse** (or paste its path).
-3. Click **Sync database**. Review the explicit warning and continue **only if
-   your organization allows a persistent offline copy**.
-4. Pocket reads all populated Excel rows and builds an indexed, encrypted SQLite
-   database. This initial **manual sync** can be slow for large Excel workbooks.
-5. Future searches use SQLite immediately and do not read Excel. Even after
-   closing Pocket, the database remains available offline.
-6. When the Excel file changes, **you** decide when to press **Sync database**
-   again. Search never triggers sync, auto-refresh, loading or rebuilding.
-7. **Delete DB** removes the local indexed copy, without changing the Excel file.
+## How to create or update the database
 
-If a manual sync fails or is cancelled, the previous completed database is
-preserved, and the incomplete temporary database is deleted.
+1. Run Pocket from the experimental ZIP. Choose **Extra → Database**.
+2. Select your Excel source using **Browse**.
+3. Click **Sync database** and approve the warning about retaining an **unencrypted local copy**. Only sync if your workplace permits storing the source data that way.
+4. The sync iterates all sheets. The first manual sync can take time, particularly for IRM-protected workbooks, but later searches do not read Excel.
+5. Pocket verifies SQLite metadata, row count and integrity **before** replacing the existing database. Cancelled/failed sync preserves the previous file.
+6. Click **Sync database** again whenever you decide to refresh. There is no automatic sync on launch, file change, or search.
+7. **Delete DB** deletes only the copied SQLite index after confirmation; the Excel source file is never modified.
 
-Only **one** workbook is associated with this experimental database. A manually
-selected source that does not match its saved source requires another manual sync
-before the search uses it.
+**Database path:** For Portable, `Pocket-Portable/data/extra_excel_index.sqlite3`; for installed Pocket, `%APPDATA%\PocketDesk\extra_excel_index.sqlite3`. Keep the entire portable folder on company-approved storage. Do not commit the DB or copy it to GitHub. The file is **not encrypted**; anyone able to read it can see its contents using standard SQLite software.
 
-### Local database location
+### Migrating from the old encrypted database
 
-- **Portable ZIP:** `Pocket-Portable/data/extra_excel_index.sqlite3` beside
-  `PocketDesk.exe`; the database is not included in any GitHub artifact.
-- **Installed/non-portable:** `%APPDATA%\PocketDesk\extra_excel_index.sqlite3`
-  because installation directories are often not writable.
+The previous experimental build wrote **schema v1** with Windows DPAPI encryption. This new build writes **schema v2**, with ordinary, unencrypted SQLite.
 
-Only the user who created it should be able to decrypt the contents. Moving the
-SQLite file to another Windows account/machine will not automatically make the
-contents readable. Database paths and sync timestamps are encrypted inside the
-database rather than stored in the normal Pocket settings.
+- A v1 file will display a clear message that manual Sync is required. Pocket does **not** try to decrypt it and does **not** silently delete it.
+- Select your original Excel source and run **Sync database** once. A successfully verified new SQLite v2 file atomically replaces the old v1 database.
+- If sync fails, the previous file remains untouched. You may keep a backup of the old `data` directory during migration.
+- If the old DPAPI credentials are no longer usable, **the source Excel file** is required for the new one-time sync.
 
-## Security and company policy
+## Privacy and accuracy
 
-- **Important:** Microsoft Office IRM *programmatic access* is not necessarily
-  authorization to create an independent offline copy. Confirm your organization's
-  storage, retention and data-handling policy before pressing Sync.
-- Synced row data is encrypted at rest with **Windows DPAPI (current user)**.
-  Search postings contain HMAC-protected short search tokens instead of plaintext
-  customer names, IP addresses, VRF identifiers or workbook values.
-- Encryption does not remove the need to protect the local machine, the
-  database, Windows account or authorized backup locations.
-- Sync is always opt-in via a warning dialog; Database mode does not write on
-  entry, startup, search, or merely selecting a file.
-- No workbook data is uploaded to a website, GitHub or any network service by
-  Pocket. A source file on a network share is still read through its existing
-  Windows/Office permissions **only during Sync** (or Local searches).
-- No source Excel file is edited, exported or saved during search or Sync.
-  The existing open workbook of the user is never closed.
-- Never commit local data directories or copied workplace documents to a repo.
+Only users explicitly authorized to store a **persistent unencrypted copy** should use Database mode. Permission to access an IRM workbook programmatically does not by itself authorize offline plaintext duplication. Pocket makes no network requests for this feature, and the new SQLite file is created only on manual Sync.
 
-## Limits and implementation
+The Excel source is always opened read-only without saving. The UI continues to show up to 120 results, each with worksheet and physical row. Normalized group-code matches are searched via a dedicated code token; general substring matching uses an indexed set of two- and three-character tokens. All candidate rows are verified using the existing Local mode matching rules.
 
-Supported: `.xlsx`, `.xlsm`, `.xls`, `.xltx`, `.xltm`. Not: `.xlsb`.
-Workbook formulas show their cached values only. Header detection is heuristic
-(top ten rows), with a fallback to column letters. Up to 120 hits are returned
-per search; narrow the query if more matches exist.
+The source workbook may have cached formula values rather than recalculated results. `.xlsx`, `.xlsm`, `.xls`, `.xltx`, and `.xltm` are supported; `.xlsb` is not.
 
-The database is built by streaming rows and indexing searchable tokens on disk.
-It does **not** eagerly load all workbook rows into the application's RAM on the
-first search. DPAPI and Excel COM require Windows for protected database mode.
+In the **Mini Extra** view, outer scrolling, Matches, and All Columns remain scrollable with the mouse wheel/touchpad but their scroll rails are hidden.
 
-Run focused tests:
+## Testing
 
 ```powershell
-py -3 -m unittest tests.test_extra_excel_lookup tests.test_extra_excel_db -v
+py -3 -m unittest tests.test_extra_excel_db tests.test_extra_excel_lookup -v
 ```
 
-The GitHub repository contains only synthetic sample data, never a workplace
-workbook, synced database, user credentials or personal search history.
+Synthetic tests verify plain SQLite readability with standard `sqlite3`, existing schema v1 messaging, matching with formatted group codes, manual-only refresh, cancellation and failure recovery, Windows path fallback, and that searches do not touch Excel. Production builds include the SQLite engine from Python and do not require DPAPI for Database mode.

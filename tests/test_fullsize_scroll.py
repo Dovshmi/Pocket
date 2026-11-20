@@ -24,6 +24,20 @@ class FullSizeScrollTests(unittest.TestCase):
         self.assertIn('isinstance(widget, ttk.Treeview)', code)
         self.assertIn('canvas.yview_scroll(steps, "units")', code)
 
+    def test_extra_mini_scrolling_has_no_visible_rails(self):
+        # Preserve all three wheel targets, but reclaim their scrollbar width.
+        scrolling = SOURCE.split("    def _scrolling_tool_body(self):", 1)[1].split(
+            "    def _mini_scrolling_body(self):", 1)[0]
+        wheel = SOURCE.split("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):",
+                             1)[1].split("    def _command_picker_on_wheel", 1)[0]
+        self.assertIn('self.current_tab == "extra" and self.display_mode == "mini"',
+                      scrolling)
+        self.assertIn('"extra"):', wheel)
+        extra_ui = (Path(__file__).resolve().parents[1] /
+                    "pocket" / "extra_excel_ui.py").read_text(encoding="utf-8")
+        self.assertIn('if not compact:\n        list_scroll.pack(', extra_ui)
+        self.assertIn('if not compact:\n        detail_scroll.pack(', extra_ui)
+
     def test_cli_combobox_never_calls_vertical_yview(self):
         start = SOURCE.index("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):")
         end = SOURCE.index("    def _command_picker_on_wheel(self, event):", start)

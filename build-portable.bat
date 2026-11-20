@@ -22,7 +22,7 @@ python pocket\icon_themes.py --build-icon "assets\app.ico"
 if errorlevel 1 exit /b 1
 REM Onedir avoids unpacking the program and DLLs into TEMP on every start.
 REM No UPX; include required Windows native modules and complete Pillow/TkDnD.
-python -m PyInstaller --noconfirm --clean --onedir --windowed --noupx --contents-directory _internal --name PocketDesk --icon "assets\app.ico" --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --hidden-import _ctypes --hidden-import _tkinter --hidden-import unicodedata --add-data "assets\app.ico;assets" --add-data "commands\example_commands.json;commands" --distpath "build\portable-binaries" --workpath "build\portable-work" app.pyw
+python -m PyInstaller --noconfirm --clean --onedir --windowed --noupx --contents-directory _internal --name PocketDesk --icon "assets\app.ico" --collect-all PIL --collect-all tkinterdnd2 --hidden-import PIL._imaging --hidden-import PIL._imagingtk --hidden-import win32com.client --hidden-import win32com.client.dynamic --hidden-import pythoncom --hidden-import pywintypes --hidden-import _ctypes --hidden-import _tkinter --hidden-import unicodedata --add-data "assets\app.ico;assets" --add-data "commands\example_commands.json;commands" --distpath "build\portable-binaries" --workpath "build\portable-work" app.pyw
 if errorlevel 1 exit /b 1
 python package_portable.py
 if errorlevel 1 exit /b 1

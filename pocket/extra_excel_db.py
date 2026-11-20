@@ -1,19 +1,18 @@
-"""Pocket Extra SQLite lookup: explicit offline snapshots, never automatic sync.
+"""Pocket Extra: fast, manually synced plain SQLite database.
 
-All workbook values are encrypted with Windows DPAPI for the current user.
-Search postings are keyed HMAC digrams/trigrams, not plaintext cell values.
-Only the Sync action reads a workbook; searching queries SQLite on disk.
+Database mode never opens Excel or copies a workbook into RAM when searching.
+Sync is explicitly user-triggered, leaves the source workbook untouched, and
+atomically replaces the previous index ONLY after integrity verification.
+This database is NOT encrypted. Store it in an approved location.
 """
 from __future__ import annotations
 
 from contextlib import closing
 from datetime import datetime, timezone
-from hashlib import sha256
-import hmac
+from itertools import chain, islice
 import json
 import os
 from pathlib import Path
-import secrets
 import sqlite3
 import tempfile
 from zipfile import is_zipfile
@@ -22,70 +21,50 @@ from . import extra_excel_lookup as lookup
 from . import portable_storage
 
 FILE_NAME = "extra_excel_index.sqlite3"
-SCHEMA_VERSION = "1"
-WRITE_BATCH = 750
+SCHEMA_VERSION = "2"
+WRITE_BATCH = 300
+MAX_QUERY_TERMS = 750
 
 
 class DatabaseUnavailable(RuntimeError):
-    pass
-
-
-class WindowsUserCodec:
-    """Windows per-user encryption. Fail closed instead of storing plaintext."""
-    def __init__(self):
-        try:
-            import win32crypt
-        except ImportError as exc:
-            raise DatabaseUnavailable(
-                "Database requires Windows DPAPI (pywin32) in Pocket.") from exc
-        self.api = win32crypt
-
-    def seal(self, clear: bytes) -> bytes:
-        return self.api.CryptProtectData(
-            clear, "Pocket Extra local encrypted database", None, None, None, 0)[1]
-
-    def open(self, encrypted: bytes) -> bytes:
-        return self.api.CryptUnprotectData(encrypted, None, None, None, 0)[1]
+    """A database cannot be opened, needs a new Sync, or is inaccessible."""
 
 
 def database_path() -> Path:
-    # Portable: beside EXE at Pocket-Portable/data. Installed: per-user AppData.
+    # Portable: Pocket-Portable/data. Installed: per-user %APPDATA%/PocketDesk.
     return portable_storage.data_directory() / FILE_NAME
 
 
-def _secret_token(key: bytes, value: str) -> bytes:
-    return hmac.new(key, value.encode("utf-8"), "sha256").digest()[:16]
-
-
 def _grams(value: str, n: int):
-    return {value[i:i+n] for i in range(len(value) - n + 1)} if len(value) >= n else set()
+    if len(value) < n:
+        return set()
+    return {value[i:i + n] for i in range(len(value) - n + 1)}
 
 
-def _record_terms(fields, key: bytes):
-    """At most one posting per record and token; full values never enter SQLite."""
-    values = [lookup.normalize_text(val) for _, val in fields]
+def _record_terms(fields):
+    """Casefolded substring search tokens and normalized exact group codes."""
     postings = set()
-    for value in values:
-        for n in (2, 3):
-            for gram in _grams(value, n):
-                postings.add(_secret_token(key, f"g{n}:{gram}"))
-    for _, raw in fields:
-        code = lookup.normalize_group_code(raw)
+    for _, value in fields:
+        normalized = lookup.normalize_text(value)
+        for length in (2, 3):
+            for gram in _grams(normalized, length):
+                postings.add(f"g{length}:{gram}")
+        code = lookup.normalize_group_code(value)
         if code:
-            postings.add(_secret_token(key, "code:" + code))
+            postings.add("code:" + code)
     return postings
 
 
-def _query_terms(query: str, key: bytes):
+def _query_terms(query: str):
     normalized = lookup.normalize_text(query)
-    n = 2 if len(normalized) == 2 else 3
-    grams = _grams(normalized, n)
-    return sorted(_secret_token(key, f"g{n}:{gram}") for gram in grams)
+    length = 2 if len(normalized) == 2 else 3
+    grams = _grams(normalized, length)
+    return sorted(f"g{length}:{gram}" for gram in grams)[:MAX_QUERY_TERMS]
 
 
 def _source_sheets(path, cancelled):
+    """Reuse the tested Local Excel reader, including protected Office COM."""
     path = Path(path)
-    # The same Excel COM fallback as Local; unlike Local, consume *all* rows.
     if path.suffix.lower() == ".xls":
         yield from lookup._xls_sheets(path)
     elif is_zipfile(path):
@@ -96,107 +75,78 @@ def _source_sheets(path, cancelled):
 
 
 def _readonly_connection(path):
-    """Open an existing SQLite database without writing or creating anything.
+    """Never create a database during search, including on mapped drives.
 
-    The portable Pocket folder may live on a mapped network drive. On Windows,
-    Path.resolve().as_uri() can become file://server/share/... which SQLite
-    rejects as an unsupported URI authority. Try the canonical URI first,
-    then a native Windows filename, without ever running write statements.
+    SQLite URI form can fail with a UNC authority; retry with the native path
+    and SQLite query_only flag. No schema changes or synchronization are run.
     """
     path = Path(path)
     if not path.is_file():
-        raise DatabaseUnavailable("No database exists. Press Sync to create one.")
-    errors = []
+        raise DatabaseUnavailable("No database yet. Choose Excel and press Sync database.")
     try:
-        connection = sqlite3.connect(path.resolve().as_uri() + "?mode=ro",
-                                     uri=True, timeout=4)
-        connection.execute("PRAGMA query_only=ON")
-        return connection
-    except (sqlite3.Error, ValueError, OSError) as exc:
-        errors.append(exc)
+        con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro",
+                              uri=True, timeout=5)
         try:
-            connection.close()
-        except (NameError, UnboundLocalError):
-            pass
+            con.execute("PRAGMA query_only=ON")
+            return con
+        except Exception:
+            con.close()
+            raise
+    except (sqlite3.Error, OSError, ValueError):
+        if not path.is_file():
+            raise DatabaseUnavailable("Database is missing. Press Sync database.")
+        try:
+            con = sqlite3.connect(str(path), timeout=5)
+            try:
+                con.execute("PRAGMA query_only=ON")
+                return con
+            except Exception:
+                con.close()
+                raise
+        except sqlite3.Error as exc:
+            raise DatabaseUnavailable(
+                "Cannot open SQLite database. Check the Pocket data folder and permissions."
+            ) from exc
 
-    # Windows has valid native UNC/mapped paths that fail SQLite URI parsing.
-    # File existence is checked again to avoid creating files on a missing path.
-    if not path.is_file():
-        raise DatabaseUnavailable("Database file is missing.") from errors[-1]
+
+def _schema_version(con):
     try:
-        connection = sqlite3.connect(str(path), timeout=4)
-        connection.execute("PRAGMA query_only=ON")
-        return connection
-    except sqlite3.Error as exc:
-        try:
-            connection.close()
-        except (NameError, UnboundLocalError):
-            pass
+        record = con.execute(
+            "SELECT value FROM metadata WHERE key = 'schema'").fetchone()
+    except sqlite3.DatabaseError as exc:
         raise DatabaseUnavailable(
-            "Cannot open local database (SQLite: " +
-            (getattr(exc, "sqlite_errorname", None) or type(exc).__name__) +
-            "). Check the folder permissions and disk availability."
-        ) from exc
+            "Database format cannot be read. Use Sync database to rebuild it.") from exc
+    if record is None:
+        raise DatabaseUnavailable("Database metadata missing. Use Sync database.")
+    if record[0] == "1":
+        raise DatabaseUnavailable(
+            "This is an OLD encrypted database. Click Sync database once to "
+            "create a new plain SQLite database. Local mode still works.")
+    if record[0] != SCHEMA_VERSION:
+        raise DatabaseUnavailable(
+            "Unsupported database version. Use Sync database to rebuild it.")
 
 
-def _safe_db_error(exc):
-    """Return diagnostic SQL error code without leaking file names or data."""
-    code = getattr(exc, "sqlite_errorname", None)
-    return " (" + code + ")" if code else " (" + type(exc).__name__ + ")"
-
-
-def _metadata(connection, name, codec):
-    row = connection.execute(
-        "SELECT payload FROM meta WHERE key = ?", (name,)).fetchone()
-    if row is None:
-        raise DatabaseUnavailable("Database metadata is missing; re-sync.")
-    return codec.open(row[0])
-
-
-def _init_schema(connection):
-    connection.executescript("""
-        PRAGMA journal_mode=DELETE;
-        PRAGMA synchronous=FULL;
-        PRAGMA temp_store=MEMORY;
-        CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT NOT NULL);
-        CREATE TABLE meta(key TEXT PRIMARY KEY, payload BLOB NOT NULL);
-        CREATE TABLE rows_data(
-            row_id INTEGER PRIMARY KEY,
-            content BLOB NOT NULL
-        );
-        CREATE TABLE postings(
-            token BLOB NOT NULL,
-            row_id INTEGER NOT NULL,
-            PRIMARY KEY(token, row_id)
-        ) WITHOUT ROWID;
-    """)
-    connection.execute("INSERT INTO metadata VALUES (?, ?)",
-                       ("schema", SCHEMA_VERSION))
-
-
-def read_info(db_path=None, *, codec=None):
-    """Return tiny metadata only; never preload results or access the workbook."""
+def read_info(db_path=None):
+    """Read only tiny metadata; never open Excel or load indexed rows into RAM."""
     path = Path(db_path) if db_path is not None else database_path()
     if not path.is_file():
         return None
-    cipher = codec if codec is not None else WindowsUserCodec()
     try:
-        with closing(_readonly_connection(path)) as connection:
-            schema = connection.execute(
-                "SELECT value FROM metadata WHERE key='schema'").fetchone()
-            if not schema or schema[0] != SCHEMA_VERSION:
-                raise DatabaseUnavailable("Unknown database format; re-sync.")
-            details = json.loads(_metadata(connection, "details", cipher))
-            return details
-    except (sqlite3.DatabaseError, ValueError, UnicodeError) as exc:
+        with closing(_readonly_connection(path)) as con:
+            _schema_version(con)
+            data = dict(con.execute("SELECT key, value FROM metadata"))
+            info = {
+                "source": data["source"],
+                "updated_at": data["updated_at"],
+                "rows": int(data["rows"]),
+            }
+            if info["rows"] < 0:
+                raise ValueError("Invalid row count")
+            return info
+    except (sqlite3.Error, KeyError, ValueError, TypeError) as exc:
         raise DatabaseUnavailable(
-            "Database cannot be read" + _safe_db_error(exc) +
-            ". The original Excel workbook is unaffected.") from exc
-    except Exception as exc:
-        if isinstance(exc, DatabaseUnavailable):
-            raise
-        raise DatabaseUnavailable(
-            "Cannot decrypt database with this Windows account.") from exc
+            "Database metadata is invalid. Use Sync database to rebuild it.") from exc
 
 
 def _linked_path(path):
@@ -204,7 +154,6 @@ def _linked_path(path):
 
 
 def same_source(path, db_info):
-    """Compare exact files, tolerating Windows short-name and mapped-path aliases."""
     if not path:
         return True
     if _linked_path(path) == _linked_path(db_info["source"]):
@@ -215,46 +164,79 @@ def same_source(path, db_info):
         return False
 
 
-def sync_database(source_path, db_path=None, *, cancelled=None,
-                  on_progress=None, codec=None):
-    """Manually replace an encrypted, indexed snapshot, atomically on success.
+def _init_schema(con):
+    con.executescript("""
+        PRAGMA journal_mode=DELETE;
+        PRAGMA synchronous=FULL;
+        PRAGMA temp_store=FILE;
+        PRAGMA cache_size=-8192;
+        CREATE TABLE metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        CREATE TABLE rows_data (
+            row_id INTEGER PRIMARY KEY,
+            content TEXT NOT NULL
+        );
+        CREATE TABLE postings (
+            token TEXT NOT NULL,
+            row_id INTEGER NOT NULL,
+            PRIMARY KEY (token, row_id)
+        ) WITHOUT ROWID;
+    """)
+    con.execute("INSERT INTO metadata(key,value) VALUES ('schema', ?)",
+                (SCHEMA_VERSION,))
 
-    Never called by search or startup. On error/cancellation preserve prior DB.
+
+def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None):
+    """Explicit user-requested full sync with atomic replacement.
+
+    Existing (even legacy encrypted) index is preserved on failure/cancel.
+    The new index stores plaintext JSON rows plus a substring token index.
     """
     source = Path(source_path).expanduser()
     if source.suffix.lower() not in lookup.SUPPORTED_EXTENSIONS:
-        raise ValueError("Choose a supported Excel workbook before Sync.")
+        raise ValueError("Choose a supported Excel file for Sync database.")
     if not source.is_file():
-        raise FileNotFoundError("Selected Excel workbook was not found.")
+        raise FileNotFoundError("The selected Excel workbook was not found.")
     if source.stat().st_size == 0:
-        raise ValueError("Selected Excel workbook is empty.")
+        raise ValueError("The selected Excel workbook is empty.")
     target = Path(db_path) if db_path is not None else database_path()
-    cipher = codec if codec is not None else WindowsUserCodec()
     if cancelled is not None and cancelled():
         return None
-    # Only a deliberate Sync may create data directory or SQLite file.
+
+    # No file or directory is created by searching, opening Extra, or Local mode.
     target.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(prefix=".pocket-extra-", suffix=".sqlite3",
-                                        dir=str(target.parent))
+    handle, temporary = tempfile.mkstemp(prefix=".pocket-extra-",
+                                        suffix=".sqlite3", dir=str(target.parent))
     os.close(handle)
-    connection = None
-    rows = 0
+    con = None
+    rows_count = 0
     try:
-        connection = sqlite3.connect(temporary, timeout=5)
-        _init_schema(connection)
-        secret = secrets.token_bytes(32)
-        connection.execute("INSERT INTO meta VALUES (?, ?)",
-                           ("secret", cipher.seal(secret)))
-        records = []
-        tokens = []
-        with connection:
-            for sheet_name, sheet_rows in _source_sheets(source, cancelled):
-                first = []
-                row_iterator = iter(sheet_rows)
-                from itertools import islice, chain
-                first = list(islice(row_iterator, 10))
+        con = sqlite3.connect(temporary, timeout=10)
+        _init_schema(con)
+        row_batch, token_batch = [], []
+
+        # Every commit is to a disposable temporary database, never the source
+        # workbook or the previous index. This bounds SQLite transaction size.
+        def flush():
+            if not row_batch:
+                return
+            with con:
+                con.executemany(
+                    "INSERT INTO rows_data(row_id, content) VALUES (?, ?)", row_batch)
+                con.executemany(
+                    "INSERT OR IGNORE INTO postings(token, row_id) VALUES (?, ?)",
+                    token_batch)
+            row_batch.clear()
+            token_batch.clear()
+
+        with closing(_source_sheets(source, cancelled)) as sheets:
+            for sheet_name, sheet_rows in sheets:
+                headers_and_rows = iter(sheet_rows)
+                first = list(islice(headers_and_rows, 10))
                 header_number, headers = lookup._headings(first)
-                for row_number, row in chain(first, row_iterator):
+                for row_number, row in chain(first, headers_and_rows):
                     if cancelled is not None and cancelled():
                         return None
                     if row_number == header_number:
@@ -262,62 +244,56 @@ def sync_database(source_path, db_path=None, *, cancelled=None,
                     fields = lookup._columns(row, headers)
                     if not fields:
                         continue
-                    rows += 1
-                    record = {"sheet": str(sheet_name), "row": int(row_number),
-                              "fields": fields}
-                    blob = cipher.seal(json.dumps(
-                        record, ensure_ascii=False, separators=(",", ":")
-                    ).encode("utf-8"))
-                    records.append((rows, blob))
-                    tokens.extend((term, rows) for term in _record_terms(fields, secret))
-                    if len(records) >= WRITE_BATCH:
-                        connection.executemany(
-                            "INSERT INTO rows_data (row_id, content) VALUES (?, ?)",
-                            records)
-                        connection.executemany(
-                            "INSERT OR IGNORE INTO postings (token, row_id) VALUES (?, ?)",
-                            tokens)
-                        records.clear()
-                        tokens.clear()
+                    rows_count += 1
+                    item = {"sheet": str(sheet_name), "row": int(row_number),
+                            "fields": fields}
+                    row_batch.append((
+                        rows_count, json.dumps(item, ensure_ascii=False,
+                                               separators=(",", ":"))))
+                    token_batch.extend(
+                        (token, rows_count) for token in _record_terms(fields))
+                    if len(row_batch) >= WRITE_BATCH:
+                        flush()
                         if on_progress is not None:
-                            on_progress(rows)
+                            on_progress(rows_count)
                 if on_progress is not None:
-                    on_progress(rows)
-            if records:
-                connection.executemany(
-                    "INSERT INTO rows_data (row_id, content) VALUES (?, ?)",
-                    records)
-                connection.executemany(
-                    "INSERT OR IGNORE INTO postings (token, row_id) VALUES (?, ?)",
-                    tokens)
-            if cancelled is not None and cancelled():
-                return None
-            details = {"source": str(source.resolve()),
-                       "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                       "rows": rows}
-            connection.execute("INSERT INTO meta VALUES (?, ?)",
-                               ("details", cipher.seal(
-                                   json.dumps(details, ensure_ascii=False).encode("utf-8"))))
-        connection.close()
-        connection = None
+                    on_progress(rows_count)
+
         if cancelled is not None and cancelled():
             return None
-        # The old index is untouched until the new database passes a complete
-        # metadata read and SQLite's on-disk consistency check. This catches
-        # filesystem/SQLite failures before the only destructive replace step.
-        verified = read_info(temporary, codec=cipher)
-        if verified is None or verified.get("rows") != rows:
-            raise DatabaseUnavailable("New database did not pass verification.")
-        with closing(_readonly_connection(temporary)) as verification:
-            integrity = verification.execute("PRAGMA quick_check(1)").fetchone()
-            if not integrity or integrity[0] != "ok":
+        flush()
+        details = {
+            "source": str(source.resolve()),
+            "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "rows": rows_count,
+        }
+        with con:
+            con.executemany("INSERT INTO metadata(key,value) VALUES (?, ?)",
+                            [(key, str(value)) for key, value in details.items()])
+        con.close()
+        con = None
+        if cancelled is not None and cancelled():
+            return None
+
+        # Never replace an existing database until the new one passes
+        # a complete on-disk validation via the normal search/read path.
+        verified = read_info(temporary)
+        if verified is None or verified["rows"] != rows_count:
+            raise DatabaseUnavailable(
+                "New SQLite database failed metadata validation. Old database preserved.")
+        with closing(_readonly_connection(temporary)) as validation:
+            check = validation.execute("PRAGMA quick_check(1)").fetchone()
+            count = validation.execute("SELECT COUNT(*) FROM rows_data").fetchone()
+            if not check or check[0] != "ok" or count[0] != rows_count:
                 raise DatabaseUnavailable(
-                    "New database failed integrity check; previous index preserved.")
+                    "New SQLite database failed integrity check. Old database preserved.")
+        if cancelled is not None and cancelled():
+            return None
         os.replace(temporary, target)
         return details
     finally:
-        if connection is not None:
-            connection.close()
+        if con is not None:
+            con.close()
         try:
             Path(temporary).unlink(missing_ok=True)
         except OSError:
@@ -325,77 +301,69 @@ def sync_database(source_path, db_path=None, *, cancelled=None,
 
 
 def search_database(query, db_path=None, *, limit=lookup.MAX_RESULTS,
-                    cancelled=None, codec=None):
-    """Run indexed substring/exact-code search against SQLite only.
-
-    No workbook access. No whole-database RAM load. Decrypt only candidate rows.
-    """
+                    cancelled=None):
+    """Fast on-disk indexed search. Does not use Excel, DPAPI or in-memory cache."""
     path = Path(db_path) if db_path is not None else database_path()
     if not path.is_file():
-        raise DatabaseUnavailable("No database yet. Select a workbook and press Sync.")
-    if not 1 <= limit <= 1000:
-        raise ValueError("Invalid search limit.")
-    text = lookup.normalize_text(query)
-    if len(text) < 2:
+        raise DatabaseUnavailable("No database yet. Press Sync database once.")
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+        raise ValueError("Invalid result limit.")
+    normalized = lookup.normalize_text(query)
+    if len(normalized) < 2:
         return [], False
-    cipher = codec if codec is not None else WindowsUserCodec()
     hits = []
     try:
-        with closing(_readonly_connection(path)) as connection:
-            key = _metadata(connection, "secret", cipher)
-            tokens = _query_terms(query, key)
+        with closing(_readonly_connection(path)) as con:
+            _schema_version(con)
+            tokens = _query_terms(query)
             code = lookup.normalize_group_code(query)
-            code_token = _secret_token(key, "code:" + code) if code else None
-            if not tokens and code_token is None:
-                return [], False
-            if len(tokens) > 900:
-                # Avoid SQLite placeholder limits, prefer searching via smaller
-                # distinctive ngram subset; final match is exact in Python.
-                tokens = tokens[:900]
-
-            # All query ngrams must occur in candidate row, in any fields;
-            # final match_quality ensures the substring is in one actual cell.
-            candidates = []
+            code_token = "code:" + code if code else None
+            queries = []
+            # Exact normalized group codes first, so formatting is irrelevant.
+            if code_token:
+                queries.append((
+                    "SELECT row_id FROM postings WHERE token=?", (code_token,)))
             if tokens:
                 placeholders = ",".join("?" for _ in tokens)
-                sql = (f"SELECT row_id FROM postings WHERE token IN ({placeholders}) "
-                       "GROUP BY row_id HAVING COUNT(*) = ?")
-                candidates.append((sql, (*tokens, len(tokens))))
-            if code_token is not None:
-                candidates.insert(0, ("SELECT row_id FROM postings WHERE token=?", (code_token,)))
+                queries.append((
+                    f"SELECT row_id FROM postings WHERE token IN ({placeholders}) "
+                    "GROUP BY row_id HAVING COUNT(*) = ?",
+                    (*tokens, len(tokens))))
+
             seen = set()
-            for sql, params in candidates:
-                for (record_id,) in connection.execute(sql, params):
+            for sql, params in queries:
+                for (record_id,) in con.execute(sql, params):
                     if cancelled is not None and cancelled():
                         return [], False
                     if record_id in seen:
                         continue
                     seen.add(record_id)
-                    record = connection.execute(
-                        "SELECT content FROM rows_data WHERE row_id=?", (record_id,)).fetchone()
-                    if record is None:
+                    row = con.execute(
+                        "SELECT content FROM rows_data WHERE row_id=?",
+                        (record_id,)).fetchone()
+                    if row is None:
                         continue
-                    obj = json.loads(cipher.open(record[0]))
-                    fields = tuple((str(a), str(b)) for a, b in obj["fields"])
-                    match = tuple(name for name, val in fields
-                                  if lookup.match_quality(query, val))
-                    if not match:
+                    item = json.loads(row[0])
+                    fields = tuple((str(k), str(v)) for k, v in item["fields"])
+                    matching = tuple(k for k, v in fields
+                                     if lookup.match_quality(query, v))
+                    if not matching:
                         continue
-                    exact = any(lookup.match_quality(query, val) == 2
-                                for _, val in fields)
-                    hits.append(lookup.ExcelHit(obj["sheet"], obj["row"],
-                                                fields, match, exact))
+                    exact = any(lookup.match_quality(query, v) == 2
+                                for _, v in fields)
+                    hits.append(lookup.ExcelHit(item["sheet"], item["row"],
+                                                fields, matching, exact))
                     if len(hits) > limit:
                         return sorted(hits[:limit], key=lambda x: not x.exact), True
-            return sorted(hits, key=lambda x: not x.exact), False
-    except sqlite3.DatabaseError as exc:
+        return sorted(hits, key=lambda x: not x.exact), False
+    except (sqlite3.DatabaseError, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise DatabaseUnavailable(
-            "Database search failed" + _safe_db_error(exc) +
-            ". Verify the database before attempting another Sync.") from exc
+            "SQLite search failed. Try manual Sync database. "
+            "The Excel source was not modified.") from exc
 
 
 def delete_database(db_path=None):
-    """Explicit delete action only. No silent deletion of prior snapshots."""
+    """Delete only the indexed database after explicit user confirmation."""
     path = Path(db_path) if db_path is not None else database_path()
     if path.exists():
         path.unlink()

@@ -82,6 +82,39 @@ class ExtraDatabaseTests(unittest.TestCase):
             exact, _ = db.search_database("88-28020", self.index, codec=self.codec)
             self.assertEqual([(x.sheet, x.row) for x in exact], [("FG-23", 3)])
 
+    def test_existing_database_falls_back_when_sqlite_uri_is_rejected(self):
+        """Network/mapped Windows directories can fail SQLite's URI authority."""
+        import sqlite3
+        db.sync_database(self.book, self.index, codec=self.codec)
+        original_connect = sqlite3.connect
+        calls = []
+
+        def mocked_connect(target, *args, **kwargs):
+            calls.append((str(target), bool(kwargs.get("uri", False))))
+            if kwargs.get("uri"):
+                raise sqlite3.OperationalError("invalid uri authority: network-host")
+            return original_connect(target, *args, **kwargs)
+
+        with patch.object(db.sqlite3, "connect", side_effect=mocked_connect):
+            info = db.read_info(self.index, codec=self.codec)
+            self.assertEqual(info["rows"], 4)
+            hits, limited = db.search_database("88-26004", self.index,
+                                               codec=self.codec)
+            self.assertFalse(limited)
+            self.assertEqual(len(hits), 3)
+        self.assertTrue(any(uri for _, uri in calls))
+        self.assertTrue(any(not uri for _, uri in calls))
+        self.assertTrue(self.index.is_file())
+
+    def test_database_reads_do_not_create_files(self):
+        missing = self.folder / "absent.sqlite3"
+        self.assertIsNone(db.read_info(missing, codec=self.codec))
+        with self.assertRaises(db.DatabaseUnavailable):
+            db.search_database("88-26004", missing, codec=self.codec)
+        with self.assertRaises(db.DatabaseUnavailable):
+            db._readonly_connection(missing)
+        self.assertFalse(missing.exists())
+
     def test_cancel_sync_keeps_existing_database_unmodified(self):
         db.sync_database(self.book, self.index, codec=self.codec)
         previous = self.index.read_bytes()

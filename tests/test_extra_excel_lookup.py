@@ -15,7 +15,8 @@ from pocket.extra_excel_lookup import (
 
 class ExtraExcelLookupTests(unittest.TestCase):
     def test_group_codes_are_separator_independent(self):
-        for stored in ("8826004", "88-26004", "88 26004", "88–26004", "88—26004"):
+        for stored in ("8826004", "88-26004", "88 26004", "88–26004", "88—26004",
+                       "88−26004", "88/26004", "88.26004", "88_26004"):
             self.assertEqual(normalize_group_code(stored), "8826004")
             self.assertEqual(match_quality("8826004", stored), 2)
             self.assertEqual(match_quality("88-26004", stored), 2)

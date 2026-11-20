@@ -302,6 +302,17 @@ def sync_database(source_path, db_path=None, *, cancelled=None,
         connection = None
         if cancelled is not None and cancelled():
             return None
+        # The old index is untouched until the new database passes a complete
+        # metadata read and SQLite's on-disk consistency check. This catches
+        # filesystem/SQLite failures before the only destructive replace step.
+        verified = read_info(temporary, codec=cipher)
+        if verified is None or verified.get("rows") != rows:
+            raise DatabaseUnavailable("New database did not pass verification.")
+        with closing(_readonly_connection(temporary)) as verification:
+            integrity = verification.execute("PRAGMA quick_check(1)").fetchone()
+            if not integrity or integrity[0] != "ok":
+                raise DatabaseUnavailable(
+                    "New database failed integrity check; previous index preserved.")
         os.replace(temporary, target)
         return details
     finally:

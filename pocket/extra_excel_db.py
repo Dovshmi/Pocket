@@ -6,6 +6,7 @@ Only the Sync action reads a workbook; searching queries SQLite on disk.
 """
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone
 from hashlib import sha256
 import hmac
@@ -131,7 +132,7 @@ def read_info(db_path=None, *, codec=None):
     cipher = codec if codec is not None else WindowsUserCodec()
     try:
         uri = path.resolve().as_uri() + "?mode=ro"
-        with sqlite3.connect(uri, uri=True, timeout=3) as connection:
+        with closing(sqlite3.connect(uri, uri=True, timeout=3)) as connection:
             schema = connection.execute(
                 "SELECT value FROM metadata WHERE key='schema'").fetchone()
             if not schema or schema[0] != SCHEMA_VERSION:
@@ -273,8 +274,8 @@ def search_database(query, db_path=None, *, limit=lookup.MAX_RESULTS,
     cipher = codec if codec is not None else WindowsUserCodec()
     hits = []
     try:
-        with sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True,
-                             timeout=3) as connection:
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True,
+                                          timeout=3)) as connection:
             key = _metadata(connection, "secret", cipher)
             tokens = _query_terms(query, key)
             code = lookup.normalize_group_code(query)

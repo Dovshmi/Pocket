@@ -15,16 +15,17 @@ SLOT_COUNT = 4
 MAX_PAGES = 24  # A guard against malformed saved profiles, not a fixed UI size.
 PAGE_TITLES = ("Tools", "Commands", "Notes")
 KINDS = ("tool", "command", "template", "note", "shortcut")
-TOOLS = ("notes", "links", "ports", "mac", "commands", "subnet", "clipboard")
+TOOLS = ("notes", "links", "ports", "mac", "commands", "subnet", "clipboard", "extra")
 TOOL_NAMES = {
     "notes": "Notes", "links": "Shortcuts", "ports": "TCP Ports",
     "mac": "MAC Lookup", "commands": "Commands",
-    "subnet": "Subnet", "clipboard": "Clipboard",
+    "subnet": "Subnet", "clipboard": "Clipboard", "extra": "Extra",
 }
 KIND_ICONS = {"tool": "tool", "command": "commands", "template": "commands", "note": "notes", "shortcut": "links"}
 TOOL_ICONS = {
     "notes": "notes", "links": "links", "ports": "ports", "mac": "mac",
     "commands": "commands", "subnet": "subnet", "clipboard": "clipboard",
+    "extra": "extra",
 }
 
 

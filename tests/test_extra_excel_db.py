@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -46,7 +47,7 @@ class ExtraDatabaseTests(unittest.TestCase):
 
     def test_plain_sqlite_is_readable_without_windows_or_crypto(self):
         self.sync()
-        with sqlite3.connect(self.index) as con:
+        with closing(sqlite3.connect(self.index)) as con:
             meta = dict(con.execute("SELECT key, value FROM metadata"))
             self.assertEqual(meta["schema"], "2")
             self.assertEqual(int(meta["rows"]), 4)
@@ -94,9 +95,10 @@ class ExtraDatabaseTests(unittest.TestCase):
         self.assertTrue(found.matched_columns)
 
     def test_existing_encrypted_v1_is_identified_not_decrypted_or_deleted(self):
-        with sqlite3.connect(self.index) as con:
+        with closing(sqlite3.connect(self.index)) as con:
             con.execute("CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT)")
             con.execute("INSERT INTO metadata VALUES('schema', '1')")
+            con.commit()
         original = self.index.read_bytes()
         with self.assertRaisesRegex(db.DatabaseUnavailable, "OLD encrypted database"):
             db.read_info(self.index)

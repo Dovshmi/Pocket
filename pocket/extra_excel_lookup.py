@@ -13,7 +13,7 @@ import unicodedata
 
 SUPPORTED_EXTENSIONS = frozenset({".xlsx", ".xlsm", ".xltx", ".xltm", ".xls"})
 MAX_RESULTS = 120
-_CODE_PATTERN = re.compile(r"^[0-9\s\-\u2010-\u2015]+$")
+_CODE_PATTERN = re.compile(r"^[0-9\s\-\u2010-\u2015\u2212]+$")
 _DIGITS = re.compile(r"\D+")
 
 
@@ -157,28 +157,31 @@ def search_workbook(path, query, *, limit=MAX_RESULTS, cancelled=None):
 
     hits = []
     iterator = _xls_sheets(path) if path.suffix.lower() == ".xls" else _xlsx_sheets(path)
-    for sheet_name, rows in iterator:
-        if cancelled is not None and cancelled():
-            return [], False
-        # Preserve physical row numbers, even when a sheet begins with notes.
-        first = list(islice(rows, 10))
-        header_number, headers = _headings(first)
-        for row_number, row in chain(first, rows):
+    try:
+        for sheet_name, rows in iterator:
             if cancelled is not None and cancelled():
                 return [], False
-            if row_number == header_number:
-                continue
-            fields = _columns(row, headers)
-            if not fields:
-                continue
-            matching = [(name, match_quality(query, value)) for name, value in fields]
-            matches = tuple(name for name, quality in matching if quality)
-            if not matches:
-                continue
-            exact = any(quality == 2 for _, quality in matching)
-            hits.append(ExcelHit(sheet_name, row_number, fields, matches, exact))
-            if len(hits) >= limit:
-                # Search is intentionally bounded; do not read the rest of a
-                # massive workbook or suggest there are precisely limit hits.
-                return sorted(hits, key=lambda hit: not hit.exact), True
-    return sorted(hits, key=lambda hit: not hit.exact), False
+            # Preserve physical row numbers, even when a sheet begins with notes.
+            first = list(islice(rows, 10))
+            header_number, headers = _headings(first)
+            for row_number, row in chain(first, rows):
+                if cancelled is not None and cancelled():
+                    return [], False
+                if row_number == header_number:
+                    continue
+                fields = _columns(row, headers)
+                if not fields:
+                    continue
+                matching = [(name, match_quality(query, value)) for name, value in fields]
+                matches = tuple(name for name, quality in matching if quality)
+                if not matches:
+                    continue
+                exact = any(quality == 2 for _, quality in matching)
+                hits.append(ExcelHit(sheet_name, row_number, fields, matches, exact))
+                if len(hits) >= limit:
+                    # Search is intentionally bounded; do not read the rest of a
+                    # massive workbook or suggest there are precisely limit hits.
+                    return sorted(hits, key=lambda hit: not hit.exact), True
+        return sorted(hits, key=lambda hit: not hit.exact), False
+    finally:
+        iterator.close()

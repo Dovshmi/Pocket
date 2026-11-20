@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-db-fix-mini-scroll-upload
+  group: pocket-extra-excel-preview-20261120-plain-sqlite-v2
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44794282857'
-      SOURCE_COMMIT: '81f34400ab6186d7208c955855c9b0ad7052b00a'
+      SOURCE_RUN_ID: '44796754646'
+      SOURCE_COMMIT: '310be09e7f4d9d433d86627403a8b7ef058193bf'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip")
+          p = Path("dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip > SHA256SUMS-Database-Fix.txt)
+          (cd dist && sha256sum Pocket-Extra-Plain-SQLite-v2-Portable.zip > SHA256SUMS-Plain-SQLite-v2.txt)
 
       - name: Write experimental release notes
         run: |
@@ -69,24 +69,25 @@ jobs:
           **Two modes in Extra:**
           - Local: identical read-only source Excel search as before. Protected
             files use locally installed Microsoft Excel with existing permissions.
-          - Database: create or refresh an on-disk SQLite search index ONLY by
-            clicking Sync database. Indexed rows are encrypted for the current
-            Windows account with DPAPI, and search tokens are keyed hashes.
-            Searches never re-open Excel or import the entire workbook into RAM.
-            Previous database is kept if a manual sync is cancelled or fails.
-            The source Excel file is never modified.
+          - Database: plain SQLite v2 on disk, with readable rows and indexed
+            search tokens. No DPAPI, Windows-account decryption or encryption.
+            Create or refresh it ONLY by pressing Sync database.
+            Search never opens Excel or loads the workbook into RAM.
+            Manual Sync verifies the new file before replacing the old file.
 
-          **Fix in this ZIP:** Existing database search/read now supports native
-          Windows paths when SQLite URI parsing fails for a mapped/network folder.
-          New indexes are verified before replacing existing data. Sync only
-          reports readiness if SQLite can actually read the index.
-          Mini Extra hides the page, results and details scrollbar rails while
-          preserving mouse-wheel/touchpad scrolling in all three areas.
+          **Migrating from encrypted SQLite v1:**
+          A previous encrypted experimental database cannot be reused as-is.
+          Pocket identifies the old format and requests one manual Sync from the
+          Excel source. Cancelled or failed Sync preserves the old file.
+          The source Excel file is never changed.
 
-          IMPORTANT: IRM programmatic access does not necessarily authorize
-          a persistent external copy of company data. Manual Sync displays
-          an explicit workplace-authorization warning. Keep the database
-          and portable folder within company-approved storage only.
+          **Mini:** Page/results/details scrollbars are hidden but mouse wheel
+          and touchpad scrolling are preserved.
+
+          IMPORTANT: The new SQLite database is NOT encrypted; anyone with
+          filesystem access can read it. Manual Sync shows a confirmation
+          about permission to store the data in plain SQLite. Keep the database
+          and portable folder in a company-approved location.
 
           Built from the isolated `experiment/extra-excel-lookup` branch.
           This is a **pre-release**, not the stable Pocket v1.39.9 download.
@@ -97,7 +98,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Database-Fix-Invisible-Mini-Scroll.zip dist/SHA256SUMS-Database-Fix.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip dist/SHA256SUMS-Plain-SQLite-v2.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

@@ -13,7 +13,7 @@ import unicodedata
 
 SUPPORTED_EXTENSIONS = frozenset({".xlsx", ".xlsm", ".xltx", ".xltm", ".xls"})
 MAX_RESULTS = 120
-_CODE_PATTERN = re.compile(r"^[0-9\s\-\u2010-\u2015\u2212]+$")
+_CODE_PATTERN = re.compile(r"^[0-9\s\-\u2010-\u2015\u2212/._]+$")
 _DIGITS = re.compile(r"\D+")
 
 
@@ -45,7 +45,8 @@ def normalize_text(raw) -> str:
 def normalize_group_code(raw) -> str | None:
     """8826004, 88-26004 and 88 26004 are equivalent, not arbitrary IPs."""
     value = normalize_text(raw)
-    if not _CODE_PATTERN.fullmatch(value):
+    if not _CODE_PATTERN.fullmatch(value) or value.count(".") > 1:
+        # Dotted IPv4 addresses are not group codes.
         return None
     digits = _DIGITS.sub("", value)
     return digits if len(digits) >= 4 else None

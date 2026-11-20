@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import chain, islice
 from pathlib import Path
+from zipfile import BadZipFile
 import re
 import unicodedata
 
@@ -138,31 +139,13 @@ def _xls_sheets(path):
         workbook.release_resources()
 
 
-def search_workbook(path, query, *, limit=MAX_RESULTS, cancelled=None):
-    """Return (hits, reached_limit), using only read-only workbook operations.
-
-    Searches all worksheets, including hidden ones. Data-only XLSX parsing reads
-    cached formula values; formulas without cached values are blank.
-    """
-    path = Path(path).expanduser()
-    if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-        raise ValueError("Choose an Excel .xlsx, .xlsm or .xls workbook.")
-    if not path.is_file():
-        raise FileNotFoundError("The selected Excel workbook is unavailable.")
-    if path.stat().st_size == 0:
-        raise ValueError("The Excel workbook is empty.")
-    if not normalize_text(query):
-        return [], False
-    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
-        raise ValueError("Result limit must be positive.")
-
+def _scan_sheets(iterator, query, limit, cancelled):
+    """Reuse exactly the same search semantics for ZIP and desktop-Excel rows."""
     hits = []
-    iterator = _xls_sheets(path) if path.suffix.lower() == ".xls" else _xlsx_sheets(path)
     try:
         for sheet_name, rows in iterator:
             if cancelled is not None and cancelled():
                 return [], False
-            # Preserve physical row numbers, even when a sheet begins with notes.
             first = list(islice(rows, 10))
             header_number, headers = _headings(first)
             for row_number, row in chain(first, rows):
@@ -180,9 +163,39 @@ def search_workbook(path, query, *, limit=MAX_RESULTS, cancelled=None):
                 exact = any(quality == 2 for _, quality in matching)
                 hits.append(ExcelHit(sheet_name, row_number, fields, matches, exact))
                 if len(hits) >= limit:
-                    # Search is intentionally bounded; do not read the rest of a
-                    # massive workbook or suggest there are precisely limit hits.
                     return sorted(hits, key=lambda hit: not hit.exact), True
         return sorted(hits, key=lambda hit: not hit.exact), False
     finally:
         iterator.close()
+
+
+def search_workbook(path, query, *, limit=MAX_RESULTS, cancelled=None):
+    """Search workbook locally. Fall back to a *running* Excel for protected XLSX.
+
+    Modern XLSX files are normally ZIP archives. Some managed/IRM-encrypted
+    files are OLE containers despite the .xlsx extension; only desktop Excel
+    signed into the authorized work account can display their contents.
+    """
+    path = Path(path).expanduser()
+    if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+        raise ValueError("Choose an Excel .xlsx, .xlsm or .xls workbook.")
+    if not path.is_file():
+        raise FileNotFoundError("The selected Excel workbook is unavailable.")
+    if path.stat().st_size == 0:
+        raise ValueError("The Excel workbook is empty.")
+    if not normalize_text(query):
+        return [], False
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1:
+        raise ValueError("Result limit must be positive.")
+
+    iterator = _xls_sheets(path) if path.suffix.lower() == ".xls" else _xlsx_sheets(path)
+    try:
+        return _scan_sheets(iterator, query, limit, cancelled)
+    except BadZipFile:
+        # Never decrypt, export, cache or try to bypass workbook permissions.
+        # Attach ONLY to the exact workbook already open in desktop Excel.
+        from .extra_excel_com import iter_open_excel_sheets
+        if cancelled is not None and cancelled():
+            return [], False
+        return _scan_sheets(iter_open_excel_sheets(path, cancelled=cancelled),
+                            query, limit, cancelled)

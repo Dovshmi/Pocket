@@ -7,3 +7,6 @@ Pillow>=10.0,<13
 # Excel Extra: local, read-only readers for modern and legacy workbooks.
 openpyxl>=3.1,<4
 xlrd>=2.0.1,<3
+
+# Windows only: use the already-open desktop Excel session for IRM/encrypted files.
+pywin32>=306; sys_platform == "win32"

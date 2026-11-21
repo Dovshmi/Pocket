@@ -362,6 +362,120 @@ def search_database(query, db_path=None, *, limit=lookup.MAX_RESULTS,
             "The Excel source was not modified.") from exc
 
 
+
+DATABASE_EXTENSIONS = frozenset({".sqlite3", ".sqlite", ".db", ".db3"})
+
+
+def _verify_importable_database(path):
+    """Validate copied database before it can replace Pocket's current index.
+
+    A generic SQLite file with unrelated tables or an old encrypted schema is
+    *not* a Pocket index. No SQL statements are executed from an imported file.
+    """
+    info = read_info(path)
+    if info is None:
+        raise DatabaseUnavailable("Selected database is missing.")
+    try:
+        with closing(_readonly_connection(path)) as con:
+            # Reject triggers and views in untrusted external databases. The
+            # Pocket schema needs only three ordinary tables and autoindexes.
+            objects = con.execute(
+                "SELECT type, name FROM sqlite_master "
+                "WHERE name NOT LIKE 'sqlite_%'").fetchall()
+            tables = {name for kind, name in objects if kind == "table"}
+            if tables != {"metadata", "rows_data", "postings"}:
+                raise DatabaseUnavailable(
+                    "Not a compatible Pocket Extra database (unexpected tables).")
+            if any(kind in ("trigger", "view") for kind, _ in objects):
+                raise DatabaseUnavailable(
+                    "Imported database has unsupported triggers or views.")
+            integrity = con.execute("PRAGMA quick_check(1)").fetchone()
+            row_count = con.execute("SELECT COUNT(*) FROM rows_data").fetchone()
+            if (not integrity or integrity[0] != "ok"
+                    or not row_count or row_count[0] != info["rows"]):
+                raise DatabaseUnavailable(
+                    "Imported database failed integrity/row-count verification.")
+            # Validate a small sample of row content without loading the
+            # workbook or entire database into RAM.
+            sample = con.execute(
+                "SELECT content FROM rows_data ORDER BY row_id LIMIT 2").fetchall()
+            for (raw,) in sample:
+                obj = json.loads(raw)
+                if (not isinstance(obj, dict)
+                        or not isinstance(obj.get("sheet"), str)
+                        or not isinstance(obj.get("row"), int)
+                        or not isinstance(obj.get("fields"), list)
+                        or not all(isinstance(field, list) and len(field) == 2
+                                   for field in obj["fields"])):
+                    raise DatabaseUnavailable(
+                        "Imported database contains incompatible search rows.")
+            if info["rows"] > 0:
+                count = con.execute("SELECT COUNT(*) FROM postings").fetchone()
+                if not count or count[0] == 0:
+                    raise DatabaseUnavailable(
+                        "Imported database has no usable search index.")
+    except (sqlite3.Error, ValueError, TypeError, KeyError) as exc:
+        raise DatabaseUnavailable(
+            "Cannot load this SQLite database. It must be a Pocket Extra v2 index."
+        ) from exc
+    return info
+
+
+def import_database(source_path, db_path=None, *, cancelled=None):
+    """Load a user-selected Pocket Extra SQLite v2 database without Excel.
+
+    Read-only SQLite backup copies a consistent snapshot (including WAL data)
+    into a temporary file. Validate it before atomically replacing current DB.
+    On failure/cancellation preserve both source and previous target. Never
+    execute arbitrary .sql scripts and never load all rows into RAM.
+    """
+    source = Path(source_path).expanduser()
+    if source.suffix.lower() not in DATABASE_EXTENSIONS:
+        raise ValueError(
+            "Choose a Pocket Extra SQLite database (.sqlite3, .sqlite or .db), "
+            "not an SQL script.")
+    if not source.is_file():
+        raise FileNotFoundError("Selected SQLite database was not found.")
+    target = Path(db_path) if db_path is not None else database_path()
+    if cancelled is not None and cancelled():
+        return None
+
+    # Read/verify the supplied source before attempting any change.
+    info = _verify_importable_database(source)
+    if target.is_file():
+        try:
+            if os.path.samefile(source, target):
+                return info  # The active database is already selected.
+        except OSError:
+            pass
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(prefix=".pocket-extra-import-",
+                                        suffix=".sqlite3", dir=str(target.parent))
+    os.close(handle)
+    try:
+        with closing(_readonly_connection(source)) as src:
+            with closing(sqlite3.connect(temporary, timeout=10)) as destination:
+                # SQLite backup copies a consistent snapshot, not raw locked
+                # bytes; it does not edit the source or execute its SQL code.
+                src.backup(destination, pages=256)
+                destination.commit()
+        if cancelled is not None and cancelled():
+            return None
+        copied = _verify_importable_database(temporary)
+        if copied != info:
+            raise DatabaseUnavailable("Imported snapshot differs from source.")
+        if cancelled is not None and cancelled():
+            return None
+        os.replace(temporary, target)
+        return copied
+    finally:
+        try:
+            Path(temporary).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def delete_database(db_path=None):
     """Delete only the indexed database after explicit user confirmation."""
     path = Path(db_path) if db_path is not None else database_path()

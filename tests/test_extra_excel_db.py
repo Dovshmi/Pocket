@@ -176,6 +176,72 @@ class ExtraDatabaseTests(unittest.TestCase):
         self.assertFalse(self.index.exists())
         self.assertFalse(db.delete_database(self.index))
 
+    def test_import_existing_sqlite_without_excel_or_resync(self):
+        """Import is read-only for its source, verifies data, and replaces only destination."""
+        source = self.folder / "exported.db"
+        target = self.index
+        db.sync_database(self.book, source)
+        before = source.read_bytes()
+        self.assertFalse(target.exists())
+
+        with patch.object(db, "_source_sheets", side_effect=AssertionError(
+                "Import should not reopen Excel")):
+            info = db.import_database(source, target)
+        self.assertEqual(info["rows"], 4)
+        self.assertEqual(source.read_bytes(), before)
+        self.assertEqual(db.read_info(target)["rows"], 4)
+        self.assertEqual(len(db.search_database("88-26004", target)[0]), 3)
+        self.assertEqual(db.import_database(target, target)["rows"], 4)
+
+    def test_import_replaces_current_only_after_validation(self):
+        self.sync()
+        previous = self.index.read_bytes()
+        foreign = self.folder / "unsupported.sqlite3"
+        with closing(sqlite3.connect(foreign)) as con:
+            con.execute("CREATE TABLE notes (text TEXT)")
+            con.execute("INSERT INTO notes VALUES ('unrelated')")
+            con.commit()
+        with self.assertRaises(db.DatabaseUnavailable):
+            db.import_database(foreign, self.index)
+        self.assertEqual(self.index.read_bytes(), previous)
+        self.assertFalse(list(self.folder.glob(".pocket-extra-import-*.sqlite3")))
+
+        old = self.folder / "old.db"
+        with closing(sqlite3.connect(old)) as con:
+            con.execute("CREATE TABLE metadata(key TEXT PRIMARY KEY, value TEXT)")
+            con.execute("INSERT INTO metadata VALUES('schema', '1')")
+            con.commit()
+        with self.assertRaisesRegex(db.DatabaseUnavailable, "OLD encrypted database"):
+            db.import_database(old, self.index)
+        self.assertEqual(self.index.read_bytes(), previous)
+
+        with self.assertRaises(ValueError):
+            db.import_database(self.folder / "dump.sql", self.index)
+
+    def test_import_cancel_keeps_previous_database_and_source(self):
+        self.sync()
+        old_content = self.index.read_bytes()
+        source = self.folder / "another.sqlite3"
+        db.sync_database(self.book, source)
+        source_content = source.read_bytes()
+        result = db.import_database(source, self.index, cancelled=lambda: True)
+        self.assertIsNone(result)
+        self.assertEqual(self.index.read_bytes(), old_content)
+        self.assertEqual(source.read_bytes(), source_content)
+        self.assertFalse(list(self.folder.glob(".pocket-extra-import-*.sqlite3")))
+
+    def test_import_rejects_triggers_or_views(self):
+        self.sync()
+        before = self.index.read_bytes()
+        altered = self.folder / "altered.db"
+        db.sync_database(self.book, altered)
+        with closing(sqlite3.connect(altered)) as con:
+            con.execute("CREATE VIEW unrelated AS SELECT 1 AS value")
+            con.commit()
+        with self.assertRaisesRegex(db.DatabaseUnavailable, "unsupported triggers or views"):
+            db.import_database(altered, self.index)
+        self.assertEqual(self.index.read_bytes(), before)
+
     def test_many_rows_sync_and_search_bounded_results(self):
         wb = Workbook()
         sheet = wb.active

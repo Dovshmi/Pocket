@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261120-plain-sqlite-v2
+  group: pocket-extra-excel-preview-20261122-compact-load
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44796754646'
-      SOURCE_COMMIT: '310be09e7f4d9d433d86627403a8b7ef058193bf'
+      SOURCE_RUN_ID: '44959015509'
+      SOURCE_COMMIT: '47f395f17a0afde2aa482017845f22353601506a'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Compact-LoadDB-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip")
+          p = Path("dist/Pocket-Extra-Compact-LoadDB-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Plain-SQLite-v2-Portable.zip > SHA256SUMS-Plain-SQLite-v2.txt)
+          (cd dist && sha256sum Pocket-Extra-Compact-LoadDB-Portable.zip > SHA256SUMS-Compact-LoadDB.txt)
 
       - name: Write experimental release notes
         run: |
@@ -81,8 +81,18 @@ jobs:
           Excel source. Cancelled or failed Sync preserves the old file.
           The source Excel file is never changed.
 
-          **Mini:** Page/results/details scrollbars are hidden but mouse wheel
-          and touchpad scrolling are preserved.
+          **New in this build:**
+          - Compact Mini Extra: remove duplicate title, long explanatory text,
+            source/database paths and indexed-row counts from the status area.
+            Show only the last manual sync date (local time) and OK/failed status.
+          - Load DB: manually import an existing Pocket Extra SQLite v2
+            .sqlite3/.sqlite/.db file without reopening Excel. Validate schema,
+            row count, search data and on-disk integrity before atomically
+            replacing the current database. Invalid imports leave the previous
+            database untouched.
+          - Imported databases remain searchable even if the source Excel file
+            is on another computer or no longer accessible.
+          - Mini scrolling remains invisible but functional.
 
           IMPORTANT: The new SQLite database is NOT encrypted; anyone with
           filesystem access can read it. Manual Sync shows a confirmation
@@ -98,7 +108,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Plain-SQLite-v2-Portable.zip dist/SHA256SUMS-Plain-SQLite-v2.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Compact-LoadDB-Portable.zip dist/SHA256SUMS-Compact-LoadDB.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

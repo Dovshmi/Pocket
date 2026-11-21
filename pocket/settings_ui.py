@@ -12,6 +12,7 @@ from tkinter import ttk
 from . import icon_themes as themes
 from . import app_info
 from . import quick_slots
+from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
 
@@ -483,6 +484,37 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
            ).pack(fill="x", padx=13, pady=(10, 13))
 
 
+def _extra_database_file(parent, app, c, *, compact=False, wide=False):
+    """Show the active imported/synced SQLite file only when it exists.
+
+    The filename belongs to Pocket's local data directory. Never store a
+    duplicate path in preferences: Load DB already safely copies a validated
+    external database to this canonical location.
+    """
+    path = extra_db.database_path()
+    if not path.is_file():
+        return
+    card = _section(
+        parent, c, "Extra · Database",
+        "Current local file used by Extra searches.",
+        compact=compact, wide=wide)
+    inner = tk.Frame(card, bg=c["PANEL"])
+    inner.pack(fill="x", padx=13, pady=(0, 8))
+    _label(inner, path.name, c, size=9, bold=True, anchor="w").pack(fill="x")
+    _label(inner, str(path), c, size=8, muted=True, anchor="w",
+           wraplength=210 if compact else (315 if wide else 370),
+           justify="left").pack(fill="x", pady=(4, 0))
+
+    def copy_path():
+        app.root.clipboard_clear()
+        app.root.clipboard_append(str(path))
+        app.root.update_idletasks()
+
+    _action(card, app, c, "extra_database_copy_path",
+            "Database location", "Copy the path of the active SQLite file.",
+            "Copy path", copy_path, compact=compact)
+
+
 def _backup_controls(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Backup & Restore",
                     "Portable, selective and offline. Quick Slots are never backed up.",
@@ -548,6 +580,7 @@ def build_settings(app, parent, *, wide=False):
     _shortcuts(left, app, c, wide=wide, compact=compact)
     _launcher(left, app, c, wide=wide, compact=compact)
     _tools(right, app, c, wide=wide, compact=compact)
+    _extra_database_file(right, app, c, wide=wide, compact=compact)
     _network_preferences(right, app, c, wide=wide, compact=compact)
     _privacy(right, app, c, wide=wide, compact=compact)
     _backup_controls(right, app, c, wide=wide, compact=compact)

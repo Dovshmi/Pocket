@@ -10,6 +10,19 @@ This feature is on `experiment/extra-excel-lookup`, not stable `main`.
 
 Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
+## Interface refinements
+
+Extra Mini keeps the controls focused on fast daily lookup:
+
+- **MODE: Live / Offline** — one keyboard-accessible switch aligned to the
+  right between **Local** (live Excel) and **Database** (offline index).
+- Under the Excel path field a single muted hint explains the expected file,
+  e.g. `Extranet_2026.xlsx`. It is an example, not a hardcoded filename.
+- **Sync** stays aligned left, while **Load DB** and **Delete** sit to the right.
+- Settings displays an **Extra · Database** section only while an active local
+  SQLite file exists. It shows the canonical active filename/path and includes
+  **Copy path**. The original imported .db file itself is never changed.
+
 ## Compact Extra interface and Load DB
 
 The **Mini** layout removes the redundant Extra heading, helper descriptions

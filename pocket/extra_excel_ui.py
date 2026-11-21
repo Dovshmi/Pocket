@@ -40,8 +40,25 @@ def build(app, parent):
     mode_box.pack(fill="x", pady=(0, 6 if compact else 10))
     mode_row = tk.Frame(mode_box, bg=colors["PANEL"])
     mode_row.pack(fill="x", padx=8, pady=5 if compact else 8)
-    label(mode_row, "MODE" if compact else "SEARCH MODE", size=9, bold=True,
-          bg=colors["PANEL"]).pack(side="left", padx=(0, 7))
+    # One real switch on the right, with minimal text explaining the modes.
+    # Unlike two unrelated buttons, the slider always communicates a single
+    # mutually exclusive Local (live Excel) / Database (offline) state.
+    mode_choices = tk.Frame(mode_row, bg=colors["PANEL"])
+    mode_choices.pack(side="right", padx=(2, 0))
+    local_caption = label(mode_choices, "Local", size=8,
+                          bg=colors["PANEL"])
+    local_caption.pack(side="left", padx=(0, 4))
+    mode_switch = tk.Canvas(
+        mode_choices, width=40, height=20, bg=colors["PANEL"],
+        bd=0, relief="flat", highlightthickness=1,
+        highlightbackground=colors["PANEL"], takefocus=True,
+        cursor="hand2")
+    mode_switch.pack(side="left")
+    database_caption = label(mode_choices, "Database", size=8,
+                             bg=colors["PANEL"])
+    database_caption.pack(side="left", padx=(4, 0))
+    label(mode_row, "MODE: Live / Offline", size=8, bold=True,
+          bg=colors["PANEL"]).pack(side="left", padx=(2, 0))
 
     source = design.panel(parent, app.theme)
     source.pack(fill="x", pady=(0, 6 if compact else 10))
@@ -67,6 +84,9 @@ def build(app, parent):
                   compact=True).pack(side="right")
     path_var.trace_add("write", lambda *_: setattr(app, "_extra_excel_path",
                                                   path_var.get()))
+    label(source, "Excel file · e.g. Extranet_2026.xlsx", size=8, muted=True,
+          bg=colors["PANEL"], wraplength=290 if compact else 630
+          ).pack(fill="x", padx=10, pady=(0, 6))
 
     database_panel = design.panel(parent, app.theme)
     db_top = tk.Frame(database_panel, bg=colors["PANEL"])
@@ -217,10 +237,20 @@ def build(app, parent):
         else:
             database_panel.pack_forget()
             set_status("")
-        for key, button in mode_buttons.items():
-            active = key == mode_var.get()
-            button.configure(bg=colors["ACCENT_DARK"] if active else colors["CARD"],
-                             fg=colors["WHITE"] if active else colors["SECONDARY"])
+        # Render a single switch, not two mode buttons.
+        database_active = mode_var.get() == "database"
+        mode_switch.delete("all")
+        rail = colors["ACCENT_DARK"] if database_active else colors["CARD"]
+        mode_switch.create_oval(2, 2, 21, 20, fill=rail, outline=rail)
+        mode_switch.create_rectangle(11, 2, 30, 20, fill=rail, outline=rail)
+        mode_switch.create_oval(20, 2, 39, 20, fill=rail, outline=rail)
+        thumb_x = 29 if database_active else 12
+        mode_switch.create_oval(thumb_x - 8, 3, thumb_x + 8, 19,
+                                fill=colors["WHITE"], outline=colors["WHITE"])
+        local_caption.configure(
+            fg=colors["WHITE"] if not database_active else colors["MUTED"])
+        database_caption.configure(
+            fg=colors["WHITE"] if database_active else colors["MUTED"])
         clear_results()
 
     def change_mode(mode):
@@ -230,12 +260,25 @@ def build(app, parent):
         mode_var.set(mode)
         apply_mode()
 
-    mode_buttons = {}
-    for key, caption in (("local", "Local"), ("database", "Database")):
-        button = design.button(mode_row, caption, lambda value=key: change_mode(value),
-                               app.theme, compact=True)
-        button.pack(side="left", padx=(0, 5))
-        mode_buttons[key] = button
+    def toggle_mode(_event=None):
+        mode_switch.focus_set()
+        change_mode("local" if mode_var.get() == "database" else "database")
+        return "break"
+
+    mode_switch.bind("<Button-1>", toggle_mode)
+    mode_switch.bind("<space>", toggle_mode)
+    mode_switch.bind("<Return>", toggle_mode)
+    mode_switch.bind(
+        "<FocusIn>", lambda _event: mode_switch.configure(
+            highlightbackground=colors["ACCENT"]))
+    mode_switch.bind(
+        "<FocusOut>", lambda _event: mode_switch.configure(
+            highlightbackground=colors["PANEL"]))
+    # The text beside the switch is also a clickable target.
+    for caption, value in ((local_caption, "local"),
+                           (database_caption, "database")):
+        caption.bind("<Button-1>", lambda _event, choice=value: change_mode(choice))
+        caption.configure(cursor="hand2")
 
     def work(kind, operation, *, progress=None):
         """One worker at a time, with all Tk calls on the GUI thread."""
@@ -425,11 +468,12 @@ def build(app, parent):
     sync_button = design.button(db_actions, "Sync", start_sync,
                                 app.theme, primary=True, compact=True)
     sync_button.pack(side="left", padx=(0, 4))
-    import_button = design.button(db_actions, "Load DB", load_index,
-                                  app.theme, compact=True)
-    import_button.pack(side="left", padx=(0, 4))
+    # Place destructive actions at the far right; Sync stays on the left.
     delete_button = design.button(db_actions, "Delete", delete_index,
                                   app.theme, compact=True)
-    delete_button.pack(side="left")
+    delete_button.pack(side="right")
+    import_button = design.button(db_actions, "Load DB", load_index,
+                                  app.theme, compact=True)
+    import_button.pack(side="right", padx=(0, 4))
     apply_mode()
     entry.focus_set()

@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-compact-load
+  group: pocket-extra-excel-preview-20261122-switch-settings
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44959015509'
-      SOURCE_COMMIT: '47f395f17a0afde2aa482017845f22353601506a'
+      SOURCE_RUN_ID: '44960141706'
+      SOURCE_COMMIT: '0ba4fd9804a69e74ca47318a143c56a35a925b1a'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Compact-LoadDB-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Switch-Settings-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Compact-LoadDB-Portable.zip")
+          p = Path("dist/Pocket-Extra-Switch-Settings-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Compact-LoadDB-Portable.zip > SHA256SUMS-Compact-LoadDB.txt)
+          (cd dist && sha256sum Pocket-Extra-Switch-Settings-Portable.zip > SHA256SUMS-Switch-Settings.txt)
 
       - name: Write experimental release notes
         run: |
@@ -82,16 +82,15 @@ jobs:
           The source Excel file is never changed.
 
           **New in this build:**
-          - Compact Mini Extra: remove duplicate title, long explanatory text,
-            source/database paths and indexed-row counts from the status area.
-            Show only the last manual sync date (local time) and OK/failed status.
-          - Load DB: manually import an existing Pocket Extra SQLite v2
-            .sqlite3/.sqlite/.db file without reopening Excel. Validate schema,
-            row count, search data and on-disk integrity before atomically
-            replacing the current database. Invalid imports leave the previous
-            database untouched.
-          - Imported databases remain searchable even if the source Excel file
-            is on another computer or no longer accessible.
+          - Mini Extra now uses one accessible slider switch on the right for
+            Local / Database, with MODE: Live / Offline on the left.
+          - A short muted note under Browse explains the expected Excel source,
+            e.g. Extranet_2026.xlsx. No workbook filename is hard-coded.
+          - Sync is aligned left, Load DB and Delete are aligned right.
+          - Settings displays the active Pocket SQLite file and Copy path
+            action ONLY if the file exists in Pocket's local data directory.
+          - Database still uses plain SQLite v2, manually synced only, with
+            the already-working offline search and protected Excel Local mode.
           - Mini scrolling remains invisible but functional.
 
           IMPORTANT: The new SQLite database is NOT encrypted; anyone with
@@ -108,7 +107,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Compact-LoadDB-Portable.zip dist/SHA256SUMS-Compact-LoadDB.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-Switch-Settings-Portable.zip dist/SHA256SUMS-Switch-Settings.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

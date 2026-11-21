@@ -10,6 +10,28 @@ This feature is on `experiment/extra-excel-lookup`, not stable `main`.
 
 Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
+## Compact Extra interface and Load DB
+
+The **Mini** layout removes the redundant Extra heading, helper descriptions
+and excess spacing. Database status is a single line:
+
+`Last sync: DD/MM/YYYY HH:MM · ✓ Success`
+
+or `Last sync: — · ✕ Failed` when the database is inaccessible.
+The time is converted from stored UTC to the Windows local time. Customer
+data, source paths, database paths and row counts are **not printed** in the
+status panel. Other views use the same concise status.
+
+**Load DB** lets you reuse an existing **Pocket Extra SQLite v2** file without
+running Sync or opening the source Excel workbook. Supported files are
+`.sqlite3`, `.sqlite`, `.db`, and `.db3`. This is a database file import,
+**not** execution of arbitrary `.sql` scripts. The selected database stays
+unchanged, and Pocket only replaces its current index after schema, row count,
+integrity and indexed-search metadata checks pass. Failed/cancelled imports
+preserve the previous index. The imported source Excel path can belong to a
+different Windows machine; **Database searches do not require the original
+Excel source path**. That path is used only by Local mode and new manual Sync.
+
 ## How to create or update the database
 
 1. Run Pocket from the experimental ZIP. Choose **Extra → Database**.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from datetime import datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
@@ -22,31 +23,35 @@ def build(app, parent):
                         font=("Segoe UI", size, "bold" if bold else "normal"),
                         anchor="w", justify="left", **kwargs)
 
-    label(parent, "Extra  /  Excel lookup", size=18 if wide else 13,
-          bold=True).pack(fill="x", pady=(0, 5))
-    label(parent, "Live Excel search or a fast, manually synced SQLite database.",
-          size=9, muted=True, wraplength=650 if wide else 280).pack(
-              fill="x", pady=(0, 10))
+    # Mini already displays the Extra tab in the shell: avoid redundant
+    # headings that force the result panels below the fold.
+    if not compact:
+        label(parent, "Extra  /  Excel lookup", size=18 if wide else 13,
+              bold=True).pack(fill="x", pady=(0, 5))
+        label(parent, "Search live Excel or a manually synced local database.",
+              size=9, muted=True, wraplength=650 if wide else 350).pack(
+                  fill="x", pady=(0, 10))
 
     mode_var = tk.StringVar(master=app.root,
                             value=getattr(app, "_extra_excel_mode", "local"))
     if mode_var.get() not in ("local", "database"):
         mode_var.set("local")
     mode_box = design.panel(parent, app.theme)
-    mode_box.pack(fill="x", pady=(0, 10))
+    mode_box.pack(fill="x", pady=(0, 6 if compact else 10))
     mode_row = tk.Frame(mode_box, bg=colors["PANEL"])
-    mode_row.pack(fill="x", padx=9, pady=8)
-    label(mode_row, "SEARCH MODE", size=9, bold=True,
+    mode_row.pack(fill="x", padx=8, pady=5 if compact else 8)
+    label(mode_row, "MODE" if compact else "SEARCH MODE", size=9, bold=True,
           bg=colors["PANEL"]).pack(side="left", padx=(0, 7))
 
     source = design.panel(parent, app.theme)
-    source.pack(fill="x", pady=(0, 10))
-    label(source, "EXCEL SOURCE  ·  ORIGINAL FILE READ ONLY",
-          size=8, bold=True, bg=colors["PANEL"]).pack(
-              anchor="w", padx=11, pady=(9, 6))
+    source.pack(fill="x", pady=(0, 6 if compact else 10))
+    if not compact:
+        label(source, "EXCEL SOURCE  ·  ORIGINAL FILE READ ONLY",
+              size=8, bold=True, bg=colors["PANEL"]).pack(
+                  anchor="w", padx=11, pady=(9, 6))
     path_var = tk.StringVar(master=app.root, value=getattr(app, "_extra_excel_path", ""))
     path_line = tk.Frame(source, bg=colors["PANEL"])
-    path_line.pack(fill="x", padx=10, pady=(0, 9))
+    path_line.pack(fill="x", padx=9, pady=(6 if compact else 0, 7 if compact else 9))
     path_field = design.entry(path_line, path_var, app.theme, compact=compact)
     path_field.pack(side="left", fill="x", expand=True, padx=(0, 6))
 
@@ -65,32 +70,33 @@ def build(app, parent):
 
     database_panel = design.panel(parent, app.theme)
     db_top = tk.Frame(database_panel, bg=colors["PANEL"])
-    db_top.pack(fill="x", padx=10, pady=(9, 6))
-    db_title = label(db_top, "SQLITE DATABASE  ·  MANUAL SYNC ONLY",
-                     bold=True, size=8, bg=colors["PANEL"])
-    db_title.pack(anchor="w")
+    if not compact:
+        db_top.pack(fill="x", padx=10, pady=(9, 4))
+        label(db_top, "DATABASE", bold=True, size=8,
+              bg=colors["PANEL"]).pack(anchor="w")
     db_info_label = label(database_panel, "", size=8, muted=True,
                           bg=colors["PANEL"], wraplength=650 if wide else 285)
-    db_info_label.pack(fill="x", padx=10, pady=(0, 7))
+    db_info_label.pack(fill="x", padx=10, pady=(7 if compact else 0, 5))
     db_actions = tk.Frame(database_panel, bg=colors["PANEL"])
-    db_actions.pack(fill="x", padx=10, pady=(0, 9))
+    db_actions.pack(fill="x", padx=9, pady=(0, 7 if compact else 9))
 
     search_panel = design.panel(parent, app.theme)
-    search_panel.pack(fill="x", pady=(0, 10))
+    search_panel.pack(fill="x", pady=(0, 6 if compact else 10))
     label(search_panel, "SMART SEARCH", bold=True, size=9,
-          bg=colors["PANEL"]).pack(anchor="w", padx=11, pady=(9, 6))
+          bg=colors["PANEL"]).pack(anchor="w", padx=11, pady=(7 if compact else 9, 4 if compact else 6))
     search_var = tk.StringVar(master=app.root)
     search_line = tk.Frame(search_panel, bg=colors["PANEL"])
-    search_line.pack(fill="x", padx=10, pady=(0, 6))
+    search_line.pack(fill="x", padx=10, pady=(0, 4 if compact else 6))
     entry = design.entry(search_line, search_var, app.theme, compact=compact)
     entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
-    label(search_panel, "Any column · group code · customer · IP · VRF · VDOM · VLAN",
-          bg=colors["PANEL"], muted=True, size=8,
-          wraplength=650 if wide else 270).pack(fill="x", padx=11, pady=(0, 8))
+    if not compact:
+        label(search_panel, "Any column · group code · customer · IP · VRF · VDOM · VLAN",
+              bg=colors["PANEL"], muted=True, size=8,
+              wraplength=650 if wide else 310).pack(fill="x", padx=11, pady=(0, 8))
 
     state_label = label(parent, "", size=9, muted=True,
                         wraplength=700 if wide else 280)
-    state_label.pack(fill="x", pady=(0, 8))
+    state_label.pack(fill="x", pady=(0, 5 if compact else 8))
 
     results_area = tk.Frame(parent, bg=colors["BG"])
     results_area.pack(fill="both", expand=True)
@@ -180,32 +186,37 @@ def build(app, parent):
         show_details(None)
 
     def update_db_info():
+        """Only the timestamp and success state; no source paths or row counts."""
         try:
             info = db.read_info()
             if info is None:
-                db_info_label.configure(
-                    text="No database. Choose a workbook and press Sync to create one.\n"
-                         "Stored in: " + str(db.database_path()))
+                db_info_label.configure(text="Last sync: —  ·  No database")
                 return None
-            time = info.get("updated_at", "").replace("T", " ")[:19]
+            raw_time = info.get("updated_at", "")
+            try:
+                moment = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                moment = moment.astimezone()
+                date_label = moment.strftime("%d/%m/%Y %H:%M")
+            except (ValueError, TypeError, OverflowError):
+                date_label = "Unknown"
             db_info_label.configure(
-                text=f"{info['rows']:,} rows indexed · Last manual sync: {time} UTC\n"
-                     f"Source: {info['source']}\n"
-                     f"Storage: {db.database_path()}")
+                text=f"Last sync: {date_label}  ·  ✓ Success")
             return info
         except (OSError, RuntimeError) as exc:
-            db_info_label.configure(text="Cannot read database: " + str(exc))
+            db_info_label.configure(text="Last sync: —  ·  ✕ Failed")
+            set_status(str(exc))
             return None
 
     def apply_mode():
         app._extra_excel_mode = mode_var.get()
         if mode_var.get() == "database":
-            database_panel.pack(before=search_panel, fill="x", pady=(0, 9))
+            database_panel.pack(before=search_panel, fill="x",
+                                pady=(0, 6 if compact else 9))
+            set_status("")
             update_db_info()
-            set_status("Database mode: searches use the last manually synced snapshot.")
         else:
             database_panel.pack_forget()
-            set_status("Local mode: searches read the current Excel workbook.")
+            set_status("")
         for key, button in mode_buttons.items():
             active = key == mode_var.get()
             button.configure(bg=colors["ACCENT_DARK"] if active else colors["CARD"],
@@ -242,6 +253,7 @@ def build(app, parent):
         search_button.configure(state="disabled")
         sync_button.configure(state="disabled")
         delete_button.configure(state="disabled")
+        import_button.configure(state="disabled")
         messages = queue.Queue(maxsize=1)
         counter = {"rows": 0}
 
@@ -276,23 +288,23 @@ def build(app, parent):
             search_button.configure(state="normal")
             sync_button.configure(state="normal")
             delete_button.configure(state="normal")
+            import_button.configure(state="normal")
             if status == "error":
+                if kind in ("sync", "import"):
+                    update_db_info()
                 set_status(value + (" Existing database was preserved."
-                                    if kind == "sync" else ""))
+                                    if kind in ("sync", "import") else ""))
                 return
-            if kind == "sync":
+            if kind in ("sync", "import"):
                 if value is None:
-                    set_status("Sync cancelled. Existing database was preserved.")
+                    set_status("Cancelled. Existing database was preserved.")
                 else:
                     verified = update_db_info()
                     if verified is None:
-                        set_status(
-                            "Sync finished, but the index could not be opened. "
-                            "Check the database status above; do not delete your "
-                            "source workbook. Local search is still available.")
+                        set_status("Unable to read the new database. Check status above.")
                     else:
-                        set_status(f"Database ready: {verified['rows']:,} rows. "
-                                   "Future searches will not open Excel.")
+                        set_status("Database loaded successfully." if kind == "import"
+                                   else "Sync completed successfully.")
                 return
             hits, capped = value
             if not hits:
@@ -334,10 +346,9 @@ def build(app, parent):
             if info is None:
                 set_status("No database yet. Select an Excel file and press Sync.")
                 return
-            if source_path and not db.same_source(source_path, info):
-                set_status("Different Excel file selected. Sync it manually, "
-                           "or choose the database's linked workbook.")
-                return
+            # An imported portable database may reference an Excel path from a
+            # different machine. Searching it never requires the Excel source.
+            # The Excel field above is used only by Local and manual Sync.
         except (RuntimeError, OSError) as exc:
             set_status(str(exc))
             return
@@ -368,9 +379,32 @@ def build(app, parent):
             "Continue with a manual Sync?",
             icon="warning", parent=app.root):
             return
-        set_status("Reading Excel and building the plain SQLite database…")
+        set_status("Syncing from Excel…")
         work("sync", lambda cancel, report: db.sync_database(
             source_path, cancelled=cancel.is_set, on_progress=report))
+
+    def load_index():
+        """Import an existing Pocket Extra SQLite file after full validation."""
+        if busy:
+            return
+        selected_file = filedialog.askopenfilename(
+            parent=app.root, title="Load Pocket Extra database",
+            filetypes=[("Pocket SQLite database", "*.sqlite3 *.sqlite *.db *.db3"),
+                       ("All files", "*.*")])
+        if not selected_file:
+            return
+        if not messagebox.askyesno(
+            "Load database?",
+            "Load this existing Pocket Extra database into the local Pocket "
+            "data folder? The selected file will remain unchanged.\n\n"
+            "The current Pocket database will only be replaced after successful "
+            "validation. This is a readable, unencrypted local SQLite file.",
+            icon="question", parent=app.root):
+            return
+        clear_results()
+        set_status("Validating and loading database…")
+        work("import", lambda cancel, report: db.import_database(
+            selected_file, cancelled=cancel.is_set))
 
     def delete_index():
         if busy:
@@ -388,10 +422,13 @@ def build(app, parent):
         except OSError as exc:
             set_status("Could not delete database: " + str(exc))
 
-    sync_button = design.button(db_actions, "Sync database", start_sync,
+    sync_button = design.button(db_actions, "Sync", start_sync,
                                 app.theme, primary=True, compact=True)
-    sync_button.pack(side="left", padx=(0, 6))
-    delete_button = design.button(db_actions, "Delete DB", delete_index,
+    sync_button.pack(side="left", padx=(0, 4))
+    import_button = design.button(db_actions, "Load DB", load_index,
+                                  app.theme, compact=True)
+    import_button.pack(side="left", padx=(0, 4))
+    delete_button = design.button(db_actions, "Delete", delete_index,
                                   app.theme, compact=True)
     delete_button.pack(side="left")
     apply_mode()

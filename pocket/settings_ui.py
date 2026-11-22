@@ -12,6 +12,7 @@ from tkinter import ttk
 from . import icon_themes as themes
 from . import app_info
 from . import quick_slots
+from . import pocket_design as design
 from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
@@ -66,15 +67,16 @@ def _section(parent, c, heading, description, *, compact=False, wide=False):
     card = tk.Frame(
         parent, bg=c["PANEL"], bd=0,
         highlightthickness=1, highlightbackground=c["BORDER"])
-    card.pack(fill="x", pady=(0, 12))
+    card.pack(fill="x", pady=(0, 6))
     tk.Frame(card, bg=c["ACCENT"], height=2).pack(fill="x")
     head = tk.Frame(card, bg=c["PANEL"])
-    head.pack(fill="x", padx=13, pady=(12, 9))
-    _label(head, heading, c, size=11 if compact else 12, bold=True,
+    head.pack(fill="x", padx=11, pady=(7 if compact else 10, 5))
+    _label(head, heading, c, size=10 if compact else 11, bold=True,
            anchor="w").pack(fill="x")
-    _label(head, description, c, size=8, muted=True,
-           wraplength=230 if compact else (350 if wide else 365),
-           anchor="w", justify="left").pack(fill="x", pady=(4, 0))
+    if not compact:
+        _label(head, description, c, size=8, muted=True,
+               wraplength=350 if wide else 365,
+               anchor="w", justify="left").pack(fill="x", pady=(3, 0))
     return card
 
 
@@ -85,6 +87,78 @@ def _divider(parent, c):
 def _register(app, name, widget):
     app.settings_controls[name] = widget
     return widget
+
+
+
+# All groups are only a presentation layer. Their original preference controls
+# are always created, registered, and wired to the same PocketDesk callbacks.
+SETTINGS_GROUPS = (
+    ("appearance", "Appearance", "Layout and theme"),
+    ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
+    ("tools", "Visible tools", "Choose what appears in Pocket"),
+    ("clipboard", "Clipboard", "Capture, privacy and history"),
+    ("quick_slots", "Quick Slots & Translate", "Copy, paste and keyboard language"),
+    ("network", "Network & Extra", "Proxy and local Excel database"),
+    ("maintenance", "Backup & Restore", "Backups and reset preferences"),
+)
+GROUP_ICONS = {
+    "appearance": "◈", "shortcuts": "⌘", "tools": "▦",
+    "clipboard": "▤", "quick_slots": "⇄", "network": "⌗",
+    "maintenance": "▣",
+}
+
+
+def _settings_group(parent, app, c, key, title, summary, *, compact=False):
+    """Accessible single-open accordion, without destroying hidden controls."""
+    surface = tk.Frame(
+        parent, bg=c["PANEL"], bd=0,
+        highlightthickness=1, highlightbackground=c["BORDER"])
+    surface.pack(fill="x", pady=(0, 7))
+    header = tk.Frame(surface, bg=c["PANEL"])
+    header.pack(fill="x", padx=7, pady=5)
+
+    def toggle():
+        current = getattr(app, "_settings_open_group", "appearance")
+        app._settings_open_group = None if current == key else key
+        for section_key, entry in app._settings_sections.items():
+            opened = section_key == app._settings_open_group
+            body = entry["body"]
+            if opened:
+                body.pack(fill="x", padx=6, pady=(0, 7))
+            else:
+                body.pack_forget()
+            button = entry["button"]
+            button.configure(
+                text=("▾" if opened else "▸") + "  " +
+                     GROUP_ICONS[section_key] + "   " + entry["title"],
+                bg=c["ACCENT_DARK"] if opened else c["PANEL"],
+                fg=c["WHITE"] if opened else c["SECONDARY"])
+            entry["surface"].configure(
+                highlightbackground=c["ACCENT"] if opened else c["BORDER"])
+
+    button = tk.Button(
+        header, text="", command=toggle, cursor="hand2", takefocus=True,
+        bg=c["PANEL"], fg=c["SECONDARY"], activebackground=c["CARD_HOVER"],
+        activeforeground=c["WHITE"], bd=0, relief="flat", highlightthickness=0,
+        anchor="w", padx=9, pady=6 if compact else 9,
+        font=(FONT, 10 if compact else 11, "bold"))
+    button.pack(side="left", fill="x", expand=True)
+    _label(header, summary, c, size=8, muted=True,
+           anchor="e", justify="right",
+           wraplength=95 if compact else 190).pack(side="right", padx=(4, 6))
+    body = tk.Frame(surface, bg=c["BG"])
+    app._settings_sections[key] = {
+        "surface": surface, "button": button, "body": body, "title": title}
+    _register(app, "settings_group_" + key, button)
+    opened = getattr(app, "_settings_open_group", "appearance") == key
+    button.configure(
+        text=("▾" if opened else "▸") + "  " + GROUP_ICONS[key] + "   " + title,
+        bg=c["ACCENT_DARK"] if opened else c["PANEL"],
+        fg=c["WHITE"] if opened else c["SECONDARY"])
+    if opened:
+        body.pack(fill="x", padx=6, pady=(0, 7))
+        surface.configure(highlightbackground=c["ACCENT"])
+    return body
 
 
 def _toggle(parent, app, c, key, title, description, checked, callback,
@@ -166,14 +240,10 @@ def _mode_picker(parent, app, c, *, wide=False, compact=False):
         holder = tk.Frame(
             group, bg=surface, highlightthickness=1,
             highlightbackground=outline)
-        if wide:
-            group.grid_columnconfigure(i, weight=1, uniform="layout")
-            holder.grid(row=0, column=i, sticky="nsew",
-                        padx=(0, 5) if i < 2 else 0)
-        else:
-            holder.pack(fill="x", pady=(0, 5))
-        caption = (icon + "  " + title +
-                   ("   ● ACTIVE" if selected else "") + "\n" + detail)
+        group.grid_columnconfigure(i, weight=1, uniform="layout")
+        holder.grid(row=0, column=i, sticky="nsew",
+                    padx=(0, 5) if i < 2 else 0)
+        caption = icon + "\n" + title + (" ✓" if selected else "")
         button = tk.Button(
             holder, text=caption, command=lambda name=mode: app._set_display_mode(name),
             bg=surface, fg=c["WHITE"] if selected else c["SECONDARY"],
@@ -195,7 +265,7 @@ def _theme_picker(parent, app, c, *, wide=False, compact=False):
            ).pack(side="right")
     swatches = tk.Frame(parent, bg=c["PANEL"])
     swatches.pack(fill="x", padx=13, pady=(0, 12))
-    columns = 3 if wide else 2
+    columns = 3
     for index, name in enumerate(themes.THEME_ORDER):
         col, row = index % columns, index // columns
         swatches.grid_columnconfigure(col, weight=1, uniform="colors")
@@ -269,9 +339,9 @@ def _dropdown_field(parent, app, c, key, heading, detail,
     section = tk.Frame(parent, bg=c["PANEL"])
     section.pack(fill="x", padx=13, pady=(9, 11))
     _label(section, heading, c, size=9, bold=True, anchor="w").pack(fill="x")
-    if detail:
+    if detail and not compact:
         _label(section, detail, c, size=8, muted=True, anchor="w",
-               justify="left", wraplength=190 if compact else 360).pack(
+               justify="left", wraplength=360).pack(
                    fill="x", pady=(3, 7))
     select = ttk.Combobox(section, style="Pocket.TCombobox",
                           values=[label for label, _ in choices],
@@ -281,6 +351,8 @@ def _dropdown_field(parent, app, c, key, heading, detail,
                    if value == selected), 0)
     select.current(chosen)
     select.pack(fill="x", padx=(0, 2), pady=(0, 3))
+    if detail and compact:
+        design.Tooltip(select, detail, app.theme)
 
     def apply(_event=None):
         index = select.current()

@@ -104,12 +104,10 @@ try:
         root.update()
         check(result_list.yview() == start_view,
               "Linux mouse wheel must not scroll the Mini Matches list")
-        scroll.event_generate("<ButtonPress-1>", x=3, y=3)
-        scroll.event_generate("<B1-Motion>", x=3, y=max(9, scroll.winfo_height() - 4))
-        scroll.event_generate("<ButtonRelease-1>", x=3, y=max(9, scroll.winfo_height() - 4))
-        root.update()
-        # A scrollbar is wired to Listbox.yview, independent of disabled wheel.
-        result_list.yview_scroll(3, "units")
+        # Invoke the *real scrollbar's command* without simulating mouse
+        # grab/autorepeat: Win32's native scrollbar can keep a synthetic press
+        # active indefinitely inside Tk's modal event loop.
+        scroll.tk.call(scroll.cget("command"), "scroll", 3, "units")
         root.update()
         check(result_list.yview()[0] > start_view[0],
               "Matches scrollbar/yview must remain operational")

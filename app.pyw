@@ -1569,7 +1569,7 @@ class PocketDesk:
         self._mini_root_body = self.body
 
     def _show_mini_add_menu(self):
-        """Show currently hidden menus; adding one restores its saved position."""
+        """Show hidden menus; chosen tool is appended at the end."""
         hidden = [key for key in menu_order.normalize(self.settings["menu_order"])
                   if key != "settings" and key not in self.settings["visible_tabs"]]
         if not hidden:
@@ -1790,6 +1790,14 @@ class PocketDesk:
         current = self.settings["visible_tabs"]
         if enabled and key not in current:
             current.append(key)
+            # Both the Mini Plus and Settings Show/Hide place newly enabled
+            # menus at the end of the saved order, without changing positions
+            # of other enabled tools or the user's manually dragged icons.
+            order = menu_order.normalize(self.settings["menu_order"])
+            if key in order:
+                order.remove(key)
+                order.append(key)
+                self.settings["menu_order"] = order
         elif not enabled and key in current:
             current.remove(key)
             if getattr(self, "current_tab", None) == key:

@@ -36,6 +36,14 @@ Settings now uses **seven collapsible, keyboard-focusable categories**. Only the
 - Visible tools use compact toggle tiles, with keyboard focus and a tooltip explaining each tool.
 - Settings still displays `v1.40` and retains the existing backup/privacy notices.
 
+## Menu Order: visual drag-and-drop, local persistence and backups
+
+Settings → **Visible Tools** now begins with a compact real-icon editor and a live Mini layout preview. Drag an icon onto another position, or click one icon and then the destination. Keyboard focus with Return or Space also selects icons. A Reset order action restores the default ordering. The special More/Less tile always occupies the last slot of Mini's first row when needed, and cannot be moved. All tool icons—including Settings—can be placed in the Mini bar. Normal's Settings entry remains fixed at the right edge to guarantee access, but the order of the other Normal icons follows the preference; Dashboard tool navigation follows the saved order. The independent Extra Mini quick slots are unchanged.
+
+The `settings.menu_order` preference stores all ten items, even disabled tools; re-enabling a hidden tool restores its previous position. The preference is automatically saved, included in Settings backup/restore (not in Quick Slots), and reset via Settings → Reset menus. Previous profiles/backup ZIPs without this preference continue using the default order. No automatic external access or files are involved.
+
+Settings category and tool icons now use Pocket's own Pillow vector renderings, not system-font symbols. **Visible Tools is directly below Appearance** in the single-column Mini/Normal Settings and in the same Dashboard column.
+
 ## Verification
 
 CI uses isolated synthetic profiles and mocked Office automation. Tests include consecutive Excel shortcut clicks while another Excel application is already active, EXCEL.EXE `/x` launching, fallback and failure cleanup, all original Settings controls and callbacks, category switching without changing saved preferences, Mini/Normal/Dashboard GUI smoke, and Windows portable EXE packaging. No corporate workbook data is bundled.

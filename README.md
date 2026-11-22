@@ -23,6 +23,9 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 ---
 
 > [!NOTE]
+> **Pocket v1.40 latest experimental preview:** **Settings → Show / Hide** is back immediately below Appearance with only compact add/remove buttons; it does not duplicate the menu-order editor. Restored menus appear **last** in the navigation order, whether added from Settings or Mini Plus. **Extra → MATCHES** in Mini now includes a thin dark scrollbar at the right; mouse wheel over the results scrolls the Pocket page rather than the list. Arrow-key selection remains unchanged.
+ 
+> [!NOTE]
 > **Pocket v1.40 Shortcuts & Settings improvement (experimental):** Excel workbook shortcuts now open a separate Excel instance when another workbook is already running; an EXCEL.EXE shortcut starts Excel with /x. Settings now has seven compact expandable categories; existing preferences, backup controls, Quick Slots, themes and tool toggles remain intact. [Detailed behavior and controls](docs/SETTINGS_SHORTCUTS_V140.md).
 
 > **Pocket v1.40 final Mini-navigation preview:** Drag menu icons **directly in the Mini toolbar** to reorder (auto-saved); right-click a menu and choose **Hide**; click the **green +** to restore hidden menus. With up to seven active menus, Add is the last tile; at eight or more, the eighth tile becomes **More/Less** and the Add tile moves to the **end of the expanded row**. The + disappears when nothing is hidden. Settings can be moved but never hidden. The duplicate Settings → Menu Order/Preview/Show-Hide editor has been removed. Excel file shortcuts activate the *exact* already-open workbook instead of opening another copy; a different workbook opens through Excel COM. Extra's source and Sync are slightly tighter and better aligned. [Behavior and upgrade notes](docs/SETTINGS_SHORTCUTS_V140.md).

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from . import menu_style
+from . import menu_order
 
 from . import pocket_design as design
 from . import tool_icons
@@ -76,8 +77,9 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
 
     def render(selected):
         nonlocal last_plan, buttons, tiles
-        keys = [key for key, _label in app.VISIBLE_TABS_REFERENCE
-                if key in app.settings["visible_tabs"]]
+        keys = menu_order.enabled_order(
+            app.settings["menu_order"], app.settings["visible_tabs"],
+            include_settings=False)
         visible, hidden = plan_tabs(keys, selected, total_width)
         plan = visible, hidden
         if plan != last_plan:

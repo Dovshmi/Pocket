@@ -1,6 +1,6 @@
-# Pocket Extra — Local + Plain SQLite (Experimental)
+# Pocket Extra — Local + Plain SQLite (v1.40.0)
 
-This feature is on `experiment/extra-excel-lookup`, not stable `main`.
+This feature is included in the v1.40.0 `main` source. The earlier `experiment/extra-excel-lookup` branch and experimental preview ZIP are retained separately; the latest officially published stable Windows binary remains v1.39.9 until v1.40.0 release validation.
 
 ## Latest v1.40 Mini MATCHES scrolling
 
@@ -96,9 +96,9 @@ schema remains v2; **no manual Sync or new SQLite import is required** for
 the interface change. The synced database stays in Pocket's local data
 folder, unchanged.
 
-Settings now displays **Version v1.40** in this experimental build, and
-the portable preview package is versioned v1.40. Previous stable v1.39.9
-downloads and stable branch are not modified.
+Settings displays **Version v1.40** in the v1.40.0 source, and the
+portable build package is versioned v1.40.0. The v1.39.9 stable downloads
+remain available until a separately validated stable v1.40.0 Windows release.
 
 
 
@@ -137,7 +137,7 @@ Excel source path**. That path is used only by Local mode and new manual Sync.
 
 ## How to create or update the database
 
-1. Run Pocket from the experimental ZIP. Choose **Extra → Database**.
+1. Run Pocket from a v1.40.0 source/portable build or clearly labeled experimental ZIP. Choose **Extra → Database**.
 2. Select your Excel source using **Browse**.
 3. Click **Sync database** and approve the warning about retaining an **unencrypted local copy**. Only sync if your workplace permits storing the source data that way.
 4. The sync iterates all sheets. The first manual sync can take time, particularly for IRM-protected workbooks, but later searches do not read Excel.

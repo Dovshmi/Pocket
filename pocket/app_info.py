@@ -1,7 +1,7 @@
 """Pocket author credit and current application version.
 
-Version 1.40 is shown inside the experimental Extra build and Settings.
-The existing published stable 1.39.9 packages remain unchanged.
+Version 1.40 is shown inside Pocket and Settings in the main source.
+The previously published stable 1.39.9 packages remain available.
 """
 
 AUTHOR_CREDIT = "By. Rony Shmidov"

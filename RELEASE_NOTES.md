@@ -1,6 +1,6 @@
-# Pocket v1.40 — Release Candidate (experimental)
+# Pocket v1.40.0 — Main source integration
 
-**Source branch:** `experiment/extra-excel-lookup`. **Stable `main`:** v1.39.9 until this candidate is promoted and a stable release is published.
+**Source code:** `main` now includes the v1.40.0 changes developed in `experiment/extra-excel-lookup`. **Published Windows stable:** v1.39.9 remains the official downloadable ZIP/EXE until a separate validated v1.40.0 build and publication. No v1.40.0 stable binary or release tag is implied by this source merge.
 
 ## Mini navigation and Settings
 

@@ -1,6 +1,6 @@
 # Pocket v1.40 — Release readiness checklist
 
-**Candidate:** `experiment/extra-excel-lookup` (not yet stable `main`).
+**Source integration:** `experiment/extra-excel-lookup` → `main` as v1.40.0. The older v1.39.9 Windows ZIP/EXE remains the latest official stable binary until a separately approved release.
 **Automated verification:** `.github/workflows/mini-checks.yml` on Windows/Linux Python 3.11/3.13, GUI integration checks, and real Windows portable EXE smoke. All CI tests use synthetic profiles and mock Office objects, not confidential work data.
 
 ## Required manual acceptance on the intended Windows workstation
@@ -20,8 +20,8 @@ Use a fresh portable ZIP in a **new directory**. Quit the previous Pocket proces
 - [ ] **Regression:** Notes, Reminders, Clipboard, Commands, Shortcuts, network tools, proxy settings, Quick Slots, PIN, tray shortcut and app startup still work as before.
 - [ ] **Data/privacy:** Confirm that the offline SQLite copy and backups are permitted under company policy. They are **not encrypted**. No corporate source workbook or SQLite file belongs in a public GitHub release.
 
-## Promotion criteria
+## Stable Windows v1.40.0 publication gates
 
-Promote to `main` only after the latest GitHub Actions run is green and the above checks pass on the target workstation. Recommended: squash the experimental change history into a reviewed v1.40 merge, update the official stable README/badge/download links, tag v1.40.0, publish official Windows ZIP/EXE with checksums, and retain v1.39.9 for rollback. The experimental preview release/workflow can be excluded or archived when preparing the stable merge.
+Source-code integration is distinct from publishing binaries. The experimental branch's automated CI passed eight jobs at commit `96304ce`, including Windows/Linux unit and GUI checks and a real Windows portable EXE smoke test. Before publishing a **stable** v1.40.0 ZIP/EXE, complete the unchecked workstation acceptance tests above, confirm corporate data-retention permissions, run the final release build/test gate, publish SHA-256 checksums and only then update the stable badge/download links. Keep v1.39.9 available for rollback. The experimental preview is not a stable release.
 
 The CI test suite cannot validate real enterprise Office COM, Windows shell foreground restrictions, live network/proxy permissions, or local organizational data-protection approvals. Mark those checks separately.

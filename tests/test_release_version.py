@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_development_settings_version_is_v140(self):
-        # Experimental Extra branch reports v1.40; stable v1.39.9 is still published.
+        # Main source reports v1.40; published stable Windows binaries remain v1.39.9.
         self.assertEqual(app_info.VERSION, "1.40.0")
         self.assertEqual(app_info.version_label(), "v1.40")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")

@@ -1,6 +1,6 @@
 # Pocket v1.40 — Shortcuts, menus and Settings
 
-Release candidate: `experiment/extra-excel-lookup`. Stable `main` remains v1.39.9 until promoted.
+Source: v1.40.0 in `main`, developed in `experiment/extra-excel-lookup`. The latest published stable Windows ZIP/EXE remains v1.39.9 until a separate v1.40.0 release.
 
 ## Mini menu bar: direct management
 

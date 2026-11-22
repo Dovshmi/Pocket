@@ -389,8 +389,8 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         original = ["notes", "links", "ports", "mac", "commands",
                     "subnet", "clipboard"]
         first, overflow = mini_nav.plan_mini_icons(original)
-        self.assertEqual(first, tuple(original + ["settings"]))
-        self.assertEqual(overflow, ())
+        self.assertEqual(first, tuple(original + ["more"]))
+        self.assertEqual(overflow, (("settings",),))
         first, overflow = mini_nav.plan_mini_icons(original + ["reminders"])
         self.assertEqual(first, tuple(original + ["more"]))
         self.assertEqual(overflow, (("reminders", "settings"),))

@@ -95,6 +95,7 @@ def _register(app, name, widget):
 # are always created, registered, and wired to the same PocketDesk callbacks.
 SETTINGS_GROUPS = (
     ("appearance", "Appearance", "Layout and theme"),
+    ("tools", "Show / Hide", "Add or remove menus"),
     ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
     ("clipboard", "Clipboard", "Capture, privacy and history"),
     ("quick_slots", "Quick Slots & Translate", "Copy, paste and keyboard language"),
@@ -103,7 +104,7 @@ SETTINGS_GROUPS = (
 )
 # Use raster icons from Pocket's icon module, avoiding missing Unicode glyphs.
 GROUP_ICONS = {
-    "appearance": "settings", "shortcuts": "links",
+    "appearance": "settings", "tools": "home", "shortcuts": "links",
     "clipboard": "clipboard", "quick_slots": "commands",
     "network": "ports", "maintenance": "notes",
 }
@@ -310,6 +311,50 @@ def _appearance(parent, app, c, *, wide=False, compact=False):
     _divider(card, c)
     _theme_picker(card, app, c, wide=wide, compact=compact)
 
+
+
+def _tool_visibility(parent, app, c, *, compact=False, wide=False):
+    """Compact, immediate Show/Hide switches, with no duplicate order editor.
+
+    Adding a menu appends it to the end of the live navigation. The same
+    action remains available through Mini's green Plus. Nothing touches tool
+    data, and Settings is always available and not hideable.
+    """
+    card = _section(
+        parent, c, "Show / Hide menus",
+        "Add a hidden menu at the end, or hide a menu without deleting data.",
+        compact=compact, wide=wide)
+    grid = tk.Frame(card, bg=c["PANEL"])
+    grid.pack(fill="x", padx=10, pady=(1, 8))
+    for col in range(2):
+        grid.grid_columnconfigure(col, weight=1, uniform="visible-tool")
+    for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
+        enabled = key in app.settings["visible_tabs"]
+        color = c["DANGER"] if enabled else c["POSITIVE"]
+        button = tk.Button(
+            grid, text=("-  " if enabled else "+  ") + caption,
+            command=lambda item=key, on=enabled: app._set_visible_tab(item, not on),
+            bg=c["CARD"], fg=c["WHITE"],
+            activebackground=c["CARD_HOVER"],
+            activeforeground=c["WHITE"], bd=0, relief="flat",
+            highlightthickness=1, highlightbackground=c["BORDER"],
+            highlightcolor=c["ACCENT"], cursor="hand2", takefocus=True,
+            font=(FONT, 8, "bold" if enabled else "normal"),
+            padx=6, pady=6, anchor="w")
+        button.grid(row=index // 2, column=index % 2, sticky="ew",
+                    padx=(0, 4) if index % 2 == 0 else (4, 0),
+                    pady=(0, 4))
+        button.icon_image = tool_icons.icon_image(button, key, color, 16)
+        button.configure(image=button.icon_image, compound="left")
+        design.Tooltip(button,
+                       ("Hide " if enabled else "Add ") + caption +
+                       (" (data is kept)" if enabled else " (add last)"),
+                       app.theme)
+        _register(app, "tool_" + key, button)
+    label_text = "Settings is always visible. Drag icons on the Mini toolbar to reorder."
+    _label(card, label_text, c, size=8, muted=True,
+           justify="left", wraplength=240 if compact else 480).pack(
+               fill="x", padx=11, pady=(0, 8))
 
 def _launcher(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Extra Mini launcher",
@@ -669,6 +714,11 @@ def build_settings(app, parent, *, wide=False):
         left, app, c, "appearance", "Appearance", "Layout · Colors",
         compact=compact)
     _appearance(appearance, app, c, wide=wide, compact=compact)
+
+    tools = _settings_group(
+        left, app, c, "tools", "Show / Hide", "Add or remove menus",
+        compact=compact)
+    _tool_visibility(tools, app, c, compact=compact, wide=wide)
 
     shortcuts = _settings_group(
         left, app, c, "shortcuts", "Shortcuts & launcher", "Hotkeys · Quick access",

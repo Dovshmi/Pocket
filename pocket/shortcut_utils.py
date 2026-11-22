@@ -63,6 +63,48 @@ def validate_phone_number(value: str) -> str:
     return ("+" if raw.startswith("+") else "") + digits
 
 
+EXCEL_WORKBOOK_SUFFIXES = frozenset({
+    ".xlsx", ".xls", ".xlsm", ".xlsb", ".xltx", ".xltm", ".xlam", ".xla",
+})
+
+
+def _open_excel_in_new_instance(target: str) -> bool:
+    """Launch a real, separate Microsoft Excel window for workbook shortcuts.
+
+    ShellExecute's ordinary Excel file association can re-use an already open
+    Excel instance (DDE), occasionally leaving the requested workbook unopened.
+    DispatchEx explicitly creates a NEW Excel automation server independent of
+    any existing workbook. This is only invoked by a user-clicked file shortcut.
+
+    Return False only when Excel COM cannot be initialized; callers then retain
+    the original Windows file association as a graceful fallback.
+    """
+    try:
+        import win32com.client
+    except ImportError:
+        return False
+    try:
+        excel = win32com.client.DispatchEx("Excel.Application")
+    except Exception:
+        # Machine without registered Excel, or Office policy blocks COM.
+        return False
+    try:
+        excel.Visible = True
+        # Do not suppress Office security dialogs, force a read-only session,
+        # save data, or interfere with any previously open Excel instances.
+        excel.Workbooks.Open(Filename=target)
+        return True
+    except Exception as exc:
+        try:
+            excel.Quit()  # Only the new instance we created.
+        except Exception:
+            pass
+        raise OSError(
+            "Excel started but could not open this workbook. "
+            "Check the file permissions and any Excel prompt."
+        ) from exc
+
+
 def launch_shortcut(kind: str, target: str) -> None:
     """Only invoke when the user clicks a stored shortcut (never on app startup)."""
     target = normalize_shortcut(kind, target)
@@ -70,7 +112,15 @@ def launch_shortcut(kind: str, target: str) -> None:
         if not webbrowser.open(target):
             raise OSError("Your default browser could not be opened.")
     elif sys.platform == "win32":
-        os.startfile(target)  # type: ignore[attr-defined]  # Windows ShellExecute association
+        if kind == "file" and Path(target).name.casefold() == "excel.exe":
+            # Excel's /x starts a separate process instead of silently
+            # activating a workbook already open in another Excel window.
+            subprocess.Popen([target, "/x"])
+        elif (kind == "file" and Path(target).suffix.casefold()
+              in EXCEL_WORKBOOK_SUFFIXES and _open_excel_in_new_instance(target)):
+            return
+        else:
+            os.startfile(target)  # type: ignore[attr-defined]  # Shell association
     elif sys.platform == "darwin":
         subprocess.Popen(["open", target])
     else:

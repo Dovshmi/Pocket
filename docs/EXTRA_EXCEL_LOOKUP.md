@@ -45,6 +45,14 @@ the SOC draft function. The user reviews and sends the final message manually.
 
 Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
+## v1.40 — Mini keyboard navigation and merged database controls
+
+- **Matches:** Up/Down arrows navigate results while the list is focused. The Selected Row updates immediately. The row count is shown on the right side of the MATCHES heading rather than in an always-reserved status row beneath Smart Search.
+- **Selected Row:** With this panel focused, Right/Left arrows navigate next/previous matches, while the Outlook draft button always uses the chosen hit. No new arrow buttons or icons.
+- **Excel Source:** The selected Excel filename and Browse remain on one line. In Database mode only, last-sync metadata and existing Sync/Load DB/Delete controls appear directly underneath inside the same bordered Excel Source card. There is no independent DATABASE panel. Local mode stays small.
+- **Failures and progress:** Compact feedback is visible in the MATCHES header; hovering it shows the full status or error text. No search status line takes up space while idle.
+- Data and permissions are unchanged: database creation is always manual, destructive actions still require confirmation, no Excel workbook is modified, and an offline database is readable unencrypted SQLite.
+
 ## Pocket v1.40 — Compact Extra
 
 The selected Excel source is now **one read-only row**: a muted filename

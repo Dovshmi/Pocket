@@ -71,12 +71,12 @@ def build(app, parent):
                   anchor="w", padx=11, pady=(9, 6))
     path_var = tk.StringVar(master=app.root, value=getattr(app, "_extra_excel_path", ""))
     path_line = tk.Frame(source, bg=colors["PANEL"])
-    path_line.pack(fill="x", padx=9, pady=(5 if compact else 5, 5 if compact else 7))
+    path_line.pack(fill="x", padx=9, pady=(4 if compact else 5, 3 if compact else 7))
     # Compact, read-only Excel source: show a filename and Browse, not an
     # editable input. The complete source path stays in a hover tooltip.
     source_name = label(path_line, "", size=8, muted=True,
                         bg=colors["PANEL"], cursor="hand2")
-    source_name.pack(side="left", fill="x", expand=True, padx=(2, 6))
+    source_name.pack(side="left", fill="x", expand=True, padx=(0, 6))
     source_tip = design.Tooltip(source_name, "", app.theme)
     def source_display():
         path = path_var.get().strip().strip('"')
@@ -113,9 +113,9 @@ def build(app, parent):
               bg=colors["PANEL"]).pack(anchor="w", pady=(0, 3))
     db_info_label = label(db_section, "", size=8, muted=True,
                           bg=colors["PANEL"], wraplength=650 if wide else 290)
-    db_info_label.pack(fill="x", pady=(0, 4))
+    db_info_label.pack(fill="x", pady=(0, 2 if compact else 4))
     db_actions = tk.Frame(db_section, bg=colors["PANEL"])
-    db_actions.pack(fill="x", pady=(0, 1))
+    db_actions.pack(fill="x", pady=(0, 0 if compact else 1))
 
     search_panel = design.panel(parent, app.theme)
     search_panel.pack(fill="x", pady=(0, 6 if compact else 10))
@@ -414,7 +414,7 @@ def build(app, parent):
     def apply_mode():
         app._extra_excel_mode = mode_var.get()
         if mode_var.get() == "database":
-            db_section.pack(fill="x", padx=9, pady=(0, 6 if compact else 9))
+            db_section.pack(fill="x", padx=9, pady=(0, 4 if compact else 9))
             set_status("")
             update_db_info()
         else:

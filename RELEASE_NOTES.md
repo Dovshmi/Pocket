@@ -7,9 +7,11 @@
 - **One-line source:** Browse and the selected Excel filename share a single compact row. The full path is shown on hover; no editable input or additional filename-description line.
 - **SOC Outlook draft:** From the selected match, prepares an unsent message with mapped customer/circuit/VDOM/FG information and manual fields for contact, expert approval, phone, issue and previous ticket.
 - **Offline database unchanged:** The user-approved plain SQLite v2 data remains compatible; only manual Sync replaces it. The existing Local mode, Matches list, settings/data storage and auxiliary Pocket tools remain intact.
+- **Excel Shortcuts:** Opening an XLSX/XLS/XLSM/XLSB workbook from Pocket starts an independent Excel COM instance, instead of relying on Windows' existing-instance file association. An Excel program shortcut uses `/x`. Other files, websites and folders keep their original behavior, with a graceful fallback when Excel COM is unavailable.
+- **Settings redesign:** Seven compact, keyboard-accessible accordion categories replace the long unstructured settings list. All original preferences and callbacks remain, including themes, display layouts, visible tools, Quick Slots, Translate, clipboard history, Excel database, proxy, backup and reset. Only the current group expands; the UI does not change settings merely by switching categories.
 - **Settings:** The version footer displays **v1.40** for this build. The stable v1.39.9 release is unchanged.
 
-[Experimental Extra documentation](docs/EXTRA_EXCEL_LOOKUP.md)
+[Experimental Extra documentation](docs/EXTRA_EXCEL_LOOKUP.md) · [Shortcuts and Settings changes](docs/SETTINGS_SHORTCUTS_V140.md)
 
 ---
 

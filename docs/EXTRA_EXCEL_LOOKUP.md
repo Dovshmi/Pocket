@@ -2,6 +2,41 @@
 
 This feature is on `experiment/extra-excel-lookup`, not stable `main`.
 
+## SOC Outlook draft from one selected result
+
+After a Local or Database search, select the exact customer row under **Matches**
+and click **Outlook · SOC** beside the selected-row details. Pocket prepares a
+**new, unsent** Outlook draft (no recipient, attachments, auto-save or sending).
+
+The subject follows:
+`(customer / business name) (line code) פנייה לSOC`
+
+Only the chosen row is used. The draft includes:
+
+- **שם העסק / הלקוח** — pulled from the customer/business column.
+- **קוד קו** — pulled from the actual line/circuit column, for example
+  `קוד קישור`. The `קוד קבוצה` column is **not** treated as a line code.
+- **כתובת FortiGate** — derived conservatively from the FG sheet name:
+  `FG25` → `10.238.2.25`, `FG-2.8-METRO1` → `10.238.2.8`.
+  An ambiguous or non-FG sheet leaves the address for the user to complete.
+- **VDOM** — from the selected row's VDOM column.
+- **איש קשר**, **מספר טלפון**, **תיאור התקלה / הבקשה**,
+  **מספר פנייה קודמת (אם קיימת)**, and
+  **באישור מומחה – שם המומחה** — **blank placeholders to fill in Outlook**.
+
+If any of the first four automatic fields are missing, Pocket asks the user
+whether to open the draft anyway and clearly marks missing values for manual
+completion. No email, recipient address, contact phone, specialist approval
+name, or problem description is stored back in Pocket.
+
+Classic desktop Outlook uses an unsent COM MailItem with an RTL Hebrew body
+and the existing Outlook signature preserved. When classic Outlook COM is
+unavailable (e.g. New Outlook), Pocket opens the registered Windows `mailto:`
+handler. Set Outlook as the default mail app in Windows for that fallback.
+
+The source Excel workbook and plain SQLite database are never modified by
+the SOC draft function. The user reviews and sends the final message manually.
+
 ## Two independent search modes
 
 **Local:** The existing search opens the selected Excel workbook on each search, using the standard openpyxl reader or authorized Microsoft Excel COM for protected books. Local mode is unchanged: no cached rows, no created database, and no saved search history.

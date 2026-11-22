@@ -10,6 +10,7 @@ from pathlib import Path
 import runpy
 import sys
 import tempfile
+import tkinter as tk
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]

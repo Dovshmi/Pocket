@@ -330,7 +330,9 @@ def _tool_visibility(parent, app, c, *, compact=False, wide=False):
         grid.grid_columnconfigure(col, weight=1, uniform="visible-tool")
     for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
         enabled = key in app.settings["visible_tabs"]
-        color = c["DANGER"] if enabled else "#54C58A"
+        # Status color, not action color: green is active/visible, red is
+        # inactive/hidden. Keep the +/- text to indicate the click action.
+        color = "#54C58A" if enabled else c["DANGER"]
         button = tk.Button(
             grid, text=("-  " if enabled else "+  ") + caption,
             command=lambda item=key, on=enabled: app._set_visible_tab(item, not on),

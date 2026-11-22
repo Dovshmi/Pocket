@@ -331,6 +331,11 @@ def _tools(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Visible tools",
                     "Choose the tiles shown in Pocket. At least one stays on.",
                     compact=compact, wide=wide)
+    # Show the interactive actual-icon editor first; visibility toggles
+    # remain available below it without pushing reordering off the screen.
+    menu_order_ui.build(card, app, c, compact=compact)
+    _label(card, "SHOW / HIDE MENUS", c, size=8, muted=True, bold=True,
+           anchor="w").pack(fill="x", padx=11, pady=(5, 6))
     grid = tk.Frame(card, bg=c["PANEL"])
     grid.pack(fill="x", padx=10, pady=(0, 10))
     for col in (0, 1):
@@ -381,9 +386,6 @@ def _tools(parent, app, c, *, compact=False, wide=False):
         control.configure(command=apply)
         design.Tooltip(control, TOOL_HELP[key], app.theme)
         _register(app, "tool_" + key, control)
-    # Every menu has a real icon; positions are backed up with Settings.
-    menu_order_ui.build(card, app, c, compact=compact)
-
 
 def _dropdown_field(parent, app, c, key, heading, detail,
                     choices, selected, callback, *, compact=False,

@@ -718,7 +718,7 @@ def build_settings(app, parent, *, wide=False):
     _launcher(shortcuts, app, c, wide=wide, compact=compact)
 
     tools = _settings_group(
-        left, app, c, "tools", "Visible tools", "Show / hide menus",
+        right, app, c, "tools", "Visible tools", "Show / hide menus",
         compact=compact)
     _tools(tools, app, c, wide=wide, compact=compact)
 

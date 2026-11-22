@@ -15,7 +15,8 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from pocket import menu_order
+from pocket import menu_order, settings_ui
+from pocket import pocket_design as design
 
 
 def check(ok, message):
@@ -139,8 +140,28 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
                   "Settings could be hidden from the navigation")
             check(not MenuStub.calls, "Settings should not offer Hide")
 
-        app.show_tab("settings")
-        root.update()
+        # Inspect the colors actually passed to the rendered Tk icon images,
+        # not just the preference flags. Green means ON, red means HIDDEN.
+        icon_colors = []
+        original_icon_image = settings_ui.tool_icons.icon_image
+
+        def capture_tool_color(master, name, color, size):
+            if size == 16:
+                icon_colors.append((name, color))
+            return original_icon_image(master, name, color, size)
+
+        with patch.object(settings_ui.tool_icons, "icon_image",
+                          side_effect=capture_tool_color):
+            app.show_tab("settings")
+            root.update()
+            check(("extra", "#54C58A") in icon_colors,
+                  "Visible Extra must have a green icon")
+            check(("ports", design.colors(app.theme)["DANGER"]) in icon_colors,
+                  "Hidden Ports must have a red icon")
+            check(app.settings_controls["tool_extra"].cget("text").startswith("-"),
+                  "Visible menu must still offer Hide action")
+            check(app.settings_controls["tool_ports"].cget("text").startswith("+"),
+                  "Hidden menu must still offer Add action")
         check("settings_group_tools" in app.settings_controls,
               "Settings Show/Hide must be restored below Appearance")
         check("tool_ports" in app.settings_controls,
@@ -159,6 +180,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
         check("ports" in app.settings["visible_tabs"] and
               app.settings["menu_order"][-1] == "ports",
               "Settings Show/Hide add must append Ports to the end")
+        # New Settings widget must now present the active state, not the
+        # stale red hidden state from the widget we clicked.
+        refreshed = app.settings_controls["tool_ports"]
+        check(refreshed.cget("text").startswith("-"),
+              "Settings button did not flip from Add to Hide after enabling")
         check("settings" in app.mini_icon_tabs,
               "Settings must never be removable")
 

@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-switch-settings
+  group: pocket-extra-excel-preview-20261122-soc-outlook
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44960141706'
-      SOURCE_COMMIT: '0ba4fd9804a69e74ca47318a143c56a35a925b1a'
+      SOURCE_RUN_ID: '44967009257'
+      SOURCE_COMMIT: '8be1bef9aa339749672cb3c6ba7835cc783502d1'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-Switch-Settings-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-SOC-Outlook-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-Switch-Settings-Portable.zip")
+          p = Path("dist/Pocket-Extra-SOC-Outlook-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-Switch-Settings-Portable.zip > SHA256SUMS-Switch-Settings.txt)
+          (cd dist && sha256sum Pocket-Extra-SOC-Outlook-Portable.zip > SHA256SUMS-SOC-Outlook.txt)
 
       - name: Write experimental release notes
         run: |
@@ -81,17 +81,21 @@ jobs:
           Excel source. Cancelled or failed Sync preserves the old file.
           The source Excel file is never changed.
 
-          **New in this build:**
-          - Mini Extra now uses one accessible slider switch on the right for
-            Local / Database, with MODE: Live / Offline on the left.
-          - A short muted note under Browse explains the expected Excel source,
-            e.g. Extranet_2026.xlsx. No workbook filename is hard-coded.
-          - Sync is aligned left, Load DB and Delete are aligned right.
-          - Settings displays the active Pocket SQLite file and Copy path
-            action ONLY if the file exists in Pocket's local data directory.
-          - Database still uses plain SQLite v2, manually synced only, with
-            the already-working offline search and protected Excel Local mode.
-          - Mini scrolling remains invisible but functional.
+          **New in this build: SOC Outlook draft**
+          - After a Local or Database search, select a row and click
+            Outlook · SOC beside the selected-row details.
+          - Fill customer/business name, circuit/line code and VDOM from
+            matching Excel columns; calculate the FortiGate management IP
+            from known FG worksheet naming, e.g. FG25 => 10.238.2.25 or
+            FG-2.8-METRO1 => 10.238.2.8.
+          - Prefill the subject as customer + line code + פנייה לSOC.
+          - Leave contact person, phone number, fault description, previous
+            ticket and expert-approval NAME for the user to complete in Outlook.
+          - Missing values are flagged and never invented; the user must
+            review the draft. No recipient is set and NO email is sent.
+          - Classic Outlook uses a new unsent COM draft, preserving the
+            signature; otherwise Windows default mailto handles New Outlook.
+          - Previous Local/Database search and Mini switch layout are retained.
 
           IMPORTANT: The new SQLite database is NOT encrypted; anyone with
           filesystem access can read it. Manual Sync shows a confirmation
@@ -107,7 +111,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-Switch-Settings-Portable.zip dist/SHA256SUMS-Switch-Settings.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-SOC-Outlook-Portable.zip dist/SHA256SUMS-SOC-Outlook.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

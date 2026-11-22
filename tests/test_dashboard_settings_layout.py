@@ -26,11 +26,16 @@ class DashboardSettingsLayoutTests(unittest.TestCase):
     def test_dashboard_has_independent_columns(self):
         self.assertIn('left.grid(row=0, column=0', SHARED)
         self.assertIn('right.grid(row=0, column=1', SHARED)
-        self.assertIn('_appearance(left, app, c, wide=wide', SHARED)
-        self.assertIn('_shortcuts(left, app, c, wide=wide', SHARED)
-        self.assertIn('_launcher(left, app, c, wide=wide', SHARED)
-        self.assertIn('_tools(right, app, c, wide=wide', SHARED)
-        self.assertIn('_privacy(right, app, c, wide=wide', SHARED)
+        self.assertIn('app._settings_sections = {}', SHARED)
+        self.assertIn('_appearance(appearance, app, c, wide=wide', SHARED)
+        self.assertIn('_shortcuts(shortcuts, app, c, wide=wide', SHARED)
+        self.assertIn('_launcher(shortcuts, app, c, wide=wide', SHARED)
+        self.assertIn('_tools(tools, app, c, wide=wide', SHARED)
+        self.assertIn('_clipboard(clipboard, app, c, wide=wide', SHARED)
+        self.assertIn('_quick_slot_preferences(slot_controls, app, c,', SHARED)
+        self.assertIn('_translate_preferences(slot_controls, app, c,', SHARED)
+        self.assertIn('_network_preferences(network, app, c,', SHARED)
+        self.assertIn('_backup_controls(maintenance, app, c,', SHARED)
 
     def test_every_existing_preference_keeps_its_app_callback(self):
         for method in (

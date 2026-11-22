@@ -43,7 +43,7 @@ jobs:
           for name in names:
               src = source / name
               data = src.read_bytes()
-              assert data[:8] == b"\\x89PNG\\r\\n\\x1a\\n", f"Not a PNG: {name}"
+              assert data[:8] == bytes.fromhex("89504e470d0a1a0a"), f"Not a PNG: {name}"
               assert len(data) > 4000, f"Unexpected tiny image: {name}"
               shutil.copyfile(src, out / name)
           print(f"Imported {len(names)} verified, synthetic-profile Windows captures")

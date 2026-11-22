@@ -9,9 +9,12 @@ class MiniNavigationOverflowTests(unittest.TestCase):
         self.previous = ["notes", "links", "ports", "mac",
                          "commands", "subnet", "clipboard"]
 
-    def test_seven_tools_keep_the_exact_original_row(self):
+    def test_eight_menus_use_more_in_the_eighth_slot(self):
         first, extra = mini_nav.plan_mini_icons(self.previous)
-        self.assertEqual(first, tuple(self.previous + ["settings"]))
+        self.assertEqual(first, tuple(self.previous + ["more"]))
+        self.assertEqual(extra, (("settings",),))
+        first, extra = mini_nav.plan_mini_icons(self.previous[:6], add_available=True)
+        self.assertEqual(first, tuple(self.previous[:6] + ["settings", "plus"]))
         self.assertEqual(extra, ())
 
     def test_reminders_uses_more_and_an_additional_row_with_settings(self):

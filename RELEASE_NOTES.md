@@ -1,41 +1,30 @@
-# Pocket v1.40 — Compact Show/Hide & Mini Matches Scroll (experimental revision)
+# Pocket v1.40 — Release Candidate (experimental)
 
-- **Show / Hide below Appearance:** Compact add/remove options return to Settings. No duplicated drag-order or preview editor. Settings stays available and cannot be hidden.
-- **Restored menus appear last:** Re-enabling from either Settings or Mini Plus appends the icon to the saved order, with subsequent drag reordering still possible.
-- **Mini Matches:** Wheel movement over results scrolls the Pocket page instead of moving the matches, while a slim dark 8px scrollbar provides direct list scrolling. Up/Down and Left/Right result navigation remains.
-- **Everything else preserved:** Existing Extra database and Outlook draft functions, backup settings and Windows app behavior remain available.
+**Source branch:** `experiment/extra-excel-lookup`. **Stable `main`:** v1.39.9 until this candidate is promoted and a stable release is published.
 
----
+## Mini navigation and Settings
 
-# Pocket v1.40 — Direct Menu Management & Reliable Excel (experimental revision)
+- Reorder the *actual Mini toolbar icons* by dragging them; the new order saves automatically and survives restart and Settings backups.
+- Right-click any tool icon to hide it, without deleting saved tool data. Settings may be moved but cannot be hidden.
+- Green Add (+) lists hidden menus. Newly enabled menus (via Plus **or** Settings) go to the **end** of the stored order.
+- At eight or more active menus, More/Less occupies the eighth position and Plus moves to the end of the expanded row. When seven or fewer are enabled, Plus follows the active icons. Plus is absent if no menus are hidden.
+- **Settings → Show / Hide**, directly below Appearance, restores the compact add/remove controls: **green icon = active/visible**, **red icon = hidden/inactive**. The `−` and `+` prefixes indicate the action if clicked. There is no redundant Menu Order or Preview editor.
 
-- **Mini navigation manages itself:** Drag icons in the real top bar to save their positions, or right-click an enabled icon and choose Hide. Settings cannot be hidden but can be moved. No editing mode, preview card or Save/Cancel.
-- **Adaptive last tile:** Seven or fewer active menus show the green Add (+) only when hidden menus exist. Eight or more use More/Less in the eighth position; Add is the last icon in the expanded row. All-enabled hides Add. The app preserves positions of hidden menus for later restoration.
-- **Settings simplified:** Removed the duplicate Menu Order/Live Mini Preview and Show/Hide toggles. All other Settings categories, configurations, backup/restore actions and v1.40 display remain.
-- **Excel shortcuts:** An already-open workbook is identified by its full path and activated without opening a second copy. A different workbook opens in an existing Excel process if possible; a new process is created only when necessary. No workbook is edited or saved automatically.
-- **Extra:** Filename label aligns better with last-sync details; vertical spacing around Excel Source/Sync is marginally reduced with unchanged Browse/Sync/Load/Delete placement.
-- **Verified with synthetic tests:** Excel open/activate checks, menu persistence, backup compatibility, Mini keyboard and GUI integration, and Windows portable executable smoke. Stable `main` remains untouched.
+## Extra / Excel lookup
 
----
+- Read-only Local Excel search, or manual Sync into an indexed *unencrypted* local SQLite database for offline search. Search does not automatically synchronize or upload data.
+- Compact source and sync section; row count beside MATCHES; compact Selected Row summary including group/line, VDOM/VRF, FG VLAN and calculated FortiGate IP when the sheet name supports it.
+- **Mini MATCHES** has a slim dark scrollbar to scroll results. Mouse wheel over MATCHES scrolls the surrounding Pocket page instead. Up/Down selects matches; Left/Right from the details area changes the selected row.
+- **Outlook · SOC** creates a **draft only** with the selected record. Manual placeholders include the contact name, phone, expert approval name, issue details and prior ticket.
 
-# Pocket v1.40 — Compact Extra & Outlook SOC (experimental)
+## Shortcuts and compatibility
 
-**Windows portable experimental build · source branch `experiment/extra-excel-lookup` · stable `main` remains v1.39.9**
+- Excel shortcuts detect the exact already-open workbook via its canonical full path and activate it, rather than opening a duplicate. Different workbooks open in an existing Excel application when available. Office COM and Windows fallback are handled without automatically saving a workbook.
+- Retains the existing Clipboard, Quick Slots, Notes/Reminders, network tools, backup/restore, colors and operating modes. Settings displays v1.40.
+- Includes Windows and Linux unit/GUI regressions and Windows portable EXE smoke tests using synthetic profiles and mocked Office operations. Live protected Excel and Outlook behavior requires a separate workstation acceptance check.
+- No source file, workbook, customer database or private CLI command is bundled. Local SQLite and backup files are not encrypted; use approved storage.
 
-- **Compact selected row:** A small, readable customer/circuit/group/VDOM/VRF/FortiGate/VLAN summary replaces the long default scrollable list. Show other columns reveals all remaining Excel fields on demand in their original order, with its expanded state remembered while switching between results.
-- **Smart FortiGate IP:** Derive the management address from the FG worksheet name (e.g. `FG-26-METRO1` → `10.238.2.26`; `FG-2.8-METRO1` → `10.238.2.8`). Click to copy. Ambiguous or non-FG worksheets do not invent an IP.
-- **One-line source:** Browse and the selected Excel filename share a single compact row. The full path is shown on hover; no editable input or additional filename-description line.
-- **SOC Outlook draft:** From the selected match, prepares an unsent message with mapped customer/circuit/VDOM/FG information and manual fields for contact, expert approval, phone, issue and previous ticket.
-- **Offline database unchanged:** The user-approved plain SQLite v2 data remains compatible; only manual Sync replaces it. The existing Local mode, Matches list, settings/data storage and auxiliary Pocket tools remain intact.
-- **Excel Shortcuts:** Opening an XLSX/XLS/XLSM/XLSB workbook from Pocket starts an independent Excel COM instance, instead of relying on Windows' existing-instance file association. An Excel program shortcut uses `/x`. Other files, websites and folders keep their original behavior, with a graceful fallback when Excel COM is unavailable.
-- **Settings redesign:** Seven compact, keyboard-accessible accordion categories replace the long unstructured settings list. All original preferences and callbacks remain, including themes, display layouts, visible tools, Quick Slots, Translate, clipboard history, Excel database, proxy, backup and reset. Only the current group expands; the UI does not change settings merely by switching categories.
-- **Keyboard navigation:** Up/Down in Matches selects the previous/next result; Left/Right when focused in Selected Row changes to the previous/next result without any new arrow buttons.
-- **Extra saves Mini space:** Database Sync/Load DB/Delete and last-sync status are integrated under the Excel Source filename and Browse. The result count now sits in MATCHES heading, with no permanent empty status row under Smart Search.
-- **Interactive menu icons:** Settings → Visible Tools shows original Pocket icons, draggable to reorder or click-first/click-destination; an adjacent Mini preview updates immediately. The special More/Less overflow remains fixed and is never dragged. Hidden tool positions remain preserved. Order is stored locally and round-trips in a Settings backup and restore; older preferences retain the original ordering.
-- **Settings polish:** Appearance is immediately followed by Visible Tools, and font-dependent category glyphs are replaced by Pocket's locally drawn icons to avoid Windows missing-character markers.
-- **Settings:** The version footer displays **v1.40** for this build. The stable v1.39.9 release is unchanged.
-
-[Experimental Extra documentation](docs/EXTRA_EXCEL_LOOKUP.md) · [Shortcuts and Settings changes](docs/SETTINGS_SHORTCUTS_V140.md)
+See [v1.40 settings and shortcut behavior](docs/SETTINGS_SHORTCUTS_V140.md) and [Extra lookup guide](docs/EXTRA_EXCEL_LOOKUP.md).
 
 ---
 

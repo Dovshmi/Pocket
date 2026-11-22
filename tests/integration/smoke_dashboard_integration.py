@@ -915,12 +915,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(categories.issubset(common),
                           f"{mode}: a Settings category is missing")
                     before_group_switch = dict(app.settings)
-                    # Menus are now controlled directly in the navigation:
-                    # the redundant Menu Order and Show/Hide tools editor is
-                    # intentionally absent from the Settings screen.
-                    check("settings_group_tools" not in common and
-                          not any(k.startswith("tool_") for k in common),
-                          f"{mode}: duplicate menu editor still in Settings")
+                    # Show/Hide returns as a compact section right after
+                    # Appearance. The old Menu Order/Preview remains removed.
+                    check("settings_group_tools" in common and
+                          all("tool_" + key in common
+                              for key, _ in app.VISIBLE_TABS_REFERENCE),
+                          f"{mode}: compact Show/Hide controls are missing")
+                    check(not hasattr(app, "menu_order_editor_cells") or
+                          not getattr(app, "menu_order_editor_cells", None),
+                          f"{mode}: redundant icon reorder editor still displayed")
                     check(sum(bool(section["body"].winfo_ismapped())
                               for section in app._settings_sections.values()) <= 1,
                           f"{mode}: Settings opened multiple categories")
@@ -1179,8 +1182,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "create_pocket_backup", "restore_pocket_backup",
                         "reset_default_settings")),
                         "Dashboard Settings is missing important controls")
-                    check("settings_group_tools" not in controls,
-                          "Dashboard should use direct menu editing, not duplicate controls")
+                    check("settings_group_tools" in controls and
+                          all("tool_" + key in controls
+                              for key, _ in app.VISIBLE_TABS_REFERENCE),
+                          "Dashboard Show/Hide menu controls missing")
+                    check(controls["settings_group_appearance"].winfo_rootx() ==
+                          controls["settings_group_tools"].winfo_rootx() and
+                          controls["settings_group_appearance"].winfo_rooty() <
+                          controls["settings_group_tools"].winfo_rooty(),
+                          "Dashboard Show/Hide must follow Appearance")
                     check(controls["settings_group_appearance"].winfo_rootx() <
                           controls["settings_group_clipboard"].winfo_rootx(),
                           "Dashboard must still show two independent columns")

@@ -906,6 +906,35 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # All working modes share the modern selection, palette
                     # and keyboard-accessible switch components.
                     common = app.settings_controls
+                    # Categories are compact by default but every original
+                    # preference is still built. Opening a category must not
+                    # mutate saved settings or rebuild the active profile.
+                    from pocket import settings_ui as settings_render
+                    categories = {"settings_group_" + key
+                                  for key, *_ in settings_render.SETTINGS_GROUPS}
+                    check(categories.issubset(common),
+                          f"{mode}: a Settings category is missing")
+                    before_group_switch = dict(app.settings)
+                    if app._settings_open_group != "tools":
+                        common["settings_group_tools"].invoke()
+                    app.root.update()
+                    check(app._settings_sections["tools"]["body"].winfo_ismapped(),
+                          f"{mode}: Visible tools category did not expand")
+                    check(sum(bool(section["body"].winfo_ismapped())
+                              for section in app._settings_sections.values()) == 1,
+                          f"{mode}: Settings opened multiple large categories")
+                    check(before_group_switch == app.settings,
+                          f"{mode}: navigating Settings changed preferences")
+                    if app._settings_open_group != "quick_slots":
+                        common["settings_group_quick_slots"].invoke()
+                    app.root.update()
+                    check(app._settings_sections["quick_slots"]["body"].winfo_ismapped(),
+                          f"{mode}: Quick Slots controls did not expand")
+                    check(before_group_switch == app.settings,
+                          f"{mode}: quick slots category changed preferences")
+                    if app._settings_open_group != "appearance":
+                        common["settings_group_appearance"].invoke()
+                    app.root.update()
                     required = {"mode_normal", "mode_mini", "mode_dashboard",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",

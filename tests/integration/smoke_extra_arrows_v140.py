@@ -34,7 +34,7 @@ hits = [
     ExcelHit("FG-26-METRO1", index, (("לקוח (A)", f"Customer {index}"),
                                     ("קוד קישור (B)", f"82-{index}"),
                                     ("VDOM (G)", "sample-vdom")), (), True)
-    for index in (369, 370, 371)
+    for index in range(369, 389)
 ]
 
 root = tk.Tk()
@@ -75,11 +75,46 @@ try:
             root.update()
             time.sleep(0.04)
         root.update()
-        check(result_list.size() == 3, "Synthetic SQLite results not displayed")
+        check(result_list.size() == len(hits), "Synthetic SQLite results not displayed")
         check(result_list.curselection() == (0,), "First result not selected")
-        check(any(isinstance(w, tk.Label) and w.cget("text") == "3 rows"
+        check(any(isinstance(w, tk.Label) and w.cget("text") == "20 rows"
                   for w in widgets(outer)), "Matches heading did not show count")
 
+        # Mini has a slim dark draggable rail; the list itself must not
+        # scroll on MouseWheel or Linux touchpad Button-4/5 events.
+        scroll = next((w for w in widgets(outer)
+                       if isinstance(w, tk.Scrollbar) and
+                       w.master is result_list.master and
+                       w.cget("command") == str(result_list) + " yview"), None)
+        if scroll is None:
+            scroll = next((w for w in widgets(outer)
+                           if isinstance(w, tk.Scrollbar) and
+                           w.master is result_list.master), None)
+        check(scroll is not None and int(scroll.cget("width")) <= 8 and
+              scroll.winfo_ismapped(),
+              "Mini Matches must have a thin, visible scrollbar")
+        check(result_list.yview()[1] < 1.0,
+              "Synthetic results must exceed the visible five-row area")
+        start_view = result_list.yview()
+        result_list.event_generate("<MouseWheel>", delta=-120)
+        root.update()
+        check(result_list.yview() == start_view,
+              "MouseWheel must not scroll the Mini Matches list")
+        result_list.event_generate("<Button-5>")
+        root.update()
+        check(result_list.yview() == start_view,
+              "Linux mouse wheel must not scroll the Mini Matches list")
+        scroll.event_generate("<ButtonPress-1>", x=3, y=3)
+        scroll.event_generate("<B1-Motion>", x=3, y=max(9, scroll.winfo_height() - 4))
+        scroll.event_generate("<ButtonRelease-1>", x=3, y=max(9, scroll.winfo_height() - 4))
+        root.update()
+        # A scrollbar is wired to Listbox.yview, independent of disabled wheel.
+        result_list.yview_scroll(3, "units")
+        root.update()
+        check(result_list.yview()[0] > start_view[0],
+              "Matches scrollbar/yview must remain operational")
+        result_list.yview_moveto(0)
+        root.update()
         result_list.focus_force()
         root.update()
         result_list.event_generate("<Down>")
@@ -109,6 +144,6 @@ try:
         root.update()
         check(result_list.curselection() == (0,),
               "Left arrow in Selected Row did not move backward")
-        print("PASS: Extra Up/Down and Left/Right, compact counts and merged Sync")
+        print("PASS: Extra arrows, no wheel scrolling in Matches, thin scrollbar, merged Sync")
 finally:
     root.destroy()

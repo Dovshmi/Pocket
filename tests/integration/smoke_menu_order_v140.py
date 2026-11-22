@@ -111,10 +111,14 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
             MenuStub.choose = "Links"
             plus = tile("plus")
             plus.event_generate("<ButtonPress-1>", x=8, y=8)
+            root.update()
             plus.event_generate("<ButtonRelease-1>", x=8, y=8)
             root.update()
+            check(any("Links" in command.get("label", "")
+                      for command in MenuStub.calls),
+                  "Clicking Plus did not open the list of hidden menus")
             check("links" in app.settings["visible_tabs"],
-                  "Plus failed to enable the hidden Links menu")
+                  "Plus failed to restore the hidden Links menu")
             check("more" in app.mini_icon_tabs,
                   "Eight menus must use More as eighth icon")
             check(app._mini_overflow_keys[-1] == "plus",

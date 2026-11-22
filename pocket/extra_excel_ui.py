@@ -4,11 +4,13 @@ from __future__ import annotations
 import queue
 import threading
 from datetime import datetime
+from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
 from . import extra_excel_lookup as lookup
 from . import extra_excel_db as db
+from . import extra_excel_presentation as presentation
 from . import extra_soc_outlook as soc
 from . import pocket_design as design
 
@@ -69,9 +71,25 @@ def build(app, parent):
                   anchor="w", padx=11, pady=(9, 6))
     path_var = tk.StringVar(master=app.root, value=getattr(app, "_extra_excel_path", ""))
     path_line = tk.Frame(source, bg=colors["PANEL"])
-    path_line.pack(fill="x", padx=9, pady=(6 if compact else 0, 7 if compact else 9))
-    path_field = design.entry(path_line, path_var, app.theme, compact=compact)
-    path_field.pack(side="left", fill="x", expand=True, padx=(0, 6))
+    path_line.pack(fill="x", padx=9, pady=(5 if compact else 5, 5 if compact else 7))
+    # Compact, read-only Excel source: show a filename and Browse, not an
+    # editable input. The complete source path stays in a hover tooltip.
+    source_name = label(path_line, "", size=8, muted=True,
+                        bg=colors["PANEL"], cursor="hand2")
+    source_name.pack(side="left", fill="x", expand=True, padx=(2, 6))
+    source_tip = design.Tooltip(source_name, "", app.theme)
+    def source_display():
+        path = path_var.get().strip().strip('"')
+        source_tip.message = path or "Select an Excel workbook for Local / Sync."
+        if not path:
+            return "Excel file · Extranet_2026.xlsx"
+        name = Path(path).name
+        if len(name) > (26 if compact else 55):
+            name = name[:12 if compact else 39] + "…" + name[-10:]
+        return "Excel · " + name
+    def update_source_label(*_args):
+        app._extra_excel_path = path_var.get()
+        source_name.configure(text=source_display())
 
     def choose_file():
         path = filedialog.askopenfilename(
@@ -81,13 +99,11 @@ def build(app, parent):
         if path:
             path_var.set(path)
 
+    source_name.bind("<Button-1>", lambda _event: choose_file())
     design.button(path_line, "Browse", choose_file, app.theme,
                   compact=True).pack(side="right")
-    path_var.trace_add("write", lambda *_: setattr(app, "_extra_excel_path",
-                                                  path_var.get()))
-    label(source, "Excel file · e.g. Extranet_2026.xlsx", size=8, muted=True,
-          bg=colors["PANEL"], wraplength=290 if compact else 630
-          ).pack(fill="x", padx=10, pady=(0, 6))
+    path_var.trace_add("write", update_source_label)
+    update_source_label()
 
     database_panel = design.panel(parent, app.theme)
     db_top = tk.Frame(database_panel, bg=colors["PANEL"])
@@ -120,12 +136,15 @@ def build(app, parent):
     state_label.pack(fill="x", pady=(0, 5 if compact else 8))
 
     results_area = tk.Frame(parent, bg=colors["BG"])
-    results_area.pack(fill="both", expand=True)
+    results_area.pack(fill="x" if compact else "both", expand=not compact)
     matches_panel = design.panel(results_area, app.theme)
     details_panel = design.panel(results_area, app.theme)
     if wide:
         matches_panel.pack(side="left", fill="both", expand=True, padx=(0, 8))
         details_panel.pack(side="left", fill="both", expand=True)
+    elif compact:
+        matches_panel.pack(fill="x", pady=(0, 6))
+        details_panel.pack(fill="x")
     else:
         matches_panel.pack(fill="both", expand=True, pady=(0, 9))
         details_panel.pack(fill="both", expand=True)
@@ -159,22 +178,29 @@ def build(app, parent):
     label(detail_heading, "SELECTED ROW" if compact else "ALL COLUMNS / SELECTED ROW",
           size=9, bold=True, bg=colors["PANEL"]).pack(
               side="left", fill="x", expand=True)
-    detail_wrap = tk.Frame(details_panel, bg=colors["PANEL"])
-    detail_wrap.pack(fill="both", expand=True, padx=9, pady=(0, 9))
+    # Only a compact overview is shown by default; all other original Excel
+    # columns are available on demand in a bounded, scrollable text area.
+    detail_wrap = tk.Frame(details_panel, bg=colors["INPUT"])
+    detail_wrap.pack(fill="x", padx=9, pady=(0, 7))
+    overview_content = tk.Frame(detail_wrap, bg=colors["INPUT"])
+    overview_content.pack(fill="x", padx=9, pady=(6, 4))
+    expand_button = design.button(
+        details_panel, "Show other columns", lambda: toggle_columns(),
+        app.theme, compact=True)
+    expanded_wrap = tk.Frame(details_panel, bg=colors["PANEL"])
     details = tk.Text(
-        detail_wrap, height=21 if wide else (9 if compact else 13),
+        expanded_wrap, height=7 if compact else (11 if wide else 10),
         width=28, wrap="word", bg=colors["INPUT"], fg=colors["WHITE"],
         selectbackground=colors["ACCENT_DARK"], highlightthickness=1,
         highlightbackground=colors["BORDER"], bd=0, relief="flat",
-        font=("Segoe UI", 9), padx=10, pady=8)
-    detail_scroll = tk.Scrollbar(detail_wrap, command=details.yview)
+        font=("Segoe UI", 9), padx=9, pady=5)
+    detail_scroll = tk.Scrollbar(expanded_wrap, command=details.yview)
     details.configure(yscrollcommand=detail_scroll.set)
     if not compact:
         detail_scroll.pack(side="right", fill="y")
     details.pack(side="left", fill="both", expand=True)
     details.tag_configure("headline", foreground=colors["ACCENT"],
-                          font=("Segoe UI", 10, "bold"))
-    details.tag_configure("matched", foreground=colors["ACCENT"])
+                          font=("Segoe UI", 9, "bold"))
     details.configure(state="disabled")
 
     hits = []
@@ -184,26 +210,85 @@ def build(app, parent):
         if state_label.winfo_exists():
             state_label.configure(text=text)
 
-    def show_details(index):
-        if not details.winfo_exists():
-            return
-        soc_button.configure(state="normal" if index is not None
-                             and 0 <= index < len(hits) else "disabled")
-        details.configure(state="normal")
-        details.delete("1.0", "end")
-        if index is not None and 0 <= index < len(hits):
-            hit = hits[index]
-            details.insert("end", f"Sheet: {hit.sheet}\nRow: {hit.row}\n\n",
-                           "headline")
-            matching = set(hit.matched_columns)
-            for field, value in hit.fields:
-                details.insert("end", field + "\n",
-                               "matched" if field in matching else "headline")
-                details.insert("end", value + "\n\n")
+    def copy_fortigate(value):
+        app.root.clipboard_clear()
+        app.root.clipboard_append(value)
+        app.root.update_idletasks()
+        set_status("FortiGate IP copied to clipboard.")
+
+    def show_compact_cell(target, cell, *, ip=False):
+        line = tk.Frame(target, bg=colors["INPUT"])
+        line.pack(fill="x", anchor="w")
+        label(line, cell.label, size=8, muted=True, bg=colors["INPUT"]
+              ).pack(anchor="w")
+        if ip and cell.value != "—":
+            ip_button = tk.Button(
+                line, text=cell.value + "  ⧉",
+                command=lambda value=cell.value: copy_fortigate(value),
+                bg=colors["INPUT"], fg=colors["ACCENT"], anchor="w",
+                cursor="hand2", takefocus=True, bd=0, relief="flat",
+                activebackground=colors["INPUT"],
+                activeforeground=colors["WHITE"],
+                padx=0, pady=0, font=("Segoe UI", 9, "bold"))
+            ip_button.pack(fill="x")
+            design.Tooltip(ip_button, "Copy FortiGate IP", app.theme)
         else:
-            details.insert("end", "Select a result to view each populated column.")
-        details.configure(state="disabled")
-        details.yview_moveto(0)
+            label(line, cell.value, size=9, bold=True, bg=colors["INPUT"],
+                  wraplength=270 if compact else 330).pack(fill="x")
+        return line
+
+    def show_details(index):
+        if not overview_content.winfo_exists():
+            return
+        valid = index is not None and 0 <= index < len(hits)
+        soc_button.configure(state="normal" if valid else "disabled")
+        for widget in overview_content.winfo_children():
+            widget.destroy()
+        expand_button.pack_forget()
+        expanded_wrap.pack_forget()
+        if not valid:
+            label(overview_content, "Select a result to view its details.",
+                  size=8, muted=True, bg=colors["INPUT"]).pack(anchor="w")
+            return
+        hit = hits[index]
+        quick = presentation.row_overview(hit)
+        label(overview_content, f"{quick.sheet} · Row {quick.row}",
+              size=8, muted=True, bg=colors["INPUT"]).pack(anchor="w", pady=(0, 4))
+        show_compact_cell(overview_content, quick.customer)
+        grid = tk.Frame(overview_content, bg=colors["INPUT"])
+        grid.pack(fill="x", pady=(5, 0))
+        for column in (0, 1):
+            grid.grid_columnconfigure(column, weight=1, uniform="extra")
+        for row_number, pair in enumerate(quick.pairs):
+            for column, cell in enumerate(pair):
+                cell_parent = tk.Frame(grid, bg=colors["INPUT"])
+                cell_parent.grid(row=row_number, column=column, sticky="new",
+                                 padx=(0, 5) if column == 0 else (5, 0),
+                                 pady=(0, 5))
+                show_compact_cell(
+                    cell_parent, cell, ip=cell.label == "FortiGate IP")
+        if not quick.remaining:
+            return
+        expanded = bool(getattr(app, "_extra_excel_columns_expanded", False))
+        expand_button.configure(
+            text=(f"Hide other columns ({len(quick.remaining)})" if expanded
+                  else f"Show other columns ({len(quick.remaining)})"))
+        expand_button.pack(fill="x", padx=9, pady=(0, 5))
+        if expanded:
+            expanded_wrap.pack(fill="x", padx=9, pady=(0, 8))
+            details.configure(state="normal")
+            details.delete("1.0", "end")
+            for header, value in quick.remaining:
+                details.insert("end", header + "\n", "headline")
+                details.insert("end", value + "\n\n")
+            details.configure(state="disabled")
+            details.yview_moveto(0)
+
+    def toggle_columns():
+        app._extra_excel_columns_expanded = not bool(
+            getattr(app, "_extra_excel_columns_expanded", False))
+        selected = result_list.curselection()
+        show_details(selected[0] if selected else None)
 
     def selected(_event=None):
         chosen = result_list.curselection()
@@ -446,7 +531,6 @@ def build(app, parent):
                                   app.theme, primary=True, compact=True)
     search_button.pack(side="right")
     entry.bind("<Return>", start_search)
-    path_field.bind("<Return>", lambda _event: entry.focus_set())
 
     def start_sync():
         if busy:

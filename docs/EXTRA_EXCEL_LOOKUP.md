@@ -2,6 +2,14 @@
 
 This feature is on `experiment/extra-excel-lookup`, not stable `main`.
 
+## Latest v1.40 Mini MATCHES scrolling
+
+- Mini MATCHES includes a slim dark **8px draggable scrollbar** on the right.
+- Wheel/touchpad gestures over the results scroll the Pocket page instead of
+  moving the result list itself.
+- Up/Down still navigates Matches; Left/Right inside Selected Row also works.
+- Normal/Dashboard result scrolling and database search are unchanged.
+
 ## SOC Outlook draft from one selected result
 
 After a Local or Database search, select the exact customer row under **Matches**

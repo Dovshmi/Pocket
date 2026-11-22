@@ -24,7 +24,10 @@ class ExtraMiniLayoutTests(unittest.TestCase):
 
     def test_quiet_excel_hint_and_split_database_actions(self):
         source = Path(extra_excel_ui.__file__).read_text(encoding="utf-8")
-        self.assertIn('Excel file · e.g. Extranet_2026.xlsx', source)
+        self.assertIn('Excel file · Extranet_2026.xlsx', source)
+        self.assertIn('source_tip = design.Tooltip(source_name,', source)
+        self.assertIn('Path(path).name', source)
+        self.assertNotIn('path_field = design.entry(', source)
         self.assertIn('sync_button.pack(side="left"', source)
         self.assertIn('import_button.pack(side="right"', source)
         self.assertIn('delete_button.pack(side="right"', source)

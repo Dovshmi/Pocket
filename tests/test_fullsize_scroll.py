@@ -24,8 +24,9 @@ class FullSizeScrollTests(unittest.TestCase):
         self.assertIn('isinstance(widget, ttk.Treeview)', code)
         self.assertIn('canvas.yview_scroll(steps, "units")', code)
 
-    def test_extra_mini_scrolling_has_no_visible_rails(self):
-        # Preserve all three wheel targets, but reclaim their scrollbar width.
+    def test_extra_mini_has_only_thin_matches_rail(self):
+        # Outer page rail remains hidden, but the user explicitly wants a
+        # narrow dark Matches scrollbar; its wheel goes to the parent page.
         scrolling = SOURCE.split("    def _scrolling_tool_body(self):", 1)[1].split(
             "    def _mini_scrolling_body(self):", 1)[0]
         wheel = SOURCE.split("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):",
@@ -35,7 +36,9 @@ class FullSizeScrollTests(unittest.TestCase):
         self.assertIn('"extra"):', wheel)
         extra_ui = (Path(__file__).resolve().parents[1] /
                     "pocket" / "extra_excel_ui.py").read_text(encoding="utf-8")
-        self.assertIn('if not compact:\n        list_scroll.pack(', extra_ui)
+        self.assertIn('list_scroll.pack(side="right", fill="y"', extra_ui)
+        self.assertIn('width=8 if compact else 12', extra_ui)
+        self.assertIn('scroll_outer_instead_of_matches', extra_ui)
         self.assertIn('if not compact:\n        detail_scroll.pack(', extra_ui)
 
     def test_cli_combobox_never_calls_vertical_yview(self):

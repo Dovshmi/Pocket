@@ -163,11 +163,41 @@ def build(app, parent):
         selectforeground=colors["WHITE"], activestyle="none",
         highlightthickness=1, highlightbackground=colors["BORDER"],
         relief="flat", font=("Segoe UI", 9), exportselection=False)
-    list_scroll = tk.Scrollbar(results_wrap, command=result_list.yview)
+    # Mini keeps a visible, intentionally thin dark scrollbar. The result
+    # Listbox itself must NOT consume the mouse wheel (that gesture scrolls
+    # the surrounding Pocket page), but its scrollbar and keyboard navigation
+    # continue to work normally.
+    list_scroll = tk.Scrollbar(
+        results_wrap, command=result_list.yview,
+        width=8 if compact else 12,
+        bg=colors["CARD"], troughcolor=colors["INPUT"],
+        activebackground=colors["CARD_HOVER"],
+        highlightthickness=0, borderwidth=0, elementborderwidth=0,
+        relief="flat", cursor="hand2")
     result_list.configure(yscrollcommand=list_scroll.set)
-    if not compact:
-        list_scroll.pack(side="right", fill="y")
+    list_scroll.pack(side="right", fill="y", padx=(3, 0) if compact else (0, 0))
     result_list.pack(side="left", fill="both", expand=True)
+
+    if compact:
+        def scroll_outer_instead_of_matches(event):
+            # Pocket binds its tool-scrolling callback at the root. Listbox
+            # class bindings would run before it, changing the selected rows'
+            # viewport. Route the wheel directly to the outer page instead.
+            canvas = getattr(app, "_tool_scroll_canvas", None)
+            if canvas is not None and canvas.winfo_exists():
+                delta = getattr(event, "delta", 0)
+                if delta:
+                    steps = (-1 if delta > 0 else 1) * max(1, abs(delta) // 120)
+                elif getattr(event, "num", None) in (4, 5):
+                    steps = -1 if event.num == 4 else 1
+                else:
+                    steps = 0
+                if steps:
+                    canvas.yview_scroll(steps, "units")
+            return "break"
+        for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            result_list.bind(sequence, scroll_outer_instead_of_matches)
+
 
     detail_heading = tk.Frame(details_panel, bg=colors["PANEL"])
     detail_heading.pack(fill="x", padx=10, pady=(7 if compact else 9, 5))

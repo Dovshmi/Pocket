@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261123-v140-showhide-matches
+  group: pocket-extra-excel-preview-20261123-v140-colorfix-rc
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '45077941672'
-      SOURCE_COMMIT: '4aa8f70a26c28d1ccd016ccca1127c391bf112ca'
+      SOURCE_RUN_ID: '45079382383'
+      SOURCE_COMMIT: '5e0127de7c79ba50168fca1eddc26264ff28bd46'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-v1.40-ShowHide-Matches-Scrollbar-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-v1.40-ShowHide-Color-Fix-RC-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-v1.40-ShowHide-Matches-Scrollbar-Portable.zip")
+          p = Path("dist/Pocket-v1.40-ShowHide-Color-Fix-RC-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-v1.40-ShowHide-Matches-Scrollbar-Portable.zip > SHA256SUMS-v1.40-ShowHide-Matches.txt)
+          (cd dist && sha256sum Pocket-v1.40-ShowHide-Color-Fix-RC-Portable.zip > SHA256SUMS-v1.40-ShowHide-Color-Fix-RC.txt)
 
       - name: Write experimental release notes
         run: |
@@ -107,6 +107,10 @@ jobs:
             green Plus follows the active icons; 8+ menus use More/Less in
             position 8 and the Plus appears last in the expanded row.
             The Plus disappears when every menu is already available.
+          - **Show/Hide color correction:** GREEN icon means the tool is
+            active and visible; RED icon means the tool is currently hidden.
+            Minus and Plus indicate the action when clicked. Verified via
+            Windows and Linux real Tk icon-color regression tests.
           - **Compact Settings Show/Hide:** A small Show / Hide category
             directly below Appearance lets users add and remove menu icons
             without reintroducing the bulky Menu Order/Live Preview editor.
@@ -129,9 +133,12 @@ jobs:
           - **SOC Outlook:** Existing unsent draft generation remains intact,
             with the expert-approval name directly under the contact person.
           - All 4 Python-version/platform unit-test combinations, real
-            Windows/Linux GUI tests including Mini scroll and Show/Hide,
-            and production Windows portable EXE smoke passed in verified
-            GitHub Actions run 45077941672.
+            Windows/Linux GUI tests including Show/Hide status-color
+            verification and Mini scroll, and production portable Windows
+            EXE smoke passed in GitHub Actions run 45079382383.
+          - **Before stable main:** Verify exact Excel workbook reuse and
+            Outlook SOC drafts on the actual workstation and confirm company
+            permission for unencrypted offline corporate-data storage.
           - Settings displays **v1.40** (semantic package version 1.40.0).
           - No customer workbook/database/credentials are bundled.
           - This is a separate EXPERIMENTAL preview. Stable main stays v1.39.9.
@@ -150,7 +157,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-v1.40-ShowHide-Matches-Scrollbar-Portable.zip dist/SHA256SUMS-v1.40-ShowHide-Matches.txt \
+          gh release upload "$TAG" dist/Pocket-v1.40-ShowHide-Color-Fix-RC-Portable.zip dist/SHA256SUMS-v1.40-ShowHide-Color-Fix-RC.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

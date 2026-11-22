@@ -1,3 +1,14 @@
+# Pocket v1.40 — Direct Menu Management & Reliable Excel (experimental revision)
+
+- **Mini navigation manages itself:** Drag icons in the real top bar to save their positions, or right-click an enabled icon and choose Hide. Settings cannot be hidden but can be moved. No editing mode, preview card or Save/Cancel.
+- **Adaptive last tile:** Seven or fewer active menus show the green Add (+) only when hidden menus exist. Eight or more use More/Less in the eighth position; Add is the last icon in the expanded row. All-enabled hides Add. The app preserves positions of hidden menus for later restoration.
+- **Settings simplified:** Removed the duplicate Menu Order/Live Mini Preview and Show/Hide toggles. All other Settings categories, configurations, backup/restore actions and v1.40 display remain.
+- **Excel shortcuts:** An already-open workbook is identified by its full path and activated without opening a second copy. A different workbook opens in an existing Excel process if possible; a new process is created only when necessary. No workbook is edited or saved automatically.
+- **Extra:** Filename label aligns better with last-sync details; vertical spacing around Excel Source/Sync is marginally reduced with unchanged Browse/Sync/Load/Delete placement.
+- **Verified with synthetic tests:** Excel open/activate checks, menu persistence, backup compatibility, Mini keyboard and GUI integration, and Windows portable executable smoke. Stable `main` remains untouched.
+
+---
+
 # Pocket v1.40 — Compact Extra & Outlook SOC (experimental)
 
 **Windows portable experimental build · source branch `experiment/extra-excel-lookup` · stable `main` remains v1.39.9**

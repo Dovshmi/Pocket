@@ -63,6 +63,12 @@ jobs:
       - name: Reorder real Pocket icons with Linux virtual display (v1.40)
         if: runner.os == 'Linux'
         run: xvfb-run -a python tests/integration/smoke_menu_order_v140.py
+      - name: Verify Extra keyboard arrows and compact Sync controls (Windows)
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_extra_arrows_v140.py
+      - name: Verify Extra keyboard arrows with virtual display (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python tests/integration/smoke_extra_arrows_v140.py
       - name: Probe real Windows Quick Slots Ctrl+Win / Ctrl+Alt registrations
         if: runner.os == 'Windows'
         run: python tests/integration/probe_quick_slots_win32.py

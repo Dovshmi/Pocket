@@ -9,14 +9,14 @@
 A compact, local-first desktop workspace for network operations, support teams, and everyday productivity.
 
 [![Source version](https://img.shields.io/badge/Main%20source-v1.40.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
-[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.39.9-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9)
+[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.40.0-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.40.0)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=flat-square)](LICENSE)
 
-**[Download stable Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** · **[Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
+**[Download stable Portable ZIP v1.40.0](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip)** · **[Standalone EXE v1.40.0](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-v1.40.0.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
 
-<sub>Current <code>main</code> source: <strong>v1.40.0</strong> · Latest officially published stable Windows binaries: <strong>v1.39.9</strong>. A stable v1.40.0 installer has not been published yet.</sub>
+<sub>Official v1.40.0 Windows release · Portable ZIP + standalone EXE · Previous v1.39.9 downloads are preserved.</sub>
 
 </div>
 
@@ -48,7 +48,7 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 
 ## What's new in v1.40.0
 
-Version **1.40.0 is merged into `main` as source code** and passed the Windows/Linux automated regression suite. The official stable download buttons above still point to **v1.39.9**.
+Version **1.40.0** brings Excel/SQLite lookup, Outlook SOC drafts, and improved Mini navigation to the official Windows Portable and Standalone packages. [Read the v1.40.0 release notes](docs/releases/v1.40.0.md).
 
 | Area | Improvements in the v1.40.0 source |
 | :--- | :--- |
@@ -61,7 +61,7 @@ Version **1.40.0 is merged into `main` as source code** and passed the Windows/L
 **[v1.40 technical notes](docs/SETTINGS_SHORTCUTS_V140.md)** · **[Excel/SQLite & SOC guide](docs/EXTRA_EXCEL_LOOKUP.md)** · **[Release acceptance checklist](docs/RELEASE_CHECKLIST_V140.md)** · [Experimental Windows preview (not stable)](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120)
 
 > [!NOTE]
-> The v1.40 source integration is complete, but the official v1.40.0 Windows release is still pending on-workstation Excel/Outlook and data-policy acceptance checks. The downloadable experimental preview is separate from the stable v1.39.9 release.
+> Official v1.40.0 builds pass automated Windows/Linux checks. Real protected Excel/Outlook integration and permission for unencrypted local data storage still require **workstation-specific acceptance tests**. The old experimental preview is separate from the official stable release.
 
 ## Screenshots
 
@@ -136,15 +136,15 @@ Guides: [Quick Slots](docs/QUICK_SLOTS.md) · [Backup & Restore](docs/BACKUP_RES
 
 ## Installation
 
-### Windows stable — v1.39.9
+### Windows stable — v1.40.0
 
 | Portable ZIP <sub>(recommended)</sub> | Standalone EXE |
 | :--- | :--- |
-| **[Pocket-Portable-v1.39.9.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** | **[Pocket-v1.39.9.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** |
+| **[Pocket-Portable-v1.40.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip)** | **[Pocket-v1.40.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-v1.40.0.exe)** |
 | Extract the full archive, then run `Pocket-Portable/PocketDesk.exe`. Keep its `_internal/` folder beside it. | Run the single EXE directly. |
 | Local data: `Pocket-Portable/data/`. | Local data: `%APPDATA%\PocketDesk\`. |
 
-No Python installation is needed for either Windows binary. The **v1.40 code is in `main`**, but these stable files are still **v1.39.9**. For the 1.40 preview, use the separately labeled [experimental prerelease](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120).
+No Python installation is needed for either Windows binary. Both downloads are built from the official **v1.40.0** source. Verify them with [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/SHA256SUMS.txt). [v1.39.9](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9) remains available for rollback.
 
 **Upgrading a portable installation:** fully exit Pocket (including the tray process), back up the old `data/` folder, extract the new ZIP into a **new** folder and copy only your user data across. Never mix `_internal/` folders from different versions. You can also use **Settings → Backup & Restore** to transfer selected data.
 
@@ -202,8 +202,8 @@ For authorized remote checks, Pocket can use the configured Windows proxy/PAC wi
 
 | Version | Highlights | Distribution |
 | :--- | :--- | :--- |
-| **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | **Source in `main`; Windows stable build pending** |
-| **v1.39.9** | Stand-alone and Note-linked Reminders, snooze, response capture, compact Reminder navigation. | **Latest stable ZIP / EXE** |
+| **v1.40.0 — latest stable** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | **Official Windows ZIP / EXE** |
+| **v1.39.9** | Stand-alone and Note-linked Reminders, snooze, response capture, compact Reminder navigation. | Previous stable release |
 | **v1.39.1–v1.39.8** | Quick Slots paste, save, history preservation, settings and Windows notice refinements. | Previous stable releases |
 | **v1.39.0** | Selective Backup & Restore, nine Quick Slots, shortcut recorder and Settings reset. | Previous stable release |
 | **v1.38.0** | Clipboard DATABASE improvements, Notes/Notepad sync, keyboard-layout repair and proxy support. | Previous stable release |

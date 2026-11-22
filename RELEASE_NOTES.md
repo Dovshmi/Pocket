@@ -1,6 +1,6 @@
-# Pocket v1.40.0 — Main source integration
+# Pocket v1.40.0 — Official Windows Release
 
-**Source code:** `main` now includes the v1.40.0 changes developed in `experiment/extra-excel-lookup`. **Published Windows stable:** v1.39.9 remains the official downloadable ZIP/EXE until a separate validated v1.40.0 build and publication. No v1.40.0 stable binary or release tag is implied by this source merge.
+**Windows distribution:** Official Portable ZIP and standalone EXE, built from `main` with release validation and SHA-256 checksums. The previous v1.39.9 release remains available for rollback. [Full v1.40.0 release notes](docs/releases/v1.40.0.md).
 
 ## Mini navigation and Settings
 

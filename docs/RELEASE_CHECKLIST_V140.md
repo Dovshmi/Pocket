@@ -1,6 +1,6 @@
 # Pocket v1.40 — Release readiness checklist
 
-**Source integration:** `experiment/extra-excel-lookup` → `main` as v1.40.0. The older v1.39.9 Windows ZIP/EXE remains the latest official stable binary until a separately approved release.
+**Release source:** `experiment/extra-excel-lookup` → `main` as v1.40.0. The official Windows ZIP/EXE release uses automated test and packaging gates; the previous v1.39.9 release remains available for rollback. The **manual workplace checks below are not verified by CI**.
 **Automated verification:** `.github/workflows/mini-checks.yml` on Windows/Linux Python 3.11/3.13, GUI integration checks, and real Windows portable EXE smoke. All CI tests use synthetic profiles and mock Office objects, not confidential work data.
 
 ## Required manual acceptance on the intended Windows workstation
@@ -20,8 +20,8 @@ Use a fresh portable ZIP in a **new directory**. Quit the previous Pocket proces
 - [ ] **Regression:** Notes, Reminders, Clipboard, Commands, Shortcuts, network tools, proxy settings, Quick Slots, PIN, tray shortcut and app startup still work as before.
 - [ ] **Data/privacy:** Confirm that the offline SQLite copy and backups are permitted under company policy. They are **not encrypted**. No corporate source workbook or SQLite file belongs in a public GitHub release.
 
-## Stable Windows v1.40.0 publication gates
+## Release validation and post-install acceptance
 
-Source-code integration is distinct from publishing binaries. The experimental branch's automated CI passed eight jobs at commit `96304ce`, including Windows/Linux unit and GUI checks and a real Windows portable EXE smoke test. Before publishing a **stable** v1.40.0 ZIP/EXE, complete the unchecked workstation acceptance tests above, confirm corporate data-retention permissions, run the final release build/test gate, publish SHA-256 checksums and only then update the stable badge/download links. Keep v1.39.9 available for rollback. The experimental preview is not a stable release.
+The official v1.40.0 release workflow gates publication on Windows source tests, v1.40 GUI regressions, Portable and Standalone builds, an integrity/privacy audit, runtime checks of an extracted ZIP and standalone GUI startup, and SHA-256 checksums. **The workstation tests above remain separate deployment requirements** because enterprise Excel/Outlook and organizational approval cannot be validated on hosted CI. Do not treat their unchecked boxes as passed; use v1.39.9 as the rollback option when needed.
 
 The CI test suite cannot validate real enterprise Office COM, Windows shell foreground restrictions, live network/proxy permissions, or local organizational data-protection approvals. Mark those checks separately.

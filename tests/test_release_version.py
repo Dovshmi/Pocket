@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class ReleaseVersionTests(unittest.TestCase):
     def test_development_settings_version_is_v140(self):
-        # Main source reports v1.40; published stable Windows binaries remain v1.39.9.
+        # Pocket v1.40 is the application version for the official Windows release.
         self.assertEqual(app_info.VERSION, "1.40.0")
         self.assertEqual(app_info.version_label(), "v1.40")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
@@ -66,18 +66,48 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn("Pocket v1.39.9", release_body)
         self.assertIn("Clear", release_body)
 
+    def test_v140_official_windows_release_workflow(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "release-v1.40.0.yml").read_text(encoding="utf-8")
+        self.assertIn("github.repository == 'Dovshmi/Pocket'", workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", workflow)
+        self.assertIn("[release v1.40.0]", workflow)
+        self.assertIn("inputs.confirm_version == 'v1.40.0'", workflow)
+        self.assertIn("app_info.VERSION == '1.40.0'", workflow)
+        self.assertIn("POCKET_RELEASE_VERSION: v1.40.0", workflow)
+        self.assertIn("smoke_menu_order_v140.py", workflow)
+        self.assertIn("smoke_extra_arrows_v140.py", workflow)
+        self.assertIn("smoke_notes_reminders_v1399.py", workflow)
+        self.assertIn("--collect-all openpyxl", workflow)
+        self.assertIn("--collect-all xlrd", workflow)
+        self.assertIn("--hidden-import win32com.client", workflow)
+        self.assertIn("check_packaged_release.py --version v1.40.0", workflow)
+        self.assertIn("softprops/action-gh-release@v2", workflow)
+        self.assertIn("tag_name: v1.40.0", workflow)
+        self.assertIn("target_commitish: ${{ github.sha }}", workflow)
+        self.assertIn("make_latest: true", workflow)
+        self.assertIn("fail_on_unmatched_files: true", workflow)
+        self.assertIn("Pocket-Portable-v1.40.0.zip", workflow)
+        self.assertIn("Pocket-v1.40.0.exe", workflow)
+        self.assertIn("SHA256SUMS.txt", workflow)
+        release_notes = (ROOT / "docs" / "releases" /
+                         "v1.40.0.md").read_text(encoding="utf-8")
+        self.assertIn("Outlook", release_notes)
+        self.assertIn("not encrypted", release_notes)
+        self.assertIn("Excel", release_notes)
+
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip",
+        self.assertIn("/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip",
                       readme)
-        self.assertIn("/releases/download/v1.39.9/Pocket-v1.39.9.exe", readme)
+        self.assertIn("/releases/download/v1.40.0/Pocket-v1.40.0.exe", readme)
         self.assertIn("# Pocket v1.39.8", notes)
         self.assertIn("Database", notes)
         self.assertIn("Clipboard", notes)
-        self.assertIn("/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip", readme)
-        self.assertIn("/releases/download/v1.39.9/Pocket-v1.39.9.exe", readme)
-        self.assertIn("/releases/download/v1.39.9/SHA256SUMS.txt", readme)
+        self.assertIn("/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip", readme)
+        self.assertIn("/releases/download/v1.40.0/Pocket-v1.40.0.exe", readme)
+        self.assertIn("/releases/download/v1.40.0/SHA256SUMS.txt", readme)
         self.assertIn("Quick Slots", readme)
         self.assertIn("Backup & Restore", readme)
         release_body = (ROOT / "docs" / "releases" / "v1.39.8.md").read_text(encoding="utf-8")

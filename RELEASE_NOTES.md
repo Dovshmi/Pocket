@@ -1,3 +1,12 @@
+# Pocket v1.40 — Compact Show/Hide & Mini Matches Scroll (experimental revision)
+
+- **Show / Hide below Appearance:** Compact add/remove options return to Settings. No duplicated drag-order or preview editor. Settings stays available and cannot be hidden.
+- **Restored menus appear last:** Re-enabling from either Settings or Mini Plus appends the icon to the saved order, with subsequent drag reordering still possible.
+- **Mini Matches:** Wheel movement over results scrolls the Pocket page instead of moving the matches, while a slim dark 8px scrollbar provides direct list scrolling. Up/Down and Left/Right result navigation remains.
+- **Everything else preserved:** Existing Extra database and Outlook draft functions, backup settings and Windows app behavior remain available.
+
+---
+
 # Pocket v1.40 — Direct Menu Management & Reliable Excel (experimental revision)
 
 - **Mini navigation manages itself:** Drag icons in the real top bar to save their positions, or right-click an enabled icon and choose Hide. Settings cannot be hidden but can be moved. No editing mode, preview card or Save/Cancel.

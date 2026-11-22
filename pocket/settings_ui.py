@@ -671,6 +671,8 @@ def build_settings(app, parent, *, wide=False):
     """Build all modes from a single settings design system."""
     c = themes.palette(app.theme)
     compact = app.display_mode == "mini"
+    if not hasattr(app, "_settings_open_group"):
+        app._settings_open_group = "appearance"
     app.settings_controls = {}
     if wide:
         # Existing integration tests and consumers use this public mapping.

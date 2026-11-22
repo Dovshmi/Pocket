@@ -915,16 +915,17 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     check(categories.issubset(common),
                           f"{mode}: a Settings category is missing")
                     before_group_switch = dict(app.settings)
-                    if app._settings_open_group != "tools":
-                        common["settings_group_tools"].invoke()
-                    app.root.update()
-                    check(app._settings_sections["tools"]["body"].winfo_ismapped(),
-                          f"{mode}: Visible tools category did not expand")
+                    # Menus are now controlled directly in the navigation:
+                    # the redundant Menu Order and Show/Hide tools editor is
+                    # intentionally absent from the Settings screen.
+                    check("settings_group_tools" not in common and
+                          not any(k.startswith("tool_") for k in common),
+                          f"{mode}: duplicate menu editor still in Settings")
                     check(sum(bool(section["body"].winfo_ismapped())
-                              for section in app._settings_sections.values()) == 1,
-                          f"{mode}: Settings opened multiple large categories")
+                              for section in app._settings_sections.values()) <= 1,
+                          f"{mode}: Settings opened multiple categories")
                     check(before_group_switch == app.settings,
-                          f"{mode}: navigating Settings changed preferences")
+                          f"{mode}: viewing Settings changed preferences")
                     if app._settings_open_group != "quick_slots":
                         common["settings_group_quick_slots"].invoke()
                     app.root.update()
@@ -946,8 +947,6 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
-                    required.update("tool_" + key
-                                    for key, _ in app.VISIBLE_TABS_REFERENCE)
 
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
@@ -1180,14 +1179,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "create_pocket_backup", "restore_pocket_backup",
                         "reset_default_settings")),
                         "Dashboard Settings is missing important controls")
-                    for tool, _caption in app.VISIBLE_TABS_REFERENCE:
-                        check("tool_" + tool in controls,
-                              f"Dashboard Settings lost the {tool} visibility control")
-                    check(abs(controls["settings_group_appearance"].winfo_rootx() -
-                              controls["settings_group_tools"].winfo_rootx()) <= 4
-                          and (controls["settings_group_appearance"].winfo_rooty() <
-                               controls["settings_group_tools"].winfo_rooty()),
-                          "Dashboard Visible Tools must be directly under Appearance")
+                    check("settings_group_tools" not in controls,
+                          "Dashboard should use direct menu editing, not duplicate controls")
                     check(controls["settings_group_appearance"].winfo_rootx() <
                           controls["settings_group_clipboard"].winfo_rootx(),
                           "Dashboard must still show two independent columns")

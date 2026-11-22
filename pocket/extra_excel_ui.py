@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 
 from . import extra_excel_lookup as lookup
 from . import extra_excel_db as db
+from . import extra_soc_outlook as soc
 from . import pocket_design as design
 
 
@@ -146,8 +147,18 @@ def build(app, parent):
         list_scroll.pack(side="right", fill="y")
     result_list.pack(side="left", fill="both", expand=True)
 
-    label(details_panel, "ALL COLUMNS / SELECTED ROW", size=9, bold=True,
-          bg=colors["PANEL"]).pack(fill="x", padx=10, pady=(9, 6))
+    detail_heading = tk.Frame(details_panel, bg=colors["PANEL"])
+    detail_heading.pack(fill="x", padx=10, pady=(7 if compact else 9, 5))
+    # One Outlook action beside the selected-row heading. It is enabled only
+    # when the results list has a selected row; no mail is sent by Pocket.
+    soc_button = design.button(
+        detail_heading, "Outlook · SOC", lambda: create_soc_draft(),
+        app.theme, compact=True, primary=True)
+    soc_button.pack(side="right", padx=(5, 0))
+    soc_button.configure(state="disabled")
+    label(detail_heading, "SELECTED ROW" if compact else "ALL COLUMNS / SELECTED ROW",
+          size=9, bold=True, bg=colors["PANEL"]).pack(
+              side="left", fill="x", expand=True)
     detail_wrap = tk.Frame(details_panel, bg=colors["PANEL"])
     detail_wrap.pack(fill="both", expand=True, padx=9, pady=(0, 9))
     details = tk.Text(
@@ -176,6 +187,8 @@ def build(app, parent):
     def show_details(index):
         if not details.winfo_exists():
             return
+        soc_button.configure(state="normal" if index is not None
+                             and 0 <= index < len(hits) else "disabled")
         details.configure(state="normal")
         details.delete("1.0", "end")
         if index is not None and 0 <= index < len(hits):
@@ -195,6 +208,35 @@ def build(app, parent):
     def selected(_event=None):
         chosen = result_list.curselection()
         show_details(chosen[0] if chosen else None)
+
+    def create_soc_draft():
+        """Only the selected row is used; no recipient or send action."""
+        chosen = result_list.curselection()
+        if not chosen or not 0 <= chosen[0] < len(hits):
+            set_status("Select a search result before opening an SOC draft.")
+            return
+        hit = hits[chosen[0]]
+        draft = soc.make_soc_draft(hit)
+        missing = draft.details.missing()
+        if missing:
+            should_open = messagebox.askyesno(
+                "SOC draft · missing details",
+                "Some information was not found in this row:\n\n" +
+                "\n".join("• " + field for field in missing) +
+                "\n\nPocket will leave these fields for you to complete "
+                "in Outlook. Open the draft?",
+                parent=app.root, icon="warning")
+            if not should_open:
+                return
+        try:
+            launched = soc.open_draft(draft)
+        except soc.OutlookUnavailable as exc:
+            set_status("Outlook draft could not be opened.")
+            messagebox.showerror("SOC / Outlook", str(exc), parent=app.root)
+            return
+        # Never set a recipient, save the mail or submit it automatically.
+        set_status("SOC draft opened in Outlook." if launched == "outlook" else
+                   "SOC draft opened in the default Windows email app.")
 
     result_list.bind("<<ListboxSelect>>", selected)
     show_details(None)

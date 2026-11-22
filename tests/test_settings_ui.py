@@ -31,8 +31,11 @@ class ModernSettingsTests(unittest.TestCase):
             callbacks = {call.args[0]: call.args[1]
                          for call in select.bind.call_args_list}
             self.assertIn("<<ComboboxSelected>>", callbacks)
+            # A compact selector also has tooltip focus/hover bindings.
+            # Only wheel events may change the scrolling behavior.
             self.assertEqual(
-                {key for key in callbacks if key != "<<ComboboxSelected>>"},
+                {key for key in callbacks if key in
+                 ("<MouseWheel>", "<Button-4>", "<Button-5>")},
                 {"<MouseWheel>", "<Button-4>", "<Button-5>"})
             for key in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
                 event = SimpleNamespace(delta=120, num=4, widget=select)

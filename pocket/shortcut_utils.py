@@ -91,7 +91,9 @@ def _focus_excel_workbook(workbook):
         if win32gui.IsIconic(handle):
             win32gui.ShowWindow(handle, win32con.SW_RESTORE)
         win32gui.SetForegroundWindow(handle)
-    except (ImportError, AttributeError, OSError, ValueError, RuntimeError):
+    except Exception:
+        # Foreground activation is best effort: Office and Windows can reject
+        # SetForegroundWindow even after Workbook.Activate succeeds.
         # Activation already succeeded; Windows foreground restrictions are
         # independent of whether the workbook was correctly selected.
         pass

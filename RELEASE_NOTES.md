@@ -1,3 +1,18 @@
+# Pocket v1.40 — Compact Extra & Outlook SOC (experimental)
+
+**Windows portable experimental build · source branch `experiment/extra-excel-lookup` · stable `main` remains v1.39.9**
+
+- **Compact selected row:** A small, readable customer/circuit/group/VDOM/VRF/FortiGate/VLAN summary replaces the long default scrollable list. Show other columns reveals all remaining Excel fields on demand in their original order, with its expanded state remembered while switching between results.
+- **Smart FortiGate IP:** Derive the management address from the FG worksheet name (e.g. `FG-26-METRO1` → `10.238.2.26`; `FG-2.8-METRO1` → `10.238.2.8`). Click to copy. Ambiguous or non-FG worksheets do not invent an IP.
+- **One-line source:** Browse and the selected Excel filename share a single compact row. The full path is shown on hover; no editable input or additional filename-description line.
+- **SOC Outlook draft:** From the selected match, prepares an unsent message with mapped customer/circuit/VDOM/FG information and manual fields for contact, expert approval, phone, issue and previous ticket.
+- **Offline database unchanged:** The user-approved plain SQLite v2 data remains compatible; only manual Sync replaces it. The existing Local mode, Matches list, settings/data storage and auxiliary Pocket tools remain intact.
+- **Settings:** The version footer displays **v1.40** for this build. The stable v1.39.9 release is unchanged.
+
+[Experimental Extra documentation](docs/EXTRA_EXCEL_LOOKUP.md)
+
+---
+
 # Pocket v1.39.9 — Reminders, Smart Snooze & Compact Reminder UI
 
 **Stable release published · Windows Portable ZIP and standalone EXE · Offline-first**

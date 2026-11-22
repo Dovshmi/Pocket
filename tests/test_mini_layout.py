@@ -62,7 +62,11 @@ class MiniLayoutTests(unittest.TestCase):
 
     def test_old_settings_keep_normal_display_mode(self):
         self.assertEqual(app["normalize_settings"]({"visible_tabs": ["notes"]}),
-                         {"visible_tabs": ["notes", "reminders", "extra"], "reminders_menu_configured": True,
+                         {"visible_tabs": ["notes", "reminders", "extra"],
+                          "menu_order": ["notes", "links", "ports", "mac", "commands",
+                                         "subnet", "clipboard", "reminders", "extra",
+                                         "settings"],
+                          "reminders_menu_configured": True,
                            "extra_menu_configured": True,
                           "display_mode": "normal", "extra_mini_enabled": False,
                           "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],

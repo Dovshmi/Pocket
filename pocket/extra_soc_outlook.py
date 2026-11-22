@@ -125,10 +125,10 @@ def make_soc_draft(hit):
         ("כתובת FortiGate", info.fortigate_ip or PLACEHOLDER),
         ("VDOM", info.vdom or PLACEHOLDER),
         ("איש קשר", PLACEHOLDER),
+        ("באישור מומחה – שם המומחה", PLACEHOLDER),
         ("מספר טלפון", PLACEHOLDER),
         ("תיאור התקלה / הבקשה", PLACEHOLDER),
         ("מספר פנייה קודמת (אם קיימת)", PLACEHOLDER),
-        ("באישור מומחה – שם המומחה", PLACEHOLDER),
     )
     plain_lines = ["שלום,", "", "אבקש את טיפול צוות SOC עבור הלקוח הבא:", ""]
     plain_lines.extend(f"{name}: {value}" for name, value in values)

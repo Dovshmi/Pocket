@@ -45,7 +45,39 @@ the SOC draft function. The user reviews and sends the final message manually.
 
 Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
-## Interface refinements
+## Pocket v1.40 — Compact Extra
+
+The selected Excel source is now **one read-only row**: a muted filename
+(“Excel · Extranet_2026.xlsx”) and **Browse** on its right. Hover the
+filename to see the complete local path. There is no editable Excel-path
+input; select or change workbooks using Browse. No source path is saved
+between Pocket sessions, as before.
+
+**Matches is unchanged.** The Selected Row block now shows a compact,
+two-column quick view with the customer/business name, line/circuit code,
+group code, VDOM, VRF, FortiGate management IP, and FG VLAN. The
+FortiGate management IP is derived from the FG worksheet name by the
+existing SOC lookup rules, not from the customer public IP. Click the IP
+to copy it. If it cannot be safely inferred, Pocket shows a dash rather
+than guessing.
+
+The **Show other columns (N)** button reveals every remaining populated
+Excel field *in its original column order*, using a bounded inner
+scroll area. No Excel columns are discarded. The disclosure's open/closed
+choice persists when navigating between matched rows within the current
+Pocket session and is closed by default.
+
+The selected-row quick view, the SOC draft button, and both Local and
+Database lookup paths reuse the same in-memory search results. Database
+schema remains v2; **no manual Sync or new SQLite import is required** for
+the interface change. The synced database stays in Pocket's local data
+folder, unchanged.
+
+Settings now displays **Version v1.40** in this experimental build, and
+the portable preview package is versioned v1.40. Previous stable v1.39.9
+downloads and stable branch are not modified.
+
+
 
 Extra Mini keeps the controls focused on fast daily lookup:
 

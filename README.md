@@ -1,341 +1,159 @@
 <div align="center">
 
-<img src="assets/app.ico" alt="Pocket official hand-and-pocket app icon" width="112" height="112" />
+<img src="assets/app.png" width="96" alt="Pocket — hand-in-pocket app icon" />
 
 # Pocket
 
-**Your everyday Windows toolbox. One shortcut away.**
+**One shortcut. Your entire Windows toolbox.**
 
-A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, notes, and everyday productivity.
+A compact, local-first desktop workspace for network operations, support teams, and everyday productivity.
 
-[![Release](https://img.shields.io/badge/Stable-v1.39.9-6755D8?style=for-the-badge)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9)
-![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=for-the-badge&logo=windows&logoColor=white)
-![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=for-the-badge)
-[![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=for-the-badge)](LICENSE)
+[![Source version](https://img.shields.io/badge/Main%20source-v1.40.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
+[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.39.9-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9)
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
+![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
+[![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=flat-square)](LICENSE)
 
-**[Download Portable ZIP v1.39.9](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** ·
-**[Download Standalone EXE v1.39.9](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** ·
-[SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/SHA256SUMS.txt) ·
-[All Releases](https://github.com/Dovshmi/Pocket/releases)
+**[Download stable Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** · **[Standalone EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
+
+<sub>Current <code>main</code> source: <strong>v1.40.0</strong> · Latest officially published stable Windows binaries: <strong>v1.39.9</strong>. A stable v1.40.0 installer has not been published yet.</sub>
 
 </div>
 
 ---
 
+<div align="center">
+  <img src="docs/images/pocket-v140-real/dashboard_home.png" alt="Pocket v1.40.0 real Windows Dashboard overview with workspace navigation" width="900" />
+
+  <sub><strong>Pocket Dashboard · v1.40.0</strong> — captured in automated Windows GUI tests with sample data.</sub>
+</div>
+
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#whats-new-in-v1400">What's new</a> ·
+  <a href="#installation">Installation</a> ·
+  <a href="#privacy--connectivity">Privacy</a> ·
+  <a href="#version-history">Changelog</a>
+</p>
+
+## Why Pocket?
+
+Pocket keeps the small tools you reach for all day **in one tray application**. Open it when needed, choose Normal, Mini, Dashboard, or Extra Mini, and return to work. Window placement, theme, menu visibility, icon order, and your last tool are saved locally.
+
+- **Local-first:** Notes, CLI references, subnet math, reminders, clipboard tools, backups, and offline Excel database lookups work without a constant internet connection.
+- **Fast to reach:** Tray access, configurable global hotkey, quick search, draggable Mini icons, and optional nine-slot Numpad text shortcuts.
+- **Built for real workflows:** TCP and MAC diagnostics, Excel record lookup, and optional unsent Outlook SOC drafts.
+- **Opt in to remote checks:** DashDash is used only when you choose the remote source and run a check. Local tools never require a Pocket account.
+
+## What's new in v1.40.0
+
+Version **1.40.0 is merged into `main` as source code** and passed the Windows/Linux automated regression suite. The official stable download buttons above still point to **v1.39.9**.
+
+| Area | Improvements in the v1.40.0 source |
+| :--- | :--- |
+| **Extra · Excel lookup** | Read-only local workbook search or a manually created, offline SQLite index; compact match summaries, original-column details, keyboard navigation, and a dedicated result scrollbar in Mini. |
+| **Outlook · SOC** | Prepare an **unsent** draft from the selected Excel result with line, VDOM, and available FortiGate details. Fill missing information and send manually. |
+| **Excel shortcuts** | Reopen the exact already-open workbook instead of creating a duplicate where Windows/Office allows it; different workbooks remain open. |
+| **Mini navigation** | Drag the actual toolbar icons to reorder, right-click to hide, and use a trailing Add (+) to bring tools back without losing their data. |
+| **Settings · Show / Hide** | Compact controls below Appearance. **Green icon = active**, **red icon = hidden**; no duplicate menu-order editor. |
+
+**[v1.40 technical notes](docs/SETTINGS_SHORTCUTS_V140.md)** · **[Excel/SQLite & SOC guide](docs/EXTRA_EXCEL_LOOKUP.md)** · **[Release acceptance checklist](docs/RELEASE_CHECKLIST_V140.md)** · [Experimental Windows preview (not stable)](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120)
+
 > [!NOTE]
-> **Pocket v1.40.0 source is integrated into `main` (Windows release pending):**
-> - **Mini toolbar:** drag icons to reorder, right-click a tool to hide it, and use the green Add (+) to restore hidden tools at the **end**. More/Less occupies position eight when there are at least eight active menus. Settings can move but cannot be hidden.
-> - **Settings → Show / Hide**, directly below Appearance: **green icons mean visible/active**, **red icons mean hidden/inactive**. The `−` and `+` symbols describe what clicking does. The old duplicate Menu Order/Preview editor is removed.
-> - **Extra → MATCHES:** Up/Down selects results; a thin dark scrollbar scrolls the list. In Mini, the mouse wheel over MATCHES scrolls the **Pocket page**, not the results; Left/Right from Selected Row still changes the selected result.
-> - **Excel shortcuts:** activates the exact already-open workbook instead of duplicating it, and opens a different workbook through Excel when possible.
-> - **Extra:** compact Local/SQLite search, manually synced *unencrypted* offline database, selected-row details including FortiGate IP derived from the sheet name, and **unsent Outlook SOC draft** with blank contact/phone/issue/previous ticket/expert approval fields.
->
-> **[Technical v1.40 guide](docs/SETTINGS_SHORTCUTS_V140.md)** · **[Extra Excel guide](docs/EXTRA_EXCEL_LOOKUP.md)** · **[Windows release-candidate ZIP (experimental)](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120)**
->
-> The `main` code is now **v1.40.0**, but a stable **v1.40.0 Windows ZIP/EXE has not yet been published**. The stable **v1.39.9** download links above remain correct until a separately verified v1.40.0 release. The local SQLite database is **not encrypted**; only create an offline copy of corporate data if your organization permits it. No private database or workbook is bundled.
-
-Pocket runs from the Windows system tray and opens on demand. It brings practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
-
-> [!IMPORTANT]
-> **Pocket v1.39.9 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
-
-> [!NOTE]
-> **Published Windows release v1.39.9:** The existing downloadable Windows ZIP/EXE include the Reminders hub, expandable Mini navigation, standalone and Note-linked reminders, themed due popups and Settings v1.39.9. Release assets were validated by the Windows build workflow.
->
-> **Offline-first:** Notes, CLI, subnet calculations, clipboard, reminders and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
-
-## What's new in v1.39.9
-
-Pocket v1.39.9 introduces a dedicated **Reminders** tool without adding cloud dependencies or changing how other local tools work.
-
-- **Standalone and Note-linked reminders:** Set a date and time from the themed calendar; edit the standalone title and optional Note directly on its card. Scheduled reminders reopen after a restart if not dismissed.
-- **Pocket-style due popup:** Clean TITLE and NOTE sections, full scrollable Note content, a subtle horizontal separator, and a response field that appears only after selecting **Add response**. Completed responses can be appended to the Note with a timestamp or stored on independent reminders.
-- **Flexible Snooze:** One Snooze button offers **5, 10, 15, 20, 30, 40, 45, 50, 60, 90 and 120 minutes** without a second confirmation.
-- **Reminders hub:** Compact Upcoming/Snoozed/Done counters and matching filters, local search, a slightly larger **green +** icon and adjacent text-only **Clear** below Search. Clear confirms the scope before removing reminders from the selected status tab; it **never deletes Notes or their text**.
-- **Mini navigation:** The original first icon row stays in place and **More / Less** expands additional tools. Reminders is also available in Normal and Dashboard layouts.
-- **Master notification switch:** Hiding **Reminders** in Settings also silences notifications from Notes and standalone reminders. Existing reminders remain saved and resume when re-enabled.
-- **Local persistence and recovery:** Reminder state, drafts, replies and standalone entries stay in local data and selected backups. Settings shows **v1.39.9**.
-
-[Official v1.39.9 release](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9) · [Detailed implementation notes](docs/REMINDERS_V1399_DEV.md) · [Release history](RELEASE_NOTES.md)
-
-> The published v1.39.9 release includes a tested **Portable ZIP**, **Standalone EXE** and **SHA-256 checksums**. All three are available through the links at the top of this page.
-
-## What's new in v1.39.8
-
-- **Slightly roomier native Windows Quick Slot replacement dialog:** The existing system Yes/No dialog still shows **Old text → New text** vertically, and the text preview now allows 30 characters instead of 23. Windows continues to determine the actual dialog dimensions.
-- **No other behavior changes:** Note reminders, time picking, snooze behavior and dashboards are not part of this patch; those improvements are being considered separately.
-
-[Release details](docs/releases/v1.39.8.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.7
-
-- **Normal capitalization:** Native Quick Slot notifications now use **Pocket · Copy [N]**, **Pocket · Paste [N]** and **Pocket · Unchanged [N]**, with only the text preview in the body. Error titles use the same sentence case.
-- **Old to New, vertically:** The original native Windows Yes/No replacement dialog now reads **Old: [preview]**, a down arrow, then **New: [preview]**, so it is clear which value is replaced. No custom Tkinter popup was added.
-- **No other behavior changes:** The one Quick Slot notification selector, clipboard-history preservation, tray actions and shortcut defaults remain intact.
-
-[Release details](docs/releases/v1.39.7.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.6
-
-- **Native Windows replacement confirmation restored:** Replacing a Quick Slot uses the original system **Yes / No MessageBox**, not a custom Tkinter window. The compact text reads **NEW: [preview] → OLD: [preview]**, with the slot number in the title.
-- **No duplicated text in native notifications:** **Pocket · COPY [N]** or **Pocket · PASTE [N]** appears in the title, and only the copied/pasted text preview appears in the body.
-- **One easy notification preference:** Under **Settings → Clipboard & privacy → Quick Slot notifications**, choose **Copy + Paste**, **Copy only**, **Paste only** or **Off**. Both are enabled by default; the choice persists locally. Note reminders and other alerts are unaffected.
-- **All v1.39.5 history-protection and tray improvements retained.**
-
-[Release details](docs/releases/v1.39.6.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.5
-
-- **Compact native Windows notices:** Quick Slot Save, Paste and Copy-to-Clipboard notifications retain their Windows look but use shorter titles and 108-character previews (roughly 10% less content).
-- **Clear replacement dialog:** A small themed Yes/No confirmation shows **NEW text on the left → OLD text on the right**, with short previews and the slot number.
-- **No lost Clipboard history on replacement:** The old slot value is unpinned if already recorded; otherwise it is inserted as a normal unpinned history item before the new slot is saved. Works in RAM and the local DATABASE, without duplicate same-day entries.
-- **Better Windows tray menu:** Right-click Pocket for **Open Pocket · Open Settings · Create Backup · Restore Backup · Exit Pocket**. The new menu invokes the existing Settings and Backup/Restore screens.
-
-[Release details](docs/releases/v1.39.5.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.4
-
-- **Clearer Windows notifications:** Save, Paste and Copy-to-Clipboard messages show the Quick Slot number and a short preview of the actual text. Clipboard-only mode correctly prompts for Ctrl+V.
-- **New Save/Copy hotkey default:** New profiles use **Ctrl+Alt+Win+Numpad1–9**. Paste remains **Ctrl+Alt+Numpad1–9**. Existing preferences are preserved.
-- **Simpler Settings:** Removed the two Quick Slot Record buttons; the modifier dropdowns and the independent Save/Paste behaviors remain.
-
-[Release notes](docs/releases/v1.39.4.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.3
-
-**Independent Quick Slot Save and Paste controls:** Under **Settings → Clipboard & privacy**, set each operation separately, without changing the other:
-
-- **Quick Slot save behavior** — **Auto Copy Selection** (default: send Ctrl+C to the foreground app; fallback to existing text clipboard), or **Use Current Clipboard** (copy manually first; Save shortcut reads it without injecting Ctrl+C).
-- **Quick Slot paste behavior** — **Auto Paste** (default) or **Copy to Clipboard** (stage the slot; press Ctrl+V manually). In programs that reject injected Ctrl+V or misrender Hebrew, Copy to Clipboard plus normal Ctrl+V remains the reliable user-controlled fallback.
-- **Any combination** works; each preference is preserved after restart. Existing Quick Slots, hotkeys and profile data remain unchanged.
-
-**Non-ASCII note:** Auto Paste continues to use Windows Unicode clipboard + injected Ctrl+V for Hebrew; some remote, elevated, or specialized programs cannot accept injected keystrokes. For those applications select **Copy to Clipboard** and press Ctrl+V yourself. Pocket does not bypass application restrictions.
-
-[Release notes](docs/releases/v1.39.3.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.2
-
-**Hebrew and multilingual Quick Slots Auto Paste fix:** Pocket now chooses the appropriate paste method automatically. Pure ASCII text keeps the fast clipboard-independent input from v1.39.1; Hebrew, Arabic, accented letters, emojis and other non-ASCII text use native Windows **CF_UNICODETEXT + Ctrl+V** to avoid question marks in applications that cannot process simulated Unicode keystrokes.
-
-**Clipboard note:** During automatic pasting of non-ASCII text, the slot content remains in the Windows clipboard afterward. Pocket intentionally avoids the OLE clipboard restore that caused `CloseClipboard Failed` in v1.39.0. Existing manual **Copy to Clipboard** mode remains available, and Quick Slot values and shortcuts are retained without migration.
-
-[Release details](docs/releases/v1.39.2.md) · [Quick Slots guide](docs/QUICK_SLOTS.md)
-
-## What's new in v1.39.1
-
-- **Quick Slot paste fix:** Auto Paste now types text using Windows Unicode input directly, without ever taking over the clipboard. This avoids OLE snapshot and restoration failures, including `CloseClipboard Failed`.
-- **Clipboard Only option:** Under **Settings → Clipboard & privacy → Quick Slot paste behavior**, choose **Copy to Clipboard** to stage a saved slot for ordinary manual `Ctrl+V`. This setting replaces the clipboard's current contents and does not auto-paste.
-- **Default and migration:** Auto Paste remains the default for existing users; preferences are saved locally. Your nine Quick Slots, hotkeys, Notes and command data are retained.
-
-[Release details](docs/releases/v1.39.1.md) · [Quick Slots documentation](docs/QUICK_SLOTS.md) · [Windows release build](.github/workflows/release-v1.39.1.yml)
-
-## What's new in v1.39.0
-
-Pocket v1.39 adds portable profile transfers, direct numbered clipboard slots, live keyboard-shortcut recording and safer settings management. These features are included in the **official v1.39.0 Windows release** and in `main`.
-
-### Selective Backup & Restore
-
-Under **Settings → Backup & Restore**, create a single local ZIP containing only the information you choose:
-
-| Backup category | Included |
-| :--- | :--- |
-| **Notes & reminders** | Titles, text, phone fields, timestamps, pins and reminder data |
-| **Links & folders** | Websites, application/file/folder shortcuts and folder arrangement |
-| **CLI Commands** | Writable command library, Smart Templates, custom commands and saved selections |
-| **Settings** | Theme, layouts, visible menus, keyboard preferences and network settings |
-| **Clipboard DATABASE text** | Stored text history, if available |
-| **Clipboard DATABASE screenshots** | Stored PNG screenshots, if available |
-| **Quick Slots** | **Excluded entirely**, including slot content and their shortcut preferences |
-
-- **Smart selection:** Available categories are checked automatically; absent or empty categories appear disabled. Deselect any available category to create a partial backup.
-- **Restore on another PC:** Open the ZIP, preview the included categories, and choose **Merge** (add missing entries while keeping conflicting local items) or **Replace** (replace selected categories only). The restore preview scrolls by mouse wheel with no visible scrollbar.
-- **Safety:** Pocket verifies the backup ZIP before importing and saves a local pre-restore recovery ZIP. A completed restore closes Pocket so settings can reload after reopening.
-- **Local by design:** No cloud synchronization or automatic backup on edits. Backup ZIPs are **not encrypted**; review Notes, CLI data and Clipboard history for sensitive information before sharing. Machine-specific local file targets may need correction after transfer.
-
-[Backup and restore guide](docs/BACKUP_RESTORE.md)
-
-### Quick Slots — direct Numpad copy and paste
-
-With **Num Lock ON**, use the two separate global shortcuts:
-
-| Action | Default shortcut |
-| :--- | :--- |
-| Save selected text or current clipboard text to slot 1–9 (separate Save behavior setting) | `Ctrl+Alt+Win+Numpad1–9` |
-| Paste saved slot 1–9 into the focused application | `Ctrl+Alt+Numpad1–9` |
-
-Saving highlighted text behaves like Windows **Ctrl+C** and also updates the regular clipboard. Auto Paste preserves the existing clipboard for ASCII but, for Hebrew and other non-ASCII text, places Unicode text in the clipboard and uses Ctrl+V; that text remains copied afterward. Both modifier prefixes can be changed independently in Settings; **Numpad1–9 cannot be reassigned**. An existing slot asks for confirmation before overwrite. All slot data stays on the local computer and is **not included in Backup & Restore**.
-
-[Quick Slots usage and privacy](docs/QUICK_SLOTS.md)
-
-### Record shortcuts & reset defaults
-
-- **Record Shortcut:** Capture a popup or Translate shortcut by pressing the desired keys in the Settings recorder, with the manual picker retained. Quick Slot modifiers are chosen from dropdowns; Quick Slot Record buttons are hidden. A conflicting shortcut keeps the previous configuration.
-- **Default Settings:** Reset selected groups (appearance, menus, keyboard, clipboard preferences, network) without deleting personal Notes, Links, CLI, Clipboard DATABASE files or saved Quick Slot text.
-- **Updated Settings (v1.39.0):** The footer reported **v1.39.0**, with the backup/restore controls available in the regular Settings UI.
-
-### Version highlights
-
-| Version | Main changes |
-| :--- | :--- |
-| **v1.39.9 — latest stable release** | New Reminders tool, themed popups, Snooze, green Add, status-scoped Clear and Settings switch |
-| **v1.39.8** | Slightly roomier native Windows Quick Slot replacement dialog; no reminder changes |
-| **v1.39.7** | Polished Copy/Paste/Unchanged wording and vertical native Windows replacement dialog |
-| **v1.39.6** | Native Windows replacement dialog, clean COPY/PASTE notifications, optional notification modes |
-| **v1.39.5** | Compact Windows notices, New → Old replacement dialog, retained clipboard history and five-option tray menu |
-| **v1.39.4** | Readable Quick Slot notifications with text preview, updated Save default and simplified Settings |
-| **v1.39.3** | Independently configure Quick Slot automatic copy/save and paste; manual clipboard compatibility for selective apps |
-| **v1.39.2** | Fix Hebrew and multilingual Quick Slot Auto Paste through Unicode clipboard, keeping ASCII fast paste |
-| **v1.39.1** | Windows Quick Slot paste repair, optional Copy to Clipboard mode, safer fallback without replacing existing clipboard |
-| **v1.39.0** | Selective portable ZIP backups, restore preview and merge/replace, Quick Slots, live shortcut recording, default-settings reset and UI refinements |
-| **v1.38.0** | Clipboard selection count, RAM screenshot choices, database display limits, persistent Clipboard history, Notes/Notepad sync and proxy support |
-| **v1.37 — incorporated into v1.38.0** | Optional local Clipboard DATABASE, EN/HE keyboard layout repair and Windows proxy selection |
-| **v1.36.0** | Native Windows text-input improvements, ordered port-check results, Mini Commands improvements |
-| **v1.35.1 / v1.35.0** | Clipboard alignment, Dashboard layout fixes, redesigned Settings and compact launcher |
-
-Older version: [Portable v1.36.0](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-Portable-v1.36.0.zip) · [EXE v1.36.0](https://github.com/Dovshmi/Pocket/releases/download/v1.36.0/Pocket-v1.36.0.exe). Full details are in [release notes](RELEASE_NOTES.md) and [GitHub Releases](https://github.com/Dovshmi/Pocket/releases).
-
-## New in v1.38.0
-
-- **Clipboard Text status:** The grey status line shows the selected item position and the number of displayed entries without adding or moving controls.
-- **RAM screenshots:** Choose **10 / 15 / 20 / 25 / 30**, default **20**.
-- **DATABASE display:** Choose **100 / 300 / 500 / 800 / 1000 / 1200 / 1500** text entries (default **100**); screenshot display remains independently configurable from 10 to 100.
-- **Opt-in local clipboard history:** Daily append-only TXT journal, flat date-stamped PNG folder, date browsing, scrolling to older entries and optional 7–30-day retention cleanup (OFF by default).
-- **Notes + Notepad:** New notes append to the picker; renaming the note also safely renames its TXT file, with numbered names for duplicates.
-- **Windows Proxy and IEEE MAC vendor updates:** A saved **Use Windows Proxy** toggle supports Windows PAC or explicit direct HTTPS, while keeping Windows certificate validation enabled.
-- **Offline EN/HE keyboard repair:** Configurable `Ctrl+Alt+V` shortcut and **Mark / Clipboard** modes. Mark replaces selected text in compatible Windows applications; clipboard mode keeps the earlier copy-and-convert workflow.
-
-All features retain Pocket's local-first design. Internet access is initiated only by an explicit network action. **Note:** Optional DATABASE history stores text and screenshots as local plaintext; enable it on managed computers only where policy permits. Test corporate PAC routes and third-party text replacement on the target PC.
+> The v1.40 source integration is complete, but the official v1.40.0 Windows release is still pending on-workstation Excel/Outlook and data-policy acceptance checks. The downloadable experimental preview is separate from the stable v1.39.9 release.
 
 ## Screenshots
 
-These are **real Pocket screenshots from Windows GUI tests** (not mockups). The images were captured in **v1.30.0**; later releases refined some layouts. See the [latest UI-test artifacts](https://github.com/Dovshmi/Pocket/actions/workflows/mini-checks.yml) for additional captures.
+**Real v1.40.0 Windows captures**, taken by the automated GUI smoke tests with a synthetic user profile. These are not mockups and do not contain customer workbooks or private commands. UI contents and window arrangements may vary by selected mode.
 
 <div align="center">
-<img src="docs/images/pocket-v130-real/dashboard_home.png" width="850" alt="Real Pocket Dashboard home" />
-
-**Dashboard**
-
 <table>
 <tr>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_notes.png" width="420" alt="Pocket Dashboard Notes editor" /><br /><strong>Notes</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/dashboard_commands.png" width="420" alt="Pocket Dashboard CLI Commands" /><br /><strong>Commands</strong></td>
+<td width="50%" align="center"><img src="docs/images/pocket-v140-real/dashboard_notes.png" alt="Pocket v1.40 Dashboard Notes editor" width="440" /><br /><strong>Notes</strong></td>
+<td width="50%" align="center"><img src="docs/images/pocket-v140-real/dashboard_commands.png" alt="Pocket v1.40 searchable command library" width="440" /><br /><strong>Command Helper</strong></td>
 </tr>
 <tr>
-<td align="center"><img src="docs/images/pocket-v130-real/normal_ports.png" width="290" alt="Pocket TCP Port Checker" /><br /><strong>TCP Port Checker</strong></td>
-<td align="center"><img src="docs/images/pocket-v130-real/extra_mini.png" width="290" alt="Pocket Extra Mini launcher" /><br /><strong>Extra Mini</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/dashboard_ports.png" alt="Pocket v1.40 TCP port diagnostics" width="440" /><br /><strong>TCP Port Checker</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/dashboard_mac.png" alt="Pocket v1.40 MAC lookup" width="440" /><br /><strong>MAC Vendor Lookup</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/pocket-v140-real/dashboard_clipboard.png" alt="Pocket v1.40 Clipboard history" width="440" /><br /><strong>Clipboard Manager</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/dashboard_settings.png" alt="Pocket v1.40 themes and show-hide Settings" width="440" /><br /><strong>Settings</strong></td>
 </tr>
 </table>
 </div>
 
 <details>
-<summary><strong>View more real app screenshots</strong></summary>
+<summary><strong>More screenshots — Mini, Shortcuts, Subnet & Extra Mini</strong></summary>
 
-| Normal Notes | MAC Vendor Lookup | Mini Commands |
-|:---:|:---:|:---:|
-| <img src="docs/images/pocket-v130-real/normal_notes.png" width="240" alt="Normal Notes" /> | <img src="docs/images/pocket-v130-real/normal_mac.png" width="240" alt="MAC Lookup" /> | <img src="docs/images/pocket-v130-real/mini_commands.png" width="240" alt="Mini Commands" /> |
+<br />
 
-| Subnet Calculator | Clipboard | Dashboard Settings |
-|:---:|:---:|:---:|
-| <img src="docs/images/pocket-v130-real/dashboard_subnet.png" width="240" alt="Subnet Calculator" /> | <img src="docs/images/pocket-v130-real/dashboard_clipboard.png" width="240" alt="Clipboard History" /> | <img src="docs/images/pocket-v130-real/dashboard_settings.png" width="240" alt="Settings" /> |
+<div align="center">
+<table>
+<tr>
+<td align="center"><img src="docs/images/pocket-v140-real/mini_notes.png" alt="Pocket compact Mini Notes view" width="240" /><br /><strong>Mini Notes</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/mini_links.png" alt="Pocket compact Mini Quick Shortcuts view" width="240" /><br /><strong>Mini Shortcuts</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/mini_commands.png" alt="Pocket compact Mini Commands view" width="240" /><br /><strong>Mini Commands</strong></td>
+</tr>
+<tr>
+<td align="center"><img src="docs/images/pocket-v140-real/dashboard_subnet.png" alt="Pocket IPv4 subnet calculator" width="240" /><br /><strong>Subnet Calculator</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/mini_settings.png" alt="Pocket Mini Settings" width="240" /><br /><strong>Mini Settings</strong></td>
+<td align="center"><img src="docs/images/pocket-v140-real/extra_mini.png" alt="Pocket Extra Mini launcher with custom tiles" width="240" /><br /><strong>Extra Mini launcher</strong></td>
+</tr>
+</table>
+</div>
 
 </details>
 
-## Tools at a glance
+<sub>Screenshot provenance: [v1.40.0 Windows CI run](https://github.com/Dovshmi/Pocket/actions/runs/45080242747). Older [v1.30 screenshots](docs/images/pocket-v130-real) remain available for historical comparison. The Excel/SQLite module is documented in its [feature guide](docs/EXTRA_EXCEL_LOOKUP.md); it is not shown in the gallery above.</sub>
 
-| Tool | What it does | Connectivity |
+## Features
+
+| Tool | What you can do | Connection |
 | :--- | :--- | :--- |
-| **Notes & reminders** | Titled notes with phone numbers, creation times, RTL/LTR editing, pin/duplicate, Notepad integration, and native Windows reminders | Offline |
-| **Commands Helper** | Searchable CLI references by device/topic; edit, favorite, fill validated Smart Templates such as `{{IP}}`, then copy | Offline |
-| **Quick Shortcuts** | Open websites, files, and Windows folders; group in collapsible Pocket folders, drag to reorder, or drop directly into a folder | Online only when you open a web link |
-| **TCP Port Check** | Check up to **16 TCP ports** per run, with favorites, last-check suggestions, status sorting, and CSV export | Local or optional DashDash |
-| **MAC Vendor Lookup** | Search cached IEEE registrations (MA-L, MA-M, MA-S, IAB), import CSV, or query DashDash | Local or optional DashDash |
-| **Subnet Calculator** | IPv4 CIDR, masks, wildcard, network/broadcast, usable hosts, and subnet splitting | Offline |
-| **Clipboard Manager** | Text/Images pages, optional persistent daily history, pin/search, screenshots, database retention and 9 direct Quick Slots for copy/paste | Offline |
+| **Notes** | Save title, phone, text, creation time, pinned notes; duplicate, search and open in Windows Notepad. | Offline |
+| **Reminders** | Schedule stand-alone or Note-linked alerts, snooze, mark complete and retain responses locally. | Offline |
+| **Commands Helper** | Search command references by device/category, use Smart Templates, edit and copy CLI; no command execution. | Offline |
+| **Quick Shortcuts** | Organize URLs, files, folders and apps; drag/reorder; open Excel workbooks intelligently. | Only if opening web links |
+| **TCP Port Checker** | Check up to 16 TCP ports, manage favorites, sort reachable results first, and export CSV. | Local or opt-in DashDash |
+| **MAC Vendor Lookup** | Resolve from local IEEE data or request an optional remote lookup. | Local or opt-in DashDash |
+| **Subnet Calculator** | Calculate IPv4 CIDR, masks, wildcard, host ranges, network and broadcast addresses. | Offline |
+| **Clipboard Manager** | Keep text and image history, search, pin, manage retention and use nine Quick Slots. | Offline |
+| **Extra · Excel** | Search authorized workbooks locally, optionally sync to SQLite, inspect a row and prepare an Outlook SOC draft. | Local / offline index |
 
-**Commands are references, not scripts:** Pocket never executes a saved CLI command. Smart Templates fill placeholders before copying. The **Commands-only Backup** remains a separate manual action; the new **Settings → Backup & Restore** creates a portable ZIP only on request.
+### A few useful workflows
 
-**Reminders (v1.39.9 source)** use a themed popup even while the main window is hidden, with overdue unhandled reminders checked after restart. Hiding the Reminders menu silences both Note-linked and standalone notifications without erasing their schedules. Hiding the Clipboard menu stops clipboard monitoring. **Clipboard RAM mode never writes history to disk**; optional DATABASE mode writes plaintext text and screenshots locally under `ClipboardDatabase/` in Pocket's user data directory. Sensitive-text filtering is heuristic, and database mode should only be enabled where permitted. [Clipboard database and retention details](docs/CLIPBOARD_DATABASE.md).
+**Excel → matched customer → SOC draft.** In Extra, browse to an authorized workbook, search across worksheets, inspect the selected record and choose **Outlook · SOC**. Pocket prepares a draft only; it **never sends the email**. The database mode is independent of Excel once an index has been created and loaded.
 
-## Earlier improvements
+**Selected text → Quick Slot → paste later.** Save text to one of nine numbered slots and insert it into another application using configurable Numpad shortcuts. Slot content is deliberately **excluded from portable backups**.
 
-Pocket retains the features introduced in previous versions: reliable native Windows text editing; right-click input actions; MAC/CLI long-text support; TCP port results sorted with reachable ports first; Mini Commands machine/category controls; automatic ordering of pinned Clipboard entries; and six theme palettes.
+**CLI lookup → Smart Template → copy.** Filter by machine or category, fill supported placeholders such as `{{IP}}`, then copy the command. Pocket does not run network commands on your behalf.
 
-Notes support title-synchronized Notepad files, reminders and pin/duplicate actions. Clipboard supports separate **Text** and **Images** views, daily DATABASE history (opt in), and RAM-only operation by default. Settings offer adjustable modes, visible menus, Quick Search, keyboard layout repair, privacy controls and configurable shortcut recording.
+**One window, several layouts.** Normal keeps the classic compact workflow; Mini sits beside other applications; Dashboard provides a wider overview; Extra Mini offers a customizable tile launcher. Choose any of six themes: Blue, Dark Blue, Black, Red, Green, or Purple.
 
-See the [release history](https://github.com/Dovshmi/Pocket/releases) for version-specific details.
+Guides: [Quick Slots](docs/QUICK_SLOTS.md) · [Backup & Restore](docs/BACKUP_RESTORE.md) · [Excel & SOC](docs/EXTRA_EXCEL_LOOKUP.md) · [Windows proxy](docs/WINDOWS_PROXY.md)
 
-## Local vs. DashDash network checks
+## Installation
 
-| Mode | Where the network check runs | Supported targets |
-| :--- | :--- | :--- |
-| **Local (default)** | On your Windows computer | TCP checks to reachable IPv4/IPv6, including private networks; MAC lookup from your local IEEE cache |
-| **DashDash (opt-in)** | Pocket sends an HTTPS request to the DashDash API; the remote TCP test runs on Vercel | **Public IPv4 only** for TCP checks, up to 16 ports; remote MAC lookup up to 100 addresses |
+### Windows stable — v1.39.9
 
-- **Windows corporate networks:** for explicitly requested DashDash checks, Pocket uses the signed-in user's approved Windows proxy configuration, resolves PAC/WPAD for the destination, and sends HTTPS through the native Windows stack. There are no hard-coded workplace proxy settings, and certificate validation is not disabled.
-- **No background scans:** switching modes does not run a check. Remote requests occur only after clicking **Run TCP check** or **Check vendors**. Offline tools do not depend on DashDash.
-- **Know the source:** a DashDash TCP result measures reachability **from Vercel**, not from your work PC; use Local mode for internal networks. The DashDash API is public and has no Pocket account-level authentication. Only check targets you are authorized to test, and do not submit confidential customer or infrastructure data.
-
-[How Windows Proxy/PAC works](docs/WINDOWS_PROXY.md)
-
-## Window layouts and everyday controls
-
-| Layout | Designed for |
+| Portable ZIP <sub>(recommended)</sub> | Standalone EXE |
 | :--- | :--- |
-| **Normal** | Everyday menu-based work |
-| **Mini** | Compact workspace alongside other applications |
-| **Dashboard** | Wider side-by-side tools and editing |
-| **Extra Mini** | Optional quick-action launcher with customizable tiles and pages |
+| **[Pocket-Portable-v1.39.9.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** | **[Pocket-v1.39.9.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** |
+| Extract the full archive, then run `Pocket-Portable/PocketDesk.exe`. Keep its `_internal/` folder beside it. | Run the single EXE directly. |
+| Local data: `Pocket-Portable/data/`. | Local data: `%APPDATA%\PocketDesk\`. |
 
-Pocket remembers window placement, last active tool and supports **Blue, Dark Blue, Black, Red, Green, and Purple** themes. Pin the popup to keep it open, or close it to hide it in the tray.
+No Python installation is needed for either Windows binary. The **v1.40 code is in `main`**, but these stable files are still **v1.39.9**. For the 1.40 preview, use the separately labeled [experimental prerelease](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120).
 
-| Action | Shortcut / control |
-| :--- | :--- |
-| Show or hide Pocket | Tray icon or configurable global hotkey |
-| Quick Search across enabled tools | `Ctrl+K` |
-| Find commands while in Commands | `Ctrl+F` |
-| New note | `Ctrl+N` |
-| Save | `Ctrl+S` |
-| Save selected text to Quick Slot N | `Ctrl+Alt+Win+Numpad1–9` (Num Lock ON) |
-| Paste Quick Slot N | `Ctrl+Alt+Numpad1–9` (Num Lock ON) |
-| Fully quit | Tray icon → **Exit** |
-
-## Download and use
-
-### Portable ZIP — recommended for a work PC
-
-1. Download the **[Pocket-Portable-v1.39.9.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-Portable-v1.39.9.zip)** stable release.
-2. **Extract the whole archive** into a writable local folder. Do not run the EXE inside the ZIP.
-3. Launch `Pocket-Portable/PocketDesk.exe` and leave the `_internal/` folder beside it.
-4. Choose a window layout and theme in Settings.
-
-No Python installation is required. The portable version stores personal data under `Pocket-Portable/data/` beside the EXE. For upgrades, fully exit Pocket, back up `data/`, extract v1.39.9 into a **different** folder, and copy your personal `data/` folder over. Never mix old and new `_internal/` runtime files. Starting in v1.39.0, you can also use **Settings → Backup & Restore** to move selected data between installations after starting the new app.
-
-### Standalone EXE
-
-Download **[Pocket-v1.39.9.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.39.9/Pocket-v1.39.9.exe)** and run it directly. It stores its user data in `%APPDATA%\\PocketDesk\\` rather than beside the EXE.
+**Upgrading a portable installation:** fully exit Pocket (including the tray process), back up the old `data/` folder, extract the new ZIP into a **new** folder and copy only your user data across. Never mix `_internal/` folders from different versions. You can also use **Settings → Backup & Restore** to transfer selected data.
 
 > [!IMPORTANT]
-> Releases are **unsigned**. Corporate application-control, antivirus, or proxy policies may block the program. Use Pocket only where authorized; do not disable workplace security controls. [Portable workplace troubleshooting](docs/WORKPLACE_PORTABLE.md).
+> Windows binaries are **not code-signed**. Use them on managed machines only when permitted by your organization. Do not bypass workplace application controls. See [workplace setup notes](docs/WORKPLACE_PORTABLE.md).
 
-## Privacy and data
+### Run from source
 
-Pocket has **no mandatory account, cloud sync, or continuous internet requirement**.
-
-| Data | Storage |
-| :--- | :--- |
-| Notes, settings, reminders, shortcuts, launcher setup | Local `data.json` |
-| Personal CLI commands and Smart Template metadata | Local `commands.json` |
-| IEEE vendor cache | Local `vendors.json` |
-| Clipboard history | **RAM by default**; optional daily TXT/PNG database, text batches up to 1,500 and screenshot batches up to 100, OFF / 7–30-day cleanup |
-| Recoverable settings snapshot | Local `data-recovery.json` |
-| Portable selective backups | Explicit user-created ZIP; validated before restore, with a pre-restore safety ZIP under `backups/` |
-| Quick Slots | Local saved clipboard slots in `data.json`; deliberately **not included** in portable backups |
-
-Public Windows releases contain the **sanitized example command library only**—not private commands, notes, passwords, customer information, or backups. Pocket files and exported backup ZIPs are **not encrypted**, so protect both your data folder and any backups. By default, neither RAM clipboard history nor Quick Slots are exported. Remote DashDash mode sends only targets you explicitly submit; local lookups and backups never upload them.
-
-## Develop and contribute
-
-**Stack:** Python 3.10+, Tkinter/ttk, native Windows APIs, Pillow, tkinterdnd2, and PyInstaller.
+Tested in CI with Python **3.11 and 3.13**, on Windows and Linux (Windows-specific Office features require Windows).
 
 ```powershell
 git clone https://github.com/Dovshmi/Pocket.git
@@ -344,17 +162,71 @@ py -3 -m pip install -r requirements.txt
 py -3 app.pyw
 ```
 
-**Tests and Windows packaging:**
+## Productivity shortcuts
+
+| Action | Default |
+| :--- | :--- |
+| Show/hide Pocket | Tray icon or configurable global hotkey |
+| Search enabled tools | `Ctrl+K` |
+| Find within Commands | `Ctrl+F` |
+| New Note | `Ctrl+N` |
+| Save | `Ctrl+S` |
+| Save selected/clipboard text to Quick Slot 1–9 | `Ctrl+Alt+Win+Numpad1–9` |
+| Paste a saved Quick Slot | `Ctrl+Alt+Numpad1–9` |
+
+Quick Slot shortcuts use **Num Lock ON**. Their modifier combinations and paste behavior can be configured in Settings. [Full Quick Slots reference](docs/QUICK_SLOTS.md).
+
+## Privacy & connectivity
+
+Pocket does not require an account, cloud sync, or permanent internet access. Most tools operate locally; **remote diagnostics are an explicit choice**.
+
+| Feature | Local behavior / privacy notes |
+| :--- | :--- |
+| **Notes, reminders, shortcuts & settings** | Stored in the local Pocket profile (`data.json`). |
+| **CLI library** | Custom commands are local. Public downloads include only sanitized example commands. |
+| **Clipboard** | RAM-only history by default; optional local Text/Images DATABASE is opt-in and stores readable text/PNG files. |
+| **Quick Slots** | Stored locally and **excluded** from portable backup exports. |
+| **Excel Extra** | Local workbook read-only lookup. Offline SQLite is created/refreshed **only when Sync is pressed**. SQLite stores readable data and is **not encrypted**. |
+| **Backup & Restore** | Manual, selective local ZIP backup; restore preview with Merge/Replace and safety snapshot. ZIP files are **not encrypted**. |
+| **MAC vendor data** | Local IEEE cache unless an explicit remote lookup is requested. |
+| **TCP checks** | Local checks run from your PC. Opt-in DashDash checks run **from Vercel**, not your workstation, and support public IPv4 targets. |
+
+For authorized remote checks, Pocket can use the configured Windows proxy/PAC with HTTPS certificate checks intact. Switching a source does not silently run a network scan. Avoid submitting confidential customer/infrastructure targets to remote services.
+
+> [!CAUTION]
+> Pocket's offline Excel index, clipboard DATABASE, and backup ZIPs can contain **unencrypted local copies of sensitive information**. Only use these features with approved datasets and storage under your organization's policies. Do not commit workbooks, SQLite files, backups, passwords, or customer data to a public repository.
+
+[Clipboard storage & retention](docs/CLIPBOARD_DATABASE.md) · [Proxy/PAC details](docs/WINDOWS_PROXY.md) · [Backup details](docs/BACKUP_RESTORE.md)
+
+## Version history
+
+| Version | Highlights | Distribution |
+| :--- | :--- | :--- |
+| **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | **Source in `main`; Windows stable build pending** |
+| **v1.39.9** | Stand-alone and Note-linked Reminders, snooze, response capture, compact Reminder navigation. | **Latest stable ZIP / EXE** |
+| **v1.39.1–v1.39.8** | Quick Slots paste, save, history preservation, settings and Windows notice refinements. | Previous stable releases |
+| **v1.39.0** | Selective Backup & Restore, nine Quick Slots, shortcut recorder and Settings reset. | Previous stable release |
+| **v1.38.0** | Clipboard DATABASE improvements, Notes/Notepad sync, keyboard-layout repair and proxy support. | Previous stable release |
+| **v1.34–v1.37** | Native Windows input, foldered Shortcuts, screenshot history, better networking and UI controls. | Earlier releases |
+
+All older releases are preserved. See **[full release notes](RELEASE_NOTES.md)**, [individual release notes](docs/releases), and [GitHub Releases](https://github.com/Dovshmi/Pocket/releases).
+
+## Development & contributing
+
+**Stack:** Python, Tkinter/ttk, Windows APIs and Office COM integration, Pillow, `tkinterdnd2`, optional `openpyxl`/`xlrd` Excel readers, SQLite and PyInstaller.
 
 ```powershell
+# Run unit tests
 py -3 -m unittest discover -s tests -p "test_*.py" -v
+
+# Build the Windows distributions
 .\build-portable.bat
 .\build-exe.bat
 ```
 
-GitHub Actions runs Windows/Linux regression checks, GUI smoke tests, and packaged Windows startup/integrity checks for releases. The portable build bundles its own Python runtime and only public example commands.
+GitHub Actions runs Windows/Linux unit and GUI checks and Windows portable runtime smoke tests. Synthetic data is used for automated UI screenshots; protected enterprise Excel, Outlook and local data-policy acceptance must be tested separately on authorized workstations.
 
-**Useful links:** [Release history](https://github.com/Dovshmi/Pocket/releases) · [Project layout](docs/REPOSITORY_LAYOUT.md) · [Report an issue](https://github.com/Dovshmi/Pocket/issues)
+[Repository structure](docs/REPOSITORY_LAYOUT.md) · [Open an issue](https://github.com/Dovshmi/Pocket/issues) · [Release readiness for v1.40](docs/RELEASE_CHECKLIST_V140.md)
 
 ---
 
@@ -362,6 +234,6 @@ GitHub Actions runs Windows/Linux regression checks, GUI smoke tests, and packag
 
 **Pocket — small tools, one workspace.**
 
-GPL-3.0 · Windows 10/11
+Made by Rony Shmidov · [GPL-3.0](LICENSE) · Windows 10/11
 
 </div>

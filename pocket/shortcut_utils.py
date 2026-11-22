@@ -71,8 +71,10 @@ EXCEL_WORKBOOK_SUFFIXES = frozenset({
 def _same_excel_file(a, b):
     """Compare the *complete* local path, case-insensitively on Windows."""
     try:
-        return os.path.normpath(os.path.abspath(str(a))).casefold() == (
-            os.path.normpath(os.path.abspath(str(b))).casefold())
+        # Windows user profiles / temporary folders may be junctions or have
+        # 8.3 short-name aliases. Resolve those before comparing full paths.
+        return os.path.normcase(os.path.realpath(str(a))).casefold() == (
+            os.path.normcase(os.path.realpath(str(b))).casefold())
     except (TypeError, ValueError, OSError):
         return False
 

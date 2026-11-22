@@ -23,7 +23,7 @@ def check(ok, message):
         raise AssertionError(message)
 
 
-class MenuStub:
+class MenuStub(tk.Menu):
     calls = []
     choose = None
 

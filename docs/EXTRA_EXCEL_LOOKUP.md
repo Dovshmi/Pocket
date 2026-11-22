@@ -45,6 +45,13 @@ the SOC draft function. The user reviews and sends the final message manually.
 
 Code searches remain separator tolerant: `8826004`, `88-26004` and `88 26004` match the same group code. Text/IP/VRF/VDOM/VLAN queries search all populated cells.
 
+## v1.40 — Final Excel Source alignment
+
+The Extra filename is aligned with its last-sync label without moving Browse.
+The vertical spacing between the read-only filename row, database metadata,
+and Sync/Load DB/Delete row is slightly smaller in Mini. No database or
+source-file semantics have changed; sync remains manual.
+
 ## v1.40 — Mini keyboard navigation and merged database controls
 
 - **Matches:** Up/Down arrows navigate results while the list is focused. The Selected Row updates immediately. The row count is shown on the right side of the MATCHES heading rather than in an always-reserved status row beneath Smart Search.

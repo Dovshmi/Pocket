@@ -1505,11 +1505,14 @@ class PocketDesk:
             "notes": "Notes", "links": "Links", "ports": "Ports",
             "mac": "MAC", "commands": "CLI", "subnet": "Subnet",
             "clipboard": "Clip", "reminders": "Remind", "extra": "Extra",
-            "settings": "More", "more": "More",
+            "settings": "Settings", "more": "More", "plus": "Add",
         }
+        hidden_tools = [key for key in menu_order.DEFAULT_ORDER
+                        if key != "settings" and key not in self.settings["visible_tabs"]]
         first, additional = mini_nav.plan_mini_icons(
             menu_order.enabled_order(self.settings["menu_order"],
-                                    self.settings["visible_tabs"]))
+                                    self.settings["visible_tabs"]),
+            add_available=bool(hidden_tools))
         self._mini_overflow_keys = tuple(k for row in additional for k in row)
         self._mini_overflow_rows = []
         if not additional:
@@ -1526,10 +1529,20 @@ class PocketDesk:
             caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
                                      bg=BG, fg=MUTED, cursor="hand2", anchor="center")
             caption_label.pack(fill="x")
-            action = (self._toggle_mini_more if key == "more"
-                      else lambda tool=key: self.show_tab(tool))
+            action = (self._toggle_mini_more if key == "more" else
+                      self._show_mini_add_menu if key == "plus" else
+                      lambda tool=key: self.show_tab(tool))
             for target in (tile, glyph, caption_label):
-                target.bind("<Button-1>", lambda _event, callback=action: callback())
+                target.bind("<ButtonPress-1>",
+                            lambda event, item=key: self._mini_nav_press(event, item))
+                target.bind("<B1-Motion>", self._mini_nav_motion)
+                target.bind("<ButtonRelease-1>",
+                            lambda event, item=key, callback=action:
+                            self._mini_nav_release(event, item, callback))
+                if key not in ("more", "plus"):
+                    target.bind("<Button-3>",
+                                lambda event, item=key:
+                                self._mini_nav_context_menu(event, item))
             tile.bind("<Return>", lambda _event, callback=action: callback())
             tile.bind("<space>", lambda _event, callback=action: callback())
             design.Tooltip(tile, f"{caption} · open {key}", self.theme)
@@ -1554,6 +1567,98 @@ class PocketDesk:
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
+
+    def _show_mini_add_menu(self):
+        """Show currently hidden menus; adding one restores its saved position."""
+        hidden = [key for key in menu_order.normalize(self.settings["menu_order"])
+                  if key != "settings" and key not in self.settings["visible_tabs"]]
+        if not hidden:
+            return
+        popup = menu_style.Menu(
+            self.root, tearoff=False, bg=PANEL, fg=WHITE,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat")
+        popup.images = []
+        for key in hidden:
+            photo = tool_icons.icon_image(popup, key, ACCENT, 17)
+            popup.images.append(photo)
+            popup.add_command(
+                label="  " + menu_order.LABELS[key],
+                image=photo, compound="left",
+                command=lambda tool=key: self._set_visible_tab(tool, True))
+        anchor = self.mini_icon_tabs.get("plus")
+        if anchor:
+            tile = anchor[0]
+            try:
+                popup.tk_popup(tile.winfo_rootx(),
+                               tile.winfo_rooty() + tile.winfo_height() + 2)
+            finally:
+                popup.grab_release()
+
+    def _mini_nav_context_menu(self, event, key):
+        """Right click hides this menu; Settings is non-hideable."""
+        if key == "settings" or key not in self.settings["visible_tabs"]:
+            return "break"
+        popup = menu_style.Menu(
+            self.root, tearoff=False, bg=PANEL, fg=WHITE,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat")
+        popup.add_command(
+            label="Hide " + menu_order.LABELS[key],
+            command=lambda: self._set_visible_tab(key, False))
+        try:
+            popup.tk_popup(event.x_root, event.y_root)
+        finally:
+            popup.grab_release()
+        return "break"
+
+    def _mini_nav_press(self, event, key):
+        self._mini_drag = {
+            "key": key, "x": event.x_root, "y": event.y_root,
+            "moved": False, "hover": None}
+
+    def _mini_nav_hit(self, x, y):
+        for key, parts in getattr(self, "mini_icon_tabs", {}).items():
+            tile = parts[0]
+            if not tile.winfo_exists() or not tile.winfo_ismapped():
+                continue
+            if (tile.winfo_rootx() <= x < tile.winfo_rootx() + tile.winfo_width()
+                    and tile.winfo_rooty() <= y < tile.winfo_rooty() + tile.winfo_height()):
+                return key
+        return None
+
+    def _mini_nav_motion(self, event):
+        drag = getattr(self, "_mini_drag", None)
+        if not drag or drag["key"] in ("plus", "more"):
+            return
+        if abs(event.x_root - drag["x"]) + abs(event.y_root - drag["y"]) >= 7:
+            drag["moved"] = True
+        if not drag["moved"]:
+            return
+        hover = self._mini_nav_hit(event.x_root, event.y_root)
+        if hover == drag["hover"]:
+            return
+        for key, (tile, _, _) in self.mini_icon_tabs.items():
+            tile.configure(highlightthickness=(1 if key == hover and
+                           hover not in ("plus", "more") else 0),
+                           highlightbackground=ACCENT)
+        drag["hover"] = hover
+
+    def _mini_nav_release(self, event, key, action):
+        drag = getattr(self, "_mini_drag", None)
+        self._mini_drag = None
+        if not drag or drag["key"] != key:
+            return "break"
+        if drag["moved"] and key not in ("plus", "more"):
+            target = self._mini_nav_hit(event.x_root, event.y_root)
+            for tile, _glyph, _caption in self.mini_icon_tabs.values():
+                tile.configure(highlightthickness=0)
+            if target and target not in (key, "plus", "more"):
+                self._set_menu_order(
+                    menu_order.move(self.settings["menu_order"], key, target))
+            return "break"
+        action()
+        return "break"
 
     def _toggle_mini_more(self):
         if not getattr(self, "_mini_overflow_rows", ()):
@@ -1585,8 +1690,9 @@ class PocketDesk:
             color = ACCENT_DARK if active else BG
             tile.config(bg=color)
             glyph.config(bg=color)
-            glyph.image = tool_icons.icon_image(glyph, key,
-                                                ACCENT if active else SECONDARY, 20)
+            glyph.image = tool_icons.icon_image(
+                glyph, key, ACCENT if active else
+                (themes.palette(self.theme)["SUCCESS"] if key == "plus" else SECONDARY), 20)
             glyph.config(image=glyph.image)
             caption.config(bg=color, fg=WHITE if active else MUTED)
 
@@ -1678,15 +1784,18 @@ class PocketDesk:
         menu.tk_popup(self.root.winfo_rootx()+165, self.root.winfo_rooty()+132)
 
     def _set_visible_tab(self, key, enabled):
+        # Settings remains accessible and cannot be hidden.
+        if key == "settings":
+            return
         current = self.settings["visible_tabs"]
         if enabled and key not in current:
             current.append(key)
         elif not enabled and key in current:
-            if len(current) == 1:
-                self._warning("Menus", "At least one tool must remain visible.")
-                self._build_settings_refresh()
-                return
             current.remove(key)
+            if self.current_tab == key:
+                self.current_tab = next(iter(menu_order.enabled_order(
+                    self.settings["menu_order"], current,
+                    include_settings=False)), "settings")
         if key == "clipboard":
             self._clipboard_last = None
             self._clipboard_sequence = None

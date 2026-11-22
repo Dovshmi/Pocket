@@ -14,7 +14,6 @@ from . import app_info
 from . import quick_slots
 from . import pocket_design as design
 from . import tool_icons
-from . import menu_order_ui
 from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
@@ -326,67 +325,6 @@ def _launcher(parent, app, c, *, compact=False, wide=False):
             "Customize", app._edit_extra_mini_from_settings,
             compact=compact, primary=True)
 
-
-def _tools(parent, app, c, *, compact=False, wide=False):
-    """Dense, keyboard-accessible 2-column tool toggles with original callbacks."""
-    card = _section(parent, c, "Visible tools",
-                    "Choose the tiles shown in Pocket. At least one stays on.",
-                    compact=compact, wide=wide)
-    # Show the interactive actual-icon editor first; visibility toggles
-    # remain available below it without pushing reordering off the screen.
-    menu_order_ui.build(card, app, c, compact=compact)
-    _label(card, "SHOW / HIDE MENUS", c, size=8, muted=True, bold=True,
-           anchor="w").pack(fill="x", padx=11, pady=(5, 6))
-    grid = tk.Frame(card, bg=c["PANEL"])
-    grid.pack(fill="x", padx=10, pady=(0, 10))
-    for col in (0, 1):
-        grid.grid_columnconfigure(col, weight=1, uniform="tool-switch")
-    for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
-        enabled = key in app.settings["visible_tabs"]
-        state = tk.BooleanVar(master=grid, value=enabled)
-        label = caption.title()
-        control = tk.Checkbutton(
-            grid, text=label, variable=state, indicatoron=False,
-            bg=c["ACCENT_DARK"] if enabled else c["CARD"],
-            fg=c["WHITE"] if enabled else c["SECONDARY"],
-            activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
-            selectcolor=c["ACCENT_DARK"], offrelief="flat",
-            bd=0, relief="flat", cursor="hand2", takefocus=True,
-            anchor="w", font=(FONT, 8, "bold" if enabled else "normal"),
-            padx=9, pady=9 if not compact else 7,
-            highlightthickness=1,
-            highlightbackground=c["ACCENT"] if enabled else c["BORDER"],
-            highlightcolor=c["ACCENT"])
-        control.grid(row=index // 2, column=index % 2, sticky="ew",
-                     padx=(0, 5) if index % 2 == 0 else (5, 0),
-                     pady=(0, 5))
-        control.icon_image = tool_icons.icon_image(
-            control, key, c["ACCENT"] if enabled else c["SECONDARY"], 18)
-        control.configure(image=control.icon_image, compound="left")
-
-        def apply(tool=key, checkbox=control, variable=state):
-            app._set_visible_tab(tool, bool(variable.get()))
-            # The final visible tool may not be disabled. Respect the
-            # existing app callback and reflect its actual saved decision.
-            active = tool in app.settings["visible_tabs"]
-            variable.set(active)
-            try:
-                if checkbox.winfo_exists():
-                    checkbox.icon_image = tool_icons.icon_image(
-                        checkbox, tool,
-                        c["ACCENT"] if active else c["SECONDARY"], 18)
-                    checkbox.configure(
-                        image=checkbox.icon_image, compound="left",
-                        bg=c["ACCENT_DARK"] if active else c["CARD"],
-                        fg=c["WHITE"] if active else c["SECONDARY"],
-                        highlightbackground=(c["ACCENT"] if active
-                                             else c["BORDER"]))
-            except tk.TclError:
-                pass
-
-        control.configure(command=apply)
-        design.Tooltip(control, TOOL_HELP[key], app.theme)
-        _register(app, "tool_" + key, control)
 
 def _dropdown_field(parent, app, c, key, heading, detail,
                     choices, selected, callback, *, compact=False,

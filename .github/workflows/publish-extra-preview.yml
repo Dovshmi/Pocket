@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-soc-expert-order
+  group: pocket-extra-excel-preview-20261122-v140-compact
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44967512467'
-      SOURCE_COMMIT: 'd8de0984488eec1f34019dd9d4e9e8023ca56dda'
+      SOURCE_RUN_ID: '45059054170'
+      SOURCE_COMMIT: '8e8fcc35a540c07258846415b81c08e3c7b98d17'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-v1.40-Compact-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip")
+          p = Path("dist/Pocket-Extra-v1.40-Compact-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip > SHA256SUMS-SOC-Expert-Order.txt)
+          (cd dist && sha256sum Pocket-Extra-v1.40-Compact-Portable.zip > SHA256SUMS-Extra-v1.40.txt)
 
       - name: Write experimental release notes
         run: |
@@ -81,23 +81,22 @@ jobs:
           Excel source. Cancelled or failed Sync preserves the old file.
           The source Excel file is never changed.
 
-          **New in this build: SOC Outlook draft**
-          - After a Local or Database search, select a row and click
-            Outlook · SOC beside the selected-row details.
-          - Fill customer/business name, circuit/line code and VDOM from
-            matching Excel columns; calculate the FortiGate management IP
-            from known FG worksheet naming, e.g. FG25 => 10.238.2.25 or
-            FG-2.8-METRO1 => 10.238.2.8.
-          - Prefill the subject as customer + line code + פנייה לSOC.
-          - Leave contact person, expert-approval NAME, phone number, fault
-            description and previous ticket for the user to complete in Outlook.
-          - Expert-approval NAME now appears immediately below contact person
-            in both classic Outlook HTML and New Outlook plain text.
-          - Missing values are flagged and never invented; the user must
-            review the draft. No recipient is set and NO email is sent.
-          - Classic Outlook uses a new unsent COM draft, preserving the
-            signature; otherwise Windows default mailto handles New Outlook.
-          - Previous Local/Database search and Mini switch layout are retained.
+          **Pocket v1.40 — compact Extra and SOC workflow:**
+          - Mini Excel source is now a single muted filename and Browse button,
+            with full path available on hover, instead of a large input field.
+          - Selected Row now shows a compact two-column overview:
+            customer, actual line code, group code, VDOM, VRF, FG VLAN and
+            computed FortiGate management address. Click the IP to copy it.
+          - Show other columns unfolds every remaining populated Excel field
+            in a bounded scrolling area, without losing their original order.
+            The disclosure state is remembered between selected results.
+          - Existing Matches list, Local/Database switch, manual plain-SQLite
+            sync/import and Outlook SOC draft all remain available.
+          - Outlook creates an UNSENT draft only, and keeps expert approval
+            name immediately under the contact person.
+          - Settings displays **v1.40** (semantic package version 1.40.0).
+          - No customer workbook/database/credentials are bundled.
+          - This is a separate EXPERIMENTAL preview. Stable main stays v1.39.9.
 
           IMPORTANT: The new SQLite database is NOT encrypted; anyone with
           filesystem access can read it. Manual Sync shows a confirmation
@@ -113,7 +112,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip dist/SHA256SUMS-SOC-Expert-Order.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-v1.40-Compact-Portable.zip dist/SHA256SUMS-Extra-v1.40.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

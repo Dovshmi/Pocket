@@ -42,11 +42,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-order-") as temp:
         def tile(key):
             return app.menu_order_editor_cells[key]
 
-        # Click-to-move works without requiring drag precision or hover.
-        tile("extra").event_generate("<Return>")
-        app.root.update()
-        tile("notes").event_generate("<Return>")
-        app.root.update()
+        # Actual mouse press/release on the icon frame, not a direct call
+        # into the implementation, exercises click-select/click-target.
+        def click_icon(key):
+            icon = tile(key)
+            icon.event_generate("<ButtonPress-1>", x=9, y=9)
+            icon.event_generate("<ButtonRelease-1>", x=9, y=9)
+            app.root.update()
+        click_icon("extra")
+        click_icon("notes")
         check(app.settings["menu_order"][0] == "extra",
               "Click-select / click-target did not reorder Extra")
 

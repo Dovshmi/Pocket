@@ -1,12 +1,14 @@
 """Pocket author credit and current application version.
 
-The feature branch may show a development version before its official release.
-Official stable v1.39.8 packages and download links remain unchanged.
+Version 1.40 is shown inside Pocket and Settings in the main source.
+The previously published stable 1.39.9 packages remain available.
 """
 
 AUTHOR_CREDIT = "By. Rony Shmidov"
-VERSION = "1.39.9"
+VERSION = "1.40.0"
 
 
 def version_label() -> str:
-    return f"v{VERSION}"
+    # Show the familiar minor-release label while keeping semantic versioning
+    # for build tools and package filenames.
+    return f"v{VERSION[:-2]}" if VERSION.endswith(".0") else f"v{VERSION}"

@@ -1,3 +1,33 @@
+# Pocket v1.40.0 — Main source integration
+
+**Source code:** `main` now includes the v1.40.0 changes developed in `experiment/extra-excel-lookup`. **Published Windows stable:** v1.39.9 remains the official downloadable ZIP/EXE until a separate validated v1.40.0 build and publication. No v1.40.0 stable binary or release tag is implied by this source merge.
+
+## Mini navigation and Settings
+
+- Reorder the *actual Mini toolbar icons* by dragging them; the new order saves automatically and survives restart and Settings backups.
+- Right-click any tool icon to hide it, without deleting saved tool data. Settings may be moved but cannot be hidden.
+- Green Add (+) lists hidden menus. Newly enabled menus (via Plus **or** Settings) go to the **end** of the stored order.
+- At eight or more active menus, More/Less occupies the eighth position and Plus moves to the end of the expanded row. When seven or fewer are enabled, Plus follows the active icons. Plus is absent if no menus are hidden.
+- **Settings → Show / Hide**, directly below Appearance, restores the compact add/remove controls: **green icon = active/visible**, **red icon = hidden/inactive**. The `−` and `+` prefixes indicate the action if clicked. There is no redundant Menu Order or Preview editor.
+
+## Extra / Excel lookup
+
+- Read-only Local Excel search, or manual Sync into an indexed *unencrypted* local SQLite database for offline search. Search does not automatically synchronize or upload data.
+- Compact source and sync section; row count beside MATCHES; compact Selected Row summary including group/line, VDOM/VRF, FG VLAN and calculated FortiGate IP when the sheet name supports it.
+- **Mini MATCHES** has a slim dark scrollbar to scroll results. Mouse wheel over MATCHES scrolls the surrounding Pocket page instead. Up/Down selects matches; Left/Right from the details area changes the selected row.
+- **Outlook · SOC** creates a **draft only** with the selected record. Manual placeholders include the contact name, phone, expert approval name, issue details and prior ticket.
+
+## Shortcuts and compatibility
+
+- Excel shortcuts detect the exact already-open workbook via its canonical full path and activate it, rather than opening a duplicate. Different workbooks open in an existing Excel application when available. Office COM and Windows fallback are handled without automatically saving a workbook.
+- Retains the existing Clipboard, Quick Slots, Notes/Reminders, network tools, backup/restore, colors and operating modes. Settings displays v1.40.
+- Includes Windows and Linux unit/GUI regressions and Windows portable EXE smoke tests using synthetic profiles and mocked Office operations. Live protected Excel and Outlook behavior requires a separate workstation acceptance check.
+- No source file, workbook, customer database or private CLI command is bundled. Local SQLite and backup files are not encrypted; use approved storage.
+
+See [v1.40 settings and shortcut behavior](docs/SETTINGS_SHORTCUTS_V140.md) and [Extra lookup guide](docs/EXTRA_EXCEL_LOOKUP.md).
+
+---
+
 # Pocket v1.39.9 — Reminders, Smart Snooze & Compact Reminder UI
 
 **Stable release published · Windows Portable ZIP and standalone EXE · Offline-first**

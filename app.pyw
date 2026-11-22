@@ -18,6 +18,9 @@ if "--self-test-deps" in __import__("sys").argv:
         import unicodedata as _test_unicodedata
         import _tkinter as _test_native_tk
         import tkinter as _test_tk
+        if _test_sys.platform == "win32":
+            import pythoncom as _test_office_pythoncom
+            import win32com.client as _test_office_client
         from PIL import Image as _test_image, ImageDraw as _test_draw
         from PIL import ImageTk as _test_imagetk, _imaging as _test_imaging
         if _test_unicodedata.normalize("NFC", "e\u0301") != "\u00e9":
@@ -86,6 +89,7 @@ from pocket import native_bidi
 from pocket import native_inputs
 from pocket import mini_layout as mini
 from pocket import mini_nav
+from pocket import menu_order
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import dashboard_notes_ui as dashboard_notes
@@ -107,6 +111,7 @@ from pocket import clipboard_gallery
 from pocket import quick_slots
 from pocket import quick_slot_dialog
 from pocket import reminder_ui
+from pocket import extra_excel_ui
 from pocket import reminder_store
 from pocket import keyboard_layout
 from pocket import marked_layout
@@ -226,10 +231,11 @@ def default_data() -> dict:
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
-        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders"],
-                     "reminders_menu_configured": True,
+        "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
+                     "reminders_menu_configured": True, "extra_menu_configured": True,
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
+                     "menu_order": list(menu_order.DEFAULT_ORDER),
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
                      "clipboard_image_limit": clipboard_images.MAX_IMAGES,
                      "use_windows_proxy": True, "convert_mode": "mark",
@@ -256,7 +262,8 @@ def default_data() -> dict:
 
 VISIBLE_TABS = (("notes", "NOTES"), ("links", "SHORTCUTS"), ("ports", "PORTS"),
                 ("mac", "MAC"), ("commands", "COMMANDS"), ("subnet", "SUBNET"),
-                ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"))
+                ("clipboard", "CLIPBOARD"), ("reminders", "REMINDERS"),
+                ("extra", "EXTRA"))
 
 
 def reminders_enabled(settings):
@@ -273,6 +280,8 @@ def normalize_settings(raw):
     # One-time upgrade introduces Reminders; marker preserves later hide/show.
     if raw.get("reminders_menu_configured") is not True and "reminders" not in selected:
         selected = [*selected, "reminders"]
+    if raw.get("extra_menu_configured") is not True and "extra" not in selected:
+        selected = [*selected, "extra"]
     visible = [key for key, _ in VISIBLE_TABS if key in selected]
     if not visible:
         visible = ["notes"]
@@ -281,7 +290,10 @@ def normalize_settings(raw):
     paste_prefix, copy_prefix = quick_slots.normalized_prefix_pair(
         raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
         raw.get("quick_slots_copy_prefix"))
-    return {"visible_tabs": visible, "reminders_menu_configured": True,
+    return {"visible_tabs": visible,
+            "menu_order": menu_order.normalize(raw.get("menu_order")),
+            "reminders_menu_configured": True,
+            "extra_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
@@ -541,6 +553,10 @@ class PocketDesk:
         self._compact_return = False  # True after opening a tool from the launcher.
         self._compact_editing = False
         self._extra_mini_previous_tab = "notes"
+        # Extra Excel lookup: never persisted; the workbook remains read-only.
+        self._extra_excel_path = ""
+        self._extra_excel_work_token = 0
+        self._extra_excel_cancel = threading.Event()
         self.current_tab = restored_tab(self.data.get("last_tab"), self.settings)
         self._last_tray_xy = None
         self._dragging_window = False
@@ -1169,7 +1185,8 @@ class PocketDesk:
         canvas.pack(side="left", fill="both", expand=True)
         # Reminders uses invisible canvas scrolling; other tools retain their
         # existing visible scrollbars. Never sacrifice canvas scroll range.
-        if self.current_tab != "reminders":
+        if self.current_tab != "reminders" and not (
+                self.current_tab == "extra" and self.display_mode == "mini"):
             scroll = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview,
                                    style="Pocket.Vertical.TScrollbar")
             scroll.pack(side="right", fill="y")
@@ -1200,7 +1217,7 @@ class PocketDesk:
         canvas = getattr(self, "_tool_scroll_canvas", None)
         if canvas is None or not canvas.winfo_exists():
             return None
-        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home", "reminders"):
+        if self.current_tab not in ("ports", "mac", "subnet", "commands", "settings", "home", "reminders", "extra"):
             return None
         delta = getattr(event, "delta", 0)
         if delta:
@@ -1487,11 +1504,15 @@ class PocketDesk:
         menu_items = {
             "notes": "Notes", "links": "Links", "ports": "Ports",
             "mac": "MAC", "commands": "CLI", "subnet": "Subnet",
-            "clipboard": "Clip", "reminders": "Remind",
-            "settings": "More", "more": "More",
+            "clipboard": "Clip", "reminders": "Remind", "extra": "Extra",
+            "settings": "Settings", "more": "More", "plus": "Add",
         }
+        hidden_tools = [key for key in menu_order.DEFAULT_ORDER
+                        if key != "settings" and key not in self.settings["visible_tabs"]]
         first, additional = mini_nav.plan_mini_icons(
-            [key for key, _ in VISIBLE_TABS if key in self.settings["visible_tabs"]])
+            menu_order.enabled_order(self.settings["menu_order"],
+                                    self.settings["visible_tabs"]),
+            add_available=bool(hidden_tools))
         self._mini_overflow_keys = tuple(k for row in additional for k in row)
         self._mini_overflow_rows = []
         if not additional:
@@ -1508,10 +1529,20 @@ class PocketDesk:
             caption_label = tk.Label(tile, text=caption, font=(FONT, 7),
                                      bg=BG, fg=MUTED, cursor="hand2", anchor="center")
             caption_label.pack(fill="x")
-            action = (self._toggle_mini_more if key == "more"
-                      else lambda tool=key: self.show_tab(tool))
+            action = (self._toggle_mini_more if key == "more" else
+                      self._show_mini_add_menu if key == "plus" else
+                      lambda tool=key: self.show_tab(tool))
             for target in (tile, glyph, caption_label):
-                target.bind("<Button-1>", lambda _event, callback=action: callback())
+                target.bind("<ButtonPress-1>",
+                            lambda event, item=key: self._mini_nav_press(event, item))
+                target.bind("<B1-Motion>", self._mini_nav_motion)
+                target.bind("<ButtonRelease-1>",
+                            lambda event, item=key, callback=action:
+                            self._mini_nav_release(event, item, callback))
+                if key not in ("more", "plus"):
+                    target.bind("<Button-3>",
+                                lambda event, item=key:
+                                self._mini_nav_context_menu(event, item))
             tile.bind("<Return>", lambda _event, callback=action: callback())
             tile.bind("<space>", lambda _event, callback=action: callback())
             design.Tooltip(tile, f"{caption} · open {key}", self.theme)
@@ -1536,6 +1567,98 @@ class PocketDesk:
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
+
+    def _show_mini_add_menu(self):
+        """Show hidden menus; chosen tool is appended at the end."""
+        hidden = [key for key in menu_order.normalize(self.settings["menu_order"])
+                  if key != "settings" and key not in self.settings["visible_tabs"]]
+        if not hidden:
+            return
+        popup = menu_style.Menu(
+            self.root, tearoff=False, bg=PANEL, fg=WHITE,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat")
+        popup.images = []
+        for key in hidden:
+            photo = tool_icons.icon_image(popup, key, ACCENT, 17)
+            popup.images.append(photo)
+            popup.add_command(
+                label="  " + menu_order.LABELS[key],
+                image=photo, compound="left",
+                command=lambda tool=key: self._set_visible_tab(tool, True))
+        anchor = self.mini_icon_tabs.get("plus")
+        if anchor:
+            tile = anchor[0]
+            try:
+                popup.tk_popup(tile.winfo_rootx(),
+                               tile.winfo_rooty() + tile.winfo_height() + 2)
+            finally:
+                popup.grab_release()
+
+    def _mini_nav_context_menu(self, event, key):
+        """Right click hides this menu; Settings is non-hideable."""
+        if key == "settings" or key not in self.settings["visible_tabs"]:
+            return "break"
+        popup = menu_style.Menu(
+            self.root, tearoff=False, bg=PANEL, fg=WHITE,
+            activebackground=ACCENT_DARK, activeforeground=WHITE,
+            bd=1, relief="flat")
+        popup.add_command(
+            label="Hide " + menu_order.LABELS[key],
+            command=lambda: self._set_visible_tab(key, False))
+        try:
+            popup.tk_popup(event.x_root, event.y_root)
+        finally:
+            popup.grab_release()
+        return "break"
+
+    def _mini_nav_press(self, event, key):
+        self._mini_drag = {
+            "key": key, "x": event.x_root, "y": event.y_root,
+            "moved": False, "hover": None}
+
+    def _mini_nav_hit(self, x, y):
+        for key, parts in getattr(self, "mini_icon_tabs", {}).items():
+            tile = parts[0]
+            if not tile.winfo_exists() or not tile.winfo_ismapped():
+                continue
+            if (tile.winfo_rootx() <= x < tile.winfo_rootx() + tile.winfo_width()
+                    and tile.winfo_rooty() <= y < tile.winfo_rooty() + tile.winfo_height()):
+                return key
+        return None
+
+    def _mini_nav_motion(self, event):
+        drag = getattr(self, "_mini_drag", None)
+        if not drag or drag["key"] in ("plus", "more"):
+            return
+        if abs(event.x_root - drag["x"]) + abs(event.y_root - drag["y"]) >= 7:
+            drag["moved"] = True
+        if not drag["moved"]:
+            return
+        hover = self._mini_nav_hit(event.x_root, event.y_root)
+        if hover == drag["hover"]:
+            return
+        for key, (tile, _, _) in self.mini_icon_tabs.items():
+            tile.configure(highlightthickness=(1 if key == hover and
+                           hover not in ("plus", "more") else 0),
+                           highlightbackground=ACCENT)
+        drag["hover"] = hover
+
+    def _mini_nav_release(self, event, key, action):
+        drag = getattr(self, "_mini_drag", None)
+        self._mini_drag = None
+        if not drag or drag["key"] != key:
+            return "break"
+        if drag["moved"] and key not in ("plus", "more"):
+            target = self._mini_nav_hit(event.x_root, event.y_root)
+            for tile, _glyph, _caption in self.mini_icon_tabs.values():
+                tile.configure(highlightthickness=0)
+            if target and target not in (key, "plus", "more"):
+                self._set_menu_order(
+                    menu_order.move(self.settings["menu_order"], key, target))
+            return "break"
+        action()
+        return "break"
 
     def _toggle_mini_more(self):
         if not getattr(self, "_mini_overflow_rows", ()):
@@ -1567,8 +1690,9 @@ class PocketDesk:
             color = ACCENT_DARK if active else BG
             tile.config(bg=color)
             glyph.config(bg=color)
-            glyph.image = tool_icons.icon_image(glyph, key,
-                                                ACCENT if active else SECONDARY, 20)
+            glyph.image = tool_icons.icon_image(
+                glyph, key, ACCENT if active else
+                ("#40CC84" if key == "plus" else SECONDARY), 20)
             glyph.config(image=glyph.image)
             caption.config(bg=color, fg=WHITE if active else MUTED)
 
@@ -1579,6 +1703,8 @@ class PocketDesk:
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
             return self._open_compact_tool(which)
+        if self.current_tab == "extra":
+            self._extra_excel_cancel.set()
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -1609,9 +1735,9 @@ class PocketDesk:
             # Keep the Normal Commands title/actions fixed in their usual top
             # position while only the filters, results and editor scroll.
             self._build_normal_commands_header()
-        if ((self.display_mode == "mini" and (which in ("ports", "mac", "subnet", "settings") or which == "reminders"))
+        if ((self.display_mode == "mini" and (which in ("ports", "mac", "subnet", "settings", "extra") or which == "reminders"))
                 or (self.display_mode in ("normal", "dashboard") and
-                    (which in ("ports", "mac", "commands", "subnet", "settings") or which == "reminders"))
+                    (which in ("ports", "mac", "commands", "subnet", "settings", "extra") or which == "reminders"))
                 or (self.display_mode == "dashboard" and which == "home")):
             self._scrolling_tool_body()
         if which == "home":
@@ -1633,34 +1759,51 @@ class PocketDesk:
             self._build_subnet()
         elif which == "clipboard":
             self._build_clipboard()
+        elif which == "extra":
+            extra_excel_ui.build(self, self.body)
         elif which == "settings":
             self._build_settings()
         # Preserve a user-moved position when changing tabs.
         self._place_popup(self._last_tray_xy)
         # Save the last user-selected tool, not transient Extra Mini/Home
         # navigation. On restart restore the tool if it is still visible.
-        if self.display_mode != "compact" and self.data.get("last_tab") != which:
+        if self.display_mode != "compact" and which != "extra" and self.data.get("last_tab") != which:
             self.data["last_tab"] = which
             self.schedule_save()
 
     def _show_more_menu(self):
         menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
-        for key, label in VISIBLE_TABS:
-            if key in self.settings["visible_tabs"] and key not in self.tab_buttons:
-                menu.add_command(label=label, command=lambda k=key: self.show_tab(k))
+        captions = dict(VISIBLE_TABS)
+        for key in menu_order.enabled_order(self.settings["menu_order"],
+                                          self.settings["visible_tabs"],
+                                          include_settings=False):
+            if key not in self.tab_buttons:
+                menu.add_command(label=captions[key],
+                                 command=lambda k=key: self.show_tab(k))
         menu.tk_popup(self.root.winfo_rootx()+165, self.root.winfo_rooty()+132)
 
     def _set_visible_tab(self, key, enabled):
+        # Settings remains accessible and cannot be hidden.
+        if key == "settings":
+            return
         current = self.settings["visible_tabs"]
         if enabled and key not in current:
             current.append(key)
+            # Both the Mini Plus and Settings Show/Hide place newly enabled
+            # menus at the end of the saved order, without changing positions
+            # of other enabled tools or the user's manually dragged icons.
+            order = menu_order.normalize(self.settings["menu_order"])
+            if key in order:
+                order.remove(key)
+                order.append(key)
+                self.settings["menu_order"] = order
         elif not enabled and key in current:
-            if len(current) == 1:
-                self._warning("Menus", "At least one tool must remain visible.")
-                self._build_settings_refresh()
-                return
             current.remove(key)
+            if getattr(self, "current_tab", None) == key:
+                self.current_tab = next(iter(menu_order.enabled_order(
+                    self.settings["menu_order"], current,
+                    include_settings=False)), "settings")
         if key == "clipboard":
             self._clipboard_last = None
             self._clipboard_sequence = None
@@ -1668,6 +1811,17 @@ class PocketDesk:
             self._suspend_open_due_reminder()
         self._build_shell_refresh()
         self.schedule_save()
+
+    def _set_menu_order(self, requested_order):
+        """Commit navigation placement without touching hidden tools or notes."""
+        updated = menu_order.normalize(requested_order)
+        if updated == self.settings.get("menu_order"):
+            return
+        self.settings["menu_order"] = updated
+        self.schedule_save()
+        # The editor may be in the middle of a Tk pointer-release callback.
+        # Rebuild later so the old widget is not destroyed inside its handler.
+        self.root.after_idle(self._build_shell_refresh)
 
     def _compact_pages(self):
         """Use saved pages, preserving the original four legacy tool slots."""

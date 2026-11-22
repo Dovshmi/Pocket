@@ -12,6 +12,9 @@ from tkinter import ttk
 from . import icon_themes as themes
 from . import app_info
 from . import quick_slots
+from . import pocket_design as design
+from . import tool_icons
+from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
 
@@ -30,11 +33,12 @@ TOOL_HELP = {
     "subnet": "IPv4 subnet calculator",
     "clipboard": "RAM or optional local clipboard history",
     "reminders": "Show Reminders and enable all Note and standalone reminder notifications",
+    "extra": "Private, read-only search across local Excel workbook sheets",
 }
 TOOL_ICONS = {
     "notes": "✎", "links": "↗", "ports": "⇄", "mac": "▦",
     "commands": ">_", "subnet": "⌗", "clipboard": "▤",
-    "reminders": "♧",
+    "reminders": "♧", "extra": "⌕",
 }
 
 
@@ -64,15 +68,16 @@ def _section(parent, c, heading, description, *, compact=False, wide=False):
     card = tk.Frame(
         parent, bg=c["PANEL"], bd=0,
         highlightthickness=1, highlightbackground=c["BORDER"])
-    card.pack(fill="x", pady=(0, 12))
+    card.pack(fill="x", pady=(0, 6))
     tk.Frame(card, bg=c["ACCENT"], height=2).pack(fill="x")
     head = tk.Frame(card, bg=c["PANEL"])
-    head.pack(fill="x", padx=13, pady=(12, 9))
-    _label(head, heading, c, size=11 if compact else 12, bold=True,
+    head.pack(fill="x", padx=11, pady=(7 if compact else 10, 5))
+    _label(head, heading, c, size=10 if compact else 11, bold=True,
            anchor="w").pack(fill="x")
-    _label(head, description, c, size=8, muted=True,
-           wraplength=230 if compact else (350 if wide else 365),
-           anchor="w", justify="left").pack(fill="x", pady=(4, 0))
+    if not compact:
+        _label(head, description, c, size=8, muted=True,
+               wraplength=350 if wide else 365,
+               anchor="w", justify="left").pack(fill="x", pady=(3, 0))
     return card
 
 
@@ -83,6 +88,85 @@ def _divider(parent, c):
 def _register(app, name, widget):
     app.settings_controls[name] = widget
     return widget
+
+
+
+# All groups are only a presentation layer. Their original preference controls
+# are always created, registered, and wired to the same PocketDesk callbacks.
+SETTINGS_GROUPS = (
+    ("appearance", "Appearance", "Layout and theme"),
+    ("tools", "Show / Hide", "Add or remove menus"),
+    ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
+    ("clipboard", "Clipboard", "Capture, privacy and history"),
+    ("quick_slots", "Quick Slots & Translate", "Copy, paste and keyboard language"),
+    ("network", "Network & Extra", "Proxy and local Excel database"),
+    ("maintenance", "Backup & Restore", "Backups and reset preferences"),
+)
+# Use raster icons from Pocket's icon module, avoiding missing Unicode glyphs.
+GROUP_ICONS = {
+    "appearance": "settings", "tools": "home", "shortcuts": "links",
+    "clipboard": "clipboard", "quick_slots": "commands",
+    "network": "ports", "maintenance": "notes",
+}
+
+
+def _settings_group(parent, app, c, key, title, summary, *, compact=False):
+    """Accessible single-open accordion, without destroying hidden controls."""
+    surface = tk.Frame(
+        parent, bg=c["PANEL"], bd=0,
+        highlightthickness=1, highlightbackground=c["BORDER"])
+    surface.pack(fill="x", pady=(0, 7))
+    header = tk.Frame(surface, bg=c["PANEL"])
+    header.pack(fill="x", padx=7, pady=5)
+
+    def toggle():
+        current = getattr(app, "_settings_open_group", "appearance")
+        app._settings_open_group = None if current == key else key
+        for section_key, entry in app._settings_sections.items():
+            opened = section_key == app._settings_open_group
+            body = entry["body"]
+            if opened:
+                body.pack(fill="x", padx=6, pady=(0, 7))
+            else:
+                body.pack_forget()
+            button = entry["button"]
+            button.configure(
+                text=("-  " if opened else "+  ") + entry["title"],
+                bg=c["ACCENT_DARK"] if opened else c["PANEL"],
+                fg=c["WHITE"] if opened else c["SECONDARY"])
+            button.icon_image = tool_icons.icon_image(
+                button, GROUP_ICONS[section_key],
+                c["ACCENT"] if opened else c["SECONDARY"], 17)
+            button.configure(image=button.icon_image, compound="left")
+            entry["surface"].configure(
+                highlightbackground=c["ACCENT"] if opened else c["BORDER"])
+
+    button = tk.Button(
+        header, text="", command=toggle, cursor="hand2", takefocus=True,
+        bg=c["PANEL"], fg=c["SECONDARY"], activebackground=c["CARD_HOVER"],
+        activeforeground=c["WHITE"], bd=0, relief="flat", highlightthickness=0,
+        anchor="w", padx=9, pady=6 if compact else 9,
+        font=(FONT, 10 if compact else 11, "bold"))
+    button.pack(side="left", fill="x", expand=True)
+    _label(header, summary, c, size=8, muted=True,
+           anchor="e", justify="right",
+           wraplength=95 if compact else 190).pack(side="right", padx=(4, 6))
+    body = tk.Frame(surface, bg=c["BG"])
+    app._settings_sections[key] = {
+        "surface": surface, "button": button, "body": body, "title": title}
+    _register(app, "settings_group_" + key, button)
+    opened = getattr(app, "_settings_open_group", "appearance") == key
+    button.configure(
+        text=("-  " if opened else "+  ") + title,
+        bg=c["ACCENT_DARK"] if opened else c["PANEL"],
+        fg=c["WHITE"] if opened else c["SECONDARY"])
+    button.icon_image = tool_icons.icon_image(
+        button, GROUP_ICONS[key], c["ACCENT"] if opened else c["SECONDARY"], 17)
+    button.configure(image=button.icon_image, compound="left")
+    if opened:
+        body.pack(fill="x", padx=6, pady=(0, 7))
+        surface.configure(highlightbackground=c["ACCENT"])
+    return body
 
 
 def _toggle(parent, app, c, key, title, description, checked, callback,
@@ -164,14 +248,12 @@ def _mode_picker(parent, app, c, *, wide=False, compact=False):
         holder = tk.Frame(
             group, bg=surface, highlightthickness=1,
             highlightbackground=outline)
-        if wide:
-            group.grid_columnconfigure(i, weight=1, uniform="layout")
-            holder.grid(row=0, column=i, sticky="nsew",
-                        padx=(0, 5) if i < 2 else 0)
-        else:
-            holder.pack(fill="x", pady=(0, 5))
-        caption = (icon + "  " + title +
-                   ("   ● ACTIVE" if selected else "") + "\n" + detail)
+        group.grid_columnconfigure(i, weight=1, uniform="layout")
+        holder.grid(row=0, column=i, sticky="nsew",
+                    padx=(0, 5) if i < 2 else 0)
+        # Keep mode picker ASCII-only; glyph boxes/question marks appeared on
+        # some Windows font installations. The highlighted tile shows active.
+        caption = title + ("  (active)" if selected else "")
         button = tk.Button(
             holder, text=caption, command=lambda name=mode: app._set_display_mode(name),
             bg=surface, fg=c["WHITE"] if selected else c["SECONDARY"],
@@ -193,7 +275,7 @@ def _theme_picker(parent, app, c, *, wide=False, compact=False):
            ).pack(side="right")
     swatches = tk.Frame(parent, bg=c["PANEL"])
     swatches.pack(fill="x", padx=13, pady=(0, 12))
-    columns = 3 if wide else 2
+    columns = 3
     for index, name in enumerate(themes.THEME_ORDER):
         col, row = index % columns, index // columns
         swatches.grid_columnconfigure(col, weight=1, uniform="colors")
@@ -230,6 +312,52 @@ def _appearance(parent, app, c, *, wide=False, compact=False):
     _theme_picker(card, app, c, wide=wide, compact=compact)
 
 
+
+def _tool_visibility(parent, app, c, *, compact=False, wide=False):
+    """Compact, immediate Show/Hide switches, with no duplicate order editor.
+
+    Adding a menu appends it to the end of the live navigation. The same
+    action remains available through Mini's green Plus. Nothing touches tool
+    data, and Settings is always available and not hideable.
+    """
+    card = _section(
+        parent, c, "Show / Hide menus",
+        "Add a hidden menu at the end, or hide a menu without deleting data.",
+        compact=compact, wide=wide)
+    grid = tk.Frame(card, bg=c["PANEL"])
+    grid.pack(fill="x", padx=10, pady=(1, 8))
+    for col in range(2):
+        grid.grid_columnconfigure(col, weight=1, uniform="visible-tool")
+    for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
+        enabled = key in app.settings["visible_tabs"]
+        # Status color, not action color: green is active/visible, red is
+        # inactive/hidden. Keep the +/- text to indicate the click action.
+        color = "#54C58A" if enabled else c["DANGER"]
+        button = tk.Button(
+            grid, text=("-  " if enabled else "+  ") + caption,
+            command=lambda item=key, on=enabled: app._set_visible_tab(item, not on),
+            bg=c["CARD"], fg=c["WHITE"],
+            activebackground=c["CARD_HOVER"],
+            activeforeground=c["WHITE"], bd=0, relief="flat",
+            highlightthickness=1, highlightbackground=c["BORDER"],
+            highlightcolor=c["ACCENT"], cursor="hand2", takefocus=True,
+            font=(FONT, 8, "bold" if enabled else "normal"),
+            padx=6, pady=6, anchor="w")
+        button.grid(row=index // 2, column=index % 2, sticky="ew",
+                    padx=(0, 4) if index % 2 == 0 else (4, 0),
+                    pady=(0, 4))
+        button.icon_image = tool_icons.icon_image(button, key, color, 16)
+        button.configure(image=button.icon_image, compound="left")
+        design.Tooltip(button,
+                       ("Hide " if enabled else "Add ") + caption +
+                       (" (data is kept)" if enabled else " (add last)"),
+                       app.theme)
+        _register(app, "tool_" + key, button)
+    label_text = "Settings is always visible. Drag icons on the Mini toolbar to reorder."
+    _label(card, label_text, c, size=8, muted=True,
+           justify="left", wraplength=240 if compact else 480).pack(
+               fill="x", padx=11, pady=(0, 8))
+
 def _launcher(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Extra Mini launcher",
                     "An optional quick launcher with your favourite actions.",
@@ -245,21 +373,6 @@ def _launcher(parent, app, c, *, compact=False, wide=False):
             compact=compact, primary=True)
 
 
-def _tools(parent, app, c, *, compact=False, wide=False):
-    card = _section(parent, c, "Visible tools",
-                    "Choose what appears in Pocket. At least one tool stays on.",
-                    compact=compact, wide=wide)
-    for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
-        if index:
-            _divider(card, c)
-        _toggle(card, app, c, "tool_" + key,
-                TOOL_ICONS[key] + "  " + caption.title(),
-                TOOL_HELP[key], key in app.settings["visible_tabs"],
-                lambda active, tool=key: app._set_visible_tab(tool, active),
-                compact=compact)
-
-
-
 def _dropdown_field(parent, app, c, key, heading, detail,
                     choices, selected, callback, *, compact=False,
                     wheel_scroll_page=False):
@@ -267,9 +380,9 @@ def _dropdown_field(parent, app, c, key, heading, detail,
     section = tk.Frame(parent, bg=c["PANEL"])
     section.pack(fill="x", padx=13, pady=(9, 11))
     _label(section, heading, c, size=9, bold=True, anchor="w").pack(fill="x")
-    if detail:
+    if detail and not compact:
         _label(section, detail, c, size=8, muted=True, anchor="w",
-               justify="left", wraplength=190 if compact else 360).pack(
+               justify="left", wraplength=360).pack(
                    fill="x", pady=(3, 7))
     select = ttk.Combobox(section, style="Pocket.TCombobox",
                           values=[label for label, _ in choices],
@@ -279,6 +392,8 @@ def _dropdown_field(parent, app, c, key, heading, detail,
                    if value == selected), 0)
     select.current(chosen)
     select.pack(fill="x", padx=(0, 2), pady=(0, 3))
+    if detail and compact:
+        design.Tooltip(select, detail, getattr(app, "theme", "blue"))
 
     def apply(_event=None):
         index = select.current()
@@ -411,9 +526,9 @@ def _clipboard_history_controls(parent, app, c, *, compact=False):
            wraplength=185 if compact else 330).pack(fill="x", pady=(1, 0))
 
 
-def _privacy(parent, app, c, *, compact=False, wide=False):
+def _clipboard(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Clipboard & privacy",
-                    "Control local clipboard capture and sensitive data.",
+                    "Capture, privacy filter, history limits and retention.",
                     compact=compact, wide=wide)
     _toggle(card, app, c, "clipboard_paused", "Pause clipboard capture",
             "Keep history available, but stop capturing new text.",
@@ -427,6 +542,20 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
     _divider(card, c)
     _clipboard_history_controls(card, app, c, compact=compact)
     _divider(card, c)
+    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
+           "TXT files and screenshots in one dated PNG folder. Auto-delete "
+           "is OFF by default; enable 7–30-day cleanup if you choose. "
+           "The sensitive-text filter is heuristic and does not guarantee privacy.",
+           c, size=8, muted=True, justify="left", anchor="w",
+           wraplength=210 if compact else 350
+           ).pack(fill="x", padx=13, pady=(10, 13))
+
+
+
+def _quick_slot_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Quick Slots",
+                    "Configure the nine direct copy/paste shortcuts.",
+                    compact=compact, wide=wide)
     _toggle(card, app, c, "quick_slots_enabled", "Enable Quick Slots",
             "Paste or save text directly with separate Numpad1–9 shortcuts.",
             app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
@@ -463,7 +592,12 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
         app._set_quick_slots_copy_prefix,
         compact=compact, wheel_scroll_page=True)
-    _divider(card, c)
+
+
+def _translate_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Keyboard translation",
+                    "Convert accidental English/Hebrew keyboard input.",
+                    compact=compact, wide=wide)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",
             app.settings["convert_enabled"],
@@ -472,14 +606,44 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             "Translate keyboard shortcut", app._convert_hotkey_hint(),
             "Edit", app._open_convert_hotkey_picker, compact=compact)
     _convert_mode_picker(card, app, c, compact=compact)
-    _divider(card, c)
-    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
-           "TXT files and screenshots in one dated PNG folder. Auto-delete "
-           "is OFF by default; enable 7–30-day cleanup if you choose. "
-           "The sensitive-text filter is heuristic and does not guarantee privacy.",
-           c, size=8, muted=True, justify="left", anchor="w",
-           wraplength=210 if compact else 350
-           ).pack(fill="x", padx=13, pady=(10, 13))
+
+
+def _privacy(parent, app, c, *, compact=False, wide=False):
+    """Compatibility entrypoint; all original privacy controls are preserved."""
+    _clipboard(parent, app, c, compact=compact, wide=wide)
+    _quick_slot_preferences(parent, app, c, compact=compact, wide=wide)
+    _translate_preferences(parent, app, c, compact=compact, wide=wide)
+
+
+def _extra_database_file(parent, app, c, *, compact=False, wide=False):
+    """Show the active imported/synced SQLite file only when it exists.
+
+    The filename belongs to Pocket's local data directory. Never store a
+    duplicate path in preferences: Load DB already safely copies a validated
+    external database to this canonical location.
+    """
+    path = extra_db.database_path()
+    if not path.is_file():
+        return
+    card = _section(
+        parent, c, "Extra · Database",
+        "Current local file used by Extra searches.",
+        compact=compact, wide=wide)
+    inner = tk.Frame(card, bg=c["PANEL"])
+    inner.pack(fill="x", padx=13, pady=(0, 8))
+    _label(inner, path.name, c, size=9, bold=True, anchor="w").pack(fill="x")
+    _label(inner, str(path), c, size=8, muted=True, anchor="w",
+           wraplength=210 if compact else (315 if wide else 370),
+           justify="left").pack(fill="x", pady=(4, 0))
+
+    def copy_path():
+        app.root.clipboard_clear()
+        app.root.clipboard_append(str(path))
+        app.root.update_idletasks()
+
+    _action(card, app, c, "extra_database_copy_path",
+            "Database location", "Copy the path of the active SQLite file.",
+            "Copy path", copy_path, compact=compact)
 
 
 def _backup_controls(parent, app, c, *, compact=False, wide=False):
@@ -513,23 +677,25 @@ def build_settings(app, parent, *, wide=False):
     """Build all modes from a single settings design system."""
     c = themes.palette(app.theme)
     compact = app.display_mode == "mini"
+    if not hasattr(app, "_settings_open_group"):
+        app._settings_open_group = "appearance"
     app.settings_controls = {}
     if wide:
         # Existing integration tests and consumers use this public mapping.
         app.dashboard_settings_controls = app.settings_controls
 
     intro = tk.Frame(parent, bg=c["BG"])
-    intro.pack(fill="x", pady=(0, 14))
-    eyebrow = _label(intro, "POCKET  /  PREFERENCES", c, size=8,
-                     background=c["BG"], bold=True, anchor="w")
-    eyebrow.configure(fg=c["ACCENT"])
-    eyebrow.pack(fill="x", pady=(0, 4))
-    _label(intro, "Settings", c, size=19 if not compact else 16,
-           background=c["BG"], bold=True, anchor="w").pack(fill="x")
-    _label(intro, "Saved automatically on this device · Changes apply immediately",
+    intro.pack(fill="x", pady=(0, 8 if compact else 12))
+    heading = tk.Frame(intro, bg=c["BG"])
+    heading.pack(fill="x")
+    _label(heading, "Settings", c, size=14 if compact else 18,
+           background=c["BG"], bold=True, anchor="w").pack(side="left")
+    _label(heading, "● Saved automatically", c, size=8, muted=True,
+           background=c["BG"], anchor="e").pack(side="right")
+    _label(intro, "Choose a category. All settings are still available.",
            c, size=8, muted=True, background=c["BG"], justify="left",
            anchor="w", wraplength=225 if compact else 690
-           ).pack(fill="x", pady=(4, 0))
+           ).pack(fill="x", pady=(3, 0))
 
     if wide:
         columns = tk.Frame(parent, bg=c["BG"])
@@ -543,13 +709,46 @@ def build_settings(app, parent, *, wide=False):
     else:
         left = right = parent
 
-    _appearance(left, app, c, wide=wide, compact=compact)
-    _shortcuts(left, app, c, wide=wide, compact=compact)
-    _launcher(left, app, c, wide=wide, compact=compact)
-    _tools(right, app, c, wide=wide, compact=compact)
-    _network_preferences(right, app, c, wide=wide, compact=compact)
-    _privacy(right, app, c, wide=wide, compact=compact)
-    _backup_controls(right, app, c, wide=wide, compact=compact)
+    # Keep every original control alive and registered even inside closed
+    # groups: changing category is purely presentation, never a new setting.
+    app._settings_sections = {}
+    appearance = _settings_group(
+        left, app, c, "appearance", "Appearance", "Layout · Colors",
+        compact=compact)
+    _appearance(appearance, app, c, wide=wide, compact=compact)
+
+    tools = _settings_group(
+        left, app, c, "tools", "Show / Hide", "Add or remove menus",
+        compact=compact)
+    _tool_visibility(tools, app, c, compact=compact, wide=wide)
+
+    shortcuts = _settings_group(
+        left, app, c, "shortcuts", "Shortcuts & launcher", "Hotkeys · Quick access",
+        compact=compact)
+    _shortcuts(shortcuts, app, c, wide=wide, compact=compact)
+    _launcher(shortcuts, app, c, wide=wide, compact=compact)
+
+    clipboard = _settings_group(
+        right, app, c, "clipboard", "Clipboard", "Privacy · History",
+        compact=compact)
+    _clipboard(clipboard, app, c, wide=wide, compact=compact)
+
+    slot_controls = _settings_group(
+        right, app, c, "quick_slots", "Quick Slots & Translate",
+        "Copy · Paste · Layout", compact=compact)
+    _quick_slot_preferences(slot_controls, app, c, wide=wide, compact=compact)
+    _translate_preferences(slot_controls, app, c, wide=wide, compact=compact)
+
+    network = _settings_group(
+        right, app, c, "network", "Network & Extra", "Proxy · Excel database",
+        compact=compact)
+    _network_preferences(network, app, c, wide=wide, compact=compact)
+    _extra_database_file(network, app, c, wide=wide, compact=compact)
+
+    maintenance = _settings_group(
+        right, app, c, "maintenance", "Backup & Restore",
+        "Export · Import · Reset", compact=compact)
+    _backup_controls(maintenance, app, c, wide=wide, compact=compact)
 
     # The footer is the last element of the scrollable Settings body in all
     # three layouts. It is not a floating overlay and obscures no controls.

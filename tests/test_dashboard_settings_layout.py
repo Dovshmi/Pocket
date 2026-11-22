@@ -26,20 +26,33 @@ class DashboardSettingsLayoutTests(unittest.TestCase):
     def test_dashboard_has_independent_columns(self):
         self.assertIn('left.grid(row=0, column=0', SHARED)
         self.assertIn('right.grid(row=0, column=1', SHARED)
-        self.assertIn('_appearance(left, app, c, wide=wide', SHARED)
-        self.assertIn('_shortcuts(left, app, c, wide=wide', SHARED)
-        self.assertIn('_launcher(left, app, c, wide=wide', SHARED)
-        self.assertIn('_tools(right, app, c, wide=wide', SHARED)
-        self.assertIn('_privacy(right, app, c, wide=wide', SHARED)
+        self.assertIn('app._settings_sections = {}', SHARED)
+        self.assertIn('_appearance(appearance, app, c, wide=wide', SHARED)
+        self.assertIn('_shortcuts(shortcuts, app, c, wide=wide', SHARED)
+        self.assertIn('_launcher(shortcuts, app, c, wide=wide', SHARED)
+        self.assertNotIn('_tools(tools, app, c, wide=wide', SHARED)
+        self.assertNotIn('menu_order_ui.build(card, app, c', SHARED)
+        self.assertIn('_set_menu_order', APP)
+        self.assertIn('_mini_nav_context_menu', APP)
+        self.assertIn('_show_mini_add_menu', APP)
+        self.assertIn('_clipboard(clipboard, app, c, wide=wide', SHARED)
+        self.assertIn('_quick_slot_preferences(slot_controls, app, c,', SHARED)
+        self.assertIn('_translate_preferences(slot_controls, app, c,', SHARED)
+        self.assertIn('_network_preferences(network, app, c,', SHARED)
+        self.assertIn('_backup_controls(maintenance, app, c,', SHARED)
 
     def test_every_existing_preference_keeps_its_app_callback(self):
         for method in (
-                "_set_display_mode", "_choose_theme", "_set_visible_tab",
+                "_set_display_mode", "_choose_theme",
                 "_set_extra_mini_enabled", "_edit_extra_mini_from_settings",
                 "_open_hotkey_picker", "_open_convert_hotkey_picker",
                 "_open_global_search", "_set_clipboard_paused",
                 "_set_clipboard_sensitive_filter", "_hotkey_hint"):
             self.assertIn("app." + method, SHARED)
+        # The visibility toggle is now exposed through Mini's right-click
+        # context menu / Plus, not duplicated inside Settings.
+        self.assertIn("def _set_visible_tab(self, key, enabled)", APP)
+        self.assertNotIn('menu_order_ui.build(', SHARED)
         self.assertEqual(len(themes.THEME_ORDER), 6)
         self.assertEqual(len(settings_ui.TOOL_HELP), len(settings_ui.TOOL_ICONS))
         for code in (ADAPTER, SHARED):

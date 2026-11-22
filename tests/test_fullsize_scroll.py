@@ -12,7 +12,7 @@ class FullSizeScrollTests(unittest.TestCase):
         code = SOURCE[start:end]
         self.assertIn('self.display_mode in ("normal", "compact")', code)
         self.assertIn('self.display_mode in ("normal", "dashboard")', code)
-        self.assertIn('("ports", "mac", "commands", "subnet", "settings")', code)
+        self.assertIn('("ports", "mac", "commands", "subnet", "settings", "extra")', code)
         self.assertIn('self._scrolling_tool_body()', code)
 
     def test_wheel_bubbles_to_outer_canvas_without_stealing_text_editing(self):
@@ -23,6 +23,23 @@ class FullSizeScrollTests(unittest.TestCase):
         self.assertIn('elif isinstance(widget, (tk.Text, tk.Listbox)):', code)
         self.assertIn('isinstance(widget, ttk.Treeview)', code)
         self.assertIn('canvas.yview_scroll(steps, "units")', code)
+
+    def test_extra_mini_has_only_thin_matches_rail(self):
+        # Outer page rail remains hidden, but the user explicitly wants a
+        # narrow dark Matches scrollbar; its wheel goes to the parent page.
+        scrolling = SOURCE.split("    def _scrolling_tool_body(self):", 1)[1].split(
+            "    def _mini_scrolling_body(self):", 1)[0]
+        wheel = SOURCE.split("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):",
+                             1)[1].split("    def _command_picker_on_wheel", 1)[0]
+        self.assertIn('self.current_tab == "extra" and self.display_mode == "mini"',
+                      scrolling)
+        self.assertIn('"extra"):', wheel)
+        extra_ui = (Path(__file__).resolve().parents[1] /
+                    "pocket" / "extra_excel_ui.py").read_text(encoding="utf-8")
+        self.assertIn('list_scroll.pack(side="right", fill="y"', extra_ui)
+        self.assertIn('width=8 if compact else 12', extra_ui)
+        self.assertIn('scroll_outer_instead_of_matches', extra_ui)
+        self.assertIn('if not compact:\n        detail_scroll.pack(', extra_ui)
 
     def test_cli_combobox_never_calls_vertical_yview(self):
         start = SOURCE.index("    def _scroll_tool_on_wheel(self, event, *, from_picker=False):")

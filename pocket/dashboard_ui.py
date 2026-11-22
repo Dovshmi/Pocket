@@ -9,6 +9,7 @@ import tkinter as tk
 from . import pocket_design as design
 from . import app_info
 from . import tool_icons
+from . import menu_order
 
 NAVIGATION = (
     ("home", "⌂", "Overview"),
@@ -20,6 +21,7 @@ NAVIGATION = (
     ("subnet", "⌗", "Subnet Calculator"),
     ("clipboard", "▣", "Clipboard"),
     ("reminders", "♧", "Reminders"),
+    ("extra", "▦", "Extra"),
     ("settings", "⚙", "Settings"),
 )
 
@@ -33,6 +35,7 @@ TITLES = {
     "subnet": ("Subnet calculator", "Explore IPv4 masks, ranges and subnet divisions."),
     "clipboard": ("Clipboard history", "Session-only copied text; never saved to disk."),
     "reminders": ("Reminders", "Upcoming, snoozed and completed Note reminders."),
+    "extra": ("Extra — Excel lookup", "Read-only local search across all workbook sheets."),
     "settings": ("Preferences", "Choose your layout, theme and visible tools."),
 }
 
@@ -103,11 +106,14 @@ def build_shell(app, colors):
            fg=c["MUTED"]).pack(anchor="w", padx=23, pady=(14, 10))
     app.tab_buttons = {}
     app.dashboard_nav = {}
-    for key, glyph, caption in NAVIGATION:
-        if key not in ("home", "settings") and key not in app.settings["visible_tabs"]:
-            continue
+    navigation_by_key = {key: (key, glyph, caption)
+                         for key, glyph, caption in NAVIGATION}
+    ordered_keys = ["home"] + menu_order.enabled_order(
+        app.settings["menu_order"], app.settings["visible_tabs"])
+    for key in ordered_keys:
+        _key, glyph, caption = navigation_by_key[key]
         if key == "settings":
-            tk.Frame(side, bg=c["BORDER"], height=1).pack(fill="x", padx=18, pady=(14, 12))
+            tk.Frame(side, bg=c["BORDER"], height=1).pack(fill="x", padx=18, pady=(8, 7))
         selected = key == app.current_tab
         entry = tk.Button(
             side, text=f"     {caption}", command=lambda tab=key: app.show_tab(tab),
@@ -272,8 +278,12 @@ def build_home(app):
         ("▦", "MAC vendor lookup", "Identify vendors with your locally cached IEEE data.", "mac"),
         ("▣", "Clipboard history", "Search your current session's copied text.", "clipboard"),
         ("♧", "Reminders", "Review upcoming, snoozed and completed notes.", "reminders"),
+        ("▦", "Extra — Excel", "Search workbook columns without opening Excel.", "extra"),
     )
-    visible = [t for t in all_tools if t[3] in app.settings["visible_tabs"]]
+    tool_cards = {t[3]: t for t in all_tools}
+    visible = [tool_cards[k] for k in menu_order.enabled_order(
+        app.settings["menu_order"], app.settings["visible_tabs"],
+        include_settings=False) if k in tool_cards]
     grid = tk.Frame(body, bg=c["BG"])
     grid.pack(fill="x")
     grid.columnconfigure(0, weight=1, uniform="tools")

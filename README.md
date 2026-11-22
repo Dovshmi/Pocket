@@ -22,13 +22,25 @@ A lightweight, local-first toolkit for NOC/SOC work, network troubleshooting, no
 
 ---
 
-Pocket runs from the Windows system tray and opens on demand. It brings eight practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
+> [!NOTE]
+> **Pocket v1.40.0 source is integrated into `main` (Windows release pending):**
+> - **Mini toolbar:** drag icons to reorder, right-click a tool to hide it, and use the green Add (+) to restore hidden tools at the **end**. More/Less occupies position eight when there are at least eight active menus. Settings can move but cannot be hidden.
+> - **Settings → Show / Hide**, directly below Appearance: **green icons mean visible/active**, **red icons mean hidden/inactive**. The `−` and `+` symbols describe what clicking does. The old duplicate Menu Order/Preview editor is removed.
+> - **Extra → MATCHES:** Up/Down selects results; a thin dark scrollbar scrolls the list. In Mini, the mouse wheel over MATCHES scrolls the **Pocket page**, not the results; Left/Right from Selected Row still changes the selected result.
+> - **Excel shortcuts:** activates the exact already-open workbook instead of duplicating it, and opens a different workbook through Excel when possible.
+> - **Extra:** compact Local/SQLite search, manually synced *unencrypted* offline database, selected-row details including FortiGate IP derived from the sheet name, and **unsent Outlook SOC draft** with blank contact/phone/issue/previous ticket/expert approval fields.
+>
+> **[Technical v1.40 guide](docs/SETTINGS_SHORTCUTS_V140.md)** · **[Extra Excel guide](docs/EXTRA_EXCEL_LOOKUP.md)** · **[Windows release-candidate ZIP (experimental)](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120)**
+>
+> The `main` code is now **v1.40.0**, but a stable **v1.40.0 Windows ZIP/EXE has not yet been published**. The stable **v1.39.9** download links above remain correct until a separately verified v1.40.0 release. The local SQLite database is **not encrypted**; only create an offline copy of corporate data if your organization permits it. No private database or workbook is bundled.
+
+Pocket runs from the Windows system tray and opens on demand. It brings practical tools together in **Normal, Mini, Dashboard, and Extra Mini** layouts, with six color themes and customizable visible menus. Notes, CLI references, subnets, and clipboard history work without an internet connection; network access is initiated only when you request it.
 
 > [!IMPORTANT]
 > **Pocket v1.39.9 stable release:** Portable ZIP, standalone EXE and SHA-256 checksums are available from [GitHub Releases](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9). The Windows binaries are not code-signed, so use them only where workplace policy permits. For upgrades, close Pocket completely and keep a backup of your user data before extracting the new version.
 
 > [!NOTE]
-> **Version v1.39.9:** The latest `main` source and the published Windows ZIP/EXE now include the Reminders hub, expandable Mini navigation, standalone and Note-linked reminders, themed due popups and Settings v1.39.9. Release assets were validated by the Windows build workflow.
+> **Published Windows release v1.39.9:** The existing downloadable Windows ZIP/EXE include the Reminders hub, expandable Mini navigation, standalone and Note-linked reminders, themed due popups and Settings v1.39.9. Release assets were validated by the Windows build workflow.
 >
 > **Offline-first:** Notes, CLI, subnet calculations, clipboard, reminders and backup/restore work locally. Network access is initiated only by explicitly requested checks or opened web links. See [release notes](RELEASE_NOTES.md) and [clipboard storage details](docs/CLIPBOARD_DATABASE.md).
 

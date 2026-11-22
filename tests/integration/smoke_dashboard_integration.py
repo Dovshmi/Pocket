@@ -906,6 +906,39 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     # All working modes share the modern selection, palette
                     # and keyboard-accessible switch components.
                     common = app.settings_controls
+                    # Categories are compact by default but every original
+                    # preference is still built. Opening a category must not
+                    # mutate saved settings or rebuild the active profile.
+                    from pocket import settings_ui as settings_render
+                    categories = {"settings_group_" + key
+                                  for key, *_ in settings_render.SETTINGS_GROUPS}
+                    check(categories.issubset(common),
+                          f"{mode}: a Settings category is missing")
+                    before_group_switch = dict(app.settings)
+                    # Show/Hide returns as a compact section right after
+                    # Appearance. The old Menu Order/Preview remains removed.
+                    check("settings_group_tools" in common and
+                          all("tool_" + key in common
+                              for key, _ in app.VISIBLE_TABS_REFERENCE),
+                          f"{mode}: compact Show/Hide controls are missing")
+                    check(not hasattr(app, "menu_order_editor_cells") or
+                          not getattr(app, "menu_order_editor_cells", None),
+                          f"{mode}: redundant icon reorder editor still displayed")
+                    check(sum(bool(section["body"].winfo_ismapped())
+                              for section in app._settings_sections.values()) <= 1,
+                          f"{mode}: Settings opened multiple categories")
+                    check(before_group_switch == app.settings,
+                          f"{mode}: viewing Settings changed preferences")
+                    if app._settings_open_group != "quick_slots":
+                        common["settings_group_quick_slots"].invoke()
+                    app.root.update()
+                    check(app._settings_sections["quick_slots"]["body"].winfo_ismapped(),
+                          f"{mode}: Quick Slots controls did not expand")
+                    check(before_group_switch == app.settings,
+                          f"{mode}: quick slots category changed preferences")
+                    if app._settings_open_group != "appearance":
+                        common["settings_group_appearance"].invoke()
+                    app.root.update()
                     required = {"mode_normal", "mode_mini", "mode_dashboard",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
@@ -917,8 +950,6 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                                 "ram_image_limit", "db_image_display_limit",
                                 "db_text_display_limit", "clipboard_retention",
                                 "quick_search", "clipboard_paused", "sensitive_filter"}
-                    required.update("tool_" + key
-                                    for key, _ in app.VISIBLE_TABS_REFERENCE)
 
                     check(required.issubset(common),
                           f"{mode}: modern Settings options are missing")
@@ -1151,12 +1182,18 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         "create_pocket_backup", "restore_pocket_backup",
                         "reset_default_settings")),
                         "Dashboard Settings is missing important controls")
-                    for tool, _caption in app.VISIBLE_TABS_REFERENCE:
-                        check("tool_" + tool in controls,
-                              f"Dashboard Settings lost the {tool} visibility control")
-                    check(controls["mode_normal"].winfo_rootx() <
-                          controls["tool_notes"].winfo_rootx(),
-                          "Dashboard Settings should use two side-by-side columns")
+                    check("settings_group_tools" in controls and
+                          all("tool_" + key in controls
+                              for key, _ in app.VISIBLE_TABS_REFERENCE),
+                          "Dashboard Show/Hide menu controls missing")
+                    check(controls["settings_group_appearance"].winfo_rootx() ==
+                          controls["settings_group_tools"].winfo_rootx() and
+                          controls["settings_group_appearance"].winfo_rooty() <
+                          controls["settings_group_tools"].winfo_rooty(),
+                          "Dashboard Show/Hide must follow Appearance")
+                    check(controls["settings_group_appearance"].winfo_rootx() <
+                          controls["settings_group_clipboard"].winfo_rootx(),
+                          "Dashboard must still show two independent columns")
                     check(controls["theme_blue"].winfo_exists() and
                           controls["theme_purple"].winfo_exists(),
                           "Dashboard Settings has no visible color palette")

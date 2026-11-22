@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-soc-outlook
+  group: pocket-extra-excel-preview-20261122-soc-expert-order
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '44967009257'
-      SOURCE_COMMIT: '8be1bef9aa339749672cb3c6ba7835cc783502d1'
+      SOURCE_RUN_ID: '44967512467'
+      SOURCE_COMMIT: 'd8de0984488eec1f34019dd9d4e9e8023ca56dda'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-SOC-Outlook-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-SOC-Outlook-Portable.zip")
+          p = Path("dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-SOC-Outlook-Portable.zip > SHA256SUMS-SOC-Outlook.txt)
+          (cd dist && sha256sum Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip > SHA256SUMS-SOC-Expert-Order.txt)
 
       - name: Write experimental release notes
         run: |
@@ -89,8 +89,10 @@ jobs:
             from known FG worksheet naming, e.g. FG25 => 10.238.2.25 or
             FG-2.8-METRO1 => 10.238.2.8.
           - Prefill the subject as customer + line code + פנייה לSOC.
-          - Leave contact person, phone number, fault description, previous
-            ticket and expert-approval NAME for the user to complete in Outlook.
+          - Leave contact person, expert-approval NAME, phone number, fault
+            description and previous ticket for the user to complete in Outlook.
+          - Expert-approval NAME now appears immediately below contact person
+            in both classic Outlook HTML and New Outlook plain text.
           - Missing values are flagged and never invented; the user must
             review the draft. No recipient is set and NO email is sent.
           - Classic Outlook uses a new unsent COM draft, preserving the
@@ -111,7 +113,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-SOC-Outlook-Portable.zip dist/SHA256SUMS-SOC-Outlook.txt \
+          gh release upload "$TAG" dist/Pocket-Extra-SOC-Expert-Below-Contact-Portable.zip dist/SHA256SUMS-SOC-Expert-Order.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

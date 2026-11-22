@@ -2,6 +2,16 @@
 
 Experimental branch: `experiment/extra-excel-lookup`. Stable `main` remains unchanged.
 
+## Latest Mini navigation and compact Show / Hide
+
+Under **Settings → Show / Hide**, directly below Appearance, each menu has a
+compact add/remove button. This is **not** a duplicate icon-order editor and
+does not require an Edit/Save/Cancel mode. Settings itself cannot be hidden.
+Adding a menu from either Settings or Mini's green Plus **appends it last**
+in the ordered navigation. The user can drag it to a different place later.
+Hiding never deletes data; the configured order and visibility remain part of
+Settings backup and restore.
+
 ## Shortcuts: Microsoft Excel when Excel is already open
 
 Pocket previously relied exclusively on the Windows file association (`os.startfile`) for all files. For Excel, Windows may forward the request to an existing Excel instance and silently leave the requested file unopened. In v1.40:

@@ -1692,7 +1692,7 @@ class PocketDesk:
             glyph.config(bg=color)
             glyph.image = tool_icons.icon_image(
                 glyph, key, ACCENT if active else
-                (themes.palette(self.theme)["SUCCESS"] if key == "plus" else SECONDARY), 20)
+                ("#40CC84" if key == "plus" else SECONDARY), 20)
             glyph.config(image=glyph.image)
             caption.config(bg=color, fg=WHITE if active else MUTED)
 
@@ -1792,7 +1792,7 @@ class PocketDesk:
             current.append(key)
         elif not enabled and key in current:
             current.remove(key)
-            if self.current_tab == key:
+            if getattr(self, "current_tab", None) == key:
                 self.current_tab = next(iter(menu_order.enabled_order(
                     self.settings["menu_order"], current,
                     include_settings=False)), "settings")

@@ -36,6 +36,25 @@ Settings now uses **seven collapsible, keyboard-focusable categories**. Only the
 - Visible tools use compact toggle tiles, with keyboard focus and a tooltip explaining each tool.
 - Settings still displays `v1.40` and retains the existing backup/privacy notices.
 
+## Direct Mini toolbar management (latest v1.40 preview)
+
+There is **no separate Menu Order editor or Show/Hide grid in Settings**. The live Mini navigation bar itself is the editor:
+
+- Left-click: open the selected tool normally.
+- Drag an actual tool icon over another icon: change its place immediately and auto-save (no extra Edit mode or Save/Cancel).
+- Right-click a tool: **Hide Menu**. The Settings icon is movable but never hideable.
+- Green **Add (+)**: click for a menu of currently hidden tools; choose one to restore it in its saved position.
+- **More/Less**: when there are eight or more active menu icons (including Settings), More occupies the eighth slot and opens the extra rows. Add remains the final icon of the expanded rows only while a hidden menu exists.
+- Seven or fewer active icons: there is no need for More; the green Add tile follows the icons (at the eighth slot when seven are active). If all menus are visible, the Add icon is absent.
+
+The visibility list and order remain in the same local Settings data and are included in Settings backup/restore. No migration of existing profiles is necessary. Reset → Menus still restores the original arrangement and visibility.
+
+Normal and Dashboard continue to read the same saved ordering; the Normal Settings access icon stays anchored to the edge. Offline-first behavior and all non-menu Settings options are unchanged.
+
+## Legacy menu-order note (superseded)
+
+The older Settings-based Menu Order editor and preview below are no longer displayed in the application. They are retained in earlier pre-release builds only.
+
 ## Menu Order: visual drag-and-drop, local persistence and backups
 
 Settings → **Visible Tools** now begins with a compact real-icon editor and a live Mini layout preview. Drag an icon onto another position, or click one icon and then the destination. Keyboard focus with Return or Space also selects icons. A Reset order action restores the default ordering. The special More/Less tile always occupies the last slot of Mini's first row when needed, and cannot be moved. All tool icons—including Settings—can be placed in the Mini bar. Normal's Settings entry remains fixed at the right edge to guarantee access, but the order of the other Normal icons follows the preference; Dashboard tool navigation follows the saved order. The independent Extra Mini quick slots are unchanged.

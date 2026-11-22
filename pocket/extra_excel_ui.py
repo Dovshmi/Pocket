@@ -216,7 +216,7 @@ def build(app, parent):
         app.root.update_idletasks()
         set_status("FortiGate IP copied to clipboard.")
 
-    def show_compact_cell(target, cell, *, ip=False):
+    def show_compact_cell(target, cell, *, ip=False, full=False):
         line = tk.Frame(target, bg=colors["INPUT"])
         line.pack(fill="x", anchor="w")
         label(line, cell.label, size=8, muted=True, bg=colors["INPUT"]
@@ -234,7 +234,8 @@ def build(app, parent):
             design.Tooltip(ip_button, "Copy FortiGate IP", app.theme)
         else:
             label(line, cell.value, size=9, bold=True, bg=colors["INPUT"],
-                  wraplength=270 if compact else 330).pack(fill="x")
+                  wraplength=(275 if compact else 330) if full else
+                  (125 if compact else (165 if wide else 175))).pack(fill="x")
         return line
 
     def show_details(index):
@@ -254,7 +255,7 @@ def build(app, parent):
         quick = presentation.row_overview(hit)
         label(overview_content, f"{quick.sheet} · Row {quick.row}",
               size=8, muted=True, bg=colors["INPUT"]).pack(anchor="w", pady=(0, 4))
-        show_compact_cell(overview_content, quick.customer)
+        show_compact_cell(overview_content, quick.customer, full=True)
         grid = tk.Frame(overview_content, bg=colors["INPUT"])
         grid.pack(fill="x", pady=(5, 0))
         for column in (0, 1):

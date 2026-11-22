@@ -50,7 +50,7 @@ class ExtraMiniLayoutTests(unittest.TestCase):
         self.assertIn('if not path.is_file():', source)
         self.assertIn('str(path)', source)
         self.assertIn('Copy path', source)
-        self.assertIn('_extra_database_file(right, app, c,', source)
+        self.assertIn('_extra_database_file(network, app, c,', source)
 
 
 if __name__ == "__main__":

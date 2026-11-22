@@ -1154,8 +1154,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     for tool, _caption in app.VISIBLE_TABS_REFERENCE:
                         check("tool_" + tool in controls,
                               f"Dashboard Settings lost the {tool} visibility control")
-                    check(controls["mode_normal"].winfo_rootx() <
-                          controls["tool_notes"].winfo_rootx(),
+                    check(controls["settings_group_appearance"].winfo_rootx() <
+                          controls["settings_group_tools"].winfo_rootx(),
                           "Dashboard Settings should use two side-by-side columns")
                     check(controls["theme_blue"].winfo_exists() and
                           controls["theme_purple"].winfo_exists(),

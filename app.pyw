@@ -89,6 +89,7 @@ from pocket import native_bidi
 from pocket import native_inputs
 from pocket import mini_layout as mini
 from pocket import mini_nav
+from pocket import menu_order
 from pocket import dashboard_ui as dashboard
 from pocket import dashboard_commands_ui as dashboard_commands
 from pocket import dashboard_notes_ui as dashboard_notes
@@ -234,6 +235,7 @@ def default_data() -> dict:
                      "reminders_menu_configured": True, "extra_menu_configured": True,
                      "display_mode": "mini", "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
+                     "menu_order": list(menu_order.DEFAULT_ORDER),
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
                      "clipboard_image_limit": clipboard_images.MAX_IMAGES,
                      "use_windows_proxy": True, "convert_mode": "mark",
@@ -288,7 +290,9 @@ def normalize_settings(raw):
     paste_prefix, copy_prefix = quick_slots.normalized_prefix_pair(
         raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
         raw.get("quick_slots_copy_prefix"))
-    return {"visible_tabs": visible, "reminders_menu_configured": True,
+    return {"visible_tabs": visible,
+            "menu_order": menu_order.normalize(raw.get("menu_order")),
+            "reminders_menu_configured": True,
             "extra_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
@@ -1504,7 +1508,8 @@ class PocketDesk:
             "settings": "More", "more": "More",
         }
         first, additional = mini_nav.plan_mini_icons(
-            [key for key, _ in VISIBLE_TABS if key in self.settings["visible_tabs"]])
+            menu_order.enabled_order(self.settings["menu_order"],
+                                    self.settings["visible_tabs"]))
         self._mini_overflow_keys = tuple(k for row in additional for k in row)
         self._mini_overflow_rows = []
         if not additional:
@@ -1663,9 +1668,13 @@ class PocketDesk:
     def _show_more_menu(self):
         menu = menu_style.Menu(self.root, tearoff=False, bg=PANEL, fg=WHITE,
                        activebackground=ACCENT_DARK, activeforeground=WHITE)
-        for key, label in VISIBLE_TABS:
-            if key in self.settings["visible_tabs"] and key not in self.tab_buttons:
-                menu.add_command(label=label, command=lambda k=key: self.show_tab(k))
+        captions = dict(VISIBLE_TABS)
+        for key in menu_order.enabled_order(self.settings["menu_order"],
+                                          self.settings["visible_tabs"],
+                                          include_settings=False):
+            if key not in self.tab_buttons:
+                menu.add_command(label=captions[key],
+                                 command=lambda k=key: self.show_tab(k))
         menu.tk_popup(self.root.winfo_rootx()+165, self.root.winfo_rooty()+132)
 
     def _set_visible_tab(self, key, enabled):
@@ -1685,6 +1694,17 @@ class PocketDesk:
             self._suspend_open_due_reminder()
         self._build_shell_refresh()
         self.schedule_save()
+
+    def _set_menu_order(self, requested_order):
+        """Commit navigation placement without touching hidden tools or notes."""
+        updated = menu_order.normalize(requested_order)
+        if updated == self.settings.get("menu_order"):
+            return
+        self.settings["menu_order"] = updated
+        self.schedule_save()
+        # The editor may be in the middle of a Tk pointer-release callback.
+        # Rebuild later so the old widget is not destroyed inside its handler.
+        self.root.after_idle(self._build_shell_refresh)
 
     def _compact_pages(self):
         """Use saved pages, preserving the original four legacy tool slots."""

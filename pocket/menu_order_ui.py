@@ -54,6 +54,10 @@ def build(parent, app, c, *, compact=False):
     selected = None
     drag = None
     cells = {}
+    # Helpful for non-destructive Windows GUI integration checks.
+    app.menu_order_editor_cells = cells
+    app.menu_order_editor_grid = grid
+    app.menu_order_editor_preview = preview
 
     def icon_tile(container, key, *, miniature=False, active=False, hidden=False):
         back = c["ACCENT_DARK"] if active else c["CARD"]

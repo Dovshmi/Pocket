@@ -125,8 +125,9 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
                   "Eight menus must use More as eighth icon")
             check(app._mini_overflow_keys[-1] == "plus",
                   "Plus must be the very last overflow icon")
-            check(app.settings["menu_order"][0] == "extra",
-                  "Restoring a menu modified the user-selected icon order")
+            check(app.settings["menu_order"][0] == "extra" and
+                  app.settings["menu_order"][-1] == "links",
+                  "Adding a hidden menu must append it last without changing others")
 
             # Settings may be reordered, never hidden.
             original = app.settings["visible_tabs"][:]
@@ -140,14 +141,26 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
 
         app.show_tab("settings")
         root.update()
-        check("settings_group_tools" not in app.settings_controls,
-              "Old duplicate Settings menu editor must be removed")
+        check("settings_group_tools" in app.settings_controls,
+              "Settings Show/Hide must be restored below Appearance")
+        check("tool_ports" in app.settings_controls,
+              "Direct menu toggle missing for Ports")
         check("create_pocket_backup" in app.settings_controls,
               "Settings backup control was lost")
         check(app.settings_footer_version.cget("text") == "Version v1.40",
               "Version must remain v1.40")
         check("menu_order" in app.settings,
               "Reordered icon positions must be stored in Settings backup")
+        # Settings buttons also append a hidden tool at the end when enabled.
+        app.settings_controls["settings_group_tools"].invoke()
+        root.update()
+        app.settings_controls["tool_ports"].invoke()
+        root.update()
+        check("ports" in app.settings["visible_tabs"] and
+              app.settings["menu_order"][-1] == "ports",
+              "Settings Show/Hide add must append Ports to the end")
+        check("settings" in app.mini_icon_tabs,
+              "Settings must never be removable")
 
         print("PASS: real Mini drag, context Hide, automatic Plus/More, "
               "hidden restore, Settings always visible and backup")

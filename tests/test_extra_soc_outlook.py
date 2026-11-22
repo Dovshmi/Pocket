@@ -54,6 +54,13 @@ class SocDraftTests(unittest.TestCase):
                        "באישור מומחה – שם המומחה", soc.PLACEHOLDER):
             self.assertIn(needle, draft.body)
         self.assertIn('dir="rtl"', draft.html_fragment)
+        # Both Classic Outlook HTML and New Outlook mailto plain text use
+        # the same field order: expert directly beneath contact person.
+        for representation in (draft.body, draft.html_fragment):
+            self.assertLess(representation.index("איש קשר"),
+                            representation.index("באישור מומחה – שם המומחה"))
+            self.assertLess(representation.index("באישור מומחה – שם המומחה"),
+                            representation.index("מספר טלפון"))
 
     def test_customer_and_vdom_header_variants(self):
         hit = row("FG25", (

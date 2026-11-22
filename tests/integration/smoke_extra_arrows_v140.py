@@ -100,10 +100,13 @@ try:
         root.update()
         check(result_list.yview() == start_view,
               "MouseWheel must not scroll the Mini Matches list")
-        result_list.event_generate("<Button-5>")
-        root.update()
-        check(result_list.yview() == start_view,
-              "Linux mouse wheel must not scroll the Mini Matches list")
+        if sys.platform != "win32":
+            # Button-4/5 is an X11 convention; synthetic Button-5 is not
+            # supported by native Windows Tk and can stall the event loop.
+            result_list.event_generate("<Button-5>")
+            root.update()
+            check(result_list.yview() == start_view,
+                  "Linux mouse wheel must not scroll the Mini Matches list")
         # Invoke the *real scrollbar's command* without simulating mouse
         # grab/autorepeat: Win32's native scrollbar can keep a synthetic press
         # active indefinitely inside Tk's modal event loop.

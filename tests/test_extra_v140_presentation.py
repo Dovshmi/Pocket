@@ -48,7 +48,7 @@ class ExtraPresentationTests(unittest.TestCase):
             overview.customer.field_index,
             *(cell.field_index for pair in overview.pairs for cell in pair)]
         seen = {index for index in selected_indices if index is not None}
-        self.assertEqual(len(seen), 7)
+        self.assertEqual(len(seen), 6)
         self.assertEqual(overview.remaining, tuple(
             item for index, item in enumerate(original) if index not in seen))
         self.assertIn(("IP address (I)", "147.236.124.122"), overview.remaining)

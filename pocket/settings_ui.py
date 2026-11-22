@@ -13,6 +13,8 @@ from . import icon_themes as themes
 from . import app_info
 from . import quick_slots
 from . import pocket_design as design
+from . import tool_icons
+from . import menu_order_ui
 from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
@@ -94,17 +96,18 @@ def _register(app, name, widget):
 # are always created, registered, and wired to the same PocketDesk callbacks.
 SETTINGS_GROUPS = (
     ("appearance", "Appearance", "Layout and theme"),
-    ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
     ("tools", "Visible tools", "Choose what appears in Pocket"),
+    ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
     ("clipboard", "Clipboard", "Capture, privacy and history"),
     ("quick_slots", "Quick Slots & Translate", "Copy, paste and keyboard language"),
     ("network", "Network & Extra", "Proxy and local Excel database"),
     ("maintenance", "Backup & Restore", "Backups and reset preferences"),
 )
+# Use raster icons from Pocket's icon module, avoiding missing Unicode glyphs.
 GROUP_ICONS = {
-    "appearance": "◈", "shortcuts": "⌘", "tools": "▦",
-    "clipboard": "▤", "quick_slots": "⇄", "network": "⌗",
-    "maintenance": "▣",
+    "appearance": "settings", "shortcuts": "links", "tools": "home",
+    "clipboard": "clipboard", "quick_slots": "commands",
+    "network": "ports", "maintenance": "notes",
 }
 
 
@@ -129,10 +132,13 @@ def _settings_group(parent, app, c, key, title, summary, *, compact=False):
                 body.pack_forget()
             button = entry["button"]
             button.configure(
-                text=("▾" if opened else "▸") + "  " +
-                     GROUP_ICONS[section_key] + "   " + entry["title"],
+                text=("-  " if opened else "+  ") + entry["title"],
                 bg=c["ACCENT_DARK"] if opened else c["PANEL"],
                 fg=c["WHITE"] if opened else c["SECONDARY"])
+            button.icon_image = tool_icons.icon_image(
+                button, GROUP_ICONS[section_key],
+                c["ACCENT"] if opened else c["SECONDARY"], 17)
+            button.configure(image=button.icon_image, compound="left")
             entry["surface"].configure(
                 highlightbackground=c["ACCENT"] if opened else c["BORDER"])
 
@@ -152,9 +158,12 @@ def _settings_group(parent, app, c, key, title, summary, *, compact=False):
     _register(app, "settings_group_" + key, button)
     opened = getattr(app, "_settings_open_group", "appearance") == key
     button.configure(
-        text=("▾" if opened else "▸") + "  " + GROUP_ICONS[key] + "   " + title,
+        text=("-  " if opened else "+  ") + title,
         bg=c["ACCENT_DARK"] if opened else c["PANEL"],
         fg=c["WHITE"] if opened else c["SECONDARY"])
+    button.icon_image = tool_icons.icon_image(
+        button, GROUP_ICONS[key], c["ACCENT"] if opened else c["SECONDARY"], 17)
+    button.configure(image=button.icon_image, compound="left")
     if opened:
         body.pack(fill="x", padx=6, pady=(0, 7))
         surface.configure(highlightbackground=c["ACCENT"])
@@ -329,7 +338,7 @@ def _tools(parent, app, c, *, compact=False, wide=False):
     for index, (key, caption) in enumerate(app.VISIBLE_TABS_REFERENCE):
         enabled = key in app.settings["visible_tabs"]
         state = tk.BooleanVar(master=grid, value=enabled)
-        label = TOOL_ICONS[key] + "  " + caption.title()
+        label = caption.title()
         control = tk.Checkbutton(
             grid, text=label, variable=state, indicatoron=False,
             bg=c["ACCENT_DARK"] if enabled else c["CARD"],
@@ -345,6 +354,9 @@ def _tools(parent, app, c, *, compact=False, wide=False):
         control.grid(row=index // 2, column=index % 2, sticky="ew",
                      padx=(0, 5) if index % 2 == 0 else (5, 0),
                      pady=(0, 5))
+        control.icon_image = tool_icons.icon_image(
+            control, key, c["ACCENT"] if enabled else c["SECONDARY"], 18)
+        control.configure(image=control.icon_image, compound="left")
 
         def apply(tool=key, checkbox=control, variable=state):
             app._set_visible_tab(tool, bool(variable.get()))
@@ -354,7 +366,11 @@ def _tools(parent, app, c, *, compact=False, wide=False):
             variable.set(active)
             try:
                 if checkbox.winfo_exists():
+                    checkbox.icon_image = tool_icons.icon_image(
+                        checkbox, tool,
+                        c["ACCENT"] if active else c["SECONDARY"], 18)
                     checkbox.configure(
+                        image=checkbox.icon_image, compound="left",
                         bg=c["ACCENT_DARK"] if active else c["CARD"],
                         fg=c["WHITE"] if active else c["SECONDARY"],
                         highlightbackground=(c["ACCENT"] if active
@@ -365,6 +381,8 @@ def _tools(parent, app, c, *, compact=False, wide=False):
         control.configure(command=apply)
         design.Tooltip(control, TOOL_HELP[key], app.theme)
         _register(app, "tool_" + key, control)
+    # Every menu has a real icon; positions are backed up with Settings.
+    menu_order_ui.build(card, app, c, compact=compact)
 
 
 def _dropdown_field(parent, app, c, key, heading, detail,
@@ -711,16 +729,16 @@ def build_settings(app, parent, *, wide=False):
         compact=compact)
     _appearance(appearance, app, c, wide=wide, compact=compact)
 
+    tools = _settings_group(
+        left, app, c, "tools", "Visible tools", "Show / hide menus",
+        compact=compact)
+    _tools(tools, app, c, wide=wide, compact=compact)
+
     shortcuts = _settings_group(
         left, app, c, "shortcuts", "Shortcuts & launcher", "Hotkeys · Quick access",
         compact=compact)
     _shortcuts(shortcuts, app, c, wide=wide, compact=compact)
     _launcher(shortcuts, app, c, wide=wide, compact=compact)
-
-    tools = _settings_group(
-        right, app, c, "tools", "Visible tools", "Show / hide menus",
-        compact=compact)
-    _tools(tools, app, c, wide=wide, compact=compact)
 
     clipboard = _settings_group(
         right, app, c, "clipboard", "Clipboard", "Privacy · History",

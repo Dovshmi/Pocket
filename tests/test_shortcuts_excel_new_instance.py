@@ -46,6 +46,12 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
             shortcuts.launch_shortcut("file", str(path))
         shell.assert_not_called()
 
+    def _workbooks(self, excel, records):
+        books = MagicMock()
+        books.__iter__.return_value = iter(records)
+        excel.Workbooks = books
+        return books
+
     def _book(self, path, app):
         item = MagicMock()
         item.FullName = str(path)
@@ -55,7 +61,7 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
     def test_exact_open_workbook_activates_instead_of_opening_copy(self):
         excel = MagicMock()
         book = self._book(self.book, excel)
-        excel.Workbooks = [book]
+        self._workbooks(excel, [book])
         client, modules = self._client(excel)
         self._run_file(self.book, modules)
         book.Activate.assert_called_once()
@@ -73,7 +79,7 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
         excel = MagicMock()
         book = self._book(self.book, excel)
         newbook = self._book(self.another, excel)
-        excel.Workbooks = [book]
+        self._workbooks(excel, [book])
         excel.Workbooks.Open.return_value = newbook
         client, modules = self._client(excel)
         self._run_file(self.another, modules)
@@ -97,7 +103,7 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
         # Current Excel instance holds a DIFFERENT workbook; the requested
         # workbook appears in a second Excel process via COM running table.
         current = MagicMock()
-        current.Workbooks = [self._book(self.another, current)]
+        self._workbooks(current, [self._book(self.another, current)])
         client, modules = self._client(current)
         running = MagicMock()
         moniker = MagicMock()
@@ -120,7 +126,7 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
 
     def test_rot_rejects_nonidentical_file_path(self):
         current = MagicMock()
-        current.Workbooks = []
+        self._workbooks(current, [])
         newbook = self._book(self.book, current)
         current.Workbooks.Open.return_value = newbook
         client, modules = self._client(current)
@@ -167,7 +173,7 @@ class ExcelShortcutLaunchTests(unittest.TestCase):
 
     def test_failed_open_does_not_quit_preexisting_excel(self):
         excel = MagicMock()
-        excel.Workbooks = []
+        self._workbooks(excel, [])
         excel.Workbooks.Open.side_effect = RuntimeError("Permission denied")
         client, modules = self._client(excel)
         with patch.object(shortcuts.sys, "platform", "win32"), \

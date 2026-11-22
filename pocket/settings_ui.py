@@ -413,9 +413,9 @@ def _clipboard_history_controls(parent, app, c, *, compact=False):
            wraplength=185 if compact else 330).pack(fill="x", pady=(1, 0))
 
 
-def _privacy(parent, app, c, *, compact=False, wide=False):
+def _clipboard(parent, app, c, *, compact=False, wide=False):
     card = _section(parent, c, "Clipboard & privacy",
-                    "Control local clipboard capture and sensitive data.",
+                    "Capture, privacy filter, history limits and retention.",
                     compact=compact, wide=wide)
     _toggle(card, app, c, "clipboard_paused", "Pause clipboard capture",
             "Keep history available, but stop capturing new text.",
@@ -429,6 +429,20 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
     _divider(card, c)
     _clipboard_history_controls(card, app, c, compact=compact)
     _divider(card, c)
+    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
+           "TXT files and screenshots in one dated PNG folder. Auto-delete "
+           "is OFF by default; enable 7–30-day cleanup if you choose. "
+           "The sensitive-text filter is heuristic and does not guarantee privacy.",
+           c, size=8, muted=True, justify="left", anchor="w",
+           wraplength=210 if compact else 350
+           ).pack(fill="x", padx=13, pady=(10, 13))
+
+
+
+def _quick_slot_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Quick Slots",
+                    "Configure the nine direct copy/paste shortcuts.",
+                    compact=compact, wide=wide)
     _toggle(card, app, c, "quick_slots_enabled", "Enable Quick Slots",
             "Paste or save text directly with separate Numpad1–9 shortcuts.",
             app.settings["quick_slots_enabled"], app._set_quick_slots_enabled,
@@ -465,7 +479,12 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
         quick_slots.PREFIX_CHOICES, app.settings["quick_slots_copy_prefix"],
         app._set_quick_slots_copy_prefix,
         compact=compact, wheel_scroll_page=True)
-    _divider(card, c)
+
+
+def _translate_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Keyboard translation",
+                    "Convert accidental English/Hebrew keyboard input.",
+                    compact=compact, wide=wide)
     _toggle(card, app, c, "convert_enabled", "Enable Translate shortcut",
             "Register the global EN / HE layout correction shortcut.",
             app.settings["convert_enabled"],
@@ -474,14 +493,13 @@ def _privacy(parent, app, c, *, compact=False, wide=False):
             "Translate keyboard shortcut", app._convert_hotkey_hint(),
             "Edit", app._open_convert_hotkey_picker, compact=compact)
     _convert_mode_picker(card, app, c, compact=compact)
-    _divider(card, c)
-    _label(card, "RAM never saves history to disk. DATABASE writes text in daily "
-           "TXT files and screenshots in one dated PNG folder. Auto-delete "
-           "is OFF by default; enable 7–30-day cleanup if you choose. "
-           "The sensitive-text filter is heuristic and does not guarantee privacy.",
-           c, size=8, muted=True, justify="left", anchor="w",
-           wraplength=210 if compact else 350
-           ).pack(fill="x", padx=13, pady=(10, 13))
+
+
+def _privacy(parent, app, c, *, compact=False, wide=False):
+    """Compatibility entrypoint; all original privacy controls are preserved."""
+    _clipboard(parent, app, c, compact=compact, wide=wide)
+    _quick_slot_preferences(parent, app, c, compact=compact, wide=wide)
+    _translate_preferences(parent, app, c, compact=compact, wide=wide)
 
 
 def _extra_database_file(parent, app, c, *, compact=False, wide=False):

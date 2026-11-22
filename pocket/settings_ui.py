@@ -252,7 +252,9 @@ def _mode_picker(parent, app, c, *, wide=False, compact=False):
         group.grid_columnconfigure(i, weight=1, uniform="layout")
         holder.grid(row=0, column=i, sticky="nsew",
                     padx=(0, 5) if i < 2 else 0)
-        caption = icon + "\n" + title + (" ✓" if selected else "")
+        # Keep mode picker ASCII-only; glyph boxes/question marks appeared on
+        # some Windows font installations. The highlighted tile shows active.
+        caption = title + ("  (active)" if selected else "")
         button = tk.Button(
             holder, text=caption, command=lambda name=mode: app._set_display_mode(name),
             bg=surface, fg=c["WHITE"] if selected else c["SECONDARY"],

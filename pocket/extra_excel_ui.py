@@ -252,6 +252,44 @@ def build(app, parent):
                   (125 if compact else (165 if wide else 175))).pack(fill="x")
         return line
 
+    def step_hit(direction, *, from_details=False):
+        """Keyboard navigation acts on the exact selected Excel/SQLite hit."""
+        if not hits:
+            return "break"
+        current = result_list.curselection()
+        index = current[0] if current else (0 if direction > 0 else len(hits) - 1)
+        target = max(0, min(len(hits) - 1, index + direction))
+        result_list.selection_clear(0, "end")
+        result_list.selection_set(target)
+        result_list.activate(target)
+        result_list.see(target)
+        show_details(target)
+        if from_details:
+            overview_content.focus_set()
+        else:
+            result_list.focus_set()
+        return "break"
+
+    def bind_detail_navigation():
+        # Nothing is drawn for the arrows; the details pane itself is a
+        # keyboard-focusable region and can change the selected result.
+        for root_widget in (details_panel, detail_heading, detail_wrap,
+                            overview_content, expanded_wrap, details,
+                            soc_button, expand_button):
+            root_widget.configure(takefocus=True)
+        overview_content.configure(takefocus=True)
+        def recurse(widget):
+            widget.bind("<Right>",
+                        lambda _e: step_hit(+1, from_details=True))
+            widget.bind("<Left>",
+                        lambda _e: step_hit(-1, from_details=True))
+            if isinstance(widget, (tk.Frame, tk.Label)):
+                widget.bind("<Button-1>",
+                            lambda _e: overview_content.focus_set(), add="+")
+            for child in widget.winfo_children():
+                recurse(child)
+        recurse(details_panel)
+
     def show_details(index):
         if not overview_content.winfo_exists():
             return
@@ -282,22 +320,22 @@ def build(app, parent):
                                  pady=(0, 5))
                 show_compact_cell(
                     cell_parent, cell, ip=cell.label == "FortiGate IP")
-        if not quick.remaining:
-            return
-        expanded = bool(getattr(app, "_extra_excel_columns_expanded", False))
-        expand_button.configure(
-            text=(f"Hide other columns ({len(quick.remaining)})" if expanded
-                  else f"Show other columns ({len(quick.remaining)})"))
-        expand_button.pack(fill="x", padx=9, pady=(0, 5))
-        if expanded:
-            expanded_wrap.pack(fill="x", padx=9, pady=(0, 8))
-            details.configure(state="normal")
-            details.delete("1.0", "end")
-            for header, value in quick.remaining:
-                details.insert("end", header + "\n", "headline")
-                details.insert("end", value + "\n\n")
-            details.configure(state="disabled")
-            details.yview_moveto(0)
+        if quick.remaining:
+            expanded = bool(getattr(app, "_extra_excel_columns_expanded", False))
+            expand_button.configure(
+                text=(f"Hide other columns ({len(quick.remaining)})" if expanded
+                      else f"Show other columns ({len(quick.remaining)})"))
+            expand_button.pack(fill="x", padx=9, pady=(0, 5))
+            if expanded:
+                expanded_wrap.pack(fill="x", padx=9, pady=(0, 8))
+                details.configure(state="normal")
+                details.delete("1.0", "end")
+                for header, value in quick.remaining:
+                    details.insert("end", header + "\n", "headline")
+                    details.insert("end", value + "\n\n")
+                details.configure(state="disabled")
+                details.yview_moveto(0)
+        bind_detail_navigation()
 
     def toggle_columns():
         app._extra_excel_columns_expanded = not bool(
@@ -339,6 +377,10 @@ def build(app, parent):
                    "SOC draft opened in the default Windows email app.")
 
     result_list.bind("<<ListboxSelect>>", selected)
+    # Explicit handlers keep Listbox selection/detail display synchronized
+    # across different Windows/Tk keyboard event implementations.
+    result_list.bind("<Up>", lambda _e: step_hit(-1))
+    result_list.bind("<Down>", lambda _e: step_hit(+1))
     show_details(None)
 
     def clear_results():

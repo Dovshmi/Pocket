@@ -8,10 +8,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleaseVersionTests(unittest.TestCase):
-    def test_development_settings_version_is_v1399(self):
-        # Source and published release report v1.39.9.
-        self.assertEqual(app_info.VERSION, "1.39.9")
-        self.assertEqual(app_info.version_label(), "v1.39.9")
+    def test_development_settings_version_is_v140(self):
+        # Experimental Extra branch reports v1.40; stable v1.39.9 is still published.
+        self.assertEqual(app_info.VERSION, "1.40")
+        self.assertEqual(app_info.version_label(), "v1.40")
         self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
         settings = (ROOT / "pocket" / "settings_ui.py").read_text(encoding="utf-8")
         self.assertIn('"Version " + app_info.version_label()', settings)
@@ -39,10 +39,10 @@ class ReleaseVersionTests(unittest.TestCase):
         packager = (ROOT / "package_portable.py").read_text(encoding="utf-8")
         smoke = (ROOT / ".github" / "workflows" /
                  "mini-checks.yml").read_text(encoding="utf-8")
-        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.39.9")',
+        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.40")',
                       packager)
-        self.assertIn("Pocket-Portable-v1.39.9.zip", smoke)
-        self.assertIn("--version v1.39.9", smoke)
+        self.assertIn("Pocket-Portable-v1.40.zip", smoke)
+        self.assertIn("--version v1.40", smoke)
 
     def test_v1399_release_workflow_requires_explicit_authorization(self):
         workflow = (ROOT / ".github" / "workflows" /

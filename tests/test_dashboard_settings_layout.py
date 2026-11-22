@@ -43,12 +43,16 @@ class DashboardSettingsLayoutTests(unittest.TestCase):
 
     def test_every_existing_preference_keeps_its_app_callback(self):
         for method in (
-                "_set_display_mode", "_choose_theme", "_set_visible_tab",
+                "_set_display_mode", "_choose_theme",
                 "_set_extra_mini_enabled", "_edit_extra_mini_from_settings",
                 "_open_hotkey_picker", "_open_convert_hotkey_picker",
                 "_open_global_search", "_set_clipboard_paused",
                 "_set_clipboard_sensitive_filter", "_hotkey_hint"):
             self.assertIn("app." + method, SHARED)
+        # The visibility toggle is now exposed through Mini's right-click
+        # context menu / Plus, not duplicated inside Settings.
+        self.assertIn("def _set_visible_tab(self, key, enabled)", APP)
+        self.assertNotIn('menu_order_ui.build(', SHARED)
         self.assertEqual(len(themes.THEME_ORDER), 6)
         self.assertEqual(len(settings_ui.TOOL_HELP), len(settings_ui.TOOL_ICONS))
         for code in (ADAPTER, SHARED):

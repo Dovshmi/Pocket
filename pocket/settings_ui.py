@@ -387,7 +387,7 @@ def _dropdown_field(parent, app, c, key, heading, detail,
     select.current(chosen)
     select.pack(fill="x", padx=(0, 2), pady=(0, 3))
     if detail and compact:
-        design.Tooltip(select, detail, app.theme)
+        design.Tooltip(select, detail, getattr(app, "theme", "blue"))
 
     def apply(_event=None):
         index = select.current()

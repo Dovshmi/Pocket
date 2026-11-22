@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-v140-compact
+  group: pocket-extra-excel-preview-20261122-v140-settings-excel
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '45059054170'
-      SOURCE_COMMIT: '8e8fcc35a540c07258846415b81c08e3c7b98d17'
+      SOURCE_RUN_ID: '45060532928'
+      SOURCE_COMMIT: 'bf93f1c19902df85405b00b64e2f3d1ee166fbd4'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-Extra-v1.40-Compact-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-v1.40-Settings-Excel-Shortcuts-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-Extra-v1.40-Compact-Portable.zip")
+          p = Path("dist/Pocket-v1.40-Settings-Excel-Shortcuts-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-Extra-v1.40-Compact-Portable.zip > SHA256SUMS-Extra-v1.40.txt)
+          (cd dist && sha256sum Pocket-v1.40-Settings-Excel-Shortcuts-Portable.zip > SHA256SUMS-v1.40-Settings-Excel.txt)
 
       - name: Write experimental release notes
         run: |
@@ -94,6 +94,16 @@ jobs:
             sync/import and Outlook SOC draft all remain available.
           - Outlook creates an UNSENT draft only, and keeps expert approval
             name immediately under the contact person.
+          - **Excel shortcut reliability:** When an Excel workbook shortcut
+            is clicked, a fresh Excel instance opens the requested file instead
+            of reusing a previously open workbook via Windows DDE. Direct
+            EXCEL.EXE shortcut starts with /x. Existing Office prompts and
+            security policies remain in effect; other file shortcuts unchanged.
+          - **Modern compact Settings:** Seven focusable accordion categories
+            for Appearance, Shortcuts, Visible Tools, Clipboard, Quick Slots &
+            Translate, Network & Extra, and Backup & Restore. Every existing
+            preference/action is retained and opening a category does not
+            modify saved settings. All three window modes tested.
           - Settings displays **v1.40** (semantic package version 1.40.0).
           - No customer workbook/database/credentials are bundled.
           - This is a separate EXPERIMENTAL preview. Stable main stays v1.39.9.
@@ -112,7 +122,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-Extra-v1.40-Compact-Portable.zip dist/SHA256SUMS-Extra-v1.40.txt \
+          gh release upload "$TAG" dist/Pocket-v1.40-Settings-Excel-Shortcuts-Portable.zip dist/SHA256SUMS-v1.40-Settings-Excel.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

@@ -31,7 +31,8 @@ class MiniNavigationOverflowTests(unittest.TestCase):
     def test_hidden_items_and_duplicates_never_create_fake_icons(self):
         first, extra = mini_nav.plan_mini_icons(
             ["notes", "notes", "settings", "clipboard", "clipboard"])
-        self.assertEqual(first, ("notes", "clipboard", "settings"))
+        # Settings is now reorderable; an explicit position must be honored.
+        self.assertEqual(first, ("notes", "settings", "clipboard"))
         self.assertEqual(extra, ())
         with self.assertRaises(ValueError):
             mini_nav.plan_mini_icons(self.previous, columns=1)

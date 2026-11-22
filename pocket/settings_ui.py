@@ -732,7 +732,7 @@ def build_settings(app, parent, *, wide=False):
         compact=compact)
     _appearance(appearance, app, c, wide=wide, compact=compact)
 
-     shortcuts = _settings_group(
+    shortcuts = _settings_group(
         left, app, c, "shortcuts", "Shortcuts & launcher", "Hotkeys · Quick access",
         compact=compact)
     _shortcuts(shortcuts, app, c, wide=wide, compact=compact)

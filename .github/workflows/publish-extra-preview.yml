@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pocket-extra-excel-preview-20261122-v140-menuorder-keyboard
+  group: pocket-extra-excel-preview-20261122-v140-direct-mini
   cancel-in-progress: false
 
 jobs:
@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TAG: extra-excel-preview-20261120
-      SOURCE_RUN_ID: '45067460053'
-      SOURCE_COMMIT: '7cd148fc0ca8bd6e8d05f9b5300ffc62a5bf8162'
+      SOURCE_RUN_ID: '45075933576'
+      SOURCE_COMMIT: 'ca345819b032bf602e325317b6e13869d8483739'
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Download Windows ZIP from successfully tested Pocket build
@@ -32,14 +32,14 @@ jobs:
           mkdir -p incoming dist
           gh run download "$SOURCE_RUN_ID" --repo "$GITHUB_REPOSITORY" \
             --name Pocket-Development-Preview-Windows --dir incoming
-          cp incoming/Pocket-Development-Preview.zip dist/Pocket-v1.40-Menu-Order-Extra-Keyboard-Portable.zip
+          cp incoming/Pocket-Development-Preview.zip dist/Pocket-v1.40-Direct-Menus-Excel-Reuse-Portable.zip
 
       - name: Validate actual Windows EXE and ZIP integrity
         run: |
           python - <<'PY'
           import zipfile
           from pathlib import Path
-          p = Path("dist/Pocket-v1.40-Menu-Order-Extra-Keyboard-Portable.zip")
+          p = Path("dist/Pocket-v1.40-Direct-Menus-Excel-Reuse-Portable.zip")
           assert p.is_file() and p.stat().st_size > 1_000_000
           with zipfile.ZipFile(p) as z:
               assert z.testzip() is None, "ZIP archive failed integrity check"
@@ -51,7 +51,7 @@ jobs:
                   assert not any(part in ("data.json", "data-recovery.json", "commands.json", "vendors.json") for part in parts), "Private data found in archive"
           print("Verified tested portable ZIP and bundled PocketDesk.exe")
           PY
-          (cd dist && sha256sum Pocket-v1.40-Menu-Order-Extra-Keyboard-Portable.zip > SHA256SUMS-v1.40-Menu-Order.txt)
+          (cd dist && sha256sum Pocket-v1.40-Direct-Menus-Excel-Reuse-Portable.zip > SHA256SUMS-v1.40-Direct-Menus.txt)
 
       - name: Write experimental release notes
         run: |
@@ -94,28 +94,32 @@ jobs:
             sync/import and Outlook SOC draft all remain available.
           - Outlook creates an UNSENT draft only, and keeps expert approval
             name immediately under the contact person.
-          - **Excel shortcut reliability:** When an Excel workbook shortcut
-            is clicked, a fresh Excel instance opens the requested file instead
-            of reusing a previously open workbook via Windows DDE. Direct
-            EXCEL.EXE shortcut starts with /x. Existing Office prompts and
-            security policies remain in effect; other file shortcuts unchanged.
-          - **Modern compact Settings:** Seven focusable accordion categories
-            for Appearance, Shortcuts, Visible Tools, Clipboard, Quick Slots &
-            Translate, Network & Extra, and Backup & Restore. Every existing
-            preference/action is retained and opening a category does not
-            modify saved settings. All three window modes tested.
+          - **Excel shortcuts:** If the requested workbook is already open,
+            Pocket activates that exact file based on its canonical path
+            without opening a duplicate. A different workbook is opened via
+            an existing Excel application when possible. A new instance is
+            used only when necessary; other shortcuts remain unchanged.
+          - **Direct Mini icon management:** Drag the actual icons in Pocket's
+            top toolbar to reorder and save automatically. Right-click a
+            tool to hide it (without deleting its data). Settings cannot
+            be hidden, but its position can be changed.
+          - **Smart trailing Add (+):** When 7 or fewer menus are active, the
+            green Plus follows the active icons; 8+ menus use More/Less in
+            position 8 and the Plus appears last in the expanded row.
+            The Plus disappears when every menu is already available.
+          - **Cleaner Settings:** Redundant Menu Order / Live Preview /
+            Show-Hide controls have been removed. All other Settings, backups
+            and preferences remain available, and menu order/visibility
+            remain included in Settings backup/restore.
+          - **Extra polish:** Excel filename alignment and the spacing between
+            the source and Sync metadata are slightly tightened; Browse,
+            Sync, Load DB and Delete stay in their previous positions.
           - **Extra keyboard:** Up/Down in Matches selects the adjacent row.
-            Left/Right in Selected Row changes selection without extra buttons.
-          - **Less vertical space:** Database Sync/Load DB/Delete and last sync
-            share the Excel Source card. The Matches count is on the right
-            of its heading, not a permanently empty status row.
-          - **True Pocket icon reorder:** Visible Tools is directly under
-            Appearance. Real locally drawn Pocket icons can be dragged to
-            new positions or clicked twice (source/target), with a live Mini
-            preview. More/Less remains fixed at the overflow slot.
-          - Menu positions persist after restart and Settings backup/restore,
-            including the positions of hidden tools; Reset menus restores
-            defaults. Fonts no longer render Settings icons as '?' boxes.
+            Left/Right in Selected Row changes selection without new buttons.
+          - **Compact Extra:** Database actions share the Excel Source card,
+            and result counts sit on the right of the MATCHES heading.
+          - **SOC Outlook:** Existing unsent draft generation remains intact,
+            with the expert-approval name directly under the contact person.
           - All 4 Python-version/platform unit-test combinations, actual
             Windows/Linux Tk mouse drag and arrow navigation, and Windows
             production portable EXE smoke have passed.
@@ -137,7 +141,7 @@ jobs:
       - name: Publish GitHub pre-release with direct ZIP download
         run: |
           # Add a new, distinctly named asset. Keep the original preview intact.
-          gh release upload "$TAG" dist/Pocket-v1.40-Menu-Order-Extra-Keyboard-Portable.zip dist/SHA256SUMS-v1.40-Menu-Order.txt \
+          gh release upload "$TAG" dist/Pocket-v1.40-Direct-Menus-Excel-Reuse-Portable.zip dist/SHA256SUMS-v1.40-Direct-Menus.txt \
             --repo "$GITHUB_REPOSITORY"
 
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets,isPrerelease

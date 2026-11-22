@@ -96,7 +96,6 @@ def _register(app, name, widget):
 # are always created, registered, and wired to the same PocketDesk callbacks.
 SETTINGS_GROUPS = (
     ("appearance", "Appearance", "Layout and theme"),
-    ("tools", "Visible tools", "Choose what appears in Pocket"),
     ("shortcuts", "Shortcuts", "Hotkeys and quick launcher"),
     ("clipboard", "Clipboard", "Capture, privacy and history"),
     ("quick_slots", "Quick Slots & Translate", "Copy, paste and keyboard language"),
@@ -105,7 +104,7 @@ SETTINGS_GROUPS = (
 )
 # Use raster icons from Pocket's icon module, avoiding missing Unicode glyphs.
 GROUP_ICONS = {
-    "appearance": "settings", "shortcuts": "links", "tools": "home",
+    "appearance": "settings", "shortcuts": "links",
     "clipboard": "clipboard", "quick_slots": "commands",
     "network": "ports", "maintenance": "notes",
 }
@@ -733,12 +732,7 @@ def build_settings(app, parent, *, wide=False):
         compact=compact)
     _appearance(appearance, app, c, wide=wide, compact=compact)
 
-    tools = _settings_group(
-        left, app, c, "tools", "Visible tools", "Show / hide menus",
-        compact=compact)
-    _tools(tools, app, c, wide=wide, compact=compact)
-
-    shortcuts = _settings_group(
+     shortcuts = _settings_group(
         left, app, c, "shortcuts", "Shortcuts & launcher", "Hotkeys · Quick access",
         compact=compact)
     _shortcuts(shortcuts, app, c, wide=wide, compact=compact)

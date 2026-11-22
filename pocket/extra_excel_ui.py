@@ -105,17 +105,17 @@ def build(app, parent):
     path_var.trace_add("write", update_source_label)
     update_source_label()
 
-    database_panel = design.panel(parent, app.theme)
-    db_top = tk.Frame(database_panel, bg=colors["PANEL"])
+    # Database controls are a compact second section of the SAME Excel Source
+    # panel. Keep manual sync/import/delete behavior and confirmations intact.
+    db_section = tk.Frame(source, bg=colors["PANEL"])
     if not compact:
-        db_top.pack(fill="x", padx=10, pady=(9, 4))
-        label(db_top, "DATABASE", bold=True, size=8,
-              bg=colors["PANEL"]).pack(anchor="w")
-    db_info_label = label(database_panel, "", size=8, muted=True,
-                          bg=colors["PANEL"], wraplength=650 if wide else 285)
-    db_info_label.pack(fill="x", padx=10, pady=(7 if compact else 0, 5))
-    db_actions = tk.Frame(database_panel, bg=colors["PANEL"])
-    db_actions.pack(fill="x", padx=9, pady=(0, 7 if compact else 9))
+        label(db_section, "DATABASE · OFFLINE COPY", bold=True, size=8,
+              bg=colors["PANEL"]).pack(anchor="w", pady=(0, 3))
+    db_info_label = label(db_section, "", size=8, muted=True,
+                          bg=colors["PANEL"], wraplength=650 if wide else 290)
+    db_info_label.pack(fill="x", pady=(0, 4))
+    db_actions = tk.Frame(db_section, bg=colors["PANEL"])
+    db_actions.pack(fill="x", pady=(0, 1))
 
     search_panel = design.panel(parent, app.theme)
     search_panel.pack(fill="x", pady=(0, 6 if compact else 10))
@@ -131,10 +131,6 @@ def build(app, parent):
               bg=colors["PANEL"], muted=True, size=8,
               wraplength=650 if wide else 310).pack(fill="x", padx=11, pady=(0, 8))
 
-    state_label = label(parent, "", size=9, muted=True,
-                        wraplength=700 if wide else 280)
-    state_label.pack(fill="x", pady=(0, 5 if compact else 8))
-
     results_area = tk.Frame(parent, bg=colors["BG"])
     results_area.pack(fill="x" if compact else "both", expand=not compact)
     matches_panel = design.panel(results_area, app.theme)
@@ -149,8 +145,15 @@ def build(app, parent):
         matches_panel.pack(fill="both", expand=True, pady=(0, 9))
         details_panel.pack(fill="both", expand=True)
 
-    label(matches_panel, "MATCHES", size=9, bold=True, bg=colors["PANEL"]
-          ).pack(fill="x", padx=10, pady=(9, 6))
+    matches_heading = tk.Frame(matches_panel, bg=colors["PANEL"])
+    matches_heading.pack(fill="x", padx=10, pady=(8 if compact else 9, 5))
+    # No permanent status row between SMART SEARCH and MATCHES.
+    state_label = label(matches_heading, "", size=8, muted=True,
+                        bg=colors["PANEL"], wraplength=145 if compact else 310)
+    state_label.pack(side="right", padx=(6, 0))
+    state_tooltip = design.Tooltip(state_label, "", app.theme)
+    label(matches_heading, "MATCHES", size=9, bold=True, bg=colors["PANEL"]
+          ).pack(side="left")
     results_wrap = tk.Frame(matches_panel, bg=colors["PANEL"])
     results_wrap.pack(fill="both", expand=True, padx=9, pady=(0, 9))
     result_list = tk.Listbox(
@@ -207,8 +210,19 @@ def build(app, parent):
     busy = False
 
     def set_status(text):
+        # Keep Matches compact: counts and progress live in the heading.
+        # Preserve full diagnostic messages on hover instead of allocating
+        # a blank row before every search.
         if state_label.winfo_exists():
-            state_label.configure(text=text)
+            full = str(text or "")
+            if " matching rows" in full and full.split(" ", 1)[0].isdigit():
+                preview = full.split(" ", 1)[0] + " rows"
+            elif len(full) > (27 if compact else 65):
+                preview = full[:(25 if compact else 63)] + "…"
+            else:
+                preview = full
+            state_label.configure(text=preview)
+            state_tooltip.message = full
 
     def copy_fortigate(value):
         app.root.clipboard_clear()
@@ -358,12 +372,11 @@ def build(app, parent):
     def apply_mode():
         app._extra_excel_mode = mode_var.get()
         if mode_var.get() == "database":
-            database_panel.pack(before=search_panel, fill="x",
-                                pady=(0, 6 if compact else 9))
+            db_section.pack(fill="x", padx=9, pady=(0, 6 if compact else 9))
             set_status("")
             update_db_info()
         else:
-            database_panel.pack_forget()
+            db_section.pack_forget()
             set_status("")
         # Render a single switch, not two mode buttons.
         database_active = mode_var.get() == "database"

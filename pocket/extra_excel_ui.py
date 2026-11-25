@@ -618,6 +618,17 @@ def build(app, parent):
     search_button.pack(side="right")
     entry.bind("<Return>", start_search)
 
+    def palette_search(term):
+        search_var.set(term)
+        # Database is local; a live workbook may be on a network share.
+        # For Local mode leave the query ready for an explicit Search click.
+        if mode_var.get() == "database":
+            start_search()
+        else:
+            entry.focus_set()
+
+    app._extra_palette_search = palette_search
+
     def start_sync():
         if busy:
             return

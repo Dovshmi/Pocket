@@ -57,6 +57,12 @@ jobs:
         env:
           POCKET_AUDIT_SCREENSHOTS: ${{ runner.temp }}/pocket-ui-audit
         run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_dashboard_integration.py
+      - name: Exercise adaptive resize and Extra Mini restore (Windows v1.41)
+        if: runner.os == 'Windows'
+        run: python tests/integration/smoke_adaptive_v141.py
+      - name: Exercise adaptive resize and Extra Mini restore (Linux v1.41)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a -s "-screen 0 1920x1200x24" python tests/integration/smoke_adaptive_v141.py
       - name: Reorder real Pocket icons in Windows Settings (v1.40)
         if: runner.os == 'Windows'
         run: python tests/integration/smoke_menu_order_v140.py

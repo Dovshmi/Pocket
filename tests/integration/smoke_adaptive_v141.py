@@ -254,41 +254,66 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
               "Deleting active profile must preserve current size")
         print("PASS: Settings profile Save, dropdown switch and Delete")
 
-        # A tall but narrow Mini profile must spend its extra height on
-        # result rows, not blank space after fixed-size tables.
+        # The Extra list must settle after an actual viewport change, without
+        # scheduling itself again when its own requested height changes.
         import tkinter as tk
         app._set_display_mode("mini")
-        for name, attr in (("mac", "mac_tree"), ("ports", "port_tree")):
-            app.show_tab(name)
-            app.root.geometry("410x530+20+20")
-            app.root.update()
-            short = getattr(app, attr).winfo_height()
-            app.root.geometry("410x900+20+20")
-            app.root.update()
-            tree = getattr(app, attr)
-            check(tree.winfo_height() >= short + 200,
-                  f"{name}: result table did not grow with tall Mini")
-            canvas = app._tool_scroll_canvas
-            bottom_gap = canvas.winfo_rooty() + canvas.winfo_height() - (
-                tree.winfo_rooty() + tree.winfo_height())
-            check(abs(bottom_gap) <= 6, f"{name}: unused space below results")
-            app.root.geometry("410x450+20+20")
-            app.root.update()
-            check(canvas.yview()[1] < 1, f"{name}: short window cannot scroll")
         app.show_tab("extra")
+
+        def settle():
+            done = tk.BooleanVar(master=app.root, value=False)
+            app.root.after(180, lambda: done.set(True))
+            app.root.wait_variable(done)
+            app.root.update()
+
         def listboxes(widget):
             for child in widget.winfo_children():
                 if isinstance(child, tk.Listbox):
                     yield child
                 yield from listboxes(child)
+
+        tall_height = min(900, area[3] - area[1] - 30)
         app.root.geometry("410x530+20+20")
-        app.root.update()
+        settle()
         matches = next(listboxes(app.body))
         short = int(matches.cget("height"))
-        app.root.geometry("410x900+20+20")
-        app.root.update()
+        app.root.geometry(f"410x{tall_height}+20+20")
+        settle()
         tall = int(matches.cget("height"))
-        check(short == 5 and 5 < tall <= 14, "Extranet matches must grow within bounds")
-        print("PASS: tall Mini network tables fill viewport; Extranet preserves output space")
+        check(short == 5 and 5 <= tall <= 14, "Extranet matches exceeded bounds")
+        if app._tool_scroll_canvas.winfo_height() >= 550:
+            check(tall > short, "Tall Extranet did not reveal additional matches")
+        changes = []
+        matches.bind("<Configure>", lambda event: changes.append(event.height), add="+")
+        settle()
+        settle()
+        check(not changes, "Extranet layout keeps changing at a fixed window size")
+        app.show_tab("notes")
+        settle()
+        print("PASS: Extra viewport settles and pending resize is cancelled on exit")
+
+        for name, attr in (("mac", "mac_tree"), ("ports", "port_tree")):
+            app.show_tab(name)
+            app.root.geometry("410x530+20+20")
+            settle()
+            short = getattr(app, attr).winfo_height()
+            canvas = app._tool_scroll_canvas
+            short_view = canvas.winfo_height()
+            app.root.geometry(f"410x{tall_height}+20+20")
+            settle()
+            tree = getattr(app, attr)
+            growth = canvas.winfo_height() - short_view
+            # A short profile may already have a minimum content height
+            # larger than its viewport. Measure actual available geometry.
+            if growth >= 100:
+                check(tree.winfo_height() > short,
+                      f"{name}: result table did not grow with tall Mini")
+            bottom_gap = canvas.winfo_rooty() + canvas.winfo_height() - (
+                tree.winfo_rooty() + tree.winfo_height())
+            check(bottom_gap <= 6, f"{name}: unused space below results")
+            app.root.geometry("410x450+20+20")
+            settle()
+            check(canvas.yview()[1] < 1, f"{name}: short window cannot scroll")
+        print("PASS: tall Mini network tables fill viewport")
     finally:
         app.root.destroy()

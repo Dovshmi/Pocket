@@ -688,4 +688,44 @@ def build(app, parent):
                                   app.theme, compact=True)
     import_button.pack(side="right", padx=(0, 4))
     apply_mode()
+
+    if compact:
+        # Tall Mini profiles should reveal more matches, but leave room for
+        # the selected record rather than giving the list the entire viewport.
+        # The outer canvas still scrolls if the complete record is larger.
+        canvas = getattr(app, "_tool_scroll_canvas", None)
+        if canvas is not None:
+            from tkinter import font as tkfont
+            row_pixels = tkfont.Font(root=app.root, font=result_list.cget("font")).metrics("linespace") + 2
+            pending = None
+
+            def resize_matches():
+                nonlocal pending
+                pending = None
+                if not result_list.winfo_exists() or not canvas.winfo_exists():
+                    return
+                if canvas.winfo_height() <= 1:
+                    return
+                # Measure the naturally requested layout, excluding the list
+                # and details. Reserve at least 240px for the result overview,
+                # or its full requested height when the details are open.
+                fixed = max(0, parent.winfo_reqheight() -
+                            result_list.winfo_reqheight() -
+                            details_panel.winfo_reqheight())
+                reserve = max(240, details_panel.winfo_reqheight())
+                available = canvas.winfo_height() - fixed - reserve
+                rows = max(5, min(14, available // max(1, row_pixels)))
+                if int(result_list.cget("height")) != rows:
+                    result_list.configure(height=rows)
+
+            def schedule_matches(_event=None):
+                nonlocal pending
+                if pending is None and result_list.winfo_exists():
+                    pending = result_list.after_idle(resize_matches)
+
+            canvas.bind("<Configure>", schedule_matches, add="+")
+            parent.bind("<Configure>", schedule_matches, add="+")
+            details_panel.bind("<Configure>", schedule_matches, add="+")
+            schedule_matches()
+
     entry.focus_set()

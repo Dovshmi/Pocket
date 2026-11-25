@@ -1674,13 +1674,16 @@ class PocketDesk:
         self._mini_drag = None
         if not drag or drag["key"] != key:
             return "break"
-        if drag["moved"] and key not in ("plus", "more"):
+        if (drag["moved"] or abs(event.x_root - drag["x"]) +
+                abs(event.y_root - drag["y"]) >= 7) and key not in ("plus", "more"):
             target = self._mini_nav_hit(event.x_root, event.y_root)
             for tile, _glyph, _caption in self.mini_icon_tabs.values():
                 tile.configure(highlightthickness=0)
             if target and target not in (key, "plus", "more"):
                 self._set_menu_order(
-                    menu_order.move(self.settings["menu_order"], key, target))
+                    menu_order.move(self.settings["menu_order"], key, target,
+                                    after=event.x_root >= self.mini_icon_tabs[target][0].winfo_rootx() +
+                                    self.mini_icon_tabs[target][0].winfo_width() / 2))
             return "break"
         action()
         return "break"

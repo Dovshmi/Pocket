@@ -376,5 +376,47 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
                   "Progress bar missing result segments")
             app.port_results = []
         print("PASS: range input and TCP result styling in all working layouts")
+
+        # Drive the palette through real entry/selection widgets without network.
+        from pocket import command_palette
+        from unittest.mock import patch
+        def palette_run(query):
+            app._open_global_search()
+            app.root.update()
+            dialog = app._quick_search_dialog
+            check(dialog.winfo_exists(), "Command palette did not open")
+            app._palette_entry.insert(0, query)
+            app.root.update()
+            def children(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from children(child)
+            buttons = [w for w in children(dialog)
+                       if isinstance(w, tk.Button) and w.cget("text") == "Open"]
+            check(buttons, "Palette action button missing")
+            buttons[0].invoke()
+            app.root.update()
+            check(app._quick_search_dialog is None, "Palette did not close")
+
+        app._set_display_mode("normal")
+        palette_run("> subnet 192.168.10.0/26")
+        check(app.current_tab == "subnet" and app.subnet_prefix_var.get() == "26",
+              "Palette subnet calculation failed")
+        with patch.object(app, "_start_scan", side_effect=AssertionError("Must not scan")):
+            palette_run("> port 192.168.1.1 80,554,2079-2084")
+        check(app.current_tab == "ports" and app.ports_var.get() == "80,554,2079-2084",
+              "Palette port prefill failed")
+        with patch.object(app, "_run_mac_lookup", side_effect=AssertionError("Must not query")):
+            palette_run("mac 00:00:0C:12:34:56")
+        check(app.current_tab == "mac" and app.mac_input.get("1.0", "end-1c") == "00:00:0C:12:34:56",
+              "Palette MAC prefill failed")
+        palette_run("> note Palette test note")
+        check(app.current_tab == "notes" and app.title_var.get() == "Palette test note",
+              "Palette note creation failed")
+        palette_run("> theme black")
+        check(app.theme == "black", "Palette theme change failed")
+        palette_run("> size mini")
+        check(app.display_mode == "mini", "Palette size change failed")
+        print("PASS: command palette dispatches real internal actions without network")
     finally:
         app.root.destroy()

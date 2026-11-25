@@ -72,6 +72,7 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
     buttons = {}
     tiles = {}
     rows = []
+    drag = None
     app.normal_icon_tabs = {}
     app.normal_overflow_keys = ()
 
@@ -105,14 +106,64 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
             button.configure(image=button.image)
             tiles[key].configure(bg=back)
 
+    def hit(x, y):
+        for key, shell in tiles.items():
+            if shell.winfo_ismapped() and (
+                    shell.winfo_rootx() <= x < shell.winfo_rootx() + shell.winfo_width()
+                    and shell.winfo_rooty() <= y < shell.winfo_rooty() + shell.winfo_height()):
+                return key
+        return None
+
+    def press(event, key):
+        nonlocal drag
+        drag = (key, event.x_root, event.y_root, False)
+        return "break"
+
+    def motion(event):
+        nonlocal drag
+        if drag is None:
+            return "break"
+        key, x, y, moved = drag
+        if moved or abs(event.x_root - x) + abs(event.y_root - y) >= 7:
+            drag = key, x, y, True
+            target = hit(event.x_root, event.y_root)
+            for dest, button in buttons.items():
+                button.configure(highlightbackground=accent if
+                                 dest == target and dest not in (key, "more") else bg)
+        return "break"
+
+    def release(event, key, action):
+        nonlocal drag
+        previous, drag = drag, None
+        for button in buttons.values():
+            button.configure(highlightbackground=bg)
+        if previous is None or previous[0] != key:
+            return "break"
+        if previous[3] or abs(event.x_root - previous[1]) + abs(event.y_root - previous[2]) >= 7:
+            target = hit(event.x_root, event.y_root)
+            if target and target not in (key, "more"):
+                app._set_menu_order(menu_order.move(
+                    app.settings["menu_order"], key, target,
+                    after=event.x_root >= tiles[target].winfo_rootx() +
+                    tiles[target].winfo_width() / 2))
+        elif hit(event.x_root, event.y_root) == key:
+            action()
+        return "break"
+
     def render(selected):
         nonlocal last_plan, buttons, tiles, rows
         keys = menu_order.enabled_order(
-            app.settings["menu_order"], app.settings["visible_tabs"],
-            include_settings=False)
-        # Keep Settings accessible and menu positions stable when switching tools.
+            app.settings["menu_order"], app.settings["visible_tabs"])
+        # Settings is always accessible, but its position follows the saved
+        # menu order rather than being hardwired to the right edge.
         visible, hidden = plan_tabs(keys, None, total_width)
-        plan = visible, hidden, max(1, total_width // (TILE_WIDTH + GAP))
+        first_keys = []
+        for key in keys:
+            if key in visible or key == "settings":
+                first_keys.append(key)
+            elif "more" not in first_keys:
+                first_keys.append("more")
+        plan = tuple(first_keys), hidden, max(1, total_width // (TILE_WIDTH + GAP))
         if plan != last_plan:
             last_plan = plan
             for child in parent.winfo_children():
@@ -146,6 +197,11 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
                     padx=1, pady=3, cursor="hand2", takefocus=True)
                 tile.pack(fill="both", expand=True)
                 tile.bind("<Return>", lambda _event: action())
+                if key != "more":
+                    tile.bind("<ButtonPress-1>", lambda event: press(event, key))
+                    tile.bind("<B1-Motion>", motion)
+                    tile.bind("<ButtonRelease-1>", lambda event: release(event, key, action))
+                    tile.bind("<Button-3>", lambda event: app._mini_nav_context_menu(event, key))
                 design.Tooltip(tile, "Expand or collapse tools" if key == "more"
                                else "Open " + FULL_NAMES.get(key, caption), app.theme)
                 buttons[key] = tile
@@ -153,13 +209,13 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
 
             first = new_row()
             first.pack(fill="x")
-            for key in visible:
-                add_tile(first, key, LABELS.get(key, key.title()),
-                         lambda dest=key: app.show_tab(dest))
-            if hidden:
-                add_tile(first, "more", "More", expand)
-            add_tile(first, "settings", "Settings",
-                     lambda: app.show_tab("settings"), SETTINGS_WIDTH)
+            for key in first_keys:
+                if key == "more":
+                    add_tile(first, key, "More", expand)
+                else:
+                    add_tile(first, key, LABELS.get(key, key.title()),
+                             lambda dest=key: app.show_tab(dest),
+                             SETTINGS_WIDTH if key == "settings" else TILE_WIDTH)
             capacity = plan[2]
             for offset in range(0, len(hidden), capacity):
                 row = new_row()

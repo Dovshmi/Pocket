@@ -123,3 +123,16 @@ def store_profile(raw, name, size):
     if name not in updated or updated[name] != saved_size(size):
         raise ValueError("Use a unique custom name (1–48 characters) and a valid size.")
     return updated, name
+
+
+def hit_edges(x, y, width, height, margin=5, corner=12):
+    """Hit-test invisible resize regions within the real window rectangle."""
+    if not (0 <= x < width and 0 <= y < height):
+        return None
+    vertical = "n" if y < margin else ("s" if y >= height - margin else "")
+    horizontal = "w" if x < margin else ("e" if x >= width - margin else "")
+    if vertical and not horizontal:
+        horizontal = "w" if x < corner else ("e" if x >= width - corner else "")
+    if horizontal and not vertical:
+        vertical = "n" if y < corner else ("s" if y >= height - corner else "")
+    return vertical + horizontal or None

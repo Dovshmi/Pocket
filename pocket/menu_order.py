@@ -37,11 +37,11 @@ def enabled_order(raw_order, visible_tabs, *, include_settings=True):
     return [key for key in normalize(raw_order) if key in allowed]
 
 
-def move(raw_order, moving, target):
-    """Move one icon immediately BEFORE another, preserving all other positions."""
+def move(raw_order, moving, target, *, after=False):
+    """Move one icon before or after another, preserving all other positions."""
     result = normalize(raw_order)
     if moving not in result or target not in result or moving == target:
         return result
     result.remove(moving)
-    result.insert(result.index(target), moving)
+    result.insert(result.index(target) + int(after), moving)
     return result

@@ -43,7 +43,7 @@ class DashboardSettingsLayoutTests(unittest.TestCase):
 
     def test_every_existing_preference_keeps_its_app_callback(self):
         for method in (
-                "_set_display_mode", "_choose_theme",
+                "_apply_window_profile", "_save_window_profile", "_delete_window_profile", "_choose_theme",
                 "_set_extra_mini_enabled", "_edit_extra_mini_from_settings",
                 "_open_hotkey_picker", "_open_convert_hotkey_picker",
                 "_open_global_search", "_set_clipboard_paused",

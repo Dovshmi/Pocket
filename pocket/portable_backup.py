@@ -21,6 +21,7 @@ from . import command_store as cs
 from . import data_recovery
 from . import reminder_store
 from . import shortcut_folders
+from . import adaptive_window
 
 VERSION = 1
 CATEGORIES = ("notes", "links", "cli", "settings", "clipboard_text", "clipboard_images")
@@ -207,6 +208,13 @@ def _archive_data(profile, groups, commands_path, profile_dir):
             "hotkey": deepcopy(profile.get("hotkey")),
             "convert_hotkey": deepcopy(profile.get("convert_hotkey")),
             "extra_mini_pages": deepcopy(profile.get("extra_mini_pages")),
+            "extra_mini_page": deepcopy(profile.get("extra_mini_page")),
+            "window_size": deepcopy(profile.get("window_size")),
+            "window_position": deepcopy(profile.get("window_position")),
+            "window_positions": deepcopy(profile.get("window_positions")),
+            "last_tab": deepcopy(profile.get("last_tab")),
+            "subnet": deepcopy(profile.get("subnet")),
+            "tools": deepcopy(profile.get("tools")),
         }
     if "cli" in groups:
         if not commands_path:
@@ -470,11 +478,39 @@ def plan_restore(bundle, current, *, selected, mode="merge", current_commands=No
             imported = filtered_settings(incoming.get("settings", {}))
             # Applying settings means applying the selected settings values,
             # even in Merge; Quick Slot preferences remain local.
+            if "window_profiles" in imported:
+                fresh = adaptive_window.normalize_profiles(imported["window_profiles"])
+                if mode == "merge":
+                    local = adaptive_window.normalize_profiles(base.get("window_profiles"))
+                    for name, size in fresh.items():
+                        match = next((key for key in local if key.casefold() == name.casefold()), None)
+                        if match is not None:
+                            if local[match] == size:
+                                if imported.get("window_profile") == name:
+                                    imported["window_profile"] = match
+                                continue
+                            index = 2
+                            stem = name[:40]
+                            while any(key.casefold() == f"{stem} ({index})".casefold() for key in local):
+                                index += 1
+                            new_name = f"{stem} ({index})"
+                            if imported.get("window_profile") == name:
+                                imported["window_profile"] = new_name
+                            name = new_name
+                        local[name] = size
+                    fresh = adaptive_window.normalize_profiles(local)
+                imported["window_profiles"] = fresh
             base.update(imported)
             profile["settings"] = base
-            for key in ("theme", "hotkey", "convert_hotkey", "extra_mini_pages"):
+            for key in ("theme", "hotkey", "convert_hotkey", "extra_mini_pages",
+                        "extra_mini_page", "last_tab", "subnet", "tools"):
                 if key in incoming and incoming[key] is not None:
                     profile[key] = deepcopy(incoming[key])
+            for key in ("window_size", "window_position", "window_positions"):
+                if key in incoming:
+                    profile[key] = deepcopy(incoming[key])
+            if "window_size" in incoming:
+                profile["window_size"] = adaptive_window.saved_size(profile["window_size"])
             report[group] = {"applied": len(imported), "conflicts": 0}
         elif group == "cli":
             imported = _valid_commands(json.loads(bundle["files"]["cli/commands.json"]))

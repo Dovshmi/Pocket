@@ -9,10 +9,10 @@ class MiniNavigationOverflowTests(unittest.TestCase):
         self.previous = ["notes", "links", "ports", "mac",
                          "commands", "subnet", "clipboard"]
 
-    def test_eight_menus_use_more_in_the_eighth_slot(self):
+    def test_exact_fit_uses_all_eight_slots(self):
         first, extra = mini_nav.plan_mini_icons(self.previous)
-        self.assertEqual(first, tuple(self.previous + ["more"]))
-        self.assertEqual(extra, (("settings",),))
+        self.assertEqual(first, tuple(self.previous + ["settings"]))
+        self.assertEqual(extra, ())
         first, extra = mini_nav.plan_mini_icons(self.previous[:6], add_available=True)
         self.assertEqual(first, tuple(self.previous[:6] + ["settings", "plus"]))
         self.assertEqual(extra, ())
@@ -30,6 +30,16 @@ class MiniNavigationOverflowTests(unittest.TestCase):
         self.assertTrue(all(len(row) <= mini_nav.COLUMNS for row in extra))
         self.assertEqual([item for row in extra for item in row],
                          more[7:] + ["settings"])
+
+    def test_wider_window_reclaims_overflow_slots(self):
+        tools = self.previous + ["reminders", "extra"]
+        first, extra = mini_nav.plan_mini_icons(tools, columns=10)
+        self.assertEqual(first, tuple(tools + ["settings"]))
+        self.assertEqual(extra, ())
+        first, extra = mini_nav.plan_mini_icons(tools, columns=9)
+        self.assertEqual(len(first), 9)
+        self.assertEqual(first[-1], "more")
+        self.assertEqual(extra, (("extra", "settings"),))
 
     def test_hidden_items_and_duplicates_never_create_fake_icons(self):
         first, extra = mini_nav.plan_mini_icons(

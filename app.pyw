@@ -88,6 +88,7 @@ from pocket import note_sync
 from pocket import native_bidi
 from pocket import native_inputs
 from pocket import mini_layout as mini
+from pocket import adaptive_window as adaptive
 from pocket import mini_nav
 from pocket import menu_order
 from pocket import dashboard_ui as dashboard
@@ -230,10 +231,12 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
+        "window_size": None,  # v1.41: one responsive size for Mini / Normal / Dashboard
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
                      "reminders_menu_configured": True, "extra_menu_configured": True,
-                     "display_mode": "mini", "extra_mini_enabled": False,
+                     "display_mode": "mini", "window_profiles": {}, "window_profile": "Mini",
+                     "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "menu_order": list(menu_order.DEFAULT_ORDER),
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
@@ -295,6 +298,10 @@ def normalize_settings(raw):
             "reminders_menu_configured": True,
             "extra_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
+            "window_profiles": adaptive.normalize_profiles(raw.get("window_profiles")),
+            "window_profile": adaptive.profile_name(raw.get("window_profile"),
+                                                     raw.get("window_profiles"),
+                                                     "mini" if legacy_compact else selected_mode),
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "use_windows_proxy": raw.get("use_windows_proxy") is not False,
@@ -421,6 +428,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
+                "window_size": adaptive.saved_size(data.get("window_size")),
                 "window_positions": mini.window_positions(data.get("window_positions"),
                                                               data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
@@ -490,6 +498,13 @@ class PocketDesk:
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
         self.display_mode = self.settings["display_mode"]
+        previous_size = adaptive.saved_size(self.data.get("window_size"))
+        if previous_size is not None:
+            self.settings["window_profile"] = adaptive.matching_profile(
+                self.settings["window_profile"], self.settings["window_profiles"], previous_size)
+            self.display_mode = adaptive.layout_for(
+                previous_size["width"], previous_size["height"])
+            self.settings["display_mode"] = self.display_mode
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
         self._ram_text_items = []  # Intentionally never written to disk.
@@ -562,6 +577,9 @@ class PocketDesk:
         self._dragging_window = False
         self._drag_moved = False
         self._drag_origin = None
+        self._resize_origin = None
+        self._resizing_window = False
+        self._resize_handles = []
         self._header_context_menu = None
         self._input_context_menu = None
         self._input_context_menu_was_modal = False
@@ -644,6 +662,7 @@ class PocketDesk:
         text_editing.install(self.root, self._show_input_context_menu,
                              self._repair_input_focus)
         self.show_tab(self.current_tab)
+        self._install_resize_handles()
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Control-k>", self._open_global_search)
@@ -1193,10 +1212,39 @@ class PocketDesk:
             canvas.configure(yscrollcommand=scroll.set)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
-        inner.bind("<Configure>",
-                   lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>",
-                    lambda event: canvas.itemconfigure(window_id, width=event.width))
+        # Network result tables already expand inside their parent, but a
+        # canvas window defaults to the content's requested (minimum) height.
+        # Give these pages the full viewport whenever space permits; on a
+        # short window retain natural content height and outer scrolling.
+        fill_viewport = self.current_tab in ("ports", "mac")
+
+        def sync_viewport(_event=None):
+            if not canvas.winfo_exists() or not inner.winfo_exists():
+                return
+            if fill_viewport:
+                height = max(inner.winfo_reqheight(), canvas.winfo_height())
+                if int(float(canvas.itemcget(window_id, "height"))) != height:
+                    canvas.itemconfigure(window_id, height=height)
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def resize_viewport(event):
+            canvas.itemconfigure(window_id, width=event.width)
+            sync_viewport()
+
+        inner.bind("<Configure>", sync_viewport)
+        canvas.bind("<Configure>", resize_viewport)
+        if fill_viewport:
+            # A Quick Port Selection expansion can alter requested height
+            # without changing the explicitly allocated inner frame.
+            def watch_requests(widget):
+                widget.bind("<Configure>", sync_viewport, add="+")
+                for child in widget.winfo_children():
+                    watch_requests(child)
+            def initialize():
+                if inner.winfo_exists():
+                    watch_requests(inner)
+                    sync_viewport()
+            canvas.after_idle(initialize)
         self.body = inner
         self._tool_scroll_canvas = canvas
 
@@ -1495,8 +1543,7 @@ class PocketDesk:
                          bg=PANEL, hover=CARD, padx=7, pady=5, font_size=7).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
-        # The first row always retains the original eight 39px icon positions.
-        # When more tools exist, the last More tile opens another equal-width row.
+        # Fit as many icon tiles as the actual window width allows.
         nav = tk.Frame(outer, bg=BG)
         nav.pack(fill="x", padx=9, pady=(1, 6))
         self.tab_buttons = {}
@@ -1507,21 +1554,10 @@ class PocketDesk:
             "clipboard": "Clip", "reminders": "Remind", "extra": "Extra",
             "settings": "Settings", "more": "More", "plus": "Add",
         }
-        hidden_tools = [key for key in menu_order.DEFAULT_ORDER
-                        if key != "settings" and key not in self.settings["visible_tabs"]]
-        first, additional = mini_nav.plan_mini_icons(
-            menu_order.enabled_order(self.settings["menu_order"],
-                                    self.settings["visible_tabs"]),
-            add_available=bool(hidden_tools))
-        self._mini_overflow_keys = tuple(k for row in additional for k in row)
-        self._mini_overflow_rows = []
-        if not additional:
-            self._mini_nav_expanded = False
-
         def add_mini_tile(parent, key, caption):
-            tile = tk.Frame(parent, bg=BG, width=39, height=45,
+            tile = tk.Frame(parent, bg=BG, width=38, height=45,
                             cursor="hand2", takefocus=1, highlightthickness=0)
-            tile.pack(side="left", padx=(0, 1))
+            tile.pack(side="left", fill="x", expand=True, padx=(0, 1))
             tile.pack_propagate(False)
             glyph = tool_icons.label(tile, key, SECONDARY, BG, size=20,
                                      cursor="hand2", anchor="center")
@@ -1548,22 +1584,47 @@ class PocketDesk:
             design.Tooltip(tile, f"{caption} · open {key}", self.theme)
             self.mini_icon_tabs[key] = (tile, glyph, caption_label)
 
-        for key in first:
-            add_mini_tile(nav, key, menu_items.get(key, key.title()))
-
-        for row_items in additional:
-            extra = tk.Frame(outer, bg=BG)
-            for key in row_items:
-                add_mini_tile(extra, key,
-                              "Settings" if key == "settings" else
-                              menu_items.get(key, key.title()))
-            self._mini_overflow_rows.append(extra)
-        # Anchor the expandable rows ABOVE this separator even when toggled
-        # after the main page body has already been packed.
         self._mini_nav_separator = tk.Frame(outer, height=1, bg=BORDER)
         self._mini_nav_separator.pack(fill="x")
-        self._set_mini_overflow_visible(self._mini_nav_expanded)
-        self._style_mini_icon_tabs(self.current_tab)
+        self._mini_overflow_rows = []
+        last_plan = None
+
+        def render_mini(width):
+            nonlocal last_plan
+            if width <= 1:
+                return
+            columns = max(2, width // 39)
+            hidden_tools = [key for key in menu_order.DEFAULT_ORDER
+                            if key != "settings" and key not in self.settings["visible_tabs"]]
+            first, additional = mini_nav.plan_mini_icons(
+                menu_order.enabled_order(self.settings["menu_order"],
+                                        self.settings["visible_tabs"]),
+                columns=columns, add_available=bool(hidden_tools))
+            plan = first, additional
+            if plan == last_plan:
+                return
+            last_plan = plan
+            for child in nav.winfo_children():
+                child.destroy()
+            for row in self._mini_overflow_rows:
+                row.destroy()
+            self.mini_icon_tabs = {}
+            self._mini_overflow_rows = []
+            self._mini_overflow_keys = tuple(k for row in additional for k in row)
+            if not additional:
+                self._mini_nav_expanded = False
+            for key in first:
+                add_mini_tile(nav, key, menu_items.get(key, key.title()))
+            for row_items in additional:
+                extra = tk.Frame(outer, bg=BG)
+                for key in row_items:
+                    add_mini_tile(extra, key, menu_items.get(key, key.title()))
+                self._mini_overflow_rows.append(extra)
+            self._set_mini_overflow_visible(self._mini_nav_expanded)
+            self._style_mini_icon_tabs(self.current_tab)
+
+        render_mini(326)
+        nav.bind("<Configure>", lambda event: render_mini(event.width))
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body
@@ -1649,13 +1710,16 @@ class PocketDesk:
         self._mini_drag = None
         if not drag or drag["key"] != key:
             return "break"
-        if drag["moved"] and key not in ("plus", "more"):
+        if (drag["moved"] or abs(event.x_root - drag["x"]) +
+                abs(event.y_root - drag["y"]) >= 7) and key not in ("plus", "more"):
             target = self._mini_nav_hit(event.x_root, event.y_root)
             for tile, _glyph, _caption in self.mini_icon_tabs.values():
                 tile.configure(highlightthickness=0)
             if target and target not in (key, "plus", "more"):
                 self._set_menu_order(
-                    menu_order.move(self.settings["menu_order"], key, target))
+                    menu_order.move(self.settings["menu_order"], key, target,
+                                    after=event.x_root >= self.mini_icon_tabs[target][0].winfo_rootx() +
+                                    self.mini_icon_tabs[target][0].winfo_width() / 2))
             return "break"
         action()
         return "break"
@@ -1978,24 +2042,90 @@ class PocketDesk:
         self._edit_extra_mini_from_settings()
 
     def _set_display_mode(self, mode):
-        """Set the permanent working layout; Extra Mini remains an optional toggle."""
+        """Legacy callers select an immutable factory size."""
         mode = mini.display_mode(mode)
         if mode == "compact":
             return self._set_extra_mini_enabled(True)
-        if self.settings["display_mode"] == mode and self.display_mode == mode:
+        self._apply_window_profile(mode.title(), legacy=True)
+
+    def _apply_window_profile(self, name, *, legacy=False):
+        size = adaptive.profiles(self.settings["window_profiles"]).get(name)
+        if size is None or (self.display_mode == "compact" and not legacy):
             return
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
         self._compact_return = False
+        self.settings["window_profile"] = name
+        self.data["window_size"] = dict(size)
+        mode = adaptive.layout_for(size["width"], size["height"])
         self.display_mode = mode
         self.settings["display_mode"] = mode
-        if mode == "dashboard":
+        if legacy and mode == "dashboard":
             self.current_tab = "home"
-        elif self.current_tab == "home":
+        elif self.current_tab == "home" and mode != "dashboard":
             self.current_tab = "notes"
         self._build_shell_refresh()
-        self.schedule_save()
+        self._write_now()
+
+    def _save_window_profile(self):
+        from tkinter import simpledialog, messagebox
+        if self.display_mode == "compact":
+            return
+        self.root.update_idletasks()
+        size = {"width": self.root.winfo_width(), "height": self.root.winfo_height()}
+        previous_modal = self._modal
+        self._modal = True
+        try:
+            name = simpledialog.askstring("Save size profile",
+                                          "Name for this window size:",
+                                          parent=self.root)
+            if name is None:
+                return
+            custom, selected = adaptive.store_profile(
+                self.settings["window_profiles"], name, size)
+            if selected in self.settings["window_profiles"] and not messagebox.askyesno(
+                    "Update size profile", f"Replace '{selected}' with the current size?",
+                    parent=self.root):
+                return
+            self.settings["window_profiles"] = custom
+            self.settings["window_profile"] = selected
+            self.data["window_size"] = size
+            self._write_now()
+            self._refresh_window_profile_picker()
+        except ValueError as exc:
+            messagebox.showwarning("Size profile", str(exc), parent=self.root)
+        finally:
+            self._modal = previous_modal
+
+    def _delete_window_profile(self):
+        from tkinter import messagebox
+        name = self.settings["window_profile"]
+        if name not in self.settings["window_profiles"]:
+            return
+        previous_modal = self._modal
+        self._modal = True
+        try:
+            if not messagebox.askyesno("Delete size profile", f"Delete '{name}'?",
+                                       parent=self.root):
+                return
+            del self.settings["window_profiles"][name]
+            self.settings["window_profile"] = adaptive.CURRENT_PROFILE
+            self._write_now()
+            self._refresh_window_profile_picker()
+        finally:
+            self._modal = previous_modal
+
+    def _refresh_window_profile_picker(self):
+        refresh = getattr(self, "_window_profile_refresh", None)
+        if self.current_tab == "settings" and callable(refresh):
+            refresh()
+
+    def _mark_custom_window_size(self):
+        self.settings["window_profile"] = adaptive.matching_profile(
+            self.settings["window_profile"], self.settings["window_profiles"],
+            self.data.get("window_size"))
+        self._refresh_window_profile_picker()
 
     def _build_shell_refresh(self):
         self._flush_current_note()
@@ -2004,6 +2134,8 @@ class PocketDesk:
         self._header_context_menu = None
         self._build_shell()
         self.show_tab(self.current_tab)
+        self._install_resize_handles()
+        self._place_popup(self._last_tray_xy)
 
     def _build_settings_refresh(self):
         self.show_tab("settings")
@@ -5465,6 +5597,9 @@ class PocketDesk:
         else:
             self.port_quick_frame.pack_forget()
             self.port_quick_button.config(text="▸ Quick Port Selection")
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is not None and canvas.winfo_exists():
+            canvas.after_idle(lambda: canvas.event_generate("<Configure>", width=canvas.winfo_width(), height=canvas.winfo_height()) if canvas.winfo_exists() else None)
 
     def _render_quick_ports(self):
         """Render favorites and last check together; no fixed port shortcuts."""
@@ -5813,10 +5948,6 @@ class PocketDesk:
         self.vendor_info = tk.Label(status_line, text=self._vendor_summary(), bg=BG,
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
-        action_label(status_line, "Import CSV", self._import_vendors, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right")
-        action_label(status_line, "Get CSV ↗", self._show_ieee_downloads, fg=SECONDARY,
-                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         mac_heading = tk.Frame(self.body, bg=BG)
         mac_heading.pack(fill="x", pady=(0, 6))
         tk.Label(mac_heading, text="MAC ADDRESSES", bg=BG, fg=MUTED,
@@ -6230,12 +6361,12 @@ class PocketDesk:
                                    parent=self.root)
 
     def _focus_lost(self, _event):
-        if self.preview or self.pinned or self._modal or self._dragging_window:
+        if self.preview or self.pinned or self._modal or self._dragging_window or self._resizing_window:
             return
         self.root.after(170, self._maybe_hide)
 
     def _maybe_hide(self):
-        if self.preview or self.pinned or self._modal or self._dragging_window:
+        if self.preview or self.pinned or self._modal or self._dragging_window or self._resizing_window:
             return
         if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
                 and self.bidi_editor.has_focus()):
@@ -6254,6 +6385,10 @@ class PocketDesk:
         """Clamp current layout to monitor and restore its own saved position."""
         self.root.update_idletasks()
         width, desired_height = mini.view_dimensions(self.display_mode)
+        if self.display_mode != "compact":
+            size = adaptive.saved_size(self.data.get("window_size"))
+            if size is not None:
+                width, desired_height = size["width"], size["height"]
         positions = self.data.get("window_positions") or {}
         saved = mini.window_position(positions.get(self.display_mode))
         if saved is None and self.display_mode == "normal":
@@ -6282,6 +6417,99 @@ class PocketDesk:
             self.command_tree.configure(
                 height=5 if self.display_mode == "normal" else 4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
+        if self.display_mode != "compact":
+            mode = adaptive.layout_for(width, height)
+            if mode != self.display_mode:
+                self._apply_adaptive_layout(mode)
+
+    def _install_resize_handles(self):
+        """Borderless resize handles on all edges and corners; not Extra Mini."""
+        self._resize_handles = []
+        if self.display_mode == "compact":
+            return
+        placements = (
+            ("n", "sb_v_double_arrow", dict(relx=.04, rely=0, relwidth=.92, height=5)),
+            ("s", "sb_v_double_arrow", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
+            ("w", "sb_h_double_arrow", dict(relx=0, rely=.04, width=5, relheight=.92)),
+            ("e", "sb_h_double_arrow", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
+            ("nw", "top_left_corner", dict(relx=0, rely=0, width=14, height=14)),
+            ("ne", "top_right_corner", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
+            ("sw", "bottom_left_corner", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
+            ("se", "bottom_right_corner", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
+        )
+        for edges, cursor, location in placements:
+            if edges == "se":
+                grip = tk.Label(self.root, text="◢", font=(FONT, 11),
+                                bg=BG, fg=MUTED, bd=0)
+            else:
+                grip = tk.Frame(self.root, bg=BG, bd=0)
+            # Cursor aliases vary across Tk/Win32/X11 builds. An unsupported
+            # cursor must never stop Pocket from launching.
+            try:
+                grip.configure(cursor=cursor)
+            except tk.TclError:
+                pass
+            grip.place(**location)
+            grip.lift()
+            grip.bind("<ButtonPress-1>",
+                      lambda event, sides=edges: self._begin_window_resize(event, sides))
+            grip.bind("<B1-Motion>", self._continue_window_resize)
+            grip.bind("<ButtonRelease-1>", self._finish_window_resize)
+            self._resize_handles.append(grip)
+
+    def _begin_window_resize(self, event, edges):
+        if self.display_mode == "compact":
+            return
+        x, y = self.root.winfo_x(), self.root.winfo_y()
+        width, height = self.root.winfo_width(), self.root.winfo_height()
+        area = self._screen_work_area(x + width // 2, y + height // 2)
+        self._resize_origin = ((x, y, width, height), edges,
+                               event.x_root, event.y_root, area)
+        self._resizing_window = True
+
+    def _continue_window_resize(self, event):
+        if self._resize_origin is None:
+            return
+        rectangle, edges, mouse_x, mouse_y, area = self._resize_origin
+        x, y, width, height = adaptive.resize_rectangle(
+            rectangle, edges, event.x_root - mouse_x, event.y_root - mouse_y, area)
+        self.root.geometry(f"{width}x{height}{x:+d}{y:+d}")
+        return x, y, width, height
+
+    def _finish_window_resize(self, event):
+        if self._resize_origin is None:
+            return
+        try:
+            # Tk geometry is asynchronous; persist the calculated rectangle,
+            # not winfo_width/height which may still report the previous frame.
+            x, y, width, height = self._continue_window_resize(event)
+            self.data["window_size"] = {"width": width, "height": height}
+            self._mark_custom_window_size()
+            mode = adaptive.layout_for(width, height)
+            self.data["window_positions"][mode] = {"x": x, "y": y}
+            if mode == "normal":
+                self.data["window_position"] = {"x": x, "y": y}
+            if mode != self.display_mode:
+                self._apply_adaptive_layout(mode)
+            self._flush_current_note()
+            self._write_now()
+        finally:
+            self._resize_origin = None
+            self._resizing_window = False
+
+    def _apply_adaptive_layout(self, mode):
+        """Rebuild presentation, preserving the current tool and unsaved drafts."""
+        if self.display_mode == "compact" or mode == self.display_mode:
+            return
+        self._flush_current_note()
+        if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
+            self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self.display_mode = mode
+        self.settings["display_mode"] = mode
+        if self.current_tab == "home" and mode != "dashboard":
+            self.current_tab = "notes"
+        self._build_shell_refresh()
+        self.schedule_save()
 
     def _begin_window_drag(self, event):
         self._dragging_window = True
@@ -6306,14 +6534,28 @@ class PocketDesk:
         try:
             self._continue_window_drag(event)
             if self._drag_moved:
-                px, py = self.root.winfo_x(), self.root.winfo_y()
+                start_x, start_y, original_x, original_y = self._drag_origin
+                px = original_x + event.x_root - start_x
+                py = original_y + event.y_root - start_y
                 area = self._screen_work_area(event.x_root, event.y_root)
-                px, py = clamp_window_position(px, py, self.root.winfo_width(),
-                                                self.root.winfo_height(), area)
-                self.root.geometry(f"{px:+d}{py:+d}")
+                width = self.root.winfo_width()
+                height = self.root.winfo_height()
+                if self.display_mode != "compact":
+                    width = min(width, max(240, area[2] - area[0] - 12))
+                    height = min(height, max(240, area[3] - area[1] - 12))
+                px, py = clamp_window_position(px, py, width, height, area)
+                self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
+                if self.display_mode != "compact":
+                    self.data["window_size"] = {"width": width, "height": height}
+                    self._mark_custom_window_size()
                 self.data["window_positions"][self.display_mode] = {"x": px, "y": py}
                 if self.display_mode == "normal":
                     self.data["window_position"] = {"x": px, "y": py}
+                if self.display_mode != "compact":
+                    new_mode = adaptive.layout_for(width, height)
+                    self.data["window_positions"][new_mode] = {"x": px, "y": py}
+                    if new_mode != self.display_mode:
+                        self._apply_adaptive_layout(new_mode)
                 self._flush_current_note()
                 self._write_now()
                 if self.display_mode == "compact":

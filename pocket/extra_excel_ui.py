@@ -688,4 +688,47 @@ def build(app, parent):
                                   app.theme, compact=True)
     import_button.pack(side="right", padx=(0, 4))
     apply_mode()
+
+    if compact:
+        # Only the externally allocated viewport determines list height.
+        # Never observe parent/detail Configure events: requested heights
+        # depend on the list itself and can create a geometry feedback loop.
+        canvas = getattr(app, "_tool_scroll_canvas", None)
+        if canvas is not None:
+            from tkinter import font as tkfont
+            row_pixels = tkfont.Font(root=app.root, font=result_list.cget("font")).metrics("linespace") + 2
+            pending = None
+            last_height = None
+
+            def resize_matches():
+                nonlocal pending, last_height
+                pending = None
+                if not result_list.winfo_exists() or not canvas.winfo_exists():
+                    return
+                height = canvas.winfo_height()
+                if height <= 1 or height == last_height:
+                    return
+                last_height = height
+                # Spend at most half of additional viewport height on matches.
+                # The rest remains available for selected-row output.
+                rows = max(5, min(14, 5 + max(0, height - 440) // (2 * row_pixels)))
+                if int(result_list.cget("height")) != rows:
+                    result_list.configure(height=rows)
+
+            def schedule_matches(_event=None):
+                nonlocal pending
+                if pending is not None:
+                    result_list.after_cancel(pending)
+                pending = result_list.after(80, resize_matches)
+
+            def cancel_resize(_event=None):
+                nonlocal pending
+                if pending is not None:
+                    result_list.after_cancel(pending)
+                    pending = None
+
+            canvas.bind("<Configure>", schedule_matches, add="+")
+            result_list.bind("<Destroy>", cancel_resize, add="+")
+            schedule_matches()
+
     entry.focus_set()

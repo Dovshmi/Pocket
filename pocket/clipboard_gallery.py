@@ -75,7 +75,7 @@ def _mini_pause_button(parent, app, colors):
 def build(app):
     c = themes.palette(app.theme)
     stored = app.settings.get("clipboard_storage") == "database"
-    mini_mode = app.display_mode == "mini"
+    mini_mode = app.display_mode in ("mini", "normal")
     description = ("LOCAL DATABASE · Saved on this PC" if stored
                    else "RAM only · Never saved to disk")
     if mini_mode:
@@ -122,7 +122,7 @@ def build(app):
                      side="left", padx=(0, 4))
     app.clipboard_day_select = ttk.Combobox(
         app.clipboard_history_row, style="Pocket.TCombobox",
-        state="readonly", width=11 if app.display_mode == "mini" else 18,
+        state="readonly", width=11 if mini_mode else 18,
         takefocus=True)
     app.clipboard_day_select.pack(side="left")
 
@@ -150,8 +150,13 @@ def build(app):
 
     # Mini combines the Text/Images toggle and DB paging controls in one row.
     # This preserves the familiar switch without shortening the history panel.
-    switch = tk.Frame(app.body, bg=c["BG"])
-    if mini_mode:
+    switch = tk.Frame(controls if app.display_mode == "normal" else app.body, bg=c["BG"])
+    if app.display_mode == "normal":
+        # Normal has enough room for both pickers and the Text/Images switch.
+        # Keeping them on one row gives the history the extra height.
+        switch.pack(side="right")
+        page_switch = switch
+    elif mini_mode:
         switch.pack(fill="x", pady=(0, 2))
         page_switch = tk.Frame(switch, bg=c["BG"])
         page_switch.pack(side="right")
@@ -210,8 +215,9 @@ def _build_text_page(app, c):
     entry = design.entry(search_row, app.clipboard_query, app.theme, compact=True)
     app.clipboard_query_entry = entry
     entry.configure(width=20)
-    entry.pack(side="left", fill="x", expand=False, ipady=2 if app.display_mode == "mini" else 3)
-    if app.display_mode == "mini":
+    entry.pack(side="left", fill="x", expand=app.display_mode == "normal",
+               ipady=2 if app.display_mode in ("mini", "normal") else 3)
+    if app.display_mode in ("mini", "normal"):
         # The former full-width Pause/Filter row is removed. Pause remains
         # accessible directly beside the search field; the active filter is
         # identified in the header subtitle for both Text and Images.
@@ -227,7 +233,7 @@ def _build_text_page(app, c):
     footer = tk.Frame(parent, bg=c["BG"])
     # In Mini, reserve the bottom row before allocating the list's flexible
     # space. The actions remain visible at the bottom even on short monitors.
-    if app.display_mode == "mini":
+    if app.display_mode in ("mini", "normal"):
         footer.pack(side="bottom", fill="x", pady=(4, 0))
     else:
         footer.pack(fill="x", pady=(3, 3))
@@ -408,11 +414,14 @@ def _build_images_page(app, c):
         text=f"0/{app.settings['clipboard_image_limit']} images · RAM only",
         font=("Segoe UI", 9), anchor="w")
     app.clipboard_images_status.pack(side="left", fill="x", expand=True)
-    if app.display_mode == "mini":
+    if app.display_mode in ("mini", "normal"):
         app.clipboard_image_pause_button = _mini_pause_button(image_status_row, app, c)
         app.clipboard_image_pause_button.pack(side="right", padx=(4, 0))
     footer = tk.Frame(parent, bg=c["BG"])
-    footer.pack(fill="x", pady=(4, 4))
+    if app.display_mode == "normal":
+        footer.pack(side="bottom", fill="x", pady=(4, 0))
+    else:
+        footer.pack(fill="x", pady=(4, 4))
     for title, action in (("Copy", lambda: copy_selected(app)),
                           ("Preview", lambda: preview_selected(app)),
                           ("Delete", lambda: delete_selected(app))):
@@ -487,7 +496,7 @@ def refresh_history_selector(app):
         dates.insert(0, today)
     # Mini has two dropdowns on the same line; show the full ISO date rather
     # than clipping "Today · YYYY-MM-DD" inside a narrow combobox.
-    mini = app.display_mode == "mini"
+    mini = app.display_mode in ("mini", "normal")
     values = [(date if mini else ("Today · " + date if date == today else date))
               for date in dates]
     selector = app.clipboard_day_select

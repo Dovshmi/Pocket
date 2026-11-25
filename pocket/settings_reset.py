@@ -10,7 +10,7 @@ RESET_GROUPS = (
     ("network", "Network connection"),
 )
 SETTINGS_FIELDS = {
-    "appearance": ("display_mode",),
+    "appearance": ("display_mode", "window_profiles", "window_profile"),
     "menus": ("visible_tabs", "menu_order", "reminders_menu_configured",
               "extra_mini_enabled", "extra_mini_tiles"),
     "keyboard": ("convert_enabled", "convert_mode", "quick_slots_enabled",
@@ -41,7 +41,7 @@ def reset_preferences(current, defaults, selected):
                 old_settings[key] = deepcopy(default_settings[key])
     if "appearance" in choices:
         result["theme"] = deepcopy(defaults.get("theme", "blue"))
-        for key in ("window_position", "window_positions"):
+        for key in ("window_position", "window_positions", "window_size"):
             if key in defaults:
                 result[key] = deepcopy(defaults[key])
     if "menus" in choices:

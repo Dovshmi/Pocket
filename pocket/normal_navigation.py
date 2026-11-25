@@ -38,6 +38,7 @@ FULL_NAMES = {
 TILE_WIDTH = 52
 SETTINGS_WIDTH = 56
 GAP = 2
+ROW_HEIGHT = 45
 
 
 def plan_tabs(enabled, selected, available_width=440):
@@ -86,10 +87,10 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
                         getattr(app, "_normal_nav_expanded", False))
         for row in rows[1:]:
             if expanded:
-                row.pack(fill="x")
+                row.pack(fill="x", pady=(4, 0))
             else:
                 row.pack_forget()
-        parent.configure(height=59 + (54 * (len(rows) - 1) if expanded else 0))
+        parent.configure(height=ROW_HEIGHT + 5 + ((ROW_HEIGHT + 4) * (len(rows) - 1) if expanded else 0))
         if "more" in buttons:
             buttons["more"].configure(text="Less" if expanded else "More")
 
@@ -100,9 +101,11 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
                 selected in app.normal_overflow_keys))
             back = accent_dark if selected_now else bg
             button.configure(bg=back, fg=white if selected_now else muted,
-                             activebackground=panel)
+                             activebackground=back,
+                             activeforeground=white if selected_now else muted,
+                             highlightbackground=back, highlightcolor=back)
             button.image = tool_icons.icon_image(
-                button, key, accent if selected_now else secondary, size=19)
+                button, key, accent if selected_now else secondary, size=20)
             button.configure(image=button.image)
             tiles[key].configure(bg=back)
 
@@ -128,15 +131,19 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
             drag = key, x, y, True
             target = hit(event.x_root, event.y_root)
             for dest, button in buttons.items():
-                button.configure(highlightbackground=accent if
-                                 dest == target and dest not in (key, "more") else bg)
+                is_target = dest == target and dest not in (key, "more")
+                button.configure(highlightthickness=1 if is_target else 0,
+                                 highlightbackground=accent if is_target else button.cget("bg"),
+                                 highlightcolor=accent if is_target else button.cget("bg"))
         return "break"
 
     def release(event, key, action):
         nonlocal drag
         previous, drag = drag, None
         for button in buttons.values():
-            button.configure(highlightbackground=bg)
+            button.configure(highlightthickness=0,
+                             highlightbackground=button.cget("bg"),
+                             highlightcolor=button.cget("bg"))
         if previous is None or previous[0] != key:
             return "break"
         if previous[3] or abs(event.x_root - previous[1]) + abs(event.y_root - previous[2]) >= 7:
@@ -178,13 +185,13 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
                 app._normal_nav_expanded = False
 
             def new_row():
-                row = tk.Frame(parent, bg=bg, height=54)
+                row = tk.Frame(parent, bg=bg, height=ROW_HEIGHT)
                 row.pack_propagate(False)
                 rows.append(row)
                 return row
 
             def add_tile(row, key, caption, action, width=TILE_WIDTH):
-                shell = tk.Frame(row, bg=bg, width=width, height=54,
+                shell = tk.Frame(row, bg=bg, width=width, height=ROW_HEIGHT,
                                  highlightthickness=0)
                 shell.pack(side="left", fill="x", expand=True, padx=(0, GAP))
                 shell.pack_propagate(False)
@@ -192,11 +199,12 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
                     shell, text=caption, command=action, compound="top",
                     bg=bg, fg=secondary, activebackground=panel,
                     activeforeground=white, relief="flat", bd=0,
-                    highlightthickness=1, highlightbackground=bg,
-                    highlightcolor=accent, font=("Segoe UI", 8),
-                    padx=1, pady=3, cursor="hand2", takefocus=True)
+                    highlightthickness=0, highlightbackground=bg,
+                    highlightcolor=bg, font=("Segoe UI", 7),
+                    padx=1, pady=1, cursor="hand2", takefocus=True)
                 tile.pack(fill="both", expand=True)
-                tile.bind("<Return>", lambda _event: action())
+                tile.bind("<Return>", lambda _event: (action(), "break")[1])
+                tile.bind("<space>", lambda _event: (action(), "break")[1])
                 if key != "more":
                     tile.bind("<ButtonPress-1>", lambda event: press(event, key))
                     tile.bind("<B1-Motion>", motion)

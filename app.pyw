@@ -588,6 +588,9 @@ class PocketDesk:
         self.vendor_file = self.path.parent / "vendors.json"
         self.vendors, self.vendor_date = net.load_vendor_database(self.vendor_file)
         self.mac_results = []
+        self.mac_vendor_filter = None
+        self.mac_vendor_exclude = False
+        self.mac_vendor_expanded = False
         self.mac_lookup_running = False
         self.mac_lookup_token = 0
         self.mac_parse_summary = {"duplicates": 0, "invalid": 0}
@@ -5976,11 +5979,17 @@ class PocketDesk:
     # ---- IEEE bulk MAC address vendor lookup ------------------------------
 
     def _build_mac(self):
-        self._section_title(self.body, "Bulk MAC vendors", "Identify manufacturers from MAC prefixes", "Update IEEE DB", self._update_vendors)
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 4))
+        action_label(heading, "Update IEEE DB", self._update_vendors,
+                     bg=PANEL, fg=ACCENT, hover=CARD, padx=7, pady=5,
+                     font_size=8).pack(side="right")
+        tk.Label(heading, text="Bulk MAC vendors", bg=BG, fg=WHITE,
+                 font=(FONT, 12, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
         tools = self.data["tools"]
         self.mac_source = tk.StringVar(value="dashdash" if tools.get("mac_source") == "dashdash" else "local")
         status_line = tk.Frame(self.body, bg=BG)
-        status_line.pack(fill="x", pady=(0, 12))
+        status_line.pack(fill="x", pady=(0, 8))
         self.vendor_info = tk.Label(status_line, text=self._vendor_summary(), bg=BG,
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
@@ -6023,12 +6032,127 @@ class PocketDesk:
         self.mac_info = tk.Label(self.body, text=summary,
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.mac_info.pack(fill="x", pady=(12, 4))
+        summary_row = tk.Frame(self.body, bg=BG)
+        summary_row.pack(fill="x", pady=(0, 1))
+        self.mac_summary_toggle = action_label(
+            summary_row, "▸ Vendors", self._toggle_mac_summary, bg=BG,
+            fg=ACCENT, hover=PANEL, padx=3, pady=2, font_size=8)
+        self.mac_summary_toggle.pack(side="left")
+        self.mac_summary_count = tk.Label(summary_row, bg=BG, fg=MUTED,
+                                          font=(FONT, 8), anchor="e")
+        self.mac_summary_count.pack(side="right")
+        self.mac_summary_panel = tk.Frame(self.body, bg=PANEL)
+        summary_actions = tk.Frame(self.mac_summary_panel, bg=PANEL)
+        summary_actions.pack(fill="x", padx=3, pady=2)
+        action_label(summary_actions, "All", lambda: self._set_mac_vendor_filter(None),
+                     bg=PANEL, fg=ACCENT, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="left")
+        action_label(summary_actions, "Exclude", self._exclude_selected_mac_vendor,
+                     bg=PANEL, fg=SECONDARY, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="left")
+        action_label(summary_actions, "Copy summary", self._copy_mac_summary,
+                     bg=PANEL, fg=SECONDARY, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="right")
+        summary_list_row = tk.Frame(self.mac_summary_panel, bg=PANEL)
+        summary_list_row.pack(fill="x", padx=3, pady=(0, 3))
+        self.mac_summary_list = tk.Listbox(summary_list_row, bg=INPUT, fg=WHITE,
+            selectbackground=ACCENT_DARK, selectforeground=WHITE, height=3,
+            font=(FONT, 9), exportselection=False, activestyle="none",
+            highlightthickness=0, bd=0)
+        summary_scroll = ttk.Scrollbar(summary_list_row, orient="vertical",
+            command=self.mac_summary_list.yview, style="Pocket.Vertical.TScrollbar")
+        self.mac_summary_list.configure(yscrollcommand=summary_scroll.set)
+        summary_scroll.pack(side="right", fill="y")
+        self.mac_summary_list.pack(side="left", fill="x", expand=True)
+        self.mac_summary_list.bind("<<ListboxSelect>>", self._select_mac_summary_vendor)
         self.mac_tree = self._tree(self.body, ("MAC address", "Vendor / result", "Registry"),
                                    (133, 213, 80))
-        for item in self.mac_results[:500]:
-            self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
+        self.mac_tree.bind("<ButtonRelease-1>", self._mac_vendor_table_click, add="+")
+        self._refresh_mac_summary()
+        self._render_mac_table()
+        if self.mac_vendor_expanded:
+            self.mac_summary_panel.pack(fill="x", before=self.mac_tree.master, pady=(0, 2))
         if len(self.mac_results) > 500:
             self.mac_info.config(text="Showing first 500 rows; export/copy includes all results")
+
+    def _toggle_mac_summary(self):
+        self.mac_vendor_expanded = not self.mac_vendor_expanded
+        if self.mac_vendor_expanded:
+            self.mac_summary_panel.pack(fill="x", before=self.mac_tree.master, pady=(0, 2))
+        else:
+            self.mac_summary_panel.pack_forget()
+        self._refresh_mac_summary()
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is not None and canvas.winfo_exists():
+            canvas.after_idle(lambda: canvas.event_generate("<Configure>",
+                width=canvas.winfo_width(), height=canvas.winfo_height())
+                if canvas.winfo_exists() else None)
+
+    def _refresh_mac_summary(self):
+        groups = net.mac_vendor_counts(self.mac_results)
+        self.mac_summary_groups = groups
+        total = sum(count for _, count in groups)
+        label = f"{total} MACs · {len(groups)} groups"
+        if self.mac_vendor_filter:
+            label = "Filtered · " + label
+        self.mac_summary_count.configure(text=label)
+        self.mac_summary_toggle.configure(text=("▾" if self.mac_vendor_expanded else "▸") + " Vendors")
+        self.mac_summary_list.delete(0, "end")
+        for index, (name, count) in enumerate(groups):
+            self.mac_summary_list.insert("end", f"{count}  ·  {name}")
+            if self.mac_vendor_filter and name.casefold() == self.mac_vendor_filter.casefold():
+                self.mac_summary_list.selection_set(index)
+
+    def _render_mac_table(self):
+        for row in self.mac_tree.get_children():
+            self.mac_tree.delete(row)
+        selected = self.mac_vendor_filter
+        rows = self.mac_results
+        if selected:
+            rows = [row for row in rows if
+                    (net.mac_vendor_group(row).casefold() == selected.casefold())
+                    != self.mac_vendor_exclude]
+        for row in rows[:500]:
+            self.mac_tree.insert("", "end", values=(row["mac"], row["vendor"], row["registry"]))
+        if selected:
+            prefix = "Except" if self.mac_vendor_exclude else "Only"
+            self.mac_info.configure(text=f"{prefix} {selected} · {len(rows)} MACs", fg=ACCENT)
+
+    def _set_mac_vendor_filter(self, name, *, exclude=False):
+        self.mac_vendor_filter = name
+        self.mac_vendor_exclude = bool(name and exclude)
+        self._render_mac_table()
+        self._refresh_mac_summary()
+        if not name:
+            self.mac_info.configure(text=f"{len(self.mac_results)} MACs · All results", fg=ACCENT)
+
+    def _select_mac_summary_vendor(self, _event=None):
+        chosen = self.mac_summary_list.curselection()
+        if chosen:
+            name = self.mac_summary_groups[chosen[0]][0]
+            if name != self.mac_vendor_filter or self.mac_vendor_exclude:
+                self._set_mac_vendor_filter(name)
+
+    def _exclude_selected_mac_vendor(self):
+        chosen = self.mac_summary_list.curselection()
+        if chosen:
+            self._set_mac_vendor_filter(self.mac_summary_groups[chosen[0]][0], exclude=True)
+
+    def _mac_vendor_table_click(self, event):
+        if self.mac_tree.identify_region(event.x, event.y) != "cell":
+            return
+        if self.mac_tree.identify_column(event.x) != "#2":
+            return
+        row = self.mac_tree.identify_row(event.y)
+        if row:
+            name = net.mac_vendor_group({"vendor": self.mac_tree.set(row, "Vendor / result")})
+            self._set_mac_vendor_filter(None if name == self.mac_vendor_filter and
+                                        not self.mac_vendor_exclude else name)
+
+    def _copy_mac_summary(self):
+        self.root.clipboard_clear()
+        self.root.clipboard_append("\n".join(f"{name}\t{count}" for name, count in
+                                             net.mac_vendor_counts(self.mac_results)))
 
     def _vendor_summary(self):
         return (f"IEEE database: {len(self.vendors):,} prefixes • Updated {self.vendor_date}"
@@ -6104,10 +6228,10 @@ class PocketDesk:
             fg=MUTED)
 
     def _show_mac_results(self, source):
-        for item in self.mac_tree.get_children():
-            self.mac_tree.delete(item)
-        for item in self.mac_results[:500]:
-            self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
+        self.mac_vendor_filter = None
+        self.mac_vendor_exclude = False
+        self._render_mac_table()
+        self._refresh_mac_summary()
         summary = self.mac_parse_summary
         message = (f"{len(self.mac_results)} valid unique MACs • "
                    f"{summary['duplicates']} duplicates skipped • "
@@ -6136,8 +6260,10 @@ class PocketDesk:
             token = self.mac_lookup_token
             self.mac_lookup_running = True
             self.mac_results = []
-            for row in self.mac_tree.get_children():
-                self.mac_tree.delete(row)
+            self.mac_vendor_filter = None
+            self.mac_vendor_exclude = False
+            self._render_mac_table()
+            self._refresh_mac_summary()
             self.mac_check_button.config(state="disabled")
             self.mac_info.config(text=f"Checking {len(macs)} MAC(s) via DashDash…", fg=ACCENT)
 

@@ -384,18 +384,19 @@ class NoteRemindersIntegrationTests(unittest.TestCase):
         self.assertEqual(linked[-1]["body"], "Keep original 2\n\nSaved response")
         self.assertEqual(linked[-1]["title"], "Note 2")
 
-    def test_mini_top_icon_layout_is_unchanged_with_expandable_more(self):
+    def test_mini_top_icon_layout_uses_exact_fit_and_expandable_more(self):
         from pocket import mini_nav
         original = ["notes", "links", "ports", "mac", "commands",
                     "subnet", "clipboard"]
         first, overflow = mini_nav.plan_mini_icons(original)
-        self.assertEqual(first, tuple(original + ["more"]))
-        self.assertEqual(overflow, (("settings",),))
+        self.assertEqual(first, tuple(original + ["settings"]))
+        self.assertEqual(overflow, ())
         first, overflow = mini_nav.plan_mini_icons(original + ["reminders"])
         self.assertEqual(first, tuple(original + ["more"]))
         self.assertEqual(overflow, (("reminders", "settings"),))
         app_source = (ROOT / "app.pyw").read_text(encoding="utf-8")
-        self.assertIn('width=39, height=45', app_source)
+        self.assertIn('width=38, height=45', app_source)
+        self.assertIn('tile.pack(side="left", fill="x", expand=True', app_source)
         self.assertIn('"Less" if expanded else "More"', app_source)
         self.assertIn('self._mini_nav_separator', app_source)
         settings_source = (ROOT / "pocket/settings_ui.py").read_text(encoding="utf-8")

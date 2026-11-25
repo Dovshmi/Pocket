@@ -1,6 +1,6 @@
 """Pocket author credit and current application version."""
 
-AUTHOR_CREDIT = "By. Rony"
+AUTHOR_CREDIT = "By. Rony Shmidov"
 VERSION = "1.42.0"
 
 

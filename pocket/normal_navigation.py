@@ -135,7 +135,7 @@ def install(app, parent, *, bg, panel, accent, accent_dark, muted, secondary, wh
             def add_tile(row, key, caption, action, width=TILE_WIDTH):
                 shell = tk.Frame(row, bg=bg, width=width, height=54,
                                  highlightthickness=0)
-                shell.pack(side="left", padx=(0, GAP))
+                shell.pack(side="left", fill="x", expand=True, padx=(0, GAP))
                 shell.pack_propagate(False)
                 tile = tk.Button(
                     shell, text=caption, command=action, compound="top",

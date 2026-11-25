@@ -5540,7 +5540,7 @@ class PocketDesk:
 
         port_heading = tk.Frame(self.body, bg=BG)
         port_heading.pack(fill="x", pady=(0, 5))
-        tk.Label(port_heading, text="TCP PORTS (comma-separated)", bg=BG,
+        tk.Label(port_heading, text="TCP PORTS (numbers / ranges)", bg=BG,
                  fg=MUTED, font=(FONT, 8, "bold")).pack(side="left")
         self.port_count = tk.Label(port_heading, text="0/16", bg=BG, fg=MUTED,
                                    font=(FONT, 8, "bold"), anchor="e")
@@ -5576,12 +5576,46 @@ class PocketDesk:
         self.scan_info = tk.Label(self.body, text="TCP connect only • No UDP scanning",
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.scan_info.pack(fill="x", pady=(9, 1))
+        progress_row = tk.Frame(self.body, bg=BG)
+        progress_row.pack(fill="x", pady=(5, 1))
+        self.port_progress_label = tk.Label(progress_row, text="0/0", bg=BG,
+                                            fg=MUTED, font=(FONT, 8))
+        self.port_progress_label.pack(side="right", padx=(7, 0))
+        self.port_progress = tk.Canvas(progress_row, bg=BG, height=7,
+                                       highlightthickness=0, bd=0, takefocus=0)
+        self.port_progress.pack(side="left", fill="x", expand=True)
+        self.port_progress.bind("<Configure>", lambda _event: self._refresh_port_progress())
         self.port_tree = self._tree(self.body, ("Port", "Service", "TCP status", "Time"),
                                     (72, 115, 117, 73))
+        self.port_tree.tag_configure("port_open", foreground="#54C58A")
+        self.port_tree.tag_configure("port_failed", foreground="#F87171")
+        self._refresh_port_progress()
         for result in sorted(self.port_results, key=net.port_result_sort_key):
             self._add_port_result(result)
         if self.scanning:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
+
+    def _refresh_port_progress(self):
+        canvas = getattr(self, "port_progress", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        opened, failed, total = presets.progress_counts(
+            self.scan_requested_ports, self.port_results)
+        complete = opened + failed
+        self.port_progress_label.configure(text=f"{complete}/{total} completed")
+        width = max(1, canvas.winfo_width())
+        height = max(1, canvas.winfo_height())
+        canvas.delete("all")
+        canvas.create_rectangle(0, 0, width, height, fill=CARD, outline="")
+        if total:
+            green_end = round(width * opened / total)
+            red_end = round(width * complete / total)
+            if opened:
+                canvas.create_rectangle(0, 0, green_end, height,
+                                        fill="#54C58A", outline="")
+            if failed:
+                canvas.create_rectangle(green_end, 0, red_end, height,
+                                        fill="#F87171", outline="")
 
     def _port_source_changed(self):
         # Source choice never starts a TCP check.
@@ -5728,6 +5762,7 @@ class PocketDesk:
             self._toggle_quick_ports()
         self.scanning = True
         self.scan_requested_ports = list(ports)
+        self._refresh_port_progress()
         self.scan_cancel = threading.Event()
         self.scan_error = None
         self.scan_token += 1
@@ -5777,7 +5812,8 @@ class PocketDesk:
                 break
             index += 1
         self.port_tree.insert("", index, values=(
-            item["port"], item["service"], item["status"], f"{item['ms']} ms"))
+            item["port"], item["service"], item["status"], f"{item['ms']} ms"),
+            tags=("port_open" if item["status"] == "OPEN" else "port_failed",))
 
     def _export_ports(self):
         if not self.port_results:
@@ -6788,6 +6824,7 @@ class PocketDesk:
                         self.port_results.sort(key=net.port_result_sort_key)
                         if self.current_tab == "ports":
                             self._add_port_result(result)
+                            self._refresh_port_progress()
                             self.scan_info.config(text=f"Checked {len(self.port_results)} port(s)…", fg=ACCENT)
                 elif name == "port_error":
                     token, error = xy
@@ -6805,6 +6842,7 @@ class PocketDesk:
                                 and len(self.port_results) == len(self.scan_requested_ports)):
                             self._record_last_scan(self.scan_requested_ports)
                         if self.current_tab == "ports":
+                            self._refresh_port_progress()
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)
                             if self.scan_error:

@@ -233,7 +233,7 @@ def _build_text_page(app, c):
     footer = tk.Frame(parent, bg=c["BG"])
     # In Mini, reserve the bottom row before allocating the list's flexible
     # space. The actions remain visible at the bottom even on short monitors.
-    if app.display_mode == "mini":
+    if app.display_mode in ("mini", "normal"):
         footer.pack(side="bottom", fill="x", pady=(4, 0))
     else:
         footer.pack(fill="x", pady=(3, 3))

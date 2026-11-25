@@ -294,6 +294,9 @@ def _mode_picker(parent, app, c, *, wide=False, compact=False):
         return "break"
 
     selector.bind("<<ComboboxSelected>>", choose)
+    for event_name in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+        selector.bind(event_name, lambda event: (app._scroll_tool_on_wheel(
+            event, from_picker=True), "break")[1])
     app._window_profile_refresh = refresh
     refresh()
 

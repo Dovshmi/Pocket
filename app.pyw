@@ -6360,14 +6360,15 @@ class PocketDesk:
         x, y, width, height = adaptive.resize_rectangle(
             rectangle, edges, event.x_root - mouse_x, event.y_root - mouse_y, area)
         self.root.geometry(f"{width}x{height}{x:+d}{y:+d}")
+        return x, y, width, height
 
     def _finish_window_resize(self, event):
         if self._resize_origin is None:
             return
         try:
-            self._continue_window_resize(event)
-            width, height = self.root.winfo_width(), self.root.winfo_height()
-            x, y = self.root.winfo_x(), self.root.winfo_y()
+            # Tk geometry is asynchronous; persist the calculated rectangle,
+            # not winfo_width/height which may still report the previous frame.
+            x, y, width, height = self._continue_window_resize(event)
             self.data["window_size"] = {"width": width, "height": height}
             mode = adaptive.layout_for(width, height)
             self.data["window_positions"][mode] = {"x": x, "y": y}
@@ -6418,7 +6419,9 @@ class PocketDesk:
         try:
             self._continue_window_drag(event)
             if self._drag_moved:
-                px, py = self.root.winfo_x(), self.root.winfo_y()
+                start_x, start_y, original_x, original_y = self._drag_origin
+                px = original_x + event.x_root - start_x
+                py = original_y + event.y_root - start_y
                 area = self._screen_work_area(event.x_root, event.y_root)
                 width = self.root.winfo_width()
                 height = self.root.winfo_height()

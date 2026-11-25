@@ -5846,10 +5846,6 @@ class PocketDesk:
         self.vendor_info = tk.Label(status_line, text=self._vendor_summary(), bg=BG,
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
-        action_label(status_line, "Import CSV", self._import_vendors, fg=ACCENT,
-                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right")
-        action_label(status_line, "Get CSV ↗", self._show_ieee_downloads, fg=SECONDARY,
-                     bg=PANEL, hover=CARD, padx=6, pady=5, font_size=8).pack(side="right", padx=(0, 4))
         mac_heading = tk.Frame(self.body, bg=BG)
         mac_heading.pack(fill="x", pady=(0, 6))
         tk.Label(mac_heading, text="MAC ADDRESSES", bg=BG, fg=MUTED,

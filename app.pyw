@@ -1995,7 +1995,10 @@ class PocketDesk:
         if mode == "compact":
             return self._set_extra_mini_enabled(True)
         if self.settings["display_mode"] == mode and self.display_mode == mode:
-            return
+            preset_width, preset_height = mini.view_dimensions(mode)
+            saved = adaptive.saved_size(self.data.get("window_size"))
+            if saved is None or saved == {"width": preset_width, "height": preset_height}:
+                return
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")

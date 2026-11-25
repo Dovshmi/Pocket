@@ -6314,21 +6314,27 @@ class PocketDesk:
         if self.display_mode == "compact":
             return
         placements = (
-            ("n", "size_ns", dict(relx=.04, rely=0, relwidth=.92, height=5)),
-            ("s", "size_ns", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
-            ("w", "size_we", dict(relx=0, rely=.04, width=5, relheight=.92)),
-            ("e", "size_we", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
-            ("nw", "size_nw_se", dict(relx=0, rely=0, width=14, height=14)),
-            ("ne", "size_ne_sw", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
-            ("sw", "size_ne_sw", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
-            ("se", "size_nw_se", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
+            ("n", "sb_v_double_arrow", dict(relx=.04, rely=0, relwidth=.92, height=5)),
+            ("s", "sb_v_double_arrow", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
+            ("w", "sb_h_double_arrow", dict(relx=0, rely=.04, width=5, relheight=.92)),
+            ("e", "sb_h_double_arrow", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
+            ("nw", "top_left_corner", dict(relx=0, rely=0, width=14, height=14)),
+            ("ne", "top_right_corner", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
+            ("sw", "bottom_left_corner", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
+            ("se", "bottom_right_corner", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
         )
         for edges, cursor, location in placements:
             if edges == "se":
                 grip = tk.Label(self.root, text="◢", font=(FONT, 11),
-                                bg=BG, fg=MUTED, cursor=cursor, bd=0)
+                                bg=BG, fg=MUTED, bd=0)
             else:
-                grip = tk.Frame(self.root, bg=BG, cursor=cursor, bd=0)
+                grip = tk.Frame(self.root, bg=BG, bd=0)
+            # Cursor aliases vary across Tk/Win32/X11 builds. An unsupported
+            # cursor must never stop Pocket from launching.
+            try:
+                grip.configure(cursor=cursor)
+            except tk.TclError:
+                pass
             grip.place(**location)
             grip.lift()
             grip.bind("<ButtonPress-1>",

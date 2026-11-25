@@ -656,14 +656,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                               clipboard_gallery.text_row_label(item)
                               for i, item in enumerate(app._clipboard_filtered)),
                           f"{mode}: Clipboard rows gained unwanted left padding")
-                    check(app.clipboard_query_entry.winfo_width() <
-                          app.clipboard_text_page.winfo_width() * 0.8,
-                          f"{mode}: Clipboard search should be narrow")
+                    if mode != "normal":
+                        check(app.clipboard_query_entry.winfo_width() <
+                              app.clipboard_text_page.winfo_width() * 0.8,
+                              f"{mode}: Clipboard search should be narrow")
+                    else:
+                        check(app.clipboard_query_entry.winfo_width() <
+                              app.clipboard_text_page.winfo_width(),
+                              "Normal: search must leave room for Pause")
                     check(app.clipboard_query_entry.winfo_height() < 36,
                           f"{mode}: Clipboard search should be shorter")
                     actions_y = app.clipboard_text_actions.winfo_rooty()
                     list_y = app.clipboard_list.winfo_rooty()
-                    if mode == "mini":
+                    if mode in ("mini", "normal"):
                         check(actions_y >= list_y + app.clipboard_list.winfo_height(),
                               "Mini: Copy/Pin/Delete must be beneath the text history")
                         # Mini reclaim: search and Pause share one horizontal row;

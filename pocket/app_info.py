@@ -1,11 +1,7 @@
-"""Pocket author credit and current application version.
+"""Pocket author credit and current application version."""
 
-Version 1.40 is shown inside Pocket and Settings in the main source.
-The previously published stable 1.39.9 packages remain available.
-"""
-
-AUTHOR_CREDIT = "By. Rony Shmidov"
-VERSION = "1.40.0"
+AUTHOR_CREDIT = "By. Rony"
+VERSION = "1.42.0"
 
 
 def version_label() -> str:

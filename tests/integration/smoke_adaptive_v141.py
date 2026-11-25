@@ -82,8 +82,11 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app._set_display_mode("normal")
         app.root.update()
         check(app.display_mode == "normal", "Normal preset not selected")
+        preset_width, preset_height = mini.view_dimensions("normal")
+        preset_width = min(preset_width, max(240, area[2] - area[0] - 12))
+        preset_height = min(preset_height, max(240, area[3] - area[1] - 12))
         check((app.root.winfo_width(), app.root.winfo_height()) ==
-              mini.view_dimensions("normal"), "Normal preset size mismatch")
+              (preset_width, preset_height), "Normal preset must fit work area")
         check(len(app._resize_handles) == 8, "grips missing after layout rebuild")
         print("PASS: Settings size presets continue to work")
     finally:

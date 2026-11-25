@@ -223,5 +223,35 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         check("Import CSV" not in labels and "Get CSV ↗" not in labels,
               "MAC CSV actions still visible")
         print("PASS: responsive Clipboard and simplified MAC actions")
+
+        from unittest.mock import patch
+        app.show_tab("settings")
+        app.root.geometry("620x640+20+20")
+        app.root.update()
+        with patch("tkinter.simpledialog.askstring", return_value="Work"):
+            app.settings_controls["window_profile_save"].invoke()
+        app.root.update()
+        check(app.settings["window_profiles"]["Work"] == {"width": 620, "height": 640},
+              "Save profile did not capture actual dimensions")
+        picker = app.settings_controls["window_profile"]
+        label = next(value for value in picker["values"] if value.startswith("Mini "))
+        picker.set(label)
+        picker.event_generate("<<ComboboxSelected>>")
+        app.root.update()
+        check(app.display_mode == "mini", "Factory Mini selection failed")
+        picker = app.settings_controls["window_profile"]
+        label = next(value for value in picker["values"] if value.startswith("Work "))
+        picker.set(label)
+        picker.event_generate("<<ComboboxSelected>>")
+        app.root.update()
+        check(app.display_mode == "normal", "Custom size did not reflow")
+        check((app.root.winfo_width(), app.root.winfo_height()) == (620, 640),
+              "Custom profile dimensions not restored")
+        with patch("tkinter.messagebox.askyesno", return_value=True):
+            app.settings_controls["window_profile_delete"].invoke()
+        check("Work" not in app.settings["window_profiles"], "Profile deletion failed")
+        check(app.settings["window_profile"] == adaptive.CURRENT_PROFILE,
+              "Deleting active profile must preserve current size")
+        print("PASS: Settings profile Save, dropdown switch and Delete")
     finally:
         app.root.destroy()

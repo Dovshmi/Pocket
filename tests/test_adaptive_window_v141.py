@@ -22,6 +22,62 @@ class AdaptiveWindowTests(unittest.TestCase):
                          {"width": 595, "height": 710})
         self.assertIsNone(app["default_data"]()["window_size"])
 
+    def test_named_profiles_are_validated_and_factory_sizes_are_immutable(self):
+        from pocket import mini_layout
+        for name, size in aw.FACTORY_PROFILES.items():
+            self.assertEqual(size, mini_layout.view_dimensions(name.lower()))
+        raw, name = aw.store_profile({}, "Work", {"width": 645, "height": 710})
+        self.assertEqual(name, "Work")
+        self.assertEqual(aw.profiles(raw)["Work"], {"width": 645, "height": 710})
+        self.assertEqual(aw.matching_profile(name, raw, {"width": 650, "height": 710}),
+                         aw.CURRENT_PROFILE)
+        self.assertEqual(raw["Work"]["width"], 645)
+        with self.assertRaises(ValueError):
+            aw.store_profile(raw, "mini", {"width": 640, "height": 500})
+        with self.assertRaises(ValueError):
+            aw.store_profile(raw, "Work", {"width": True, "height": 500})
+        updated, name = aw.store_profile(raw, "work", {"width": 660, "height": 700})
+        self.assertEqual(name, "Work")
+        self.assertEqual(list(updated), ["Work"])
+
+    def test_profile_and_geometry_backup_roundtrip(self):
+        from pocket import portable_backup as pb, settings_reset
+        with tempfile.TemporaryDirectory() as directory:
+            directory = Path(directory)
+            source = app["default_data"]()
+            source["settings"]["window_profiles"] = {"Work": {"width": 640, "height": 680}}
+            source["settings"]["window_profile"] = "Work"
+            source["window_size"] = {"width": 640, "height": 680}
+            source["window_positions"]["normal"] = {"x": 100, "y": 50}
+            source["extra_mini_page"] = 1
+            source["subnet"]["ip"] = "10.0.0.1"
+            path = directory / "data.json"
+            app["save_data"](path, source)
+            self.assertEqual(app["load_data"](path)["settings"]["window_profiles"],
+                             source["settings"]["window_profiles"])
+            archive = directory / "settings.zip"
+            pb.make_backup(archive, source, profile_dir=directory, selected=("settings",))
+            bundle = pb.read_backup(archive)
+            target = app["default_data"]()
+            target["settings"]["window_profiles"] = {"Work": {"width": 500, "height": 550}}
+            restored = pb.plan_restore(bundle, target, selected=("settings",),
+                                       mode="merge")["profile"]
+            self.assertEqual(restored["settings"]["window_profiles"]["Work"],
+                             {"width": 500, "height": 550})
+            self.assertEqual(restored["settings"]["window_profiles"]["Work (2)"],
+                             source["window_size"])
+            self.assertEqual(restored["settings"]["window_profile"], "Work (2)")
+            for field in ("window_size", "window_positions", "subnet", "extra_mini_page"):
+                self.assertEqual(restored[field], source[field])
+            replaced = pb.plan_restore(bundle, target, selected=("settings",),
+                                       mode="replace")["profile"]
+            self.assertEqual(replaced["settings"]["window_profiles"],
+                             source["settings"]["window_profiles"])
+            reset = settings_reset.reset_preferences(restored, app["default_data"](), ("appearance",))
+            self.assertEqual(reset["settings"]["window_profiles"], {})
+            self.assertIsNone(reset["window_size"])
+            self.assertEqual(reset["notes"], restored["notes"])
+
     def test_breakpoints_do_not_turn_extra_mini_on(self):
         self.assertEqual(aw.layout_for(346, 530), "mini")
         self.assertEqual(aw.layout_for(480, 850), "normal")

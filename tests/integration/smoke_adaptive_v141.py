@@ -315,5 +315,37 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
             settle()
             check(canvas.yview()[1] < 1, f"{name}: short window cannot scroll")
         print("PASS: tall Mini network tables fill viewport")
+
+        # Inject synthetic TCP results; never contact Local or DashDash.
+        for mode in ("mini", "normal", "dashboard"):
+            app._set_display_mode(mode)
+            app.show_tab("ports")
+            app.ports_var.set("80,554,2079-2084,22,21")
+            app.root.update()
+            check(app.port_count.cget("text") == "10/16", "Range count incorrect")
+            app.scan_requested_ports = [80, 22, 21, 443]
+            app.port_results = []
+            for port, service, status in ((22, "SSH", "TIMEOUT"),
+                                          (80, "HTTP", "OPEN"),
+                                          (21, "FTP", "CLOSED")):
+                row = {"port": port, "service": service, "status": status, "ms": 5}
+                app.port_results.append(row)
+                app._add_port_result(row)
+            app._refresh_port_progress()
+            app.root.update()
+            check(app.port_progress_label.cget("text") == "3/4 completed",
+                  "Progress must count completed checks only")
+            tree = app.port_tree
+            children = tree.get_children()
+            check(tree.set(children[0], "TCP status") == "OPEN", "OPEN sort changed")
+            check(tree.item(children[0], "tags") == ("port_open",), "OPEN color missing")
+            check(all(tree.item(i, "tags") == ("port_failed",) for i in children[1:]),
+                  "Failure colors missing")
+            fills = [app.port_progress.itemcget(i, "fill")
+                     for i in app.port_progress.find_all()]
+            check("#54C58A" in fills and "#F87171" in fills,
+                  "Progress bar missing result segments")
+            app.port_results = []
+        print("PASS: range input and TCP result styling in all working layouts")
     finally:
         app.root.destroy()

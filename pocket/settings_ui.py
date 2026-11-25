@@ -11,6 +11,8 @@ from tkinter import ttk
 
 from . import icon_themes as themes
 from . import app_info
+from . import adaptive_window as adaptive
+from . import mini_layout
 from . import quick_slots
 from . import pocket_design as design
 from . import tool_icons
@@ -241,29 +243,59 @@ def _action(parent, app, c, key, title, detail, caption, callback,
 def _mode_picker(parent, app, c, *, wide=False, compact=False):
     group = tk.Frame(parent, bg=c["PANEL"])
     group.pack(fill="x", padx=13, pady=(1, 12))
-    for i, (mode, icon, title, detail) in enumerate(LAYOUTS):
-        selected = app.settings["display_mode"] == mode
-        surface = c["ACCENT_DARK"] if selected else c["CARD"]
-        outline = c["ACCENT"] if selected else c["BORDER"]
-        holder = tk.Frame(
-            group, bg=surface, highlightthickness=1,
-            highlightbackground=outline)
-        group.grid_columnconfigure(i, weight=1, uniform="layout")
-        holder.grid(row=0, column=i, sticky="nsew",
-                    padx=(0, 5) if i < 2 else 0)
-        # Keep mode picker ASCII-only; glyph boxes/question marks appeared on
-        # some Windows font installations. The highlighted tile shows active.
-        caption = title + ("  (active)" if selected else "")
-        button = tk.Button(
-            holder, text=caption, command=lambda name=mode: app._set_display_mode(name),
-            bg=surface, fg=c["WHITE"] if selected else c["SECONDARY"],
-            activebackground=c["CARD_HOVER"], activeforeground=c["WHITE"],
-            font=(FONT, 9, "bold" if selected else "normal"),
-            anchor="w", justify="left", cursor="hand2",
-            relief="flat", bd=0, highlightthickness=0,
-            padx=9, pady=9 if not compact else 7, takefocus=True)
-        button.pack(fill="both", expand=True)
-        _register(app, "mode_" + mode, button)
+    _label(group, "WINDOW SIZE PROFILE", c, size=8, muted=True,
+           bold=True, anchor="w").pack(fill="x", pady=(0, 5))
+    row = tk.Frame(group, bg=c["PANEL"])
+    row.pack(fill="x")
+    selector = ttk.Combobox(row, style="Pocket.TCombobox",
+                            state="readonly", width=10, takefocus=True)
+    selector.pack(side="left", fill="x", expand=True)
+    save = design.button(row, "Save", app._save_window_profile, app.theme, compact=True)
+    save.pack(side="right", padx=(5, 0))
+    detail = tk.Frame(group, bg=c["PANEL"])
+    detail.pack(fill="x", pady=(5, 0))
+    status = _label(detail, "", c, size=8, muted=True, anchor="w")
+    status.pack(side="left", fill="x", expand=True)
+    delete = design.button(detail, "Delete", app._delete_window_profile,
+                           app.theme, compact=True)
+    _register(app, "window_profile", selector)
+    _register(app, "window_profile_save", save)
+    _register(app, "window_profile_delete", delete)
+    names = {}
+
+    def refresh():
+        if not selector.winfo_exists():
+            return
+        available = adaptive.profiles(app.settings["window_profiles"])
+        size = adaptive.saved_size(app.data.get("window_size"))
+        if size is None:
+            w, h = mini_layout.view_dimensions(app.display_mode)
+            size = {"width": w, "height": h}
+        selected = app.settings["window_profile"]
+        names.clear()
+        for name, dimensions in available.items():
+            names[f'{name}  ·  {dimensions["width"]} × {dimensions["height"]}'] = name
+        current = f'Current size  ·  {size["width"]} × {size["height"]}'
+        if selected == adaptive.CURRENT_PROFILE:
+            names[current] = adaptive.CURRENT_PROFILE
+        selector.configure(values=tuple(names))
+        selector.set(next((label for label, name in names.items() if name == selected),
+                          current))
+        status.configure(text=f'{size["width"]} × {size["height"]} px · Resize freely')
+        if selected in app.settings["window_profiles"]:
+            delete.pack(side="right", padx=(5, 0))
+        else:
+            delete.pack_forget()
+
+    def choose(_event):
+        name = names.get(selector.get())
+        if name and name != adaptive.CURRENT_PROFILE:
+            app._apply_window_profile(name)
+        return "break"
+
+    selector.bind("<<ComboboxSelected>>", choose)
+    app._window_profile_refresh = refresh
+    refresh()
 
 
 def _theme_picker(parent, app, c, *, wide=False, compact=False):
@@ -305,7 +337,7 @@ def _theme_picker(parent, app, c, *, wide=False, compact=False):
 
 def _appearance(parent, app, c, *, wide=False, compact=False):
     card = _section(parent, c, "Appearance & layout",
-                    "Switch windows and choose a theme that fits your workspace.",
+                    "Choose a size profile, resize freely, and save your own.",
                     compact=compact, wide=wide)
     _mode_picker(card, app, c, wide=wide, compact=compact)
     _divider(card, c)

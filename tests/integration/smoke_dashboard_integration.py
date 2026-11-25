@@ -670,7 +670,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     list_y = app.clipboard_list.winfo_rooty()
                     if mode in ("mini", "normal"):
                         check(actions_y >= list_y + app.clipboard_list.winfo_height(),
-                              "Mini: Copy/Pin/Delete must be beneath the text history")
+                              f"{mode}: Copy/Pin/Delete must be beneath the text history")
                         # Mini reclaim: search and Pause share one horizontal row;
                         # the DB pager shares a row with the Text/Images toggle.
                         pause = app.clipboard_pause_button
@@ -944,7 +944,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     if app._settings_open_group != "appearance":
                         common["settings_group_appearance"].invoke()
                     app.root.update()
-                    required = {"mode_normal", "mode_mini", "mode_dashboard",
+                    required = {"window_profile", "window_profile_save", "window_profile_delete",
                                 "theme_blue", "theme_purple", "extra_mini",
                                 "change_hotkey", "change_convert_hotkey",
                                 "convert_enabled", "convert_mode_picker",
@@ -1077,7 +1077,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         check(not app._modal and not restored[0].winfo_exists(),
                               "Restore dialog did not close cleanly")
                     check(common["theme_blue"].winfo_exists() and
-                          common["mode_mini"].winfo_exists(),
+                          common["window_profile"].winfo_exists(),
                           f"{mode}: themed selection cards disappeared")
                     old_limit = app.settings["clipboard_image_limit"]
                     picker = common["ram_image_limit"]
@@ -1178,7 +1178,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                 if page == "settings" and mode == "dashboard":
                     controls = app.dashboard_settings_controls
                     check(all(key in controls for key in (
-                        "mode_normal", "mode_mini", "mode_dashboard",
+                        "window_profile", "window_profile_save", "window_profile_delete",
                         "extra_mini", "customize_launcher",
                         "change_hotkey", "change_convert_hotkey", "quick_search",
                         "clipboard_paused", "sensitive_filter",

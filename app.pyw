@@ -88,6 +88,7 @@ from pocket import note_sync
 from pocket import native_bidi
 from pocket import native_inputs
 from pocket import mini_layout as mini
+from pocket import adaptive_window as adaptive
 from pocket import mini_nav
 from pocket import menu_order
 from pocket import dashboard_ui as dashboard
@@ -230,6 +231,7 @@ def default_data() -> dict:
         "custom_commands": [],
         "subnet": {"ip": "192.168.1.10", "prefix": "24", "split": "/26"},
         "window_position": None,
+        "window_size": None,  # v1.41: one responsive size for Mini / Normal / Dashboard
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
                      "reminders_menu_configured": True, "extra_menu_configured": True,
@@ -421,6 +423,7 @@ def load_data(path: Path, *, on_recovery=None, _retry=False) -> dict:
                 "custom_commands": ch.safe_custom_commands(data.get("custom_commands")),
                 "subnet": subnet_pref,
                 "window_position": normalize_window_position(data.get("window_position")),
+                "window_size": adaptive.saved_size(data.get("window_size")),
                 "window_positions": mini.window_positions(data.get("window_positions"),
                                                               data.get("window_position")),
                 "theme": themes.valid_theme(data.get("theme")),
@@ -490,6 +493,11 @@ class PocketDesk:
         self.settings = normalize_settings(self.data.get("settings"))
         self.data["settings"] = self.settings
         self.display_mode = self.settings["display_mode"]
+        previous_size = adaptive.saved_size(self.data.get("window_size"))
+        if previous_size is not None:
+            self.display_mode = adaptive.layout_for(
+                previous_size["width"], previous_size["height"])
+            self.settings["display_mode"] = self.display_mode
         self.data["window_positions"] = mini.window_positions(
             self.data.get("window_positions"), self.data.get("window_position"))
         self._ram_text_items = []  # Intentionally never written to disk.
@@ -562,6 +570,9 @@ class PocketDesk:
         self._dragging_window = False
         self._drag_moved = False
         self._drag_origin = None
+        self._resize_origin = None
+        self._resizing_window = False
+        self._resize_handles = []
         self._header_context_menu = None
         self._input_context_menu = None
         self._input_context_menu_was_modal = False
@@ -644,6 +655,7 @@ class PocketDesk:
         text_editing.install(self.root, self._show_input_context_menu,
                              self._repair_input_focus)
         self.show_tab(self.current_tab)
+        self._install_resize_handles()
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
         self.root.bind("<Control-k>", self._open_global_search)
@@ -1990,6 +2002,9 @@ class PocketDesk:
         self._compact_return = False
         self.display_mode = mode
         self.settings["display_mode"] = mode
+        preset_width, preset_height = mini.view_dimensions(mode)
+        self.data["window_size"] = {"width": preset_width, "height": preset_height}
+        # A Settings selection is a starting size; subsequent resizing is free.
         if mode == "dashboard":
             self.current_tab = "home"
         elif self.current_tab == "home":
@@ -2004,6 +2019,8 @@ class PocketDesk:
         self._header_context_menu = None
         self._build_shell()
         self.show_tab(self.current_tab)
+        self._install_resize_handles()
+        self._place_popup(self._last_tray_xy)
 
     def _build_settings_refresh(self):
         self.show_tab("settings")
@@ -6230,12 +6247,12 @@ class PocketDesk:
                                    parent=self.root)
 
     def _focus_lost(self, _event):
-        if self.preview or self.pinned or self._modal or self._dragging_window:
+        if self.preview or self.pinned or self._modal or self._dragging_window or self._resizing_window:
             return
         self.root.after(170, self._maybe_hide)
 
     def _maybe_hide(self):
-        if self.preview or self.pinned or self._modal or self._dragging_window:
+        if self.preview or self.pinned or self._modal or self._dragging_window or self._resizing_window:
             return
         if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
                 and self.bidi_editor.has_focus()):
@@ -6254,6 +6271,10 @@ class PocketDesk:
         """Clamp current layout to monitor and restore its own saved position."""
         self.root.update_idletasks()
         width, desired_height = mini.view_dimensions(self.display_mode)
+        if self.display_mode != "compact":
+            size = adaptive.saved_size(self.data.get("window_size"))
+            if size is not None:
+                width, desired_height = size["width"], size["height"]
         positions = self.data.get("window_positions") or {}
         saved = mini.window_position(positions.get(self.display_mode))
         if saved is None and self.display_mode == "normal":
@@ -6282,6 +6303,91 @@ class PocketDesk:
             self.command_tree.configure(
                 height=5 if self.display_mode == "normal" else 4)
         self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
+        if self.display_mode != "compact":
+            mode = adaptive.layout_for(width, height)
+            if mode != self.display_mode:
+                self._apply_adaptive_layout(mode)
+
+    def _install_resize_handles(self):
+        """Borderless resize handles on all edges and corners; not Extra Mini."""
+        self._resize_handles = []
+        if self.display_mode == "compact":
+            return
+        placements = (
+            ("n", "size_ns", dict(relx=.04, rely=0, relwidth=.92, height=5)),
+            ("s", "size_ns", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
+            ("w", "size_we", dict(relx=0, rely=.04, width=5, relheight=.92)),
+            ("e", "size_we", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
+            ("nw", "size_nw_se", dict(relx=0, rely=0, width=14, height=14)),
+            ("ne", "size_ne_sw", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
+            ("sw", "size_ne_sw", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
+            ("se", "size_nw_se", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
+        )
+        for edges, cursor, location in placements:
+            if edges == "se":
+                grip = tk.Label(self.root, text="◢", font=(FONT, 11),
+                                bg=BG, fg=MUTED, cursor=cursor, bd=0)
+            else:
+                grip = tk.Frame(self.root, bg=BG, cursor=cursor, bd=0)
+            grip.place(**location)
+            grip.lift()
+            grip.bind("<ButtonPress-1>",
+                      lambda event, sides=edges: self._begin_window_resize(event, sides))
+            grip.bind("<B1-Motion>", self._continue_window_resize)
+            grip.bind("<ButtonRelease-1>", self._finish_window_resize)
+            self._resize_handles.append(grip)
+
+    def _begin_window_resize(self, event, edges):
+        if self.display_mode == "compact":
+            return
+        x, y = self.root.winfo_x(), self.root.winfo_y()
+        width, height = self.root.winfo_width(), self.root.winfo_height()
+        area = self._screen_work_area(x + width // 2, y + height // 2)
+        self._resize_origin = ((x, y, width, height), edges,
+                               event.x_root, event.y_root, area)
+        self._resizing_window = True
+
+    def _continue_window_resize(self, event):
+        if self._resize_origin is None:
+            return
+        rectangle, edges, mouse_x, mouse_y, area = self._resize_origin
+        x, y, width, height = adaptive.resize_rectangle(
+            rectangle, edges, event.x_root - mouse_x, event.y_root - mouse_y, area)
+        self.root.geometry(f"{width}x{height}{x:+d}{y:+d}")
+
+    def _finish_window_resize(self, event):
+        if self._resize_origin is None:
+            return
+        try:
+            self._continue_window_resize(event)
+            width, height = self.root.winfo_width(), self.root.winfo_height()
+            x, y = self.root.winfo_x(), self.root.winfo_y()
+            self.data["window_size"] = {"width": width, "height": height}
+            mode = adaptive.layout_for(width, height)
+            self.data["window_positions"][mode] = {"x": x, "y": y}
+            if mode == "normal":
+                self.data["window_position"] = {"x": x, "y": y}
+            if mode != self.display_mode:
+                self._apply_adaptive_layout(mode)
+            self._flush_current_note()
+            self._write_now()
+        finally:
+            self._resize_origin = None
+            self._resizing_window = False
+
+    def _apply_adaptive_layout(self, mode):
+        """Rebuild presentation, preserving the current tool and unsaved drafts."""
+        if self.display_mode == "compact" or mode == self.display_mode:
+            return
+        self._flush_current_note()
+        if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
+            self.mac_draft = self.mac_input.get("1.0", "end-1c")
+        self.display_mode = mode
+        self.settings["display_mode"] = mode
+        if self.current_tab == "home" and mode != "dashboard":
+            self.current_tab = "notes"
+        self._build_shell_refresh()
+        self.schedule_save()
 
     def _begin_window_drag(self, event):
         self._dragging_window = True
@@ -6308,12 +6414,23 @@ class PocketDesk:
             if self._drag_moved:
                 px, py = self.root.winfo_x(), self.root.winfo_y()
                 area = self._screen_work_area(event.x_root, event.y_root)
-                px, py = clamp_window_position(px, py, self.root.winfo_width(),
-                                                self.root.winfo_height(), area)
-                self.root.geometry(f"{px:+d}{py:+d}")
+                width = self.root.winfo_width()
+                height = self.root.winfo_height()
+                if self.display_mode != "compact":
+                    width = min(width, max(240, area[2] - area[0] - 12))
+                    height = min(height, max(240, area[3] - area[1] - 12))
+                px, py = clamp_window_position(px, py, width, height, area)
+                self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
+                if self.display_mode != "compact":
+                    self.data["window_size"] = {"width": width, "height": height}
                 self.data["window_positions"][self.display_mode] = {"x": px, "y": py}
                 if self.display_mode == "normal":
                     self.data["window_position"] = {"x": px, "y": py}
+                if self.display_mode != "compact":
+                    new_mode = adaptive.layout_for(width, height)
+                    self.data["window_positions"][new_mode] = {"x": px, "y": py}
+                    if new_mode != self.display_mode:
+                        self._apply_adaptive_layout(new_mode)
                 self._flush_current_note()
                 self._write_now()
                 if self.display_mode == "compact":

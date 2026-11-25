@@ -1212,10 +1212,39 @@ class PocketDesk:
             canvas.configure(yscrollcommand=scroll.set)
         inner = tk.Frame(canvas, bg=BG)
         window_id = canvas.create_window((0, 0), window=inner, anchor="nw")
-        inner.bind("<Configure>",
-                   lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>",
-                    lambda event: canvas.itemconfigure(window_id, width=event.width))
+        # Network result tables already expand inside their parent, but a
+        # canvas window defaults to the content's requested (minimum) height.
+        # Give these pages the full viewport whenever space permits; on a
+        # short window retain natural content height and outer scrolling.
+        fill_viewport = self.current_tab in ("ports", "mac")
+
+        def sync_viewport(_event=None):
+            if not canvas.winfo_exists() or not inner.winfo_exists():
+                return
+            if fill_viewport:
+                height = max(inner.winfo_reqheight(), canvas.winfo_height())
+                if int(float(canvas.itemcget(window_id, "height"))) != height:
+                    canvas.itemconfigure(window_id, height=height)
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def resize_viewport(event):
+            canvas.itemconfigure(window_id, width=event.width)
+            sync_viewport()
+
+        inner.bind("<Configure>", sync_viewport)
+        canvas.bind("<Configure>", resize_viewport)
+        if fill_viewport:
+            # A Quick Port Selection expansion can alter requested height
+            # without changing the explicitly allocated inner frame.
+            def watch_requests(widget):
+                widget.bind("<Configure>", sync_viewport, add="+")
+                for child in widget.winfo_children():
+                    watch_requests(child)
+            def initialize():
+                if inner.winfo_exists():
+                    watch_requests(inner)
+                    sync_viewport()
+            canvas.after_idle(initialize)
         self.body = inner
         self._tool_scroll_canvas = canvas
 
@@ -5568,6 +5597,9 @@ class PocketDesk:
         else:
             self.port_quick_frame.pack_forget()
             self.port_quick_button.config(text="▸ Quick Port Selection")
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is not None and canvas.winfo_exists():
+            canvas.after_idle(lambda: canvas.event_generate("<Configure>", width=canvas.winfo_width(), height=canvas.winfo_height()) if canvas.winfo_exists() else None)
 
     def _render_quick_ports(self):
         """Render favorites and last check together; no fixed port shortcuts."""

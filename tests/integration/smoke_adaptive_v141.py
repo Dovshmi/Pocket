@@ -43,7 +43,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app.root.geometry("346x530+20+20")
         app.root.update()
         check(app.display_mode == "mini", "expected Mini at startup")
-        check(len(app._resize_handles) == 8, "eight edge/corner grips required")
+        check(len(app._resize_handles) == 1, "only one visible corner grip required")
+        check(app._resize_handles[0].cget("text") == "◢", "bottom-right triangle missing")
+        check(app._resize_tag in app.root.bindtags(), "invisible resize hit testing missing")
+        for px, py, sides in ((0, 200, "w"), (345, 200, "e"), (150, 0, "n"), (150, 529, "s"), (0, 0, "nw"), (345, 0, "ne"), (0, 529, "sw"), (345, 529, "se")):
+            event = SimpleNamespace(widget=app.root, x_root=app.root.winfo_rootx()+px, y_root=app.root.winfo_rooty()+py)
+            check(app._resize_edges_at(event) == sides, f"invisible edge {sides} missing")
         original_note_ids = [note["id"] for note in app.data["notes"]]
         original_links = [(item["id"], item["url"]) for item in app.data["links"]]
 
@@ -100,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         preset_height = min(preset_height, max(240, area[3] - area[1] - 12))
         check((app.root.winfo_width(), app.root.winfo_height()) ==
               (preset_width, preset_height), "Normal preset must fit work area")
-        check(len(app._resize_handles) == 8, "grips missing after layout rebuild")
+        check(len(app._resize_handles) == 1, "single grip missing after layout rebuild")
         print("PASS: Settings size presets continue to work")
 
         # Normal More uses inline rows, keeps selection stable, and reclaims

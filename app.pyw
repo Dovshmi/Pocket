@@ -2021,7 +2021,7 @@ class PocketDesk:
 
     def _apply_window_profile(self, name, *, legacy=False):
         size = adaptive.profiles(self.settings["window_profiles"]).get(name)
-        if size is None or self.display_mode == "compact":
+        if size is None or (self.display_mode == "compact" and not legacy):
             return
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():

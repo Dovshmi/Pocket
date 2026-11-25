@@ -146,5 +146,64 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app.root.update()
         check_filled_rows([parts[0] for parts in app.mini_icon_tabs.values()])
         print("PASS: responsive Mini and Normal fill each visible row")
+
+        def drag_icon(source, target, after=False):
+            tx = target.winfo_rootx() + (target.winfo_width() - 5 if after else 5)
+            ty = target.winfo_rooty() + 8
+            source.event_generate("<ButtonPress-1>", x=8, y=8)
+            source.event_generate("<B1-Motion>", x=tx - source.winfo_rootx(),
+                                  y=ty - source.winfo_rooty())
+            source.event_generate("<ButtonRelease-1>", x=tx - source.winfo_rootx(),
+                                  y=ty - source.winfo_rooty())
+            app.root.update()
+
+        for key in ("clipboard", "reminders", "extra", "mac"):
+            app._set_visible_tab(key, True)
+        app._set_display_mode("normal")
+        app.root.update()
+        if app.normal_icon_tabs["more"].cget("text") == "More":
+            app.normal_icon_tabs["more"].invoke()
+            app.root.update()
+        source = app.normal_overflow_keys[-1]
+        first = next(k for k in app.normal_icon_tabs if k != "more")
+        drag_icon(app.normal_icon_tabs[source], app.normal_icon_tabs[first])
+        check(app.settings["menu_order"][0] == source, "Normal drag did not save order")
+        check(next(iter(app.normal_icon_tabs)) == source, "Normal drag did not reflow")
+        drag_icon(app.normal_icon_tabs["settings"], app.normal_icon_tabs[source])
+        check(app.settings["menu_order"][0] == "settings", "Settings drag failed")
+        app._set_display_mode("mini")
+        app.root.update()
+        check(next(iter(app.mini_icon_tabs)) == "settings", "Mini did not reuse order")
+        print("PASS: real menu drag and shared ordering")
+
+        app._set_display_mode("normal")
+        app.show_tab("clipboard")
+        from pocket import clipboard_gallery
+        clipboard_gallery.show_page(app, "text")
+        for width in (480, 660):
+            app.root.geometry(f"{width}x600+20+20")
+            app.root.update()
+            check(app.clipboard_pause_button.winfo_ismapped(), "Pause not visible")
+            check(app.clipboard_text_actions.pack_info()["side"] == "bottom",
+                  "Clipboard actions must stay below history")
+            check(app.clipboard_query_entry.winfo_width() > 120, "Search did not expand")
+            check(app.clipboard_list.winfo_height() > 80, "History too short")
+        clipboard_gallery.show_page(app, "images")
+        app.root.update()
+        check(app.clipboard_image_pause_button.winfo_ismapped(), "Image Pause missing")
+        app.show_tab("mac")
+        app.root.update()
+
+        def widget_texts(parent):
+            for child in parent.winfo_children():
+                if "text" in child.keys():
+                    yield str(child.cget("text"))
+                yield from widget_texts(child)
+
+        labels = list(widget_texts(app.body))
+        check("Update IEEE DB" in labels, "MAC update button missing")
+        check("Import CSV" not in labels and "Get CSV ↗" not in labels,
+              "MAC CSV actions still visible")
+        print("PASS: responsive Clipboard and simplified MAC actions")
     finally:
         app.root.destroy()

@@ -36,9 +36,9 @@ def build(app, parent):
                   fill="x", pady=(0, 10))
 
     mode_var = tk.StringVar(master=app.root,
-                            value=getattr(app, "_extra_excel_mode", "local"))
+                            value=getattr(app, "_extra_excel_mode", "database"))
     if mode_var.get() not in ("local", "database"):
-        mode_var.set("local")
+        mode_var.set("database")
     mode_box = design.panel(parent, app.theme)
     mode_box.pack(fill="x", pady=(0, 6 if compact else 10))
     mode_row = tk.Frame(mode_box, bg=colors["PANEL"])

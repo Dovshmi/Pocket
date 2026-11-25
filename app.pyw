@@ -6585,39 +6585,99 @@ class PocketDesk:
                 self._apply_adaptive_layout(mode)
 
     def _install_resize_handles(self):
-        """Borderless resize handles on all edges and corners; not Extra Mini."""
+        """Only the bottom-right grip is drawn; other edges are hit-tested."""
         self._resize_handles = []
+        if not getattr(self, "_resize_bindings_installed", False):
+            self._resize_bindings_installed = True
+            self._resize_tag = f"PocketResize{ id(self) }"
+            self._resize_cursor_widget = None
+            self._resize_cursor_original = ""
+            self.root.bind_class(self._resize_tag, "<Motion>", self._resize_hover)
+            self.root.bind_class(self._resize_tag, "<Leave>", self._restore_resize_cursor)
+            self.root.bind_class(self._resize_tag, "<ButtonPress-1>", self._resize_hit_press)
+            self.root.bind_class(self._resize_tag, "<B1-Motion>", self._resize_hit_motion)
+            self.root.bind_class(self._resize_tag, "<ButtonRelease-1>", self._resize_hit_release)
+            self.root.bind("<Map>", self._tag_resize_widget, add="+")
         if self.display_mode == "compact":
+            self._restore_resize_cursor()
             return
-        placements = (
-            ("n", "sb_v_double_arrow", dict(relx=.04, rely=0, relwidth=.92, height=5)),
-            ("s", "sb_v_double_arrow", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
-            ("w", "sb_h_double_arrow", dict(relx=0, rely=.04, width=5, relheight=.92)),
-            ("e", "sb_h_double_arrow", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
-            ("nw", "top_left_corner", dict(relx=0, rely=0, width=14, height=14)),
-            ("ne", "top_right_corner", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
-            ("sw", "bottom_left_corner", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
-            ("se", "bottom_right_corner", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
-        )
-        for edges, cursor, location in placements:
-            if edges == "se":
-                grip = tk.Label(self.root, text="◢", font=(FONT, 11),
-                                bg=BG, fg=MUTED, bd=0)
-            else:
-                grip = tk.Frame(self.root, bg=BG, bd=0)
-            # Cursor aliases vary across Tk/Win32/X11 builds. An unsupported
-            # cursor must never stop Pocket from launching.
+        grip = tk.Label(self.root, text="◢", font=(FONT, 11),
+                        bg=BG, fg=MUTED, bd=0, highlightthickness=0)
+        grip.place(relx=1, rely=1, width=16, height=16, anchor="se")
+        grip.lift()
+        self._resize_handles.append(grip)
+
+        def attach(widget):
+            self._tag_resize_widget(widget=widget)
+            for child in widget.winfo_children():
+                attach(child)
+        attach(self.root)
+
+    def _tag_resize_widget(self, event=None, *, widget=None):
+        widget = widget if widget is not None else event.widget
+        try:
+            if widget.winfo_toplevel() != self.root:
+                return
+            tags = widget.bindtags()
+            if self._resize_tag not in tags:
+                widget.bindtags((self._resize_tag, *tags))
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _resize_edges_at(self, event):
+        if self.display_mode == "compact" or self._modal:
+            return None
+        if event.widget in self._resize_handles:
+            return "se"
+        x = event.x_root - self.root.winfo_rootx()
+        y = event.y_root - self.root.winfo_rooty()
+        w, h = self.root.winfo_width(), self.root.winfo_height()
+        return adaptive.hit_edges(x, y, w, h)
+
+    def _restore_resize_cursor(self, _event=None):
+        widget = getattr(self, "_resize_cursor_widget", None)
+        if widget is not None:
             try:
-                grip.configure(cursor=cursor)
+                widget.configure(cursor=self._resize_cursor_original)
             except tk.TclError:
                 pass
-            grip.place(**location)
-            grip.lift()
-            grip.bind("<ButtonPress-1>",
-                      lambda event, sides=edges: self._begin_window_resize(event, sides))
-            grip.bind("<B1-Motion>", self._continue_window_resize)
-            grip.bind("<ButtonRelease-1>", self._finish_window_resize)
-            self._resize_handles.append(grip)
+            self._resize_cursor_widget = None
+
+    def _resize_hover(self, event):
+        if self._resizing_window:
+            return
+        edges = self._resize_edges_at(event)
+        cursors = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow",
+                   "w": "sb_h_double_arrow", "e": "sb_h_double_arrow",
+                   "nw": "top_left_corner", "ne": "top_right_corner",
+                   "sw": "bottom_left_corner", "se": "bottom_right_corner"}
+        if not edges or self._resize_cursor_widget != event.widget:
+            self._restore_resize_cursor()
+        if edges:
+            try:
+                if self._resize_cursor_widget is None:
+                    self._resize_cursor_original = event.widget.cget("cursor")
+                    self._resize_cursor_widget = event.widget
+                event.widget.configure(cursor=cursors[edges])
+            except tk.TclError:
+                pass
+
+    def _resize_hit_press(self, event):
+        edges = self._resize_edges_at(event)
+        if edges:
+            self._begin_window_resize(event, edges)
+            return "break"
+
+    def _resize_hit_motion(self, event):
+        if self._resizing_window:
+            self._continue_window_resize(event)
+            return "break"
+
+    def _resize_hit_release(self, event):
+        if self._resizing_window:
+            self._finish_window_resize(event)
+            self._restore_resize_cursor()
+            return "break"
 
     def _begin_window_resize(self, event, edges):
         if self.display_mode == "compact":

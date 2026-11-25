@@ -104,7 +104,7 @@ from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import text_editing
 from pocket import picker_selection
-from pocket import quick_search
+from pocket import quick_search, command_palette
 from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
@@ -822,95 +822,108 @@ class PocketDesk:
                 tree.selection_set(hit["id"])
                 self._render_command_details()
 
-    def _open_global_search(self, _event=None):
-        """Ctrl+K / Ctrl+F: local search across enabled menus, no network."""
+    def _run_palette_action(self, hit):
+        """Dispatch known internal actions to the existing tool callbacks."""
+        if not command_palette.allowed(hit, self.settings["visible_tabs"]):
+            return
+        if hit["kind"] != "action":
+            return self._navigate_search_result(hit)
+        key, args = hit["id"], hit.get("args", ())
+        dest = hit.get("destination")
         if self.display_mode == "compact":
-            return compact.focus_search(self)
-        old = getattr(self, "_quick_search_dialog", None)
-        if old is not None and old.winfo_exists():
-            old.lift()
-            old.focus_set()
-            return "break"
-        c = themes.palette(self.theme)
-        dialog = tk.Toplevel(self.root)
-        self._quick_search_dialog = dialog
-        self._modal = True
-        dialog.title("Pocket · Quick Search")
-        dialog.configure(bg=c["BG"])
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        width, height = (420, 330) if self.display_mode != "mini" else (315, 315)
-        x = max(0, self.root.winfo_x() + 12)
-        y = max(0, self.root.winfo_y() + 35)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
-        tk.Label(dialog, text="QUICK SEARCH", bg=c["BG"], fg=c["ACCENT"],
-                 font=(FONT, 9, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(dialog, text="Search tools, notes, shortcuts and CLI commands",
-                 bg=c["BG"], fg=c["SECONDARY"], font=(FONT, 9),
-                 wraplength=width-32).pack(anchor="w", padx=16, pady=(0, 9))
-        query = tk.StringVar()
-        entry = design.entry(dialog, query, self.theme)
-        entry.pack(fill="x", padx=16, ipady=8, pady=(0, 10))
-        results = tk.Listbox(dialog, bg=c["PANEL"], fg=c["WHITE"],
-                             selectbackground=c["ACCENT_DARK"],
-                             selectforeground=c["WHITE"], borderwidth=0,
-                             highlightthickness=1, highlightbackground=c["BORDER"],
-                             font=(FONT, 9), exportselection=False,
-                             activestyle="none")
-        results.pack(fill="both", expand=True, padx=16, pady=(0, 7))
-        footer = tk.Frame(dialog, bg=c["BG"])
-        footer.pack(fill="x", padx=16, pady=(0, 12))
-        status = tk.Label(footer, text="↑ ↓ select · Enter open · Esc close",
-                          bg=c["BG"], fg=c["MUTED"], font=(FONT, 8))
-        status.pack(side="left")
-        matches = []
-        def refresh(*_args):
-            matches[:] = quick_search.results(
-                self.data, self.command_library, query.get(),
-                self.settings["visible_tabs"])
-            results.delete(0, tk.END)
-            for hit in matches:
-                results.insert(tk.END, f"{hit['title'][:38]}    ·  {hit['subtitle'][:22]}")
-            if matches:
-                results.selection_set(0)
-            status.configure(text=f"{len(matches)} local match(es) · Enter to open")
-        def close(_evt=None):
-            if dialog.winfo_exists():
-                dialog.destroy()
-            self._modal = False
-            self._quick_search_dialog = None
-            return "break"
-        def launch(_evt=None):
-            selection = results.curselection()
-            if selection and selection[0] < len(matches):
-                item = matches[selection[0]]
-                close()
-                self._navigate_search_result(item)
-            return "break"
-        query.trace_add("write", refresh)
-        design.button(footer, "Close", close, self.theme, compact=True).pack(side="right")
-        design.button(footer, "Open", launch, self.theme, primary=True,
-                      compact=True).pack(side="right", padx=(0, 6))
-        dialog.bind("<Escape>", close)
-        entry.bind("<Escape>", close)
-        results.bind("<Escape>", close)
-        entry.bind("<Return>", launch)
-        results.bind("<Return>", launch)
-        results.bind("<Double-1>", launch)
-        def move(step):
-            if not matches:
-                return "break"
-            index = results.curselection()[0] if results.curselection() else 0
-            results.selection_clear(0, tk.END)
-            index = (index + step) % len(matches)
-            results.selection_set(index)
-            results.see(index)
-            return "break"
-        entry.bind("<Down>", lambda _e: move(1))
-        entry.bind("<Up>", lambda _e: move(-1))
-        dialog.protocol("WM_DELETE_WINDOW", close)
-        entry.focus_set()
-        return "break"
+            self._expand_from_extra_mini()
+        if key == "theme":
+            self._choose_theme(args[0])
+        elif key == "size":
+            self._apply_window_profile(args[0])
+        elif key in ("pin", "unpin"):
+            if self.pinned != (key == "pin"):
+                self.toggle_pin()
+        elif key in ("clip_pause", "clip_resume"):
+            self._set_clipboard_paused(key == "clip_pause")
+        elif key == "backup":
+            self._open_backup_dialog()
+        elif key == "copy":
+            self.root.clipboard_clear()
+            self.root.clipboard_append(args[0])
+        elif key == "new_note":
+            self.add_note()
+            if args:
+                self.title_var.set(args[0])
+                self._flush_current_note()
+                self._write_now()
+        elif key == "reminder":
+            self.show_tab("reminders")
+            self._edit_standalone_reminder()
+        elif key == "timed_reminder":
+            now = datetime.now().astimezone()
+            hour, minute = map(int, args[0].split(":"))
+            when = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if when <= now:
+                when += timedelta(days=1)
+            self._modal = True
+            try:
+                if not messagebox.askyesno("Create reminder",
+                        f"{args[1]}\n{when:%Y-%m-%d %H:%M}\n\nSave this reminder?",
+                        parent=self.root):
+                    return
+                if len(self.data["reminders"]) >= reminder_store.MAX_REMINDERS:
+                    raise ValueError("Too many reminders.")
+                record = reminder_store.make_reminder(args[1], "", when.isoformat())
+                self.data["reminders"].append(record)
+                if not self._write_now():
+                    self.data["reminders"].remove(record)
+                    return
+            except ValueError as exc:
+                self._warning("Reminder", str(exc))
+                return
+            finally:
+                self._modal = False
+            self.show_tab("reminders")
+        elif key == "mac_update":
+            self.show_tab("mac")
+            self._modal = True
+            try:
+                approved = messagebox.askyesno("Update IEEE DB",
+                    "Download the IEEE vendor database using the internet?", parent=self.root)
+            finally:
+                self._modal = False
+            if approved:
+                self._update_vendors()
+        elif key in ("extra_database", "extra_local"):
+            self._extra_excel_mode = "database" if key == "extra_database" else "local"
+            self.show_tab("extra")
+        elif key == "ports":
+            self.show_tab("ports")
+            if args[0]:
+                self.host_var.set(args[0])
+            if args[1]:
+                self.ports_var.set(args[1])
+            self.ports_entry.focus_set()
+        elif key == "mac":
+            self.show_tab("mac")
+            self.mac_input.delete("1.0", "end")
+            self.mac_input.insert("1.0", args[0])
+            self.mac_input.focus_set()
+        elif key == "subnet":
+            self.show_tab("subnet")
+            self.subnet_ip_var.set(args[0])
+            if args[1]:
+                self.subnet_prefix_var.set(args[1])
+                self._calculate_subnet()
+        elif key == "extra":
+            self.show_tab("extra")
+            self._extra_palette_search(args[0])
+        elif key == "cli":
+            self.show_tab("commands")
+            self._command_focus_in()
+            self.command_query.set(args[0])
+            self._focus_command_search()
+
+    def _open_global_search(self, _event=None):
+        """Open the local command palette in every window layout."""
+        from pocket import command_palette_ui
+        return command_palette_ui.open_palette(self)
 
     def _open_hotkey_picker(self, _event=None, *, action="popup"):
         if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():

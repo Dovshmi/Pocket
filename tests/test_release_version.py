@@ -8,11 +8,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleaseVersionTests(unittest.TestCase):
-    def test_development_settings_version_is_v140(self):
-        # Pocket v1.40 is the application version for the official Windows release.
-        self.assertEqual(app_info.VERSION, "1.40.0")
-        self.assertEqual(app_info.version_label(), "v1.40")
-        self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
+    def test_development_settings_version_is_v142(self):
+        # The development application version is independent of published release assets.
+        self.assertEqual(app_info.VERSION, "1.42.0")
+        self.assertEqual(app_info.version_label(), "v1.42")
+        self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony")
         settings = (ROOT / "pocket" / "settings_ui.py").read_text(encoding="utf-8")
         self.assertIn('"Version " + app_info.version_label()', settings)
 
@@ -39,10 +39,10 @@ class ReleaseVersionTests(unittest.TestCase):
         packager = (ROOT / "package_portable.py").read_text(encoding="utf-8")
         smoke = (ROOT / ".github" / "workflows" /
                  "mini-checks.yml").read_text(encoding="utf-8")
-        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.40.0")',
+        self.assertIn('os.environ.get("POCKET_RELEASE_VERSION", "v1.42.0")',
                       packager)
-        self.assertIn("Pocket-Portable-v1.40.0.zip", smoke)
-        self.assertIn("--version v1.40.0", smoke)
+        self.assertIn("Pocket-Portable-v1.42.0.zip", smoke)
+        self.assertIn("--version v1.42.0", smoke)
 
     def test_v1399_release_workflow_requires_explicit_authorization(self):
         workflow = (ROOT / ".github" / "workflows" /

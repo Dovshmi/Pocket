@@ -356,3 +356,37 @@ def export_csv(path: Path, columns: list[str], results: list[dict]):
             writer.writerow({key: ("'" + value if isinstance(value, str) and
                                    value.startswith(("=", "+", "-", "@", "\t", "\r")) else value)
                              for key, value in result.items() if key in columns})
+
+
+def mac_vendor_group(row):
+    """Keep non-vendor addresses separate from identified manufacturers."""
+    name = str(row.get("vendor", "")).strip()
+    low = name.casefold()
+    if "multicast" in low or "group address" in low:
+        return "Multicast / group address"
+    if "locally administered" in low or "randomized" in low:
+        return "Locally administered / randomized"
+    if (not name or low.startswith(("unknown", "unregistered", "not found",
+                                    "database not downloaded", "invalid mac"))
+            or low in ("—", "-", "n/a", "none")):
+        return "Unknown"
+    return name
+
+
+def mac_vendor_counts(rows):
+    """Count distinct MAC addresses per result group across the entire batch."""
+    groups = {}
+    seen = set()
+    for row in rows:
+        try:
+            mac = normalize_mac(row.get("mac"))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if mac in seen:
+            continue
+        seen.add(mac)
+        name = mac_vendor_group(row)
+        key = name.casefold()
+        label, count = groups.get(key, (name, 0))
+        groups[key] = (label, count + 1)
+    return sorted(groups.values(), key=lambda pair: (-pair[1], pair[0].casefold()))

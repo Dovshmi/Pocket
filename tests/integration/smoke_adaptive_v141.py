@@ -253,5 +253,42 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         check(app.settings["window_profile"] == adaptive.CURRENT_PROFILE,
               "Deleting active profile must preserve current size")
         print("PASS: Settings profile Save, dropdown switch and Delete")
+
+        # A tall but narrow Mini profile must spend its extra height on
+        # result rows, not blank space after fixed-size tables.
+        import tkinter as tk
+        app._set_display_mode("mini")
+        for name, attr in (("mac", "mac_tree"), ("ports", "port_tree")):
+            app.show_tab(name)
+            app.root.geometry("410x530+20+20")
+            app.root.update()
+            short = getattr(app, attr).winfo_height()
+            app.root.geometry("410x900+20+20")
+            app.root.update()
+            tree = getattr(app, attr)
+            check(tree.winfo_height() >= short + 200,
+                  f"{name}: result table did not grow with tall Mini")
+            canvas = app._tool_scroll_canvas
+            bottom_gap = canvas.winfo_rooty() + canvas.winfo_height() - (
+                tree.winfo_rooty() + tree.winfo_height())
+            check(abs(bottom_gap) <= 6, f"{name}: unused space below results")
+            app.root.geometry("410x450+20+20")
+            app.root.update()
+            check(canvas.yview()[1] < 1, f"{name}: short window cannot scroll")
+        app.show_tab("extra")
+        def listboxes(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, tk.Listbox):
+                    yield child
+                yield from listboxes(child)
+        app.root.geometry("410x530+20+20")
+        app.root.update()
+        matches = next(listboxes(app.body))
+        short = int(matches.cget("height"))
+        app.root.geometry("410x900+20+20")
+        app.root.update()
+        tall = int(matches.cget("height"))
+        check(short == 5 and 5 < tall <= 14, "Extranet matches must grow within bounds")
+        print("PASS: tall Mini network tables fill viewport; Extranet preserves output space")
     finally:
         app.root.destroy()

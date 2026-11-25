@@ -89,5 +89,37 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
               (preset_width, preset_height), "Normal preset must fit work area")
         check(len(app._resize_handles) == 8, "grips missing after layout rebuild")
         print("PASS: Settings size presets continue to work")
+
+        # Normal More uses inline rows, keeps selection stable, and reclaims
+        # unused overflow as width increases without rebuilding the tool page.
+        for key in ("notes", "links", "ports", "mac", "commands", "subnet",
+                    "clipboard", "reminders", "extra"):
+            app._set_visible_tab(key, True)
+        app.root.update()
+        check("more" in app.normal_icon_tabs, "Normal overflow missing")
+        hidden = app.normal_overflow_keys
+        app.normal_icon_tabs["more"].invoke()
+        app.root.update()
+        check(app.normal_icon_tabs["more"].cget("text") == "Less", "More did not expand")
+        check(all(app.normal_icon_tabs[k].winfo_ismapped() for k in hidden),
+              "Normal overflow tiles must be inline and visible")
+        app.show_tab(hidden[0])
+        app.root.update()
+        check(app.normal_overflow_keys == hidden, "selection changed menu order")
+        app.normal_icon_tabs["more"].invoke()
+        app.root.update()
+        check(not any(app.normal_icon_tabs[k].winfo_ismapped() for k in hidden),
+              "Less did not hide overflow")
+        app.root.geometry("700x550+20+20")
+        app.root.update()
+        check(not app.normal_overflow_keys, "wider Normal should fit all tools")
+        check("more" not in app.normal_icon_tabs, "unnecessary More remains")
+        app._set_display_mode("mini")
+        app.root.update()
+        original = len(app._mini_overflow_keys)
+        app.root.geometry("445x530+20+20")
+        app.root.update()
+        check(len(app._mini_overflow_keys) < original, "Mini did not reclaim slots")
+        print("PASS: responsive Mini and inline Normal More/Less")
     finally:
         app.root.destroy()

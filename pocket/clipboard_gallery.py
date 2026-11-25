@@ -150,8 +150,13 @@ def build(app):
 
     # Mini combines the Text/Images toggle and DB paging controls in one row.
     # This preserves the familiar switch without shortening the history panel.
-    switch = tk.Frame(app.body, bg=c["BG"])
-    if mini_mode:
+    switch = tk.Frame(controls if app.display_mode == "normal" else app.body, bg=c["BG"])
+    if app.display_mode == "normal":
+        # Normal has enough room for both pickers and the Text/Images switch.
+        # Keeping them on one row gives the history the extra height.
+        switch.pack(side="right")
+        page_switch = switch
+    elif mini_mode:
         switch.pack(fill="x", pady=(0, 2))
         page_switch = tk.Frame(switch, bg=c["BG"])
         page_switch.pack(side="right")

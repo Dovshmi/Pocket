@@ -12,7 +12,7 @@ class ReleaseVersionTests(unittest.TestCase):
         # The development application version is independent of published release assets.
         self.assertEqual(app_info.VERSION, "1.42.0")
         self.assertEqual(app_info.version_label(), "v1.42")
-        self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony")
+        self.assertEqual(app_info.AUTHOR_CREDIT, "By. Rony Shmidov")
         settings = (ROOT / "pocket" / "settings_ui.py").read_text(encoding="utf-8")
         self.assertIn('"Version " + app_info.version_label()', settings)
 

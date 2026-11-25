@@ -1521,7 +1521,7 @@ class PocketDesk:
         def add_mini_tile(parent, key, caption):
             tile = tk.Frame(parent, bg=BG, width=38, height=45,
                             cursor="hand2", takefocus=1, highlightthickness=0)
-            tile.pack(side="left", padx=(0, 1))
+            tile.pack(side="left", fill="x", expand=True, padx=(0, 1))
             tile.pack_propagate(False)
             glyph = tool_icons.label(tile, key, SECONDARY, BG, size=20,
                                      cursor="hand2", anchor="center")
@@ -1555,6 +1555,8 @@ class PocketDesk:
 
         def render_mini(width):
             nonlocal last_plan
+            if width <= 1:
+                return
             columns = max(2, width // 39)
             hidden_tools = [key for key in menu_order.DEFAULT_ORDER
                             if key != "settings" and key not in self.settings["visible_tabs"]]

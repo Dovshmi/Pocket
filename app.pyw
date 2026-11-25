@@ -1507,8 +1507,7 @@ class PocketDesk:
                          bg=PANEL, hover=CARD, padx=7, pady=5, font_size=7).pack(side="right", padx=(0, 4))
         action_label(header, "×", self.hide, fg=MUTED, bg=BG, hover=PANEL,
                      padx=5, pady=1, font_size=15).pack(side="right")
-        # The first row always retains the original eight 39px icon positions.
-        # When more tools exist, the last More tile opens another equal-width row.
+        # Fit as many icon tiles as the actual window width allows.
         nav = tk.Frame(outer, bg=BG)
         nav.pack(fill="x", padx=9, pady=(1, 6))
         self.tab_buttons = {}
@@ -1519,19 +1518,8 @@ class PocketDesk:
             "clipboard": "Clip", "reminders": "Remind", "extra": "Extra",
             "settings": "Settings", "more": "More", "plus": "Add",
         }
-        hidden_tools = [key for key in menu_order.DEFAULT_ORDER
-                        if key != "settings" and key not in self.settings["visible_tabs"]]
-        first, additional = mini_nav.plan_mini_icons(
-            menu_order.enabled_order(self.settings["menu_order"],
-                                    self.settings["visible_tabs"]),
-            add_available=bool(hidden_tools))
-        self._mini_overflow_keys = tuple(k for row in additional for k in row)
-        self._mini_overflow_rows = []
-        if not additional:
-            self._mini_nav_expanded = False
-
         def add_mini_tile(parent, key, caption):
-            tile = tk.Frame(parent, bg=BG, width=39, height=45,
+            tile = tk.Frame(parent, bg=BG, width=38, height=45,
                             cursor="hand2", takefocus=1, highlightthickness=0)
             tile.pack(side="left", padx=(0, 1))
             tile.pack_propagate(False)
@@ -1560,22 +1548,45 @@ class PocketDesk:
             design.Tooltip(tile, f"{caption} · open {key}", self.theme)
             self.mini_icon_tabs[key] = (tile, glyph, caption_label)
 
-        for key in first:
-            add_mini_tile(nav, key, menu_items.get(key, key.title()))
-
-        for row_items in additional:
-            extra = tk.Frame(outer, bg=BG)
-            for key in row_items:
-                add_mini_tile(extra, key,
-                              "Settings" if key == "settings" else
-                              menu_items.get(key, key.title()))
-            self._mini_overflow_rows.append(extra)
-        # Anchor the expandable rows ABOVE this separator even when toggled
-        # after the main page body has already been packed.
         self._mini_nav_separator = tk.Frame(outer, height=1, bg=BORDER)
         self._mini_nav_separator.pack(fill="x")
-        self._set_mini_overflow_visible(self._mini_nav_expanded)
-        self._style_mini_icon_tabs(self.current_tab)
+        self._mini_overflow_rows = []
+        last_plan = None
+
+        def render_mini(width):
+            nonlocal last_plan
+            columns = max(2, width // 39)
+            hidden_tools = [key for key in menu_order.DEFAULT_ORDER
+                            if key != "settings" and key not in self.settings["visible_tabs"]]
+            first, additional = mini_nav.plan_mini_icons(
+                menu_order.enabled_order(self.settings["menu_order"],
+                                        self.settings["visible_tabs"]),
+                columns=columns, add_available=bool(hidden_tools))
+            plan = first, additional
+            if plan == last_plan:
+                return
+            last_plan = plan
+            for child in nav.winfo_children():
+                child.destroy()
+            for row in self._mini_overflow_rows:
+                row.destroy()
+            self.mini_icon_tabs = {}
+            self._mini_overflow_rows = []
+            self._mini_overflow_keys = tuple(k for row in additional for k in row)
+            if not additional:
+                self._mini_nav_expanded = False
+            for key in first:
+                add_mini_tile(nav, key, menu_items.get(key, key.title()))
+            for row_items in additional:
+                extra = tk.Frame(outer, bg=BG)
+                for key in row_items:
+                    add_mini_tile(extra, key, menu_items.get(key, key.title()))
+                self._mini_overflow_rows.append(extra)
+            self._set_mini_overflow_visible(self._mini_nav_expanded)
+            self._style_mini_icon_tabs(self.current_tab)
+
+        render_mini(326)
+        nav.bind("<Configure>", lambda event: render_mini(event.width))
         self.body = tk.Frame(outer, bg=BG)
         self.body.pack(fill="both", expand=True, padx=11, pady=(8, 7))
         self._mini_root_body = self.body

@@ -9,6 +9,21 @@ from pocket import network_tools as net
 
 
 class NetworkTests(unittest.TestCase):
+    def test_mac_vendor_counts_unique_and_special_groups(self):
+        rows = [
+            {"mac": "00:11:22:33:44:01", "vendor": "Cisco"},
+            {"mac": "0011.2233.4401", "vendor": "Cisco"},
+            {"mac": "00:11:22:33:44:02", "vendor": "cisco"},
+            {"mac": "00:11:22:33:44:03", "vendor": "Juniper"},
+            {"mac": "00:11:22:33:44:04", "vendor": "Unknown / unregistered"},
+            {"mac": "00:11:22:33:44:05", "vendor": "Database not downloaded"},
+            {"mac": "02:11:22:33:44:06", "vendor": "Locally administered / randomized"},
+        ]
+        self.assertEqual(net.mac_vendor_counts(rows), [
+            ("Cisco", 2), ("Unknown", 2), ("Juniper", 1),
+            ("Locally administered / randomized", 1)])
+        self.assertEqual(net.mac_vendor_counts([]), [])
+
     def test_target(self):
         self.assertEqual(net.parse_target(" 192.168.0.1 "), "192.168.0.1")
         self.assertEqual(net.parse_target("::1"), "::1")

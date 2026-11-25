@@ -235,7 +235,8 @@ def default_data() -> dict:
         "window_positions": {"normal": None, "mini": None, "dashboard": None, "compact": None},
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
                      "reminders_menu_configured": True, "extra_menu_configured": True,
-                     "display_mode": "mini", "extra_mini_enabled": False,
+                     "display_mode": "mini", "window_profiles": {}, "window_profile": "Mini",
+                     "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "menu_order": list(menu_order.DEFAULT_ORDER),
                      "clipboard_paused": False, "clipboard_sensitive_filter": True,
@@ -297,6 +298,10 @@ def normalize_settings(raw):
             "reminders_menu_configured": True,
             "extra_menu_configured": True,
             "display_mode": "mini" if legacy_compact else selected_mode,
+            "window_profiles": adaptive.normalize_profiles(raw.get("window_profiles")),
+            "window_profile": adaptive.profile_name(raw.get("window_profile"),
+                                                     raw.get("window_profiles"),
+                                                     "mini" if legacy_compact else selected_mode),
             "extra_mini_enabled": raw.get("extra_mini_enabled") is True or legacy_compact,
             "extra_mini_tiles": compact.configured_tiles(raw.get("extra_mini_tiles")),
             "use_windows_proxy": raw.get("use_windows_proxy") is not False,
@@ -495,6 +500,8 @@ class PocketDesk:
         self.display_mode = self.settings["display_mode"]
         previous_size = adaptive.saved_size(self.data.get("window_size"))
         if previous_size is not None:
+            self.settings["window_profile"] = adaptive.matching_profile(
+                self.settings["window_profile"], self.settings["window_profiles"], previous_size)
             self.display_mode = adaptive.layout_for(
                 previous_size["width"], previous_size["height"])
             self.settings["display_mode"] = self.display_mode
@@ -2006,30 +2013,90 @@ class PocketDesk:
         self._edit_extra_mini_from_settings()
 
     def _set_display_mode(self, mode):
-        """Set the permanent working layout; Extra Mini remains an optional toggle."""
+        """Legacy callers select an immutable factory size."""
         mode = mini.display_mode(mode)
         if mode == "compact":
             return self._set_extra_mini_enabled(True)
-        if self.settings["display_mode"] == mode and self.display_mode == mode:
-            preset_width, preset_height = mini.view_dimensions(mode)
-            saved = adaptive.saved_size(self.data.get("window_size"))
-            if saved is None or saved == {"width": preset_width, "height": preset_height}:
-                return
+        self._apply_window_profile(mode.title(), legacy=True)
+
+    def _apply_window_profile(self, name, *, legacy=False):
+        size = adaptive.profiles(self.settings["window_profiles"]).get(name)
+        if size is None or self.display_mode == "compact":
+            return
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
         self._compact_return = False
+        self.settings["window_profile"] = name
+        self.data["window_size"] = dict(size)
+        mode = adaptive.layout_for(size["width"], size["height"])
         self.display_mode = mode
         self.settings["display_mode"] = mode
-        preset_width, preset_height = mini.view_dimensions(mode)
-        self.data["window_size"] = {"width": preset_width, "height": preset_height}
-        # A Settings selection is a starting size; subsequent resizing is free.
-        if mode == "dashboard":
+        if legacy and mode == "dashboard":
             self.current_tab = "home"
-        elif self.current_tab == "home":
+        elif self.current_tab == "home" and mode != "dashboard":
             self.current_tab = "notes"
         self._build_shell_refresh()
-        self.schedule_save()
+        self._write_now()
+
+    def _save_window_profile(self):
+        from tkinter import simpledialog, messagebox
+        if self.display_mode == "compact":
+            return
+        self.root.update_idletasks()
+        size = {"width": self.root.winfo_width(), "height": self.root.winfo_height()}
+        previous_modal = self._modal
+        self._modal = True
+        try:
+            name = simpledialog.askstring("Save size profile",
+                                          "Name for this window size:",
+                                          parent=self.root)
+            if name is None:
+                return
+            custom, selected = adaptive.store_profile(
+                self.settings["window_profiles"], name, size)
+            if selected in self.settings["window_profiles"] and not messagebox.askyesno(
+                    "Update size profile", f"Replace '{selected}' with the current size?",
+                    parent=self.root):
+                return
+            self.settings["window_profiles"] = custom
+            self.settings["window_profile"] = selected
+            self.data["window_size"] = size
+            self._write_now()
+            self._refresh_window_profile_picker()
+        except ValueError as exc:
+            messagebox.showwarning("Size profile", str(exc), parent=self.root)
+        finally:
+            self._modal = previous_modal
+
+    def _delete_window_profile(self):
+        from tkinter import messagebox
+        name = self.settings["window_profile"]
+        if name not in self.settings["window_profiles"]:
+            return
+        previous_modal = self._modal
+        self._modal = True
+        try:
+            if not messagebox.askyesno("Delete size profile", f"Delete '{name}'?",
+                                       parent=self.root):
+                return
+            del self.settings["window_profiles"][name]
+            self.settings["window_profile"] = adaptive.CURRENT_PROFILE
+            self._write_now()
+            self._refresh_window_profile_picker()
+        finally:
+            self._modal = previous_modal
+
+    def _refresh_window_profile_picker(self):
+        refresh = getattr(self, "_window_profile_refresh", None)
+        if self.current_tab == "settings" and callable(refresh):
+            refresh()
+
+    def _mark_custom_window_size(self):
+        self.settings["window_profile"] = adaptive.matching_profile(
+            self.settings["window_profile"], self.settings["window_profiles"],
+            self.data.get("window_size"))
+        self._refresh_window_profile_picker()
 
     def _build_shell_refresh(self):
         self._flush_current_note()
@@ -6385,6 +6452,7 @@ class PocketDesk:
             # not winfo_width/height which may still report the previous frame.
             x, y, width, height = self._continue_window_resize(event)
             self.data["window_size"] = {"width": width, "height": height}
+            self._mark_custom_window_size()
             mode = adaptive.layout_for(width, height)
             self.data["window_positions"][mode] = {"x": x, "y": y}
             if mode == "normal":
@@ -6447,6 +6515,7 @@ class PocketDesk:
                 self.root.geometry(f"{width}x{height}{px:+d}{py:+d}")
                 if self.display_mode != "compact":
                     self.data["window_size"] = {"width": width, "height": height}
+                    self._mark_custom_window_size()
                 self.data["window_positions"][self.display_mode] = {"x": px, "y": py}
                 if self.display_mode == "normal":
                     self.data["window_position"] = {"x": px, "y": py}

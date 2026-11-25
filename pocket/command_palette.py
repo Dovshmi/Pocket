@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timedelta
 
 from . import quick_search, icon_themes, adaptive_window, network_tools, port_presets
+from . import compact_dashboard as compact
 
 ACTIONS = (
     ("new_note", "New note", "notes", "new note create note"),
@@ -51,6 +52,13 @@ def command(raw, settings):
     verb = verb.casefold()
     if not arg:
         return None
+    if verb == "open":
+        if arg.casefold() == "dashboard":
+            return action("size", "Open Dashboard", "settings", ("Dashboard",))
+        for key, _, label in compact.NAVIGATION:
+            if key != "home" and arg.casefold() in (key.casefold(), label.casefold()):
+                return {"kind":"tool", "id":key, "destination":key,
+                        "title":label, "subtitle":"Open tool"}
     if verb == "theme":
         for key in icon_themes.THEME_ORDER:
             if arg.casefold().replace(" ", "_") == key:
@@ -136,8 +144,15 @@ def results(data, commands, raw, enabled, settings, limit=18):
         q = q[1:].strip()
     exact = command(q, settings)
     found = [exact] if exact else []
+    if mode and q:
+        found += [{"kind":"tool", "id":key, "destination":key, "title":label,
+                   "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION
+                  if key != "home" and q.casefold() in (key.casefold(), label.casefold())]
     if not mode:
         found += smart(q)
+    if not q:
+        found += [{"kind":"tool", "id":key, "destination":key, "title":label,
+                   "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION if key != "home"]
     for hit in catalog(settings):
         aliases = next((a for key, _, _, a in ACTIONS if key == hit["id"]), "")
         hay = (hit["title"] + " " + aliases).casefold()
@@ -146,10 +161,7 @@ def results(data, commands, raw, enabled, settings, limit=18):
     if not mode:
         if q:
             found += quick_search.results(data, commands, q, enabled, limit=limit)
-        else:
-            from . import compact_dashboard as compact
-            found += [{"kind":"tool", "id":key, "destination":key, "title":label,
-                       "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION if key != "home"]
+
     seen = set()
     out = []
     for hit in found:

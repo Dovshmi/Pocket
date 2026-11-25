@@ -222,7 +222,30 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         check("Update IEEE DB" in labels, "MAC update button missing")
         check("Import CSV" not in labels and "Get CSV ↗" not in labels,
               "MAC CSV actions still visible")
-        print("PASS: responsive Clipboard and simplified MAC actions")
+        app.mac_results = [
+            {"mac": "00:11:22:33:44:01", "vendor": "Cisco", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:02", "vendor": "Cisco", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:03", "vendor": "Juniper", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:04", "vendor": "Unknown / unregistered", "registry": "—"},
+        ]
+        app._show_mac_results("Local")
+        app.root.update()
+        check(not app.mac_summary_panel.winfo_ismapped(), "Vendor summary must start collapsed")
+        app._toggle_mac_summary()
+        app.root.update()
+        check(app.mac_summary_panel.winfo_ismapped(), "Summary did not expand")
+        check(app.mac_summary_list.size() == 3, "Vendor count groups missing")
+        app._set_mac_vendor_filter("Cisco")
+        check(len(app.mac_tree.get_children()) == 2, "Vendor include filter failed")
+        app._set_mac_vendor_filter("Cisco", exclude=True)
+        check(len(app.mac_tree.get_children()) == 2, "Vendor exclude filter failed")
+        check(all(app.mac_tree.set(i, "Vendor / result") != "Cisco"
+                  for i in app.mac_tree.get_children()), "Excluded vendor still visible")
+        app._set_mac_vendor_filter(None)
+        check(len(app.mac_tree.get_children()) == 4, "All results not restored")
+        app._toggle_mac_summary()
+        app.mac_results = []
+        print("PASS: responsive Clipboard and simplified MAC actions, vendor summary filters")
 
         from unittest.mock import patch
         app.show_tab("settings")
@@ -259,6 +282,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         import tkinter as tk
         app._set_display_mode("mini")
         app.show_tab("extra")
+        check(app._extra_excel_mode == "database", "Extra must default to Database")
 
         def settle():
             done = tk.BooleanVar(master=app.root, value=False)

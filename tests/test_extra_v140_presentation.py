@@ -89,8 +89,8 @@ class ExtraPresentationTests(unittest.TestCase):
         self.assertNotIn('path_field.bind("<Return>"', source)
         self.assertIn('soc.make_soc_draft(hit)', source)
 
-    def test_settings_reports_140(self):
-        self.assertEqual(app_info.version_label(), "v1.40")
+    def test_settings_reports_142(self):
+        self.assertEqual(app_info.version_label(), "v1.42")
 
 
 if __name__ == "__main__":

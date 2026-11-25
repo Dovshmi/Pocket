@@ -110,6 +110,24 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
             app._set_visible_tab(key, True)
         app.root.update()
         check("more" in app.normal_icon_tabs, "Normal overflow missing")
+        from pocket import icon_themes
+        palette = icon_themes.palette(app.theme)
+        app.show_tab("commands")
+        app.root.update()
+        old_tile = app.normal_icon_tabs["commands"]
+        old_tile.focus_force()
+        app.show_tab("subnet")
+        app.root.update()
+        active_tile = app.normal_icon_tabs["subnet"]
+        check(active_tile.cget("bg") == palette["ACCENT_DARK"],
+              "Normal active tile must match Mini fill")
+        check(old_tile.cget("bg") == palette["BG"],
+              "Previous menu retained selected styling")
+        check(all(int(tile.cget("highlightthickness")) == 0
+                  for tile in app.normal_icon_tabs.values()),
+              "Normal menu retained an unwanted focus outline")
+        check(active_tile.master.winfo_height() == 45,
+              "Normal tile should match Mini height")
         check_filled_rows([tile.master for tile in app.normal_icon_tabs.values()])
         hidden = app.normal_overflow_keys
         app.normal_icon_tabs["more"].invoke()

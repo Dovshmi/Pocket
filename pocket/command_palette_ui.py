@@ -2,14 +2,14 @@
 import tkinter as tk
 from tkinter import ttk
 from . import command_palette as palette
-from . import icon_themes, pocket_design as design, tool_icons, text_editing
+from . import icon_themes, pocket_design as design, tool_icons, text_editing, native_inputs
 
 def open_palette(app):
     old = getattr(app, "_quick_search_dialog", None)
     if old is not None and old.winfo_exists():
         old.attributes("-topmost", True)
         old.lift()
-        app._palette_entry.focus_force()
+        native_inputs.focus_tk_input(app._palette_entry)
         return "break"
     c = icon_themes.palette(app.theme)
     dialog = tk.Toplevel(app.root)
@@ -57,10 +57,11 @@ def open_palette(app):
                      relief="flat", bd=0, highlightthickness=0,
                      font=("Segoe UI", 12))
     app._palette_entry = entry
+    app.root._pocket_palette_target = entry
     entry.pack(side="left", fill="x", expand=True, padx=(2, 8), ipady=8)
     entry.bind("<FocusIn>", lambda _e: search.configure(highlightbackground=c["ACCENT"]))
     entry.bind("<FocusOut>", lambda _e: search.configure(highlightbackground=c["BORDER"]))
-    glass.bind("<Button-1>", lambda _e: entry.focus_set())
+    glass.bind("<Button-1>", lambda _e: native_inputs.focus_tk_input(entry))
     # Widget-level handlers run before Tk class / toplevel shortcuts.
     undo_stack, redo_stack = [], []
     previous = [query.get()]
@@ -192,6 +193,7 @@ def open_palette(app):
             return "break"
         # Keep auto-hide suppressed during the native focus handoff. Destroying
         # an active topmost popup alone can leave the owner visible but unfocused.
+        app.root._pocket_palette_target = None
         if dialog.winfo_exists():
             dialog.destroy()
         app._quick_search_dialog = None
@@ -261,12 +263,28 @@ def open_palette(app):
     dialog.deiconify()
     dialog.update_idletasks()
     dialog.lift()
-    entry.focus_force()
+    # Flush the source edit before moving actual Windows keyboard ownership.
+    native_inputs.sync_all_native()
+    native_inputs.focus_tk_input(entry)
 
     def raise_after_map():
-        if dialog.winfo_exists():
+        if app._quick_search_dialog is dialog and dialog.winfo_exists():
             dialog.attributes("-topmost", True)
             dialog.lift()
-            entry.focus_force()
+            native_inputs.focus_tk_input(entry)
+
+    def verify_focus():
+        if app._quick_search_dialog is not dialog or not dialog.winfo_exists():
+            return
+        focused = app.root.focus_get()
+        # Do not steal focus from results or an external application. Retry
+        # only if another Pocket input still owns focus after the handoff.
+        bidi = getattr(app, "bidi_editor", None)
+        if (native_inputs.has_native_focus()
+                or (bidi is not None and bidi.winfo_exists() and bidi.has_focus())
+                or (focused is not None and focused.winfo_toplevel() == app.root)):
+            native_inputs.focus_tk_input(entry)
+
     dialog.after_idle(raise_after_map)
+    dialog.after(60, verify_focus)
     return "break"

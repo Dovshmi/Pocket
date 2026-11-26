@@ -67,6 +67,35 @@ def has_native_focus():
     return False
 
 
+def focus_tk_input(widget):
+    """Transfer actual Win32 keyboard focus from embedded controls to Tk.
+
+    Tk's focus bookkeeping alone is insufficient when an EDIT/RichEdit HWND
+    owns the keyboard. SetFocus on the destination toplevel first, never on
+    the Tk Entry's drawing window. Call only from the Tk event loop.
+    """
+    if not widget.winfo_exists():
+        return
+    if IS_WINDOWS:
+        host = widget.winfo_toplevel()
+        user = ctypes.WinDLL("user32", use_last_error=True)
+        user.GetFocus.restype = ctypes.c_void_p
+        user.SetFocus.argtypes = (ctypes.c_void_p,)
+        user.SetFocus.restype = ctypes.c_void_p
+        user.GetAncestor.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+        user.GetAncestor.restype = ctypes.c_void_p
+        host_id = host.winfo_id()
+        current = user.GetFocus()
+        # A wrapper or child already inside the intended Tk window is fine.
+        # Otherwise release the previous native child, including Notes RichEdit.
+        if not current or user.GetAncestor(current, 2) != user.GetAncestor(host_id, 2):
+            host.focus_force()
+            user.SetFocus(ctypes.c_void_p(host_id))
+        elif has_native_focus():
+            user.SetFocus(ctypes.c_void_p(host_id))
+    widget.focus_force()
+
+
 def sync_all_native():
     """Flush pending Win32 text into StringVar before Tk button callbacks."""
     for widget in list(_NATIVE_WIDGETS):
@@ -504,6 +533,12 @@ class _NativeMixin:
         if not self._native_active or not self.winfo_exists():
             return
         focused = self.has_native_focus()
+        palette_target = getattr(self.winfo_toplevel(), "_pocket_palette_target", None)
+        if focused and palette_target is not None and palette_target.winfo_exists():
+            # An owner-input timer must not reclaim focus from the palette.
+            self.sync_native()
+            focus_tk_input(palette_target)
+            focused = False
         if focused:
             self._native_clear_placeholder_on_focus()
         if focused or self._native_last_focus:

@@ -1,13 +1,15 @@
 """Keyboard-first, themed local command palette."""
 import tkinter as tk
+from tkinter import ttk
 from . import command_palette as palette
 from . import icon_themes, pocket_design as design, tool_icons
 
 def open_palette(app):
     old = getattr(app, "_quick_search_dialog", None)
     if old is not None and old.winfo_exists():
+        old.attributes("-topmost", True)
         old.lift()
-        app._palette_entry.focus_set()
+        app._palette_entry.focus_force()
         return "break"
     c = icon_themes.palette(app.theme)
     dialog = tk.Toplevel(app.root)
@@ -18,6 +20,9 @@ def open_palette(app):
     dialog.title("Pocket · Command Palette")
     dialog.overrideredirect(True)
     dialog.transient(app.root)
+    # Pocket itself is topmost in normal tray operation. A transient
+    # override-redirect child must also be topmost to appear above its owner.
+    dialog.attributes("-topmost", True)
     dialog.configure(bg=c["BORDER"])
     dialog.resizable(False, False)
     area = app._screen_work_area(app.root.winfo_rootx(), app.root.winfo_rooty())
@@ -28,28 +33,40 @@ def open_palette(app):
     dialog.geometry(f"{width}x{height}{x:+d}{y:+d}")
     frame = tk.Frame(dialog, bg=c["BG"])
     frame.pack(fill="both", expand=True, padx=1, pady=1)
+    tk.Frame(frame, bg=c["ACCENT"], height=2).pack(fill="x")
     top = tk.Frame(frame, bg=c["BG"])
-    top.pack(fill="x", padx=12, pady=(10, 6))
+    top.pack(fill="x", padx=14, pady=(12, 8))
     tk.Label(top, text="Pocket Command Palette", bg=c["BG"], fg=c["WHITE"],
              font=("Segoe UI", 12, "bold")).pack(side="left")
+    design.button(top, "×", lambda: close(), app.theme, compact=True).pack(side="right")
     tk.Label(top, text="Ctrl+K", bg=c["CARD"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8), padx=5).pack(side="right")
+             font=("Segoe UI", 8), padx=6, pady=3).pack(side="right", padx=(0, 6))
     query = tk.StringVar(master=dialog)
     # Keep palette navigation in Tk: native EDIT controls consume Return,
     # Escape and arrow keys before Tk can dispatch their bindings.
-    entry = tk.Entry(frame, textvariable=query, bg=c["INPUT"], fg=c["WHITE"],
+    search = tk.Frame(frame, bg=c["INPUT"], highlightthickness=1,
+                      highlightbackground=c["BORDER"])
+    search.pack(fill="x", padx=14)
+    glass = tk.Canvas(search, width=26, height=28, bg=c["INPUT"],
+                      highlightthickness=0, bd=0)
+    glass.create_oval(7, 6, 18, 17, outline=c["MUTED"], width=2)
+    glass.create_line(16, 15, 21, 20, fill=c["MUTED"], width=2)
+    glass.pack(side="left", padx=(4, 0))
+    entry = tk.Entry(search, textvariable=query, bg=c["INPUT"], fg=c["WHITE"],
                      insertbackground=c["WHITE"], selectbackground=c["ACCENT_DARK"],
-                     relief="flat", bd=0, highlightthickness=1,
-                     highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],
-                     font=("Segoe UI", 10))
+                     relief="flat", bd=0, highlightthickness=0,
+                     font=("Segoe UI", 12))
     app._palette_entry = entry
-    entry.pack(fill="x", padx=12, ipady=7)
+    entry.pack(side="left", fill="x", expand=True, padx=(2, 8), ipady=8)
+    entry.bind("<FocusIn>", lambda _e: search.configure(highlightbackground=c["ACCENT"]))
+    entry.bind("<FocusOut>", lambda _e: search.configure(highlightbackground=c["BORDER"]))
+    glass.bind("<Button-1>", lambda _e: entry.focus_set())
     status = tk.Label(frame, bg=c["BG"], fg=c["MUTED"], anchor="w",
                       font=("Segoe UI", 8))
-    status.pack(fill="x", padx=12, pady=(5, 3))
+    status.pack(fill="x", padx=14, pady=(9, 5))
     footer = tk.Frame(frame, bg=c["BG"])
     footer.pack(side="bottom", fill="x", padx=12, pady=8)
-    tk.Label(footer, text="↑ ↓ select · Enter run · Esc close", bg=c["BG"],
+    tk.Label(footer, text="↑ ↓ Select · Enter run · Ctrl+X / Esc close", bg=c["BG"],
              fg=c["MUTED"], font=("Segoe UI", 8)).pack(side="left")
     preview = tk.Frame(frame, bg=c["PANEL"])
     preview.pack(side="bottom", fill="x", padx=12, pady=(4, 0))
@@ -59,13 +76,13 @@ def open_palette(app):
                       font=("Segoe UI", 8), anchor="w", justify="left", wraplength=width-75)
     detail.pack(side="left", fill="x", expand=True, pady=4)
     list_frame = tk.Frame(frame, bg=c["BG"])
-    list_frame.pack(fill="both", expand=True, padx=12)
+    list_frame.pack(fill="both", expand=True, padx=14)
     results = tk.Listbox(list_frame, bg=c["PANEL"], fg=c["WHITE"],
                          selectbackground=c["ACCENT_DARK"], selectforeground=c["WHITE"],
-                         borderwidth=0, highlightthickness=1,
-                         highlightbackground=c["BORDER"], font=("Segoe UI", 10),
+                         borderwidth=0, highlightthickness=0, font=("Segoe UI", 11),
                          exportselection=False, activestyle="none")
-    scroll = tk.Scrollbar(list_frame, command=results.yview)
+    scroll = ttk.Scrollbar(list_frame, command=results.yview,
+                           style="Pocket.Vertical.TScrollbar")
     scroll.pack(side="right", fill="y")
     results.configure(yscrollcommand=scroll.set)
     results.pack(side="left", fill="both", expand=True)
@@ -128,6 +145,8 @@ def open_palette(app):
     results.bind("<<ListboxSelect>>", update_preview)
     for widget in (entry, results, dialog):
         widget.bind("<Escape>", close)
+        widget.bind("<Control-x>", close)
+        widget.bind("<Control-X>", close)
         widget.bind("<Return>", launch)
     entry.bind("<Down>", lambda _e: move(1))
     entry.bind("<Up>", lambda _e: move(-1))
@@ -135,6 +154,14 @@ def open_palette(app):
     dialog.protocol("WM_DELETE_WINDOW", close)
     refresh()
     dialog.deiconify()
+    dialog.update_idletasks()
     dialog.lift()
     entry.focus_force()
+
+    def raise_after_map():
+        if dialog.winfo_exists():
+            dialog.attributes("-topmost", True)
+            dialog.lift()
+            entry.focus_force()
+    dialog.after_idle(raise_after_map)
     return "break"

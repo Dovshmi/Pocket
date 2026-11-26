@@ -11,32 +11,20 @@ from tkinter import ttk
 
 
 STEPS = (
-    ("01 / OVERVIEW", "One workspace instead of scattered tools.",
-     "Open Pocket Dashboard.", 6500, "home"),
-    ("02 / CTRL+K", "One shortcut to find the right tool.",
-     "The real command palette prepares a search for DEMO-1042.", 6500, "palette"),
-    ("04 / EXTRA", "Find the service without opening multiple workbooks.",
-     "Search a synthetic service record in the real offline SQLite index.", 9500, "extra"),
-    ("04 / COMMANDS", "Find the right command, not the right spreadsheet.",
-     "Search read-only Cisco reference commands.", 8500, "commands"),
-    ("05 / SUBNET", "Calculate the network and host range immediately.",
-     "Actual local IPv4 calculation: 192.0.2.10/26.", 7500, "subnet"),
-    ("06 / PORTS", "See several TCP results in one place.",
-     "SIMULATED results for documentation address 192.0.2.10; no connections.", 9500, "ports"),
-    ("07 / MAC", "Identify equipment from the local vendor reference.",
-     "Offline lookup using a small demonstration vendor table.", 7500, "mac"),
-    ("08 / EXTRA", "Resume the same search after switching tools.",
-     "The previous EXTRA result is still present.", 7000, "return_extra"),
-    ("09 / NOTES", "Keep findings together while handling the call.",
-     "Synthetic incident summary in the real Notes editor.", 8000, "notes"),
-    ("10 / CLIPBOARD", "Reuse snippets rather than repeatedly typing them.",
-     "Synthetic clipboard history only; no desktop clipboard capture.", 7500, "clipboard"),
-    ("11 / REMINDERS", "Follow up without relying on memory.",
-     "Example callback task, no external notification.", 7500, "reminders"),
-    ("12 / SHORTCUTS", "Put frequently used resources within reach.",
-     "Demonstration shortcuts; external launching disabled.", 6500, "links"),
-    ("13 / SUMMARY", "Less searching. More time for the customer.",
-     "Measure AHT, ACW and quality in an approved pilot.", 0, "summary"),
+    ("WELCOME", "כל הכלים במקום אחד", "סביבת עבודה קומפקטית לצד מערכות העבודה", 5500, "intro"),
+    ("NOTES", "תיעוד תוך כדי שיחה", "פרטי הטיפול נשארים זמינים בלי לפתוח קובץ נוסף", 6500, "notes"),
+    ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "קישורים, קבצים ותהליכים במקום מרכזי", 6000, "links"),
+    ("COMMANDS", "הידע המקצועי במרחק חיפוש", "איתור פקודת Cisco בלי לחפש בקובצי Excel", 8500, "commands"),
+    ("SUBNET", "חישוב מהיר ומדויק", "טווח כתובות ומסכת רשת ללא מחשבון חיצוני", 8000, "subnet"),
+    ("PORTS", "בדיקות מרוכזות", "תוצאות TCP לדוגמה בלבד · ללא חיבור לרשת", 8500, "ports"),
+    ("MAC", "זיהוי ציוד בשניות", "חיפוש יצרן מתוך מאגר מקומי לדוגמה", 7500, "mac"),
+    ("CLIPBOARD", "פחות הקלדה חוזרת", "מידע לדוגמה זמין לשימוש חוזר", 6500, "clipboard"),
+    ("REMINDERS", "משימות המשך לא נשכחות", "תזכורת לחזרה ללקוח כחלק מתהליך הטיפול", 6500, "reminders"),
+    ("EXTRA", "איתור מידע תפעולי", "חיפוש רשומת שירות במסד הנתונים המקומי", 9500, "extra"),
+    ("WORKFLOW", "מעבר בין כלים בלי לאבד מידע", "בדיקה נוספת וחזרה לתוצאת החיפוש", 5000, "switch_extra"),
+    ("EXTRA", "ממשיכים בדיוק מהמקום שעצרנו", "החיפוש והתוצאה נשמרים במעבר בין הכלים", 6500, "return_extra"),
+    ("CTRL+K", "קיצור דרך לכל סביבת העבודה", "חיפוש חכם מכל כלי באמצעות המקלדת", 7500, "palette"),
+    ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "30 שניות חיסכון לפנייה עשויות להצטבר לשעות עבודה", 0, "summary"),
 )
 
 
@@ -59,10 +47,10 @@ def seed_profile(api, folder):
     from openpyxl import Workbook
     from . import extra_excel_db, reminder_store
     data = api["default_data"]()
-    data["settings"].update(display_mode="dashboard", window_profile="Dashboard",
+    data["settings"].update(display_mode="mini", window_profile="Mini",
                             clipboard_paused=True, clipboard_storage="ram",
                             quick_slots_enabled=False, convert_enabled=False)
-    data["last_tab"] = "home"
+    data["last_tab"] = "notes"
     note = api["new_note"]("DEMO-1042 | Business connectivity",
         "DEMO DATA ONLY\nCustomer reports application unavailable.\n"
         "Service: DEMO-1042 | Cisco router\n"
@@ -99,7 +87,6 @@ def seed_profile(api, folder):
     sheet.append(["Service ID", "Customer", "Site", "Device", "IP address"])
     sheet.append(["DEMO-1042", "Example Business", "Training site A", "Cisco", "192.0.2.10"])
     sheet.append(["DEMO-1043", "Example Business", "Training site B", "Juniper", "192.0.2.20"])
-    # Blank rows prevent incidental header detection from favoring a data row.
     path = folder / "demo-services.xlsx"
     book.save(path)
     book.close()
@@ -108,154 +95,303 @@ def seed_profile(api, folder):
 
 
 class Presentation:
+    """A lightweight, in-window guided tour; all widgets live in Pocket's root."""
+    BG = "#101b30"
+    CARD = "#172943"
+    ACCENT = "#79e4cf"
+    TEXT = "#f5f8ff"
+    MUTED = "#b0c1d9"
+
     def __init__(self, app, api, workbook, *, auto_start=True):
         self.app, self.api, self.workbook = app, api, workbook
         self.index = -1
         self.job = None
+        self.pending = set()
         self.paused = False
         self.closed = False
-        self.panel = tk.Toplevel(app.root)
-        self.panel.title("FORMGT | Pocket Management Demo")
-        self.panel.configure(bg="#101b30")
-        self.panel.attributes("-topmost", True)
-        self.panel.resizable(False, False)
-        self.panel.protocol("WM_DELETE_WINDOW", self.close)
-        self.panel.geometry("650x245+20+20")
-        self.label("POCKET  /  MANAGEMENT DEMO  •  SYNTHETIC DATA", 11, "#75e3d2")
-        self.heading = self.label("", 17, "white")
-        self.detail = self.label("", 12, "#e1e9f9")
-        self.sub = self.label("", 10, "#aebed5")
-        self.progress = ttk.Progressbar(self.panel, maximum=len(STEPS))
-        self.progress.pack(fill="x", padx=18, pady=6)
-        buttons = tk.Frame(self.panel, bg="#101b30")
-        buttons.pack(fill="x", padx=12, pady=5)
-        for title, command in (("Previous", self.previous), ("Pause / Resume", self.toggle),
-                               ("Next", self.next), ("Replay", self.restart), ("Exit demo", self.close)):
-            tk.Button(buttons, text=title, command=command, padx=7).pack(side="left", padx=3)
-        app.root.title("Pocket | FORMGT — DEMO ONLY")
-        app.root.protocol("WM_DELETE_WINDOW", self.close)
-        app.root.bind("<Escape>", lambda e: self.close())
-        self.panel.bind("<Escape>", lambda e: self.close())
-        app.root.after(350, self.position)
+        self.smoke = not auto_start
+        self.footer = self.overlay = None
+        self.error = ""
+        self.action_pending = False
+        self.action = None
+        self.deadline = 0
+        self.remaining = 0
+        self.root = app.root
+        self.root.title("Pocket | FORMGT — DEMO ONLY")
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+        self.root.bind("<Escape>", lambda e: self.close())
+        self.root.bind("<F5>", lambda e: self.restart())
+        self.root.bind("<F6>", lambda e: self.toggle())
+        self.root.bind("<F7>", lambda e: self.previous())
+        self.root.bind("<F8>", lambda e: self.next())
+        self.root.bind("<F9>", lambda e: self.explain())
+        self.ensure_chrome()
         if auto_start:
-            self.job = app.root.after(900, self.next)
+            self.job = self.root.after(700, self.next)
 
-    def label(self, text, size, color):
-        w = tk.Label(self.panel, text=text, font=("Segoe UI", size, "bold" if size != 10 else "normal"),
-                     bg="#101b30", fg=color, wraplength=610, justify="left", anchor="w")
-        w.pack(fill="x", padx=18, pady=(6, 1))
-        return w
+    def widget_alive(self, widget):
+        return widget is not None and widget.winfo_exists()
 
-    def position(self):
-        if self.closed:
+    def ensure_chrome(self):
+        if not self.widget_alive(self.footer):
+            # Reserve only one slim row, rather than covering tool content.
+            outer = next(w for w in self.root.winfo_children()
+                         if w.winfo_manager() == "pack")
+            self.footer = tk.Frame(self.root, bg=self.BG)
+            self.footer.pack(side="bottom", fill="x", before=outer)
+            self.track = tk.Canvas(self.footer, height=3, bg="#293a50",
+                                   highlightthickness=0, bd=0)
+            self.track.pack(fill="x")
+            self.track.bind("<Configure>", lambda e: self.draw_progress())
+            bar = tk.Frame(self.footer, bg=self.BG)
+            bar.pack(fill="x", padx=5, pady=3)
+            self.step_label = tk.Label(bar, bg=self.BG, fg=self.ACCENT,
+                font=("Segoe UI", 8, "bold"), text="FORMGT")
+            self.step_label.pack(side="left", padx=(2, 3))
+            for text, handler in (("×", self.close), ("?", self.explain),
+                                  ("↻", self.restart), ("›", self.next)):
+                self.button(bar, text, handler).pack(side="right", padx=1)
+            self.pause_button = self.button(bar, "Ⅱ", self.toggle)
+            self.pause_button.pack(side="right", padx=1)
+            self.button(bar, "‹", self.previous).pack(side="right", padx=1)
+        if not self.widget_alive(self.overlay):
+            self.overlay = tk.Frame(self.root, bg=self.CARD,
+                                    highlightbackground=self.ACCENT, highlightthickness=1)
+            self.kicker = tk.Label(self.overlay, bg=self.CARD, fg=self.ACCENT,
+                                   anchor="w", font=("Segoe UI", 9, "bold"))
+            self.kicker.pack(fill="x", padx=11, pady=(6, 0))
+            self.heading = tk.Label(self.overlay, bg=self.CARD, fg=self.TEXT,
+                                    anchor="e", justify="right", font=("Segoe UI", 13, "bold"))
+            self.heading.pack(fill="x", padx=11, pady=(2, 0))
+            self.detail = tk.Label(self.overlay, bg=self.CARD, fg=self.MUTED,
+                                   anchor="e", justify="right", font=("Segoe UI", 10))
+            self.detail.pack(fill="x", padx=11, pady=(1, 7))
+            for w in (self.overlay, self.kicker, self.heading, self.detail):
+                w.bind("<Button-1>", lambda e: self.hide_card())
+        self.draw_progress()
+
+    def button(self, parent, label, handler):
+        return tk.Button(parent, text=label, command=handler, bg="#243852", fg=self.TEXT,
+                         activebackground="#385778", activeforeground=self.TEXT,
+                         relief="flat", bd=0, padx=7, pady=2, cursor="hand2",
+                         font=("Segoe UI", 9, "bold"), takefocus=True)
+
+    def draw_progress(self):
+        if not self.widget_alive(self.footer):
             return
-        r = self.app.root
-        r.update_idletasks()
-        sw, sh = r.winfo_screenwidth(), r.winfo_screenheight()
-        # Prefer separate areas on wide or tall presentation screens.
-        w, h = min(1160, sw-24), min(800, sh-70)
-        if sw >= 1850:
-            x, y = sw-w-16, max(0, (sh-h)//2)
-        elif sh >= 1050:
-            h = min(h, sh-325)
-            x, y = max(0, (sw-w)//2), 270
-        else:
-            x, y = sw-w-16, max(0, (sh-h)//2)
-        r.geometry(f"{w}x{h}+{x}+{y}")
-        # On compact screens the presenter can drag the caption panel aside.
-        self.panel.lift()
+        self.track.delete("all")
+        width = self.track.winfo_width()
+        self.track.create_rectangle(0, 0, width * max(0, self.index+1)/len(STEPS),
+                                    3, fill=self.ACCENT, outline="")
+
+    def later(self, ms, callback):
+        """Cancel stale delayed actions when a presenter skips or restarts."""
+        marker = [None]
+        def run():
+            self.pending.discard(marker[0])
+            if not self.closed:
+                callback()
+        marker[0] = self.root.after(ms, run)
+        self.pending.add(marker[0])
 
     def cancel(self):
         if self.job is not None:
-            self.app.root.after_cancel(self.job)
+            self.root.after_cancel(self.job)
             self.job = None
+        for marker in self.pending:
+            self.root.after_cancel(marker)
+        self.pending.clear()
+
+    def hide_card(self):
+        if self.widget_alive(self.overlay):
+            self.overlay.place_forget()
+
+    def explain(self):
+        if self.index < 0:
+            return
+        self.ensure_chrome()
+        name, headline, detail, _, key = STEPS[self.index]
+        self.kicker.configure(text=f"FORMGT  /  {self.index+1:02d}   {name}")
+        self.heading.configure(text=headline, wraplength=max(260, self.root.winfo_width()-42))
+        if key == "summary":
+            detail = ("30 sec × 20 calls × 50 agents × 22 days = 183 hours/month\n"
+                      "תרחיש להמחשה בלבד · לא תוצאות מדידה")
+        if self.error:
+            detail = self.error
+        self.detail.configure(text=detail, wraplength=max(260, self.root.winfo_width()-42))
+        # Header/nav only; reveal the underlying tool before its action runs.
+        self.overlay.place(relx=0, rely=0, x=6, y=5, relwidth=1, width=-12)
+        self.overlay.lift()
 
     def next(self):
-        self.cancel()
-        self.go(min(self.index+1, len(STEPS)-1))
+        if self.index == len(STEPS)-1:
+            return
+        self.go(self.index+1)
 
     def previous(self):
-        self.cancel()
         self.go(max(0, self.index-1))
 
     def toggle(self):
-        self.paused = not self.paused
-        self.cancel()
+        if self.index < 0 or self.index == len(STEPS)-1:
+            return
         if self.paused:
-            self.sub.configure(text="PAUSED — use Next, Previous or Pause / Resume.")
-        elif self.index < len(STEPS)-1:
-            self.sub.configure(text=STEPS[self.index][2])
-            self.job = self.app.root.after(STEPS[self.index][3], self.next)
+            self.paused = False
+            self.pause_button.configure(text="Ⅱ")
+            if self.error:
+                self.go(self.index)
+                return
+            if self.action_pending:
+                self.perform_action()
+            self.hide_card()
+            self.schedule(max(1000, self.remaining))
+        else:
+            self.remaining = max(0, int((self.deadline-time.monotonic())*1000))
+            self.paused = True
+            self.cancel()
+            self.pause_button.configure(text="▶")
+            self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d} · PAUSE")
 
     def restart(self):
         self.cancel()
         self.paused = False
         self.go(0)
 
+    def schedule(self, delay):
+        self.deadline = time.monotonic() + delay/1000
+        self.job = self.root.after(delay, self.next)
+
+    def close_palette(self):
+        dialog = getattr(self.app, "_quick_search_dialog", None)
+        if dialog is not None and dialog.winfo_exists():
+            # Invoke the palette's real close handler (native focus cleanup).
+            handler = dialog.protocol("WM_DELETE_WINDOW")
+            if handler:
+                dialog.tk.call(handler)
+
+    def show_tool(self, key):
+        a = self.app
+        if a.display_mode != "mini" and key != "summary":
+            a._set_display_mode("mini")
+        if key == "summary":
+            a._set_display_mode("dashboard")
+            a.show_tab("home" if a.display_mode == "dashboard" else "notes")
+        else:
+            tab = {"intro":"notes", "palette":"notes", "switch_extra":"subnet",
+                   "return_extra":"extra"}.get(key, key)
+            a.show_tab(tab)
+        self.ensure_chrome()
+
     def go(self, index):
+        self.cancel()
+        self.close_palette()
+        self.hide_card()
         self.index = index
-        name, headline, detail, delay, key = STEPS[index]
-        self.heading.configure(text=name + "   •   " + headline)
-        self.detail.configure(text=detail)
-        self.sub.configure(text=f"Step {index+1} of {len(STEPS)}  |  Demo playback, not a timed benchmark")
-        self.progress["value"] = index+1
+        self.error = ""
+        self.action_pending = True
+        _, _, _, delay, key = STEPS[index]
+        self.action = key
         try:
-            self.apply(key)
+            self.show_tool(key)
+            self.root.update_idletasks()
+            self.step_label.configure(text=f"DEMO {index+1:02d}/{len(STEPS):02d}")
+            self.pause_button.configure(text="▶" if self.paused else "Ⅱ")
+            self.explain()
+            if self.smoke:
+                self.hide_card()
+                self.perform_action()
+            elif not self.paused:
+                if key != "summary":
+                    self.later(2600, self.hide_card)
+                    self.later(2800, self.perform_action)
+                else:
+                    self.action_pending = False
+            else:
+                self.hide_card()
+                self.perform_action()
+            if delay and not self.paused:
+                self.schedule(delay)
         except Exception as exc:
-            self.paused = True
-            self.sub.configure(text=f"DEMO PAUSED: {type(exc).__name__}: {exc}")
+            self.fail(exc)
+
+    def fail(self, exc):
+        self.cancel()
+        self.paused = True
+        self.error = f"Demo paused: {type(exc).__name__}: {exc}"
+        self.ensure_chrome()
+        self.pause_button.configure(text="▶")
+        self.explain()
+
+    def scroll_to(self, widget=None, fraction=None):
+        a = self.app
+        canvas = getattr(a, "_tool_scroll_canvas", None)
+        if not self.widget_alive(canvas):
             return
-        if delay and not self.paused:
-            self.job = self.app.root.after(delay, self.next)
+        self.root.update_idletasks()
+        if fraction is not None:
+            canvas.yview_moveto(fraction)
+        elif self.widget_alive(widget):
+            region = canvas.bbox("all")
+            if region and region[3] > region[1]:
+                y = widget.winfo_rooty()-canvas.winfo_rooty()+canvas.canvasy(0)
+                canvas.yview_moveto(max(0, (y-16)/(region[3]-region[1])))
+
+    def perform_action(self):
+        if not self.action_pending:
+            return
+        self.action_pending = False
+        try:
+            self.apply(self.action)
+        except Exception as exc:
+            self.fail(exc)
 
     def apply(self, key):
         a = self.app
-        dialog = getattr(a, "_quick_search_dialog", None)
-        if dialog is not None and dialog.winfo_exists():
-            dialog.event_generate("<Escape>")
-        if key == "palette":
-            a.show_tab("home")
-            a._open_global_search()
-            a._palette_entry.insert(0, "> extra DEMO-1042")
-        elif key == "home":
-            a.show_tab("home")
-        elif key == "extra":
-            a._extra_excel_path = str(self.workbook)
-            a.show_tab("extra")
-            a._extra_palette_search("DEMO-1042")
-        elif key == "commands":
-            a.show_tab("commands")
+        if key == "commands":
             a._command_focus_in()
             a.command_query.set("show ip interface brief")
             a._refresh_command_results()
         elif key == "subnet":
-            a.show_tab("subnet")
             a.subnet_ip_var.set("192.0.2.10")
             a.subnet_prefix_var.set("26")
             a._calculate_subnet()
+            if not self.smoke:
+                self.later(900, lambda: self.scroll_to(a.subnet_fact_labels["cidr"]))
         elif key == "ports":
-            a.show_tab("ports")
+            # A quick jump/replay must not leave a previous simulated scan active.
+            if a.scanning:
+                a.scan_cancel.set()
+                a.scan_token += 1
+                a.scanning = False
             a.port_source.set("local")
             a.host_var.set("192.0.2.10")
             a.ports_var.set("22,443,8080")
             a._start_scan()
+            if not self.smoke:
+                self.later(1400, lambda: self.scroll_to(a.port_tree))
         elif key == "mac":
-            a.show_tab("mac")
             a.mac_source.set("local")
             a.mac_input.delete("1.0", "end")
             a.mac_input.insert("1.0", "00:00:0C:12:34:56")
             a._run_mac_lookup()
+            if not self.smoke:
+                self.later(900, lambda: self.scroll_to(a.mac_tree))
+        elif key == "extra":
+            a._extra_excel_path = str(self.workbook)
+            a._extra_palette_search("DEMO-1042")
+            if not self.smoke:
+                self.later(1500, lambda: self.scroll_to(fraction=0.48))
         elif key == "return_extra":
-            a.show_tab("extra")
-        elif key == "clipboard":
-            a.show_tab("clipboard")
-        elif key in ("notes", "reminders", "links"):
-            a.show_tab(key)
+            # Manual jumps may reach this chapter before the first search.
+            state = self.api["extra_excel_ui"].session(a)
+            if not state["hits"] and not state["busy"]:
+                a._extra_palette_search("DEMO-1042")
+            if not self.smoke:
+                self.later(1000, lambda: self.scroll_to(fraction=0.48))
+        elif key == "palette":
+            a._open_global_search()
+            a._palette_entry.insert(0, "> extra DEMO-1042")
         elif key == "summary":
-            a.show_tab("home")
-            self.detail.configure(text="Illustrative target: 30 seconds saved × 20 relevant calls × "
-                "50 agents × 22 days = 183 staff-hours/month.")
-            self.sub.configure(text="Hypothesis only — validate via pilot. Replay or exit when ready.")
+            self.explain()
 
     def close(self):
         if self.closed:
@@ -265,7 +401,7 @@ class Presentation:
         self.app._extra_excel_cancel.set()
         self.app.scan_cancel.set()
         self.app.tasks.stop()
-        self.app.root.destroy()
+        self.root.destroy()
 
 
 def run(api, *, smoke=False):
@@ -294,6 +430,12 @@ def run(api, *, smoke=False):
         filedialog.askdirectory = lambda *a, **kw: ""
         workbook = seed_profile(api, folder)
         class DemoApp(api["PocketDesk"]):
+            def hide(self):
+                controller = getattr(self, "_formgt", None)
+                if controller is not None:
+                    controller.close()
+                else:
+                    self.root.destroy()
             def _clipboard_poll(self):
                 pass
             def _reminder_poll(self):
@@ -310,6 +452,7 @@ def run(api, *, smoke=False):
         for snippet in ("DEMO-1042", "192.0.2.10", "show ip interface brief"):
             api["clipboard_add"](app.clipboard_items, snippet)
         presentation = Presentation(app, api, workbook, auto_start=not smoke)
+        app._formgt = presentation
         if smoke:
             try:
                 presentation.paused = True
@@ -322,8 +465,11 @@ def run(api, *, smoke=False):
                             raise AssertionError("Demo worker timed out: " + step[4])
                         app.root.update()
                         time.sleep(0.03)
-                    if presentation.sub.cget("text").startswith("DEMO PAUSED:"):
-                        raise AssertionError(presentation.sub.cget("text"))
+                    if presentation.error:
+                        raise AssertionError(presentation.error)
+                    if step[4] != "summary":
+                        assert app.display_mode == "mini", "Expected Mini mode"
+                    assert presentation.footer.winfo_ismapped(), "Missing integrated controller"
                     if step[4] in ("extra", "return_extra"):
                         assert api["extra_excel_ui"].session(app)["hits"], "EXTRA demo record missing"
                     if step[4] == "commands":

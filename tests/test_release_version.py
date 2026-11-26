@@ -111,6 +111,20 @@ class ReleaseVersionTests(unittest.TestCase):
         for marker in ("Ctrl+K", "not encrypted", "v1.41", "MAC Vendor"):
             self.assertIn(marker, notes)
 
+    def test_v143_release_workflow(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "release-v1.43.0.yml").read_text(encoding="utf-8")
+        for marker in ("[release v1.43.0]", "inputs.confirm_version == 'v1.43.0'",
+                       "app_info.VERSION == '1.43.0'", "smoke_palette_focus_v143.py",
+                       "check_packaged_release.py --version v1.43.0",
+                       "tag_name: v1.43.0", "make_latest: true",
+                       "Pocket-Portable-v1.43.0.zip", "Pocket-v1.43.0.exe",
+                       "SHA256SUMS.txt", "fail_on_unmatched_files: true"):
+            self.assertIn(marker, workflow)
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("/releases/latest", readme)
+        self.assertIn("docs/releases/v1.43.0.md", readme)
+
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")

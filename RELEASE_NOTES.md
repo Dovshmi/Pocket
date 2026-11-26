@@ -1,14 +1,39 @@
-## v1.43.0 — main source (not a published Windows release)
+# Pocket v1.43.0 — Modern Search, Smart Clipboard & EXTRA
 
-- Verification: the previous portable build passed, but the strict Windows native-focus regression and the refreshed GUI suite require verification. v1.42.0 remains the latest published Windows release.
-- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
-- Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
-- Windows palette uses an activatable tool window with a real native EDIT, and explicitly bridges Enter/Escape/Tab/arrows to Tk. This replaces the earlier focus-only attempt that failed the real Windows regression.
-- Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
-- Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.
-- EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.
-- Ctrl+K supports direct Windows text editing, including copy/paste and a context menu. Both `>` and `<` open Action Mode; Tab completes action prefixes. `> extra cofix` searches the offline database, while live Excel remains explicitly initiated.
-- Sync shows scanned/total physical worksheet rows (including blanks and headings) in a temporary 3px progress bar; unknown totals show a count only. The bar disappears on completion and the existing Last sync timestamp returns. Existing database replacement remains atomic.
+Settings displays **v1.43**.
+
+## What's new
+
+- **Ctrl+K:** borderless, keyboard-first Command Palette without title bars or redundant buttons. Two-line results use the original Pocket tool icons; the search icon follows the selected result.
+- **Palette appearance:** drag the small top rail; save the window position locally, including across restarts. Independent opacity 60–100% (95% default), remember-position toggle and reset controls in Settings → Appearance.
+- **Actions:** both the greater-than and less-than markers open Action Mode. Tab completes action prefixes, arrows navigate, Enter opens a result, Esc closes, and double-click runs the chosen result. Windows native input and clipboard editing are retained.
+- **Smart Clipboard:** right-click Suggestions for IP, MAC, CIDR, phone numbers, line IDs, port lists and HTTP(S) URLs; Copy remains the first action. Network checks are prepared but do not run without an explicit action.
+- **EXTRA:** retain the current query, matches, selected row and scroll in RAM across tool changes; in-progress operations continue across navigation. No search history is written to disk.
+- **Sync:** compact temporary 3 px progress indicator with physical rows scanned/total when known; unknown totals show the scanned count. After completion, the existing Last sync timestamp returns. Replacement of the local database remains atomic.
+
+## Windows packages
+
+The release workflow builds and validates these files before publishing them:
+
+- Pocket-Portable-v1.43.0.zip — extract the complete folder and run Pocket-Portable/PocketDesk.exe.
+- Pocket-v1.43.0.exe — standalone Windows executable.
+- SHA256SUMS.txt — verify the two packages.
+
+No Python installation is required on the target Windows machine. Executables are **not code-signed**. Public binaries contain sanitized example commands only, not private profiles, credentials, customer workbooks or local databases.
+
+## Upgrade
+
+Fully exit Pocket including the tray process. Back up the previous profile, extract into a new directory and transfer only the existing data/ folder (or use Settings → Backup & Restore). Do not mix runtime _internal/ directories. Standalone users retain their existing %APPDATA%\PocketDesk\ profile.
+
+## Privacy and verification
+
+Pocket is local-first. Network diagnostics are explicit; the palette does not execute shell commands. Excel SQLite, optional clipboard databases and backup ZIP files are **not encrypted**. Use only authorized data and approved storage. Protected Excel, Outlook, Windows proxy/PAC and enterprise controls require authorized workstation testing.
+
+Publication requires Windows unit tests, GUI regressions including real native Ctrl+K focus, ZIP integrity/privacy checks, packaged runtime and standalone startup tests. Until these pass and publication succeeds, the latest release page continues to point to the previous published build.
+
+Previous stable [v1.42.0](https://github.com/Dovshmi/Pocket/releases/tag/v1.42.0) remains available for rollback.
+
+---
 
 # Pocket v1.42.0 — Command Palette & adaptive workspace
 

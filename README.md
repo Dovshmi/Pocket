@@ -9,14 +9,14 @@
 A compact, local-first desktop workspace for network operations, support teams, and everyday productivity.
 
 [![Source version](https://img.shields.io/badge/Main%20source-v1.43.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
-[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.42.0-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.42.0)
+[![Latest Windows release](https://img.shields.io/github/v/release/Dovshmi/Pocket?style=flat-square&label=Windows%20release&color=6755D8)](https://github.com/Dovshmi/Pocket/releases/latest)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=flat-square)](LICENSE)
 
-**[Download Portable ZIP v1.42.0](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip)** · **[Standalone EXE v1.42.0](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-v1.42.0.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
+**[Download latest Windows release (Portable ZIP / EXE)](https://github.com/Dovshmi/Pocket/releases/latest)** · [All releases](https://github.com/Dovshmi/Pocket/releases)
 
-<sub>Official v1.42.0 Windows release · Portable ZIP + standalone EXE · Previous v1.40.0 downloads are preserved.</sub>
+<sub>Download the published Windows packages from GitHub Releases. Previous versions remain available for rollback.</sub>
 
 </div>
 
@@ -31,7 +31,7 @@ A compact, local-first desktop workspace for network operations, support teams, 
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#whats-new-in-v1420">What's new</a> ·
+  <a href="#whats-new-in-v1430">What's new</a> ·
   <a href="#installation">Installation</a> ·
   <a href="#privacy--connectivity">Privacy</a> ·
   <a href="#version-history">Changelog</a>
@@ -48,12 +48,16 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 
 ## What's new in v1.43.0
 
-- **Minimal Command Palette:** borderless, keyboard-first search with Pocket tool icons, adaptive height, a drag rail and no redundant title or buttons.
-- **Appearance:** independent 60–100% opacity and remembered, monitor-clamped palette position.
-- **Smart Clipboard:** right-click Suggestions for recognized text, while Copy remains first.
-- **EXTRA:** retain current results across navigation and show temporary row progress during Sync.
+| Area | Improvements |
+| :--- | :--- |
+| **Command Palette · Ctrl+K** | Borderless popup, dynamic original Pocket tool icons, two-line result rows, adaptive height, drag rail, Enter/Esc and double-click. |
+| **Palette settings** | Independent 60–100% opacity (95% default), remembered position across restarts, monitor clamping and reset controls under Appearance. |
+| **Actions & editing** | Both `>` and `<` open Action Mode; Tab completes available action prefixes. Native Windows text input, copy/paste and context menu. |
+| **Smart Clipboard** | Right-click **Suggestions** for IP, MAC, CIDR, phone, line ID, port list and HTTP(S) URL. Copy stays first; no automatic network requests. |
+| **EXTRA** | Keep the current query, matches, selected row and scroll in RAM when switching tools; no saved search history. Local searches and Sync continue across navigation. |
+| **EXTRA Sync** | A temporary 3 px progress bar with scanned/total worksheet rows when known; returns to Last sync status after completion. |
 
-The main source is v1.43.0; the latest published Windows downloads remain v1.42.0 until a new release is verified and published.
+[Full v1.43.0 release notes](docs/releases/v1.43.0.md) · [Latest published Windows packages](https://github.com/Dovshmi/Pocket/releases/latest). Source and packaged release versions are independent; publication requires successful release checks.
 
 ## What's new in v1.42.0
 
@@ -90,7 +94,7 @@ No shell execution or AI service is involved. Network checks require an explicit
 
 ## Screenshots
 
-**Historical v1.40.0 Windows captures** (not screenshots of the new v1.42 interface), taken by the automated GUI smoke tests with a synthetic user profile. These are not mockups and do not contain customer workbooks or private commands. UI contents and window arrangements may vary by selected mode.
+**Historical v1.40.0 Windows captures** (not screenshots of the v1.43 interface), taken by the automated GUI smoke tests with a synthetic user profile. These are not mockups and do not contain customer workbooks or private commands. UI contents and window arrangements may vary by selected mode.
 
 <div align="center">
 <table>
@@ -161,15 +165,15 @@ Guides: [Quick Slots](docs/QUICK_SLOTS.md) · [Backup & Restore](docs/BACKUP_RES
 
 ## Installation
 
-### Windows stable — v1.42.0
+### Windows — latest published release
 
 | Portable ZIP <sub>(recommended)</sub> | Standalone EXE |
 | :--- | :--- |
-| **[Pocket-Portable-v1.42.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip)** | **[Pocket-v1.42.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-v1.42.0.exe)** |
+| **[Portable ZIP](https://github.com/Dovshmi/Pocket/releases/latest)** | **[Standalone EXE](https://github.com/Dovshmi/Pocket/releases/latest)** |
 | Extract the full archive, then run `Pocket-Portable/PocketDesk.exe`. Keep its `_internal/` folder beside it. | Run the single EXE directly. |
 | Local data: `Pocket-Portable/data/`. | Local data: `%APPDATA%\PocketDesk\`. |
 
-No Python installation is needed for either Windows binary. Both downloads are built from the official **v1.42.0** source. Verify them with [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/SHA256SUMS.txt). [v1.40.0](https://github.com/Dovshmi/Pocket/releases/tag/v1.40.0) remains available for rollback.
+No Python installation is needed for either Windows binary. Choose the versioned ZIP or EXE asset on the latest release page and verify it using that release’s `SHA256SUMS.txt`. Previous v1.42.0 downloads remain available: [Portable ZIP](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip), [EXE](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-v1.42.0.exe), [checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/SHA256SUMS.txt).
 
 **Upgrading a portable installation:** fully exit Pocket (including the tray process), back up the old `data/` folder, extract the new ZIP into a **new** folder and copy only your user data across. Never mix `_internal/` folders from different versions. You can also use **Settings → Backup & Restore** to transfer selected data.
 
@@ -228,8 +232,8 @@ For authorized remote checks, Pocket can use the configured Windows proxy/PAC wi
 
 | Version | Highlights | Distribution |
 | :--- | :--- | :--- |
-| **v1.43.0 — main source** | Minimal borderless Ctrl+K, dynamic icons, opacity and saved position; Smart Clipboard; EXTRA session retention and Sync progress. | Source; Windows release pending verification |
-| **v1.42.0 — latest stable** | Command Palette, smart inputs and internal actions, TCP ranges/colors/progress, MAC counts/filtering, Database-first Extranet. | **Official Windows ZIP / EXE** |
+| **v1.43.0 — current source** | Minimal borderless Ctrl+K, dynamic icons, opacity and saved position; Smart Clipboard; EXTRA session retention and Sync progress. | [Release status](https://github.com/Dovshmi/Pocket/releases/latest) |
+| **v1.42.0** | Command Palette, smart inputs and internal actions, TCP ranges/colors/progress, MAC counts/filtering, Database-first Extranet. | **Official Windows ZIP / EXE** |
 | **v1.41** | Adaptive window sizing, named profiles, responsive/reorderable navigation and compact Clipboard. | Included in v1.42.0 |
 | **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | Previous stable release |
 | **v1.39.9** | Stand-alone and Note-linked Reminders, snooze, response capture, compact Reminder navigation. | Previous stable release |
@@ -255,7 +259,7 @@ py -3 -m unittest discover -s tests -p "test_*.py" -v
 
 GitHub Actions runs Windows/Linux unit and GUI checks and Windows portable runtime smoke tests. Synthetic data is used for automated UI screenshots; protected enterprise Excel, Outlook and local data-policy acceptance must be tested separately on authorized workstations.
 
-[Repository structure](docs/REPOSITORY_LAYOUT.md) · [Open an issue](https://github.com/Dovshmi/Pocket/issues) · [v1.42 release notes](docs/releases/v1.42.0.md)
+[Repository structure](docs/REPOSITORY_LAYOUT.md) · [Open an issue](https://github.com/Dovshmi/Pocket/issues) · [v1.43 release notes](docs/releases/v1.43.0.md)
 
 ---
 
@@ -266,14 +270,3 @@ GitHub Actions runs Windows/Linux unit and GUI checks and Windows portable runti
 Made by Rony Shmidov · [GPL-3.0](LICENSE) · Windows 10/11
 
 </div>
-
-## v1.43.0 — source updates (not a published Windows release)
-
-- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
-- Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
-- Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
-- Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.
-- EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.
-- Ctrl+K supports direct Windows text editing, including copy/paste and a context menu. Both `>` and `<` open Action Mode; Tab completes action prefixes. `> extra cofix` searches the offline database, while live Excel remains explicitly initiated.
-- Sync shows scanned/total physical worksheet rows (including blanks and headings) in a temporary 3px progress bar; unknown totals show a count only. The bar disappears on completion and the existing Last sync timestamp returns. Existing database replacement remains atomic.
-

@@ -78,6 +78,14 @@ class AdaptiveWindowTests(unittest.TestCase):
             self.assertIsNone(reset["window_size"])
             self.assertEqual(reset["notes"], restored["notes"])
 
+    def test_invisible_resize_hit_regions(self):
+        self.assertEqual(aw.hit_edges(0, 0, 400, 600), "nw")
+        self.assertEqual(aw.hit_edges(399, 599, 400, 600), "se")
+        self.assertEqual(aw.hit_edges(0, 300, 400, 600), "w")
+        self.assertEqual(aw.hit_edges(200, 599, 400, 600), "s")
+        self.assertIsNone(aw.hit_edges(200, 300, 400, 600))
+        self.assertIsNone(aw.hit_edges(-1, 300, 400, 600))
+
     def test_breakpoints_do_not_turn_extra_mini_on(self):
         self.assertEqual(aw.layout_for(346, 530), "mini")
         self.assertEqual(aw.layout_for(480, 850), "normal")

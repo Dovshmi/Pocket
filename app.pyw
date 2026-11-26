@@ -104,7 +104,7 @@ from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import text_editing
 from pocket import picker_selection
-from pocket import quick_search
+from pocket import quick_search, command_palette
 from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
@@ -588,6 +588,9 @@ class PocketDesk:
         self.vendor_file = self.path.parent / "vendors.json"
         self.vendors, self.vendor_date = net.load_vendor_database(self.vendor_file)
         self.mac_results = []
+        self.mac_vendor_filter = None
+        self.mac_vendor_exclude = False
+        self.mac_vendor_expanded = False
         self.mac_lookup_running = False
         self.mac_lookup_token = 0
         self.mac_parse_summary = {"duplicates": 0, "invalid": 0}
@@ -665,7 +668,9 @@ class PocketDesk:
         self._install_resize_handles()
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
+        self.root._pocket_palette_callback = self._open_global_search
         self.root.bind("<Control-k>", self._open_global_search)
+        self.root.bind("<Control-K>", self._open_global_search)
         self.root.bind("<Control-f>", self._handle_find_shortcut)
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
@@ -819,95 +824,112 @@ class PocketDesk:
                 tree.selection_set(hit["id"])
                 self._render_command_details()
 
-    def _open_global_search(self, _event=None):
-        """Ctrl+K / Ctrl+F: local search across enabled menus, no network."""
+    def _run_palette_action(self, hit):
+        """Dispatch known internal actions to the existing tool callbacks."""
+        if not command_palette.allowed(hit, self.settings["visible_tabs"]):
+            return
+        if hit["kind"] != "action":
+            return self._navigate_search_result(hit)
+        key, args = hit["id"], hit.get("args", ())
+        dest = hit.get("destination")
         if self.display_mode == "compact":
-            return compact.focus_search(self)
-        old = getattr(self, "_quick_search_dialog", None)
-        if old is not None and old.winfo_exists():
-            old.lift()
-            old.focus_set()
-            return "break"
-        c = themes.palette(self.theme)
-        dialog = tk.Toplevel(self.root)
-        self._quick_search_dialog = dialog
-        self._modal = True
-        dialog.title("Pocket · Quick Search")
-        dialog.configure(bg=c["BG"])
-        dialog.resizable(False, False)
-        dialog.transient(self.root)
-        width, height = (420, 330) if self.display_mode != "mini" else (315, 315)
-        x = max(0, self.root.winfo_x() + 12)
-        y = max(0, self.root.winfo_y() + 35)
-        dialog.geometry(f"{width}x{height}+{x}+{y}")
-        tk.Label(dialog, text="QUICK SEARCH", bg=c["BG"], fg=c["ACCENT"],
-                 font=(FONT, 9, "bold")).pack(anchor="w", padx=16, pady=(16, 4))
-        tk.Label(dialog, text="Search tools, notes, shortcuts and CLI commands",
-                 bg=c["BG"], fg=c["SECONDARY"], font=(FONT, 9),
-                 wraplength=width-32).pack(anchor="w", padx=16, pady=(0, 9))
-        query = tk.StringVar()
-        entry = design.entry(dialog, query, self.theme)
-        entry.pack(fill="x", padx=16, ipady=8, pady=(0, 10))
-        results = tk.Listbox(dialog, bg=c["PANEL"], fg=c["WHITE"],
-                             selectbackground=c["ACCENT_DARK"],
-                             selectforeground=c["WHITE"], borderwidth=0,
-                             highlightthickness=1, highlightbackground=c["BORDER"],
-                             font=(FONT, 9), exportselection=False,
-                             activestyle="none")
-        results.pack(fill="both", expand=True, padx=16, pady=(0, 7))
-        footer = tk.Frame(dialog, bg=c["BG"])
-        footer.pack(fill="x", padx=16, pady=(0, 12))
-        status = tk.Label(footer, text="↑ ↓ select · Enter open · Esc close",
-                          bg=c["BG"], fg=c["MUTED"], font=(FONT, 8))
-        status.pack(side="left")
-        matches = []
-        def refresh(*_args):
-            matches[:] = quick_search.results(
-                self.data, self.command_library, query.get(),
-                self.settings["visible_tabs"])
-            results.delete(0, tk.END)
-            for hit in matches:
-                results.insert(tk.END, f"{hit['title'][:38]}    ·  {hit['subtitle'][:22]}")
-            if matches:
-                results.selection_set(0)
-            status.configure(text=f"{len(matches)} local match(es) · Enter to open")
-        def close(_evt=None):
-            if dialog.winfo_exists():
-                dialog.destroy()
-            self._modal = False
-            self._quick_search_dialog = None
-            return "break"
-        def launch(_evt=None):
-            selection = results.curselection()
-            if selection and selection[0] < len(matches):
-                item = matches[selection[0]]
-                close()
-                self._navigate_search_result(item)
-            return "break"
-        query.trace_add("write", refresh)
-        design.button(footer, "Close", close, self.theme, compact=True).pack(side="right")
-        design.button(footer, "Open", launch, self.theme, primary=True,
-                      compact=True).pack(side="right", padx=(0, 6))
-        dialog.bind("<Escape>", close)
-        entry.bind("<Escape>", close)
-        results.bind("<Escape>", close)
-        entry.bind("<Return>", launch)
-        results.bind("<Return>", launch)
-        results.bind("<Double-1>", launch)
-        def move(step):
-            if not matches:
-                return "break"
-            index = results.curselection()[0] if results.curselection() else 0
-            results.selection_clear(0, tk.END)
-            index = (index + step) % len(matches)
-            results.selection_set(index)
-            results.see(index)
-            return "break"
-        entry.bind("<Down>", lambda _e: move(1))
-        entry.bind("<Up>", lambda _e: move(-1))
-        dialog.protocol("WM_DELETE_WINDOW", close)
-        entry.focus_set()
-        return "break"
+            self._expand_from_extra_mini()
+        if key == "theme":
+            self._choose_theme(args[0])
+        elif key == "size":
+            self._apply_window_profile(args[0])
+        elif key in ("pin", "unpin"):
+            if self.pinned != (key == "pin"):
+                self.toggle_pin()
+        elif key in ("clip_pause", "clip_resume"):
+            self._set_clipboard_paused(key == "clip_pause")
+        elif key == "backup":
+            self._open_backup_dialog()
+        elif key == "copy":
+            self.root.clipboard_clear()
+            self.root.clipboard_append(args[0])
+        elif key == "new_note":
+            self.add_note()
+            if args:
+                self.title_var.set(args[0])
+                self._flush_current_note()
+                self._write_now()
+        elif key == "reminder":
+            self.show_tab("reminders")
+            self._edit_standalone_reminder()
+        elif key == "timed_reminder":
+            now = datetime.now().astimezone()
+            hour, minute = map(int, args[0].split(":"))
+            when = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            if when <= now:
+                when += timedelta(days=1)
+            self._modal = True
+            try:
+                if not messagebox.askyesno("Create reminder",
+                        f"{args[1]}\n{when:%Y-%m-%d %H:%M}\n\nSave this reminder?",
+                        parent=self.root):
+                    return
+                if len(self.data["reminders"]) >= reminder_store.MAX_REMINDERS:
+                    raise ValueError("Too many reminders.")
+                record = reminder_store.make_reminder(args[1], "", when.isoformat())
+                self.data["reminders"].append(record)
+                if not self._write_now():
+                    self.data["reminders"].remove(record)
+                    return
+            except ValueError as exc:
+                self._warning("Reminder", str(exc))
+                return
+            finally:
+                self._modal = False
+            self.show_tab("reminders")
+        elif key == "mac_update":
+            self.show_tab("mac")
+            self._modal = True
+            try:
+                approved = messagebox.askyesno("Update IEEE DB",
+                    "Download the IEEE vendor database using the internet?", parent=self.root)
+            finally:
+                self._modal = False
+            if approved:
+                self._update_vendors()
+        elif key in ("extra_database", "extra_local"):
+            self._extra_excel_mode = "database" if key == "extra_database" else "local"
+            self.show_tab("extra")
+        elif key == "ports":
+            self.show_tab("ports")
+            if args[0]:
+                self.host_var.set(args[0])
+            if args[1]:
+                self.ports_var.set(args[1])
+            self.ports_entry.focus_set()
+        elif key == "mac":
+            self.show_tab("mac")
+            self.mac_input.delete("1.0", "end")
+            self.mac_input.insert("1.0", args[0])
+            self.mac_input.focus_set()
+        elif key == "subnet":
+            self.show_tab("subnet")
+            self.subnet_ip_var.set(args[0])
+            if args[1]:
+                self.subnet_prefix_var.set(args[1])
+                self._calculate_subnet()
+        elif key == "extra":
+            self.show_tab("extra")
+            self._extra_palette_search(args[0])
+        elif key == "cli":
+            self.show_tab("commands")
+            self._command_focus_in()
+            self.command_query.set(args[0])
+            self._focus_command_search()
+
+    def _palette_keypress(self, event):
+        if event.keysym.lower() in ("k", "hebrew_lamed") or (sys.platform == "win32" and event.keycode == 75):
+            return self._open_global_search(event)
+
+    def _open_global_search(self, _event=None):
+        """Open the local command palette in every window layout."""
+        from pocket import command_palette_ui
+        return command_palette_ui.open_palette(self)
 
     def _open_hotkey_picker(self, _event=None, *, action="popup"):
         if getattr(self, "_hotkey_picker", None) and self._hotkey_picker.winfo_exists():
@@ -5540,7 +5562,7 @@ class PocketDesk:
 
         port_heading = tk.Frame(self.body, bg=BG)
         port_heading.pack(fill="x", pady=(0, 5))
-        tk.Label(port_heading, text="TCP PORTS (comma-separated)", bg=BG,
+        tk.Label(port_heading, text="TCP PORTS (numbers / ranges)", bg=BG,
                  fg=MUTED, font=(FONT, 8, "bold")).pack(side="left")
         self.port_count = tk.Label(port_heading, text="0/16", bg=BG, fg=MUTED,
                                    font=(FONT, 8, "bold"), anchor="e")
@@ -5576,12 +5598,46 @@ class PocketDesk:
         self.scan_info = tk.Label(self.body, text="TCP connect only • No UDP scanning",
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.scan_info.pack(fill="x", pady=(9, 1))
+        progress_row = tk.Frame(self.body, bg=BG)
+        progress_row.pack(fill="x", pady=(5, 1))
+        self.port_progress_label = tk.Label(progress_row, text="0/0", bg=BG,
+                                            fg=MUTED, font=(FONT, 8))
+        self.port_progress_label.pack(side="right", padx=(7, 0))
+        self.port_progress = tk.Canvas(progress_row, bg=BG, height=7,
+                                       highlightthickness=0, bd=0, takefocus=0)
+        self.port_progress.pack(side="left", fill="x", expand=True)
+        self.port_progress.bind("<Configure>", lambda _event: self._refresh_port_progress())
         self.port_tree = self._tree(self.body, ("Port", "Service", "TCP status", "Time"),
                                     (72, 115, 117, 73))
+        self.port_tree.tag_configure("port_open", foreground="#54C58A")
+        self.port_tree.tag_configure("port_failed", foreground="#F87171")
+        self._refresh_port_progress()
         for result in sorted(self.port_results, key=net.port_result_sort_key):
             self._add_port_result(result)
         if self.scanning:
             self.scan_info.config(text="Scan is running…", fg=ACCENT)
+
+    def _refresh_port_progress(self):
+        canvas = getattr(self, "port_progress", None)
+        if canvas is None or not canvas.winfo_exists():
+            return
+        opened, failed, total = presets.progress_counts(
+            self.scan_requested_ports, self.port_results)
+        complete = opened + failed
+        self.port_progress_label.configure(text=f"{complete}/{total} completed")
+        width = max(1, canvas.winfo_width())
+        height = max(1, canvas.winfo_height())
+        canvas.delete("all")
+        canvas.create_rectangle(0, 0, width, height, fill=CARD, outline="")
+        if total:
+            green_end = round(width * opened / total)
+            red_end = round(width * complete / total)
+            if opened:
+                canvas.create_rectangle(0, 0, green_end, height,
+                                        fill="#54C58A", outline="")
+            if failed:
+                canvas.create_rectangle(green_end, 0, red_end, height,
+                                        fill="#F87171", outline="")
 
     def _port_source_changed(self):
         # Source choice never starts a TCP check.
@@ -5728,6 +5784,7 @@ class PocketDesk:
             self._toggle_quick_ports()
         self.scanning = True
         self.scan_requested_ports = list(ports)
+        self._refresh_port_progress()
         self.scan_cancel = threading.Event()
         self.scan_error = None
         self.scan_token += 1
@@ -5777,7 +5834,8 @@ class PocketDesk:
                 break
             index += 1
         self.port_tree.insert("", index, values=(
-            item["port"], item["service"], item["status"], f"{item['ms']} ms"))
+            item["port"], item["service"], item["status"], f"{item['ms']} ms"),
+            tags=("port_open" if item["status"] == "OPEN" else "port_failed",))
 
     def _export_ports(self):
         if not self.port_results:
@@ -5940,11 +5998,17 @@ class PocketDesk:
     # ---- IEEE bulk MAC address vendor lookup ------------------------------
 
     def _build_mac(self):
-        self._section_title(self.body, "Bulk MAC vendors", "Identify manufacturers from MAC prefixes", "Update IEEE DB", self._update_vendors)
+        heading = tk.Frame(self.body, bg=BG)
+        heading.pack(fill="x", pady=(0, 4))
+        action_label(heading, "Update IEEE DB", self._update_vendors,
+                     bg=PANEL, fg=ACCENT, hover=CARD, padx=7, pady=5,
+                     font_size=8).pack(side="right")
+        tk.Label(heading, text="Bulk MAC vendors", bg=BG, fg=WHITE,
+                 font=(FONT, 12, "bold"), anchor="w").pack(side="left", fill="x", expand=True)
         tools = self.data["tools"]
         self.mac_source = tk.StringVar(value="dashdash" if tools.get("mac_source") == "dashdash" else "local")
         status_line = tk.Frame(self.body, bg=BG)
-        status_line.pack(fill="x", pady=(0, 12))
+        status_line.pack(fill="x", pady=(0, 8))
         self.vendor_info = tk.Label(status_line, text=self._vendor_summary(), bg=BG,
                                     fg=MUTED, anchor="w", font=(FONT, 8))
         self.vendor_info.pack(side="left", fill="x", expand=True)
@@ -5987,12 +6051,127 @@ class PocketDesk:
         self.mac_info = tk.Label(self.body, text=summary,
                                   bg=BG, fg=MUTED, font=(FONT, 9), anchor="w")
         self.mac_info.pack(fill="x", pady=(12, 4))
+        summary_row = tk.Frame(self.body, bg=BG)
+        summary_row.pack(fill="x", pady=(0, 1))
+        self.mac_summary_toggle = action_label(
+            summary_row, "▸ Vendors", self._toggle_mac_summary, bg=BG,
+            fg=ACCENT, hover=PANEL, padx=3, pady=2, font_size=8)
+        self.mac_summary_toggle.pack(side="left")
+        self.mac_summary_count = tk.Label(summary_row, bg=BG, fg=MUTED,
+                                          font=(FONT, 8), anchor="e")
+        self.mac_summary_count.pack(side="right")
+        self.mac_summary_panel = tk.Frame(self.body, bg=PANEL)
+        summary_actions = tk.Frame(self.mac_summary_panel, bg=PANEL)
+        summary_actions.pack(fill="x", padx=3, pady=2)
+        action_label(summary_actions, "All", lambda: self._set_mac_vendor_filter(None),
+                     bg=PANEL, fg=ACCENT, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="left")
+        action_label(summary_actions, "Exclude", self._exclude_selected_mac_vendor,
+                     bg=PANEL, fg=SECONDARY, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="left")
+        action_label(summary_actions, "Copy summary", self._copy_mac_summary,
+                     bg=PANEL, fg=SECONDARY, hover=CARD, padx=4, pady=2,
+                     font_size=8).pack(side="right")
+        summary_list_row = tk.Frame(self.mac_summary_panel, bg=PANEL)
+        summary_list_row.pack(fill="x", padx=3, pady=(0, 3))
+        self.mac_summary_list = tk.Listbox(summary_list_row, bg=INPUT, fg=WHITE,
+            selectbackground=ACCENT_DARK, selectforeground=WHITE, height=3,
+            font=(FONT, 9), exportselection=False, activestyle="none",
+            highlightthickness=0, bd=0)
+        summary_scroll = ttk.Scrollbar(summary_list_row, orient="vertical",
+            command=self.mac_summary_list.yview, style="Pocket.Vertical.TScrollbar")
+        self.mac_summary_list.configure(yscrollcommand=summary_scroll.set)
+        summary_scroll.pack(side="right", fill="y")
+        self.mac_summary_list.pack(side="left", fill="x", expand=True)
+        self.mac_summary_list.bind("<<ListboxSelect>>", self._select_mac_summary_vendor)
         self.mac_tree = self._tree(self.body, ("MAC address", "Vendor / result", "Registry"),
                                    (133, 213, 80))
-        for item in self.mac_results[:500]:
-            self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
+        self.mac_tree.bind("<ButtonRelease-1>", self._mac_vendor_table_click, add="+")
+        self._refresh_mac_summary()
+        self._render_mac_table()
+        if self.mac_vendor_expanded:
+            self.mac_summary_panel.pack(fill="x", before=self.mac_tree.master, pady=(0, 2))
         if len(self.mac_results) > 500:
             self.mac_info.config(text="Showing first 500 rows; export/copy includes all results")
+
+    def _toggle_mac_summary(self):
+        self.mac_vendor_expanded = not self.mac_vendor_expanded
+        if self.mac_vendor_expanded:
+            self.mac_summary_panel.pack(fill="x", before=self.mac_tree.master, pady=(0, 2))
+        else:
+            self.mac_summary_panel.pack_forget()
+        self._refresh_mac_summary()
+        canvas = getattr(self, "_tool_scroll_canvas", None)
+        if canvas is not None and canvas.winfo_exists():
+            canvas.after_idle(lambda: canvas.event_generate("<Configure>",
+                width=canvas.winfo_width(), height=canvas.winfo_height())
+                if canvas.winfo_exists() else None)
+
+    def _refresh_mac_summary(self):
+        groups = net.mac_vendor_counts(self.mac_results)
+        self.mac_summary_groups = groups
+        total = sum(count for _, count in groups)
+        label = f"{total} MACs · {len(groups)} groups"
+        if self.mac_vendor_filter:
+            label = "Filtered · " + label
+        self.mac_summary_count.configure(text=label)
+        self.mac_summary_toggle.configure(text=("▾" if self.mac_vendor_expanded else "▸") + " Vendors")
+        self.mac_summary_list.delete(0, "end")
+        for index, (name, count) in enumerate(groups):
+            self.mac_summary_list.insert("end", f"{count}  ·  {name}")
+            if self.mac_vendor_filter and name.casefold() == self.mac_vendor_filter.casefold():
+                self.mac_summary_list.selection_set(index)
+
+    def _render_mac_table(self):
+        for row in self.mac_tree.get_children():
+            self.mac_tree.delete(row)
+        selected = self.mac_vendor_filter
+        rows = self.mac_results
+        if selected:
+            rows = [row for row in rows if
+                    (net.mac_vendor_group(row).casefold() == selected.casefold())
+                    != self.mac_vendor_exclude]
+        for row in rows[:500]:
+            self.mac_tree.insert("", "end", values=(row["mac"], row["vendor"], row["registry"]))
+        if selected:
+            prefix = "Except" if self.mac_vendor_exclude else "Only"
+            self.mac_info.configure(text=f"{prefix} {selected} · {len(rows)} MACs", fg=ACCENT)
+
+    def _set_mac_vendor_filter(self, name, *, exclude=False):
+        self.mac_vendor_filter = name
+        self.mac_vendor_exclude = bool(name and exclude)
+        self._render_mac_table()
+        self._refresh_mac_summary()
+        if not name:
+            self.mac_info.configure(text=f"{len(self.mac_results)} MACs · All results", fg=ACCENT)
+
+    def _select_mac_summary_vendor(self, _event=None):
+        chosen = self.mac_summary_list.curselection()
+        if chosen:
+            name = self.mac_summary_groups[chosen[0]][0]
+            if name != self.mac_vendor_filter or self.mac_vendor_exclude:
+                self._set_mac_vendor_filter(name)
+
+    def _exclude_selected_mac_vendor(self):
+        chosen = self.mac_summary_list.curselection()
+        if chosen:
+            self._set_mac_vendor_filter(self.mac_summary_groups[chosen[0]][0], exclude=True)
+
+    def _mac_vendor_table_click(self, event):
+        if self.mac_tree.identify_region(event.x, event.y) != "cell":
+            return
+        if self.mac_tree.identify_column(event.x) != "#2":
+            return
+        row = self.mac_tree.identify_row(event.y)
+        if row:
+            name = net.mac_vendor_group({"vendor": self.mac_tree.set(row, "Vendor / result")})
+            self._set_mac_vendor_filter(None if name == self.mac_vendor_filter and
+                                        not self.mac_vendor_exclude else name)
+
+    def _copy_mac_summary(self):
+        self.root.clipboard_clear()
+        self.root.clipboard_append("\n".join(f"{name}\t{count}" for name, count in
+                                             net.mac_vendor_counts(self.mac_results)))
 
     def _vendor_summary(self):
         return (f"IEEE database: {len(self.vendors):,} prefixes • Updated {self.vendor_date}"
@@ -6068,10 +6247,10 @@ class PocketDesk:
             fg=MUTED)
 
     def _show_mac_results(self, source):
-        for item in self.mac_tree.get_children():
-            self.mac_tree.delete(item)
-        for item in self.mac_results[:500]:
-            self.mac_tree.insert("", "end", values=(item["mac"], item["vendor"], item["registry"]))
+        self.mac_vendor_filter = None
+        self.mac_vendor_exclude = False
+        self._render_mac_table()
+        self._refresh_mac_summary()
         summary = self.mac_parse_summary
         message = (f"{len(self.mac_results)} valid unique MACs • "
                    f"{summary['duplicates']} duplicates skipped • "
@@ -6100,8 +6279,10 @@ class PocketDesk:
             token = self.mac_lookup_token
             self.mac_lookup_running = True
             self.mac_results = []
-            for row in self.mac_tree.get_children():
-                self.mac_tree.delete(row)
+            self.mac_vendor_filter = None
+            self.mac_vendor_exclude = False
+            self._render_mac_table()
+            self._refresh_mac_summary()
             self.mac_check_button.config(state="disabled")
             self.mac_info.config(text=f"Checking {len(macs)} MAC(s) via DashDash…", fg=ACCENT)
 
@@ -6423,39 +6604,100 @@ class PocketDesk:
                 self._apply_adaptive_layout(mode)
 
     def _install_resize_handles(self):
-        """Borderless resize handles on all edges and corners; not Extra Mini."""
+        """Only the bottom-right grip is drawn; other edges are hit-tested."""
         self._resize_handles = []
+        if not getattr(self, "_resize_bindings_installed", False):
+            self._resize_bindings_installed = True
+            self._resize_tag = f"PocketResize{ id(self) }"
+            self._resize_cursor_widget = None
+            self._resize_cursor_original = ""
+            self.root.bind_class(self._resize_tag, "<Control-KeyPress>", self._palette_keypress)
+            self.root.bind_class(self._resize_tag, "<Motion>", self._resize_hover)
+            self.root.bind_class(self._resize_tag, "<Leave>", self._restore_resize_cursor)
+            self.root.bind_class(self._resize_tag, "<ButtonPress-1>", self._resize_hit_press)
+            self.root.bind_class(self._resize_tag, "<B1-Motion>", self._resize_hit_motion)
+            self.root.bind_class(self._resize_tag, "<ButtonRelease-1>", self._resize_hit_release)
+            self.root.bind("<Map>", self._tag_resize_widget, add="+")
         if self.display_mode == "compact":
+            self._restore_resize_cursor()
             return
-        placements = (
-            ("n", "sb_v_double_arrow", dict(relx=.04, rely=0, relwidth=.92, height=5)),
-            ("s", "sb_v_double_arrow", dict(relx=.04, rely=1, relwidth=.92, height=6, anchor="sw")),
-            ("w", "sb_h_double_arrow", dict(relx=0, rely=.04, width=5, relheight=.92)),
-            ("e", "sb_h_double_arrow", dict(relx=1, rely=.04, width=6, relheight=.92, anchor="ne")),
-            ("nw", "top_left_corner", dict(relx=0, rely=0, width=14, height=14)),
-            ("ne", "top_right_corner", dict(relx=1, rely=0, width=14, height=14, anchor="ne")),
-            ("sw", "bottom_left_corner", dict(relx=0, rely=1, width=14, height=14, anchor="sw")),
-            ("se", "bottom_right_corner", dict(relx=1, rely=1, width=16, height=16, anchor="se")),
-        )
-        for edges, cursor, location in placements:
-            if edges == "se":
-                grip = tk.Label(self.root, text="◢", font=(FONT, 11),
-                                bg=BG, fg=MUTED, bd=0)
-            else:
-                grip = tk.Frame(self.root, bg=BG, bd=0)
-            # Cursor aliases vary across Tk/Win32/X11 builds. An unsupported
-            # cursor must never stop Pocket from launching.
+        grip = tk.Label(self.root, text="◢", font=(FONT, 11),
+                        bg=BG, fg=MUTED, bd=0, highlightthickness=0)
+        grip.place(relx=1, rely=1, width=16, height=16, anchor="se")
+        grip.lift()
+        self._resize_handles.append(grip)
+
+        def attach(widget):
+            self._tag_resize_widget(widget=widget)
+            for child in widget.winfo_children():
+                attach(child)
+        attach(self.root)
+
+    def _tag_resize_widget(self, event=None, *, widget=None):
+        widget = widget if widget is not None else event.widget
+        try:
+            if widget.winfo_toplevel() != self.root:
+                return
+            tags = widget.bindtags()
+            if self._resize_tag not in tags:
+                widget.bindtags((self._resize_tag, *tags))
+        except (tk.TclError, AttributeError):
+            pass
+
+    def _resize_edges_at(self, event):
+        if self.display_mode == "compact" or self._modal:
+            return None
+        if event.widget in self._resize_handles:
+            return "se"
+        x = event.x_root - self.root.winfo_rootx()
+        y = event.y_root - self.root.winfo_rooty()
+        w, h = self.root.winfo_width(), self.root.winfo_height()
+        return adaptive.hit_edges(x, y, w, h)
+
+    def _restore_resize_cursor(self, _event=None):
+        widget = getattr(self, "_resize_cursor_widget", None)
+        if widget is not None:
             try:
-                grip.configure(cursor=cursor)
+                widget.configure(cursor=self._resize_cursor_original)
             except tk.TclError:
                 pass
-            grip.place(**location)
-            grip.lift()
-            grip.bind("<ButtonPress-1>",
-                      lambda event, sides=edges: self._begin_window_resize(event, sides))
-            grip.bind("<B1-Motion>", self._continue_window_resize)
-            grip.bind("<ButtonRelease-1>", self._finish_window_resize)
-            self._resize_handles.append(grip)
+            self._resize_cursor_widget = None
+
+    def _resize_hover(self, event):
+        if self._resizing_window:
+            return
+        edges = self._resize_edges_at(event)
+        cursors = {"n": "sb_v_double_arrow", "s": "sb_v_double_arrow",
+                   "w": "sb_h_double_arrow", "e": "sb_h_double_arrow",
+                   "nw": "top_left_corner", "ne": "top_right_corner",
+                   "sw": "bottom_left_corner", "se": "bottom_right_corner"}
+        if not edges or self._resize_cursor_widget != event.widget:
+            self._restore_resize_cursor()
+        if edges:
+            try:
+                if self._resize_cursor_widget is None:
+                    self._resize_cursor_original = event.widget.cget("cursor")
+                    self._resize_cursor_widget = event.widget
+                event.widget.configure(cursor=cursors[edges])
+            except tk.TclError:
+                pass
+
+    def _resize_hit_press(self, event):
+        edges = self._resize_edges_at(event)
+        if edges:
+            self._begin_window_resize(event, edges)
+            return "break"
+
+    def _resize_hit_motion(self, event):
+        if self._resizing_window:
+            self._continue_window_resize(event)
+            return "break"
+
+    def _resize_hit_release(self, event):
+        if self._resizing_window:
+            self._finish_window_resize(event)
+            self._restore_resize_cursor()
+            return "break"
 
     def _begin_window_resize(self, event, edges):
         if self.display_mode == "compact":
@@ -6788,6 +7030,7 @@ class PocketDesk:
                         self.port_results.sort(key=net.port_result_sort_key)
                         if self.current_tab == "ports":
                             self._add_port_result(result)
+                            self._refresh_port_progress()
                             self.scan_info.config(text=f"Checked {len(self.port_results)} port(s)…", fg=ACCENT)
                 elif name == "port_error":
                     token, error = xy
@@ -6805,6 +7048,7 @@ class PocketDesk:
                                 and len(self.port_results) == len(self.scan_requested_ports)):
                             self._record_last_scan(self.scan_requested_ports)
                         if self.current_tab == "ports":
+                            self._refresh_port_progress()
                             total = len(self.port_results)
                             opened = sum(item["status"] == "OPEN" for item in self.port_results)
                             if self.scan_error:

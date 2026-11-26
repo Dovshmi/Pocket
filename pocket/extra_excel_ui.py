@@ -36,9 +36,9 @@ def build(app, parent):
                   fill="x", pady=(0, 10))
 
     mode_var = tk.StringVar(master=app.root,
-                            value=getattr(app, "_extra_excel_mode", "local"))
+                            value=getattr(app, "_extra_excel_mode", "database"))
     if mode_var.get() not in ("local", "database"):
-        mode_var.set("local")
+        mode_var.set("database")
     mode_box = design.panel(parent, app.theme)
     mode_box.pack(fill="x", pady=(0, 6 if compact else 10))
     mode_row = tk.Frame(mode_box, bg=colors["PANEL"])
@@ -617,6 +617,17 @@ def build(app, parent):
                                   app.theme, primary=True, compact=True)
     search_button.pack(side="right")
     entry.bind("<Return>", start_search)
+
+    def palette_search(term):
+        search_var.set(term)
+        # Database is local; a live workbook may be on a network share.
+        # For Local mode leave the query ready for an explicit Search click.
+        if mode_var.get() == "database":
+            start_search()
+        else:
+            entry.focus_set()
+
+    app._extra_palette_search = palette_search
 
     def start_sync():
         if busy:

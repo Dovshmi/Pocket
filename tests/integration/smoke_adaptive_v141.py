@@ -43,7 +43,12 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app.root.geometry("346x530+20+20")
         app.root.update()
         check(app.display_mode == "mini", "expected Mini at startup")
-        check(len(app._resize_handles) == 8, "eight edge/corner grips required")
+        check(len(app._resize_handles) == 1, "only one visible corner grip required")
+        check(app._resize_handles[0].cget("text") == "◢", "bottom-right triangle missing")
+        check(app._resize_tag in app.root.bindtags(), "invisible resize hit testing missing")
+        for px, py, sides in ((0, 200, "w"), (345, 200, "e"), (150, 0, "n"), (150, 529, "s"), (0, 0, "nw"), (345, 0, "ne"), (0, 529, "sw"), (345, 529, "se")):
+            event = SimpleNamespace(widget=app.root, x_root=app.root.winfo_rootx()+px, y_root=app.root.winfo_rooty()+py)
+            check(app._resize_edges_at(event) == sides, f"invisible edge {sides} missing")
         original_note_ids = [note["id"] for note in app.data["notes"]]
         original_links = [(item["id"], item["url"]) for item in app.data["links"]]
 
@@ -100,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         preset_height = min(preset_height, max(240, area[3] - area[1] - 12))
         check((app.root.winfo_width(), app.root.winfo_height()) ==
               (preset_width, preset_height), "Normal preset must fit work area")
-        check(len(app._resize_handles) == 8, "grips missing after layout rebuild")
+        check(len(app._resize_handles) == 1, "single grip missing after layout rebuild")
         print("PASS: Settings size presets continue to work")
 
         # Normal More uses inline rows, keeps selection stable, and reclaims
@@ -222,7 +227,30 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         check("Update IEEE DB" in labels, "MAC update button missing")
         check("Import CSV" not in labels and "Get CSV ↗" not in labels,
               "MAC CSV actions still visible")
-        print("PASS: responsive Clipboard and simplified MAC actions")
+        app.mac_results = [
+            {"mac": "00:11:22:33:44:01", "vendor": "Cisco", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:02", "vendor": "Cisco", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:03", "vendor": "Juniper", "registry": "MA-L"},
+            {"mac": "00:11:22:33:44:04", "vendor": "Unknown / unregistered", "registry": "—"},
+        ]
+        app._show_mac_results("Local")
+        app.root.update()
+        check(not app.mac_summary_panel.winfo_ismapped(), "Vendor summary must start collapsed")
+        app._toggle_mac_summary()
+        app.root.update()
+        check(app.mac_summary_panel.winfo_ismapped(), "Summary did not expand")
+        check(app.mac_summary_list.size() == 3, "Vendor count groups missing")
+        app._set_mac_vendor_filter("Cisco")
+        check(len(app.mac_tree.get_children()) == 2, "Vendor include filter failed")
+        app._set_mac_vendor_filter("Cisco", exclude=True)
+        check(len(app.mac_tree.get_children()) == 2, "Vendor exclude filter failed")
+        check(all(app.mac_tree.set(i, "Vendor / result") != "Cisco"
+                  for i in app.mac_tree.get_children()), "Excluded vendor still visible")
+        app._set_mac_vendor_filter(None)
+        check(len(app.mac_tree.get_children()) == 4, "All results not restored")
+        app._toggle_mac_summary()
+        app.mac_results = []
+        print("PASS: responsive Clipboard and simplified MAC actions, vendor summary filters")
 
         from unittest.mock import patch
         app.show_tab("settings")
@@ -259,6 +287,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         import tkinter as tk
         app._set_display_mode("mini")
         app.show_tab("extra")
+        check(app._extra_excel_mode == "database", "Extra must default to Database")
 
         def settle():
             done = tk.BooleanVar(master=app.root, value=False)
@@ -315,5 +344,131 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
             settle()
             check(canvas.yview()[1] < 1, f"{name}: short window cannot scroll")
         print("PASS: tall Mini network tables fill viewport")
+
+        # Inject synthetic TCP results; never contact Local or DashDash.
+        for mode in ("mini", "normal", "dashboard"):
+            app._set_display_mode(mode)
+            app.show_tab("ports")
+            app.ports_var.set("80,554,2079-2084,22,21")
+            app.root.update()
+            check(app.port_count.cget("text") == "10/16", "Range count incorrect")
+            app.scan_requested_ports = [80, 22, 21, 443]
+            app.port_results = []
+            for port, service, status in ((22, "SSH", "TIMEOUT"),
+                                          (80, "HTTP", "OPEN"),
+                                          (21, "FTP", "CLOSED")):
+                row = {"port": port, "service": service, "status": status, "ms": 5}
+                app.port_results.append(row)
+                app._add_port_result(row)
+            app._refresh_port_progress()
+            app.root.update()
+            check(app.port_progress_label.cget("text") == "3/4 completed",
+                  "Progress must count completed checks only")
+            tree = app.port_tree
+            children = tree.get_children()
+            check(tree.set(children[0], "TCP status") == "OPEN", "OPEN sort changed")
+            check(tree.item(children[0], "tags") == ("port_open",), "OPEN color missing")
+            check(all(tree.item(i, "tags") == ("port_failed",) for i in children[1:]),
+                  "Failure colors missing")
+            fills = [app.port_progress.itemcget(i, "fill")
+                     for i in app.port_progress.find_all()]
+            check("#54C58A" in fills and "#F87171" in fills,
+                  "Progress bar missing result segments")
+            app.port_results = []
+        print("PASS: range input and TCP result styling in all working layouts")
+
+        # Drive the palette through real entry/selection widgets without network.
+        from pocket import command_palette
+        from unittest.mock import patch
+        def palette_run(query):
+            app._open_global_search()
+            app.root.update()
+            dialog = app._quick_search_dialog
+            check(dialog.winfo_exists(), "Command palette did not open")
+            app._palette_entry.insert(0, query)
+            app.root.update()
+            def children(widget):
+                for child in widget.winfo_children():
+                    yield child
+                    yield from children(child)
+            buttons = [w for w in children(dialog)
+                       if isinstance(w, tk.Button) and w.cget("text") == "Open"]
+            check(buttons, "Palette action button missing")
+            buttons[0].invoke()
+            app.root.update()
+            check(app._quick_search_dialog is None, "Palette did not close")
+
+        app._set_display_mode("normal")
+        palette_run("> subnet 192.168.10.0/26")
+        check(app.current_tab == "subnet" and app.subnet_prefix_var.get() == "26",
+              "Palette subnet calculation failed")
+        with patch.object(app, "_start_scan", side_effect=AssertionError("Must not scan")):
+            palette_run("> port 192.168.1.1 80,554,2079-2084")
+        check(app.current_tab == "ports" and app.ports_var.get() == "80,554,2079-2084",
+              "Palette port prefill failed")
+        with patch.object(app, "_run_mac_lookup", side_effect=AssertionError("Must not query")):
+            palette_run("mac 00:00:0C:12:34:56")
+        check(app.current_tab == "mac" and app.mac_input.get("1.0", "end-1c") == "00:00:0C:12:34:56",
+              "Palette MAC prefill failed")
+        palette_run("> note Palette test note")
+        check(app.current_tab == "notes" and app.title_var.get() == "Palette test note",
+              "Palette note creation failed")
+        palette_run("> theme black")
+        check(app.theme == "black", "Palette theme change failed")
+        palette_run("> size mini")
+        check(app.display_mode == "mini", "Palette size change failed")
+        print("PASS: command palette dispatches real internal actions without network")
+
+        # Reopen with the actual keyboard binding, not a direct function call.
+        # The owner must regain focus after Escape, Close and action dispatch.
+        app.root.attributes("-topmost", True)
+        app.root.focus_force()
+        app.root.update()
+        def reopen_with_key():
+            focused = app.root.focus_get()
+            check(focused is not None and focused.winfo_toplevel() == app.root,
+                  "Pocket must regain keyboard focus before reopening")
+            focused.event_generate("<Control-k>")
+            app.root.update()
+            dialog = app._quick_search_dialog
+            check(dialog is not None and dialog.winfo_viewable(),
+                  "Ctrl+K did not reopen the palette")
+            if sys.platform == "win32":
+                check(bool(dialog.attributes("-topmost")), "Palette must remain topmost")
+            check(dialog.focus_get() == app._palette_entry, "Palette entry must receive focus")
+            return dialog
+
+        for cycle in range(3):
+            dialog = reopen_with_key()
+            app._palette_entry.insert(0, "notes")
+            app._palette_entry.event_generate("<Escape>")
+            app.root.update()
+            check(app._quick_search_dialog is None and not app._modal,
+                  "Escape did not close palette and clear modal state")
+        dialog = reopen_with_key()
+        app._palette_entry.insert(0, "notes")
+        app._palette_entry.selection_range(0, "end")
+        app._palette_entry.event_generate("<Control-x>")
+        app.root.update()
+        check(app._quick_search_dialog is dialog, "Ctrl+X must not dismiss palette")
+        def descendants(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from descendants(child)
+        close_buttons = [w for w in descendants(dialog)
+                         if isinstance(w, tk.Button) and w.cget("text") == "Close"]
+        check(close_buttons, "Close button missing")
+        close_buttons[0].invoke()
+        app.root.update()
+        dialog = reopen_with_key()
+        app._palette_entry.insert(0, "> open notes")
+        app._palette_entry.event_generate("<Return>")
+        app.root.update()
+        check(app.current_tab == "notes" and app._quick_search_dialog is None,
+              "Enter did not run the selected action")
+        dialog = reopen_with_key()
+        app._palette_entry.event_generate("<Escape>")
+        app.root.update()
+        print("PASS: repeated Ctrl+K, Escape, Close, Enter, topmost and normal Ctrl+X")
     finally:
         app.root.destroy()

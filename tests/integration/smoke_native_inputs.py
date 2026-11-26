@@ -106,6 +106,20 @@ def run():
                         "Native Ctrl+A must select the real Windows Edit content")
             finally:
                 user32.SetKeyboardState(state)
+            # Ctrl+K must reach Pocket even when Windows EDIT owns focus.
+            palette_calls = []
+            root._pocket_palette_callback = lambda: palette_calls.append("open")
+            try:
+                require(user32.SetKeyboardState(ctrl_state) != 0, "Set Ctrl for palette")
+                title._send(native_inputs.WM_KEYDOWN, ord("K"), 0)
+                title._send(native_inputs.WM_CHAR, 11, 0)
+            finally:
+                user32.SetKeyboardState(state)
+            done = tk.BooleanVar(master=root, value=False)
+            root.after(100, lambda: done.set(True))
+            root.wait_variable(done)
+            require(palette_calls == ["open"], "Native Ctrl+K did not reach palette")
+            require(title.get() == "שלום Windows 123", "Ctrl+K modified native text")
             title._send(native_inputs.WM_COPY)
             require(root.clipboard_get() == "שלום Windows 123",
                     "Native Ctrl+C/WM_COPY must use Windows clipboard")

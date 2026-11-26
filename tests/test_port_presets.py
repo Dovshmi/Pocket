@@ -11,6 +11,24 @@ class PortPresetTests(unittest.TestCase):
         self.assertEqual(presets.parse_manual_ports(" 443, 22, 443,80, "), [443, 22, 80])
         self.assertEqual(presets.parse_manual_ports("", allow_empty=True), [])
 
+    def test_mixed_ranges_and_duplicates(self):
+        self.assertEqual(presets.parse_manual_ports("80,554,2079-2084,22,21"),
+                         [80,554,2079,2080,2081,2082,2083,2084,22,21])
+        self.assertEqual(presets.parse_manual_ports("80-82, 81, 82 - 84, 80"),
+                         [80,81,82,83,84])
+        self.assertEqual(presets.parse_manual_ports("65535-65535"), [65535])
+        with self.assertRaisesRegex(ValueError, "Maximum 16"):
+            presets.parse_manual_ports("1-65535")
+        self.assertEqual(presets.toggle_quick_port("80,2079-2084", 2081),
+                         "80,2079,2080,2082,2083,2084")
+
+    def test_progress_counts_only_completed_requested_ports(self):
+        rows = [{"port":80,"status":"OPEN"}, {"port":22,"status":"TIMEOUT"},
+                {"port":21,"status":"CLOSED"}, {"port":80,"status":"OPEN"},
+                {"port":999,"status":"OPEN"}]
+        self.assertEqual(presets.progress_counts([80,22,21,443], rows), (1,2,4))
+        self.assertEqual(presets.progress_counts([], []), (0,0,0))
+
     def test_limit_is_sixteen_unique_ports(self):
         self.assertEqual(len(presets.parse_manual_ports(",".join(map(str, range(1, 17))))), 16)
         with self.assertRaisesRegex(ValueError, "Maximum 16"):
@@ -18,7 +36,7 @@ class PortPresetTests(unittest.TestCase):
 
     def test_invalid_entries_never_reach_scanner(self):
         for text in ("", "0", "65536", "22;80", "22 80", "22,,443",
-                     "80-85", "abc", "22,80,broken", "22,-1", "22,443.0"):
+                     "85-80", "0-5", "65534-65536", "80-", "80--85", "abc", "22,80,broken", "22,-1", "22,443.0"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 presets.parse_manual_ports(text)
 

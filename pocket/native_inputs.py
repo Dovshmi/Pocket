@@ -87,6 +87,7 @@ class _NativeMixin:
         self._native_last_focus = False
         self._native_last_text = ""
         self._native_multiline = multiline
+        self._native_pending_palette = False
         self._native_pending_ctrl_return = False
         self._native_skip_ctrl_return_char = False
         self._native_ctrl_return_callback = None
@@ -262,6 +263,9 @@ class _NativeMixin:
         elif msg == WM_KILLFOCUS:
             self._native_pending_focus = False
         if msg == WM_KEYDOWN and self._u.GetKeyState(VK_CONTROL) & 0x8000:
+            if wp == ord("K"):
+                self._native_pending_palette = True
+                return 0
             if wp == ord("A"):
                 self._u.SendMessageW(hwnd, EM_SETSEL, 0, -1)
                 return 0
@@ -270,6 +274,8 @@ class _NativeMixin:
                 self._native_pending_ctrl_return = True
                 self._native_skip_ctrl_return_char = True
                 return 0
+        if msg == WM_CHAR and wp == 11 and self._u.GetKeyState(VK_CONTROL) & 0x8000:
+            return 0
         if msg == WM_CHAR and self._native_skip_ctrl_return_char:
             self._native_skip_ctrl_return_char = False
             if wp in (10, 13):
@@ -514,6 +520,12 @@ class _NativeMixin:
                     self.event_generate("<FocusOut>")
             except tk.TclError:
                 pass
+        if self._native_pending_palette:
+            self._native_pending_palette = False
+            callback = getattr(self.winfo_toplevel(), "_pocket_palette_callback", None)
+            if callable(callback):
+                self.sync_native()
+                callback()
         if self._native_pending_ctrl_return:
             self._native_pending_ctrl_return = False
             # Dispatch from Tcl's timer, never inside the Win32 subclass.

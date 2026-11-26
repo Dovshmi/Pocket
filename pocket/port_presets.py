@@ -6,6 +6,8 @@ This module is pure, does no network I/O and does not write persistent data.
 """
 from __future__ import annotations
 
+import re
+
 from . import network_tools as net
 
 MAX_SELECTED_PORTS = 16
@@ -76,9 +78,9 @@ def quick_ports(favorites: list[int], last_scan: list[int]) -> list[int]:
 
 def parse_manual_ports(raw: str, *, limit: int = MAX_SELECTED_PORTS,
                        allow_empty: bool = False) -> list[int]:
-    """Parse comma-separated TCP port numbers, preserving first appearance."""
+    """Parse individual ports and inclusive ranges, preserving first appearance."""
     if not isinstance(raw, str) or len(raw) > 512:
-        raise ValueError("Enter comma-separated port numbers (up to 16).")
+        raise ValueError("Enter comma-separated ports or ranges (up to 16 unique ports).")
     if not raw.strip():
         if allow_empty:
             return []
@@ -88,19 +90,24 @@ def parse_manual_ports(raw: str, *, limit: int = MAX_SELECTED_PORTS,
     if tokens[-1].strip() == "":
         tokens.pop()
     if not tokens or any(not token.strip() for token in tokens):
-        raise ValueError("Separate ports with commas (e.g. 22,80,443).")
+        raise ValueError("Separate ports with commas (e.g. 22,80,2079-2084).")
     values = []
     seen = set()
     for token in tokens:
         token = token.strip()
-        if not token.isascii() or not token.isdecimal() or not 1 <= int(token) <= 65535:
-            raise ValueError(f"Invalid TCP port: {token[:32]}. Use 1–65535.")
-        port = int(token)
-        if port not in seen:
-            values.append(port)
-            seen.add(port)
-            if len(values) > limit:
-                raise ValueError(f"Maximum {limit} unique TCP ports per check.")
+        match = re.fullmatch(r"([0-9]+)(?:\s*-\s*([0-9]+))?", token)
+        if not match:
+            raise ValueError(f"Invalid TCP port or range: {token[:32]}. Use 1–65535.")
+        start = int(match.group(1))
+        end = int(match.group(2) or match.group(1))
+        if not 1 <= start <= end <= 65535:
+            raise ValueError(f"Invalid TCP port or range: {token[:32]}. Use 1–65535 in ascending order.")
+        for port in range(start, end + 1):
+            if port not in seen:
+                values.append(port)
+                seen.add(port)
+                if len(values) > limit:
+                    raise ValueError(f"Maximum {limit} unique TCP ports per check.")
     return values
 
 
@@ -142,3 +149,20 @@ def migrate_port_input(tools: dict) -> str:
         return ",".join(map(str, dict.fromkeys(values)))
     single = tools.get("single_port", "443")
     return single[:512] if isinstance(single, str) else "443"
+
+
+def progress_counts(requested, results):
+    """Count only returned requested ports; pending is not a failed check."""
+    expected = set(requested)
+    seen = set()
+    opened = failed = 0
+    for row in results:
+        port = row.get("port")
+        if port not in expected or port in seen:
+            continue
+        seen.add(port)
+        if row.get("status") == "OPEN":
+            opened += 1
+        else:
+            failed += 1
+    return opened, failed, len(expected)

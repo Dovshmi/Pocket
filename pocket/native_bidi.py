@@ -89,6 +89,7 @@ class NativeBidiEditor(tk.Frame):
         # and let a normal Tk timer construct/post the existing context menu.
         self._context_menu_events = queue.SimpleQueue()
         self._menu_timer = None
+        self._palette_requested = False
         self._wheel_remainder = 0  # Accumulate high-resolution wheel deltas.
         self._user = ctypes.WinDLL("user32", use_last_error=True)
         self._gdi = ctypes.WinDLL("gdi32", use_last_error=True)
@@ -185,6 +186,11 @@ class NativeBidiEditor(tk.Frame):
         during mouse/focus handling and terminate the whole Python process.
         Only marshal screen coordinates; the Tk timer does the actual work.
         """
+        if message == 0x0100 and wp == ord("K") and self._user.GetKeyState(0x11) & 0x8000:
+            self._palette_requested = True
+            return 0
+        if message == 0x0102 and wp == 11 and self._user.GetKeyState(0x11) & 0x8000:
+            return 0
         if message == self.WM_MOUSEWHEEL:
             # Without WS_VSCROLL, RichEdit no longer scrolls on wheel input
             # automatically. Post native EM_LINESCROLL (not a Tk call), so
@@ -216,6 +222,11 @@ class NativeBidiEditor(tk.Frame):
     def _dispatch_context_menus(self):
         """Show Pocket's context menu only from the normal Tk event loop."""
         self._menu_timer = None
+        if self._palette_requested:
+            self._palette_requested = False
+            callback = getattr(self.winfo_toplevel(), "_pocket_palette_callback", None)
+            if callable(callback):
+                callback()
         event_coords = None
         try:
             # Collapse duplicate WM_CONTEXTMENU messages for the same click.

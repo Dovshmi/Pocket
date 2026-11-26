@@ -99,8 +99,8 @@ class FakeTree:
         row = next(row for row in self.rows if row["id"] == iid)
         return str(row["values"][0 if column == "Port" else 2])
 
-    def insert(self, parent, index, values):
-        self.rows.insert(index, {"id": self.next_id, "values": values})
+    def insert(self, parent, index, values, tags=()):
+        self.rows.insert(index, {"id": self.next_id, "values": values, "tags": tags})
         self.next_id += 1
 
     def ports(self):

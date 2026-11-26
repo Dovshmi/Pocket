@@ -1,3 +1,5 @@
+> **FORMGT — management presentation branch.** This is a demo-only branch, not the production application. Launch automatically with `RUN-FORMGT.bat` or build the separate `Pocket-FORMGT.exe` using `BUILD-FORMGT.bat`. See [FORMGT instructions](FORMGT.md). All presentation records are synthetic; TCP results are simulated. The original Pocket documentation below describes the main branch.
+
 <div align="center">
 
 <img src="assets/app.png" width="96" alt="Pocket — hand-in-pocket app icon" />

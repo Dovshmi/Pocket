@@ -7733,4 +7733,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    if "--preview" in sys.argv:
+        sys.exit(main())  # Existing integration tests only.
+    from pocket import management_demo
+    sys.exit(management_demo.run(globals()))

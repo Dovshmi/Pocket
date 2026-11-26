@@ -8,15 +8,15 @@
 
 A compact, local-first desktop workspace for network operations, support teams, and everyday productivity.
 
-[![Source version](https://img.shields.io/badge/Main%20source-v1.40.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
-[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.40.0-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.40.0)
+[![Source version](https://img.shields.io/badge/Main%20source-v1.42.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
+[![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.42.0-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.42.0)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=flat-square)](LICENSE)
 
-**[Download stable Portable ZIP v1.40.0](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip)** · **[Standalone EXE v1.40.0](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-v1.40.0.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
+**[Download Portable ZIP v1.42.0](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip)** · **[Standalone EXE v1.42.0](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-v1.42.0.exe)** · [Checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/SHA256SUMS.txt) · [All releases](https://github.com/Dovshmi/Pocket/releases)
 
-<sub>Official v1.40.0 Windows release · Portable ZIP + standalone EXE · Previous v1.39.9 downloads are preserved.</sub>
+<sub>Official v1.42.0 Windows release · Portable ZIP + standalone EXE · Previous v1.40.0 downloads are preserved.</sub>
 
 </div>
 
@@ -25,13 +25,13 @@ A compact, local-first desktop workspace for network operations, support teams, 
 <div align="center">
   <img src="docs/images/pocket-v140-real/dashboard_home.png" alt="Pocket v1.40.0 real Windows Dashboard overview with workspace navigation" width="900" />
 
-  <sub><strong>Pocket Dashboard · v1.40.0</strong> — captured in automated Windows GUI tests with sample data.</sub>
+  <sub><strong>Pocket Dashboard · v1.40.0</strong> — historical capture from automated Windows GUI tests with sample data.</sub>
 </div>
 
 <p align="center">
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#whats-new-in-v1400">What's new</a> ·
+  <a href="#whats-new-in-v1420">What's new</a> ·
   <a href="#installation">Installation</a> ·
   <a href="#privacy--connectivity">Privacy</a> ·
   <a href="#version-history">Changelog</a>
@@ -46,26 +46,42 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 - **Built for real workflows:** TCP and MAC diagnostics, Excel record lookup, and optional unsent Outlook SOC drafts.
 - **Opt in to remote checks:** DashDash is used only when you choose the remote source and run a check. Local tools never require a Pocket account.
 
-## What's new in v1.40.0
+## What's new in v1.42.0
 
-Version **1.40.0** brings Excel/SQLite lookup, Outlook SOC drafts, and improved Mini navigation to the official Windows Portable and Standalone packages. [Read the v1.40.0 release notes](docs/releases/v1.40.0.md).
+**Command Palette, adaptive window sizes and smarter network tools.** This official release includes both the v1.41 workspace improvements and the v1.42 updates. [Full release notes](docs/releases/v1.42.0.md).
 
-| Area | Improvements in the v1.40.0 source |
+| Area | Improvements |
 | :--- | :--- |
-| **Extra · Excel lookup** | Read-only local workbook search or a manually created, offline SQLite index; compact match summaries, original-column details, keyboard navigation, and a dedicated result scrollbar in Mini. |
-| **Outlook · SOC** | Prepare an **unsent** draft from the selected Excel result with line, VDOM, and available FortiGate details. Fill missing information and send manually. |
-| **Excel shortcuts** | Reopen the exact already-open workbook instead of creating a duplicate where Windows/Office allows it; different workbooks remain open. |
-| **Mini navigation** | Drag the actual toolbar icons to reorder, right-click to hide, and use a trailing Add (+) to bring tools back without losing their data. |
-| **Settings · Show / Hide** | Compact controls below Appearance. **Green icon = active**, **red icon = hidden**; no duplicate menu-order editor. |
+| **Command Palette · Ctrl+K** | Search tools, notes, shortcuts and CLI references; invoke internal actions, recognize IP/MAC/CIDR input and prepare network checks. Opens above Pocket and restores focus on close. |
+| **Adaptive layouts · v1.41** | Resize between Mini, Normal and Dashboard, save named size profiles and reorder responsive navigation. Extra Mini stays fixed. |
+| **TCP ports** | Mixed ranges and individual ports (e.g. `80,554,2079-2084,22,21`), green OPEN/red unsuccessful rows and a thin progress bar. |
+| **MAC Vendor** | Compact IEEE header and collapsible vendor counts, include/exclude filtering and summary copy. |
+| **Extranet** | Offline Database mode opens by default; Local workbook mode remains available. |
+| **Settings & Clipboard** | Compact controls, responsive menu ordering, backup of window profiles and unobtrusive resize edges. |
 
-**[v1.40 technical notes](docs/SETTINGS_SHORTCUTS_V140.md)** · **[Excel/SQLite & SOC guide](docs/EXTRA_EXCEL_LOOKUP.md)** · **[Release acceptance checklist](docs/RELEASE_CHECKLIST_V140.md)** · [Experimental Windows preview (not stable)](https://github.com/Dovshmi/Pocket/releases/tag/extra-excel-preview-20261120)
+### Command Palette examples
+
+With Pocket open, press **Ctrl+K**, type an action or search term, use Up/Down and Enter, and close with Esc. A leading `>` restricts results to internal commands.
+
+| Input | Action |
+| :--- | :--- |
+| `> new note` | Create a note |
+| `> theme black` / `> size mini` | Change appearance or size |
+| `> clipboard pause` | Pause clipboard capture |
+| `> port 192.168.1.1 80,443,2079-2084` | Prepare a port check |
+| `> mac 00:00:0C:12:34:56` | Prepare a MAC lookup |
+| `> subnet 192.168.10.0/26` | Calculate a subnet |
+| `> extra 10.0.0.1` | Search Extranet |
+| `> cli cisco show vlan` | Search local CLI references |
+
+No shell execution or AI service is involved. Network checks require an explicit run. Ctrl+K is internal to Pocket, not a system-wide shortcut.
 
 > [!NOTE]
-> Official v1.40.0 builds pass automated Windows/Linux checks. Real protected Excel/Outlook integration and permission for unencrypted local data storage still require **workstation-specific acceptance tests**. The old experimental preview is separate from the official stable release.
+> Automated Windows/Linux checks use synthetic data. Protected Excel/Outlook integration, enterprise proxy access and approval for unencrypted local storage require workstation-specific acceptance tests.
 
 ## Screenshots
 
-**Real v1.40.0 Windows captures**, taken by the automated GUI smoke tests with a synthetic user profile. These are not mockups and do not contain customer workbooks or private commands. UI contents and window arrangements may vary by selected mode.
+**Historical v1.40.0 Windows captures** (not screenshots of the new v1.42 interface), taken by the automated GUI smoke tests with a synthetic user profile. These are not mockups and do not contain customer workbooks or private commands. UI contents and window arrangements may vary by selected mode.
 
 <div align="center">
 <table>
@@ -116,11 +132,11 @@ Version **1.40.0** brings Excel/SQLite lookup, Outlook SOC drafts, and improved 
 | **Reminders** | Schedule stand-alone or Note-linked alerts, snooze, mark complete and retain responses locally. | Offline |
 | **Commands Helper** | Search command references by device/category, use Smart Templates, edit and copy CLI; no command execution. | Offline |
 | **Quick Shortcuts** | Organize URLs, files, folders and apps; drag/reorder; open Excel workbooks intelligently. | Only if opening web links |
-| **TCP Port Checker** | Check up to 16 TCP ports, manage favorites, sort reachable results first, and export CSV. | Local or opt-in DashDash |
-| **MAC Vendor Lookup** | Resolve from local IEEE data or request an optional remote lookup. | Local or opt-in DashDash |
+| **TCP Port Checker** | Check up to 16 distinct TCP ports including ranges, manage favorites, view color-coded progress/results and export CSV. | Local or opt-in DashDash |
+| **MAC Vendor Lookup** | Resolve locally or via optional DashDash; view vendor counts, filter and copy summary. | Local or opt-in DashDash |
 | **Subnet Calculator** | Calculate IPv4 CIDR, masks, wildcard, host ranges, network and broadcast addresses. | Offline |
 | **Clipboard Manager** | Keep text and image history, search, pin, manage retention and use nine Quick Slots. | Offline |
-| **Extra · Excel** | Search authorized workbooks locally, optionally sync to SQLite, inspect a row and prepare an Outlook SOC draft. | Local / offline index |
+| **Extranet · Excel** | Default offline SQLite search, optional Local workbook mode/manual Sync, selected-row details and Outlook SOC draft. | Local / offline index |
 
 ### A few useful workflows
 
@@ -130,21 +146,21 @@ Version **1.40.0** brings Excel/SQLite lookup, Outlook SOC drafts, and improved 
 
 **CLI lookup → Smart Template → copy.** Filter by machine or category, fill supported placeholders such as `{{IP}}`, then copy the command. Pocket does not run network commands on your behalf.
 
-**One window, several layouts.** Normal keeps the classic compact workflow; Mini sits beside other applications; Dashboard provides a wider overview; Extra Mini offers a customizable tile launcher. Choose any of six themes: Blue, Dark Blue, Black, Red, Green, or Purple.
+**One window, several layouts.** Normal keeps the classic compact workflow; Mini sits beside other applications; Dashboard provides a wider overview; Extra Mini offers a customizable tile launcher. Resize the working window to switch layouts, save named profiles, or use Extra Mini independently. Choose any of six themes: Blue, Dark Blue, Black, Red, Green, or Purple.
 
 Guides: [Quick Slots](docs/QUICK_SLOTS.md) · [Backup & Restore](docs/BACKUP_RESTORE.md) · [Excel & SOC](docs/EXTRA_EXCEL_LOOKUP.md) · [Windows proxy](docs/WINDOWS_PROXY.md)
 
 ## Installation
 
-### Windows stable — v1.40.0
+### Windows stable — v1.42.0
 
 | Portable ZIP <sub>(recommended)</sub> | Standalone EXE |
 | :--- | :--- |
-| **[Pocket-Portable-v1.40.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip)** | **[Pocket-v1.40.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/Pocket-v1.40.0.exe)** |
+| **[Pocket-Portable-v1.42.0.zip](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip)** | **[Pocket-v1.42.0.exe](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/Pocket-v1.42.0.exe)** |
 | Extract the full archive, then run `Pocket-Portable/PocketDesk.exe`. Keep its `_internal/` folder beside it. | Run the single EXE directly. |
 | Local data: `Pocket-Portable/data/`. | Local data: `%APPDATA%\PocketDesk\`. |
 
-No Python installation is needed for either Windows binary. Both downloads are built from the official **v1.40.0** source. Verify them with [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.40.0/SHA256SUMS.txt). [v1.39.9](https://github.com/Dovshmi/Pocket/releases/tag/v1.39.9) remains available for rollback.
+No Python installation is needed for either Windows binary. Both downloads are built from the official **v1.42.0** source. Verify them with [SHA-256 checksums](https://github.com/Dovshmi/Pocket/releases/download/v1.42.0/SHA256SUMS.txt). [v1.40.0](https://github.com/Dovshmi/Pocket/releases/tag/v1.40.0) remains available for rollback.
 
 **Upgrading a portable installation:** fully exit Pocket (including the tray process), back up the old `data/` folder, extract the new ZIP into a **new** folder and copy only your user data across. Never mix `_internal/` folders from different versions. You can also use **Settings → Backup & Restore** to transfer selected data.
 
@@ -167,7 +183,8 @@ py -3 app.pyw
 | Action | Default |
 | :--- | :--- |
 | Show/hide Pocket | Tray icon or configurable global hotkey |
-| Search enabled tools | `Ctrl+K` |
+| Command Palette (Pocket open) | `Ctrl+K` |
+| Close Command Palette | `Esc` |
 | Find within Commands | `Ctrl+F` |
 | New Note | `Ctrl+N` |
 | Save | `Ctrl+S` |
@@ -202,7 +219,9 @@ For authorized remote checks, Pocket can use the configured Windows proxy/PAC wi
 
 | Version | Highlights | Distribution |
 | :--- | :--- | :--- |
-| **v1.40.0 — latest stable** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | **Official Windows ZIP / EXE** |
+| **v1.42.0 — latest stable** | Command Palette, smart inputs and internal actions, TCP ranges/colors/progress, MAC counts/filtering, Database-first Extranet. | **Official Windows ZIP / EXE** |
+| **v1.41** | Adaptive window sizing, named profiles, responsive/reorderable navigation and compact Clipboard. | Included in v1.42.0 |
+| **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | Previous stable release |
 | **v1.39.9** | Stand-alone and Note-linked Reminders, snooze, response capture, compact Reminder navigation. | Previous stable release |
 | **v1.39.1–v1.39.8** | Quick Slots paste, save, history preservation, settings and Windows notice refinements. | Previous stable releases |
 | **v1.39.0** | Selective Backup & Restore, nine Quick Slots, shortcut recorder and Settings reset. | Previous stable release |
@@ -226,7 +245,7 @@ py -3 -m unittest discover -s tests -p "test_*.py" -v
 
 GitHub Actions runs Windows/Linux unit and GUI checks and Windows portable runtime smoke tests. Synthetic data is used for automated UI screenshots; protected enterprise Excel, Outlook and local data-policy acceptance must be tested separately on authorized workstations.
 
-[Repository structure](docs/REPOSITORY_LAYOUT.md) · [Open an issue](https://github.com/Dovshmi/Pocket/issues) · [Release readiness for v1.40](docs/RELEASE_CHECKLIST_V140.md)
+[Repository structure](docs/REPOSITORY_LAYOUT.md) · [Open an issue](https://github.com/Dovshmi/Pocket/issues) · [v1.42 release notes](docs/releases/v1.42.0.md)
 
 ---
 

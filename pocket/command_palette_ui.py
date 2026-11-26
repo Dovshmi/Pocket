@@ -422,16 +422,11 @@ def open_palette(app):
     def verify_focus():
         if app._quick_search_dialog is not dialog or not dialog.winfo_exists():
             return
-        focused = app.root.focus_get()
-        # Do not steal focus from results or an external application. Retry
-        # only if another Pocket input still owns focus after the handoff.
-        bidi = getattr(app, "bidi_editor", None)
-        if (not getattr(entry, "has_native_focus", lambda: False)() and (
-                native_inputs.has_native_focus()
-                or (bidi is not None and bidi.winfo_exists() and bidi.has_focus())
-                or (focused is not None and focused.winfo_toplevel() == app.root))):
-            native_inputs.focus_tk_input(entry)
+        native_inputs.settle_palette_focus(entry, app.root)
 
     dialog.after_idle(raise_after_map)
-    dialog.after(60, verify_focus)
+    # Tk can deliver activation/focus events after mapping a managed popup.
+    # Retry only during the opening handoff, never after an external app wins.
+    for delay in (15, 35, 65, 100, 150, 200, 300, 450):
+        dialog.after(delay, verify_focus)
     return "break"

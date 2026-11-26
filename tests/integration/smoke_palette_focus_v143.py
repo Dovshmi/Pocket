@@ -27,6 +27,9 @@ def run():
     user.GetAncestor.restype = ctypes.c_void_p
     user.GetWindowLongW.argtypes = (ctypes.c_void_p, ctypes.c_int)
     user.GetWindowLongW.restype = ctypes.c_long
+    user.GetForegroundWindow.restype = ctypes.c_void_p
+    user.SetForegroundWindow.argtypes = (ctypes.c_void_p,)
+    user.SetForegroundWindow.restype = ctypes.c_int
     user.keybd_event.argtypes = (ctypes.c_ubyte, ctypes.c_ubyte, ctypes.c_uint32, ctypes.c_size_t)
 
     def pump(seconds=.15):
@@ -37,6 +40,8 @@ def run():
 
     def test_source(source, getter, hwnd, send):
         print("Testing source:", type(source).__name__, flush=True)
+        # Exercise a real foreground Pocket window, as in the application.
+        user.SetForegroundWindow(user.GetAncestor(root.winfo_id(), 2))
         source.focus_force() if hasattr(source, "native_hwnd") else source.focus_set()
         pump()
         assert user.GetFocus() == hwnd, "Source must have real Windows focus"
@@ -51,7 +56,7 @@ def run():
             send(0x0102, 11, 0)
         finally:
             user.SetKeyboardState(state)
-        pump(.25)
+        pump(.6)
         dialog = app._quick_search_dialog
         assert dialog is not None and dialog.winfo_exists(), "Ctrl+K did not open palette"
         window = user.GetAncestor(dialog.winfo_id(), 2)
@@ -59,7 +64,8 @@ def run():
         assert not dialog.overrideredirect(), "Keep Windows palette managed and activatable"
         entry = app._palette_entry
         assert entry.native_hwnd, "Palette must use a real Windows EDIT"
-        assert user.GetFocus() == entry.native_hwnd, f"Keyboard focus {user.GetFocus()} is not palette HWND {entry.native_hwnd}"
+        assert user.GetFocus() == entry.native_hwnd, (f"Keyboard focus {user.GetFocus()} is not palette HWND {entry.native_hwnd}; "
+            f"source={hwnd}, foreground={user.GetForegroundWindow()}, palette={window}")
         assert user.GetFocus() != hwnd, "Source still owns actual keyboard focus"
         assert user.GetAncestor(user.GetFocus(), 2) == user.GetAncestor(dialog.winfo_id(), 2), "Keyboard not in palette window"
         # Actual keyboard input (not entry.insert or a widget-targeted Tk event).

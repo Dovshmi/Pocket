@@ -13,27 +13,29 @@ from tkinter import ttk
 STEPS = (
     ("01 / OVERVIEW", "One workspace instead of scattered tools.",
      "Open Pocket Dashboard.", 6500, "home"),
-    ("02 / EXTRA", "Find the service without opening multiple workbooks.",
+    ("02 / CTRL+K", "One shortcut to find the right tool.",
+     "The real command palette prepares a search for DEMO-1042.", 6500, "palette"),
+    ("04 / EXTRA", "Find the service without opening multiple workbooks.",
      "Search a synthetic service record in the real offline SQLite index.", 9500, "extra"),
-    ("03 / COMMANDS", "Find the right command, not the right spreadsheet.",
+    ("04 / COMMANDS", "Find the right command, not the right spreadsheet.",
      "Search read-only Cisco reference commands.", 8500, "commands"),
-    ("04 / SUBNET", "Calculate the network and host range immediately.",
+    ("05 / SUBNET", "Calculate the network and host range immediately.",
      "Actual local IPv4 calculation: 192.0.2.10/26.", 7500, "subnet"),
-    ("05 / PORTS", "See several TCP results in one place.",
+    ("06 / PORTS", "See several TCP results in one place.",
      "SIMULATED results for documentation address 192.0.2.10; no connections.", 9500, "ports"),
-    ("06 / MAC", "Identify equipment from the local vendor reference.",
+    ("07 / MAC", "Identify equipment from the local vendor reference.",
      "Offline lookup using a small demonstration vendor table.", 7500, "mac"),
-    ("07 / EXTRA", "Resume the same search after switching tools.",
+    ("08 / EXTRA", "Resume the same search after switching tools.",
      "The previous EXTRA result is still present.", 7000, "return_extra"),
-    ("08 / NOTES", "Keep findings together while handling the call.",
+    ("09 / NOTES", "Keep findings together while handling the call.",
      "Synthetic incident summary in the real Notes editor.", 8000, "notes"),
-    ("09 / CLIPBOARD", "Reuse snippets rather than repeatedly typing them.",
+    ("10 / CLIPBOARD", "Reuse snippets rather than repeatedly typing them.",
      "Synthetic clipboard history only; no desktop clipboard capture.", 7500, "clipboard"),
-    ("10 / REMINDERS", "Follow up without relying on memory.",
+    ("11 / REMINDERS", "Follow up without relying on memory.",
      "Example callback task, no external notification.", 7500, "reminders"),
-    ("11 / SHORTCUTS", "Put frequently used resources within reach.",
+    ("12 / SHORTCUTS", "Put frequently used resources within reach.",
      "Demonstration shortcuts; external launching disabled.", 6500, "links"),
-    ("12 / SUMMARY", "Less searching. More time for the customer.",
+    ("13 / SUMMARY", "Less searching. More time for the customer.",
      "Measure AHT, ACW and quality in an approved pilot.", 0, "summary"),
 )
 
@@ -106,7 +108,7 @@ def seed_profile(api, folder):
 
 
 class Presentation:
-    def __init__(self, app, api, workbook):
+    def __init__(self, app, api, workbook, *, auto_start=True):
         self.app, self.api, self.workbook = app, api, workbook
         self.index = -1
         self.job = None
@@ -135,7 +137,8 @@ class Presentation:
         app.root.bind("<Escape>", lambda e: self.close())
         self.panel.bind("<Escape>", lambda e: self.close())
         app.root.after(350, self.position)
-        app.root.after(900, self.next)
+        if auto_start:
+            self.job = app.root.after(900, self.next)
 
     def label(self, text, size, color):
         w = tk.Label(self.panel, text=text, font=("Segoe UI", size, "bold" if size != 10 else "normal"),
@@ -149,11 +152,17 @@ class Presentation:
         r = self.app.root
         r.update_idletasks()
         sw, sh = r.winfo_screenwidth(), r.winfo_screenheight()
-        # Keep the actual window at its native dashboard size whenever possible.
-        w,h = min(1160, sw-24), min(800, sh-70)
-        r.geometry(f"{w}x{h}+{max(0,sw-w-16)}+{max(0,(sh-h)//2)}")
-        # At ordinary resolutions the movable presenter panel is above the app.
-        # It may overlap on small displays; drag it to an unused area.
+        # Prefer separate areas on wide or tall presentation screens.
+        w, h = min(1160, sw-24), min(800, sh-70)
+        if sw >= 1850:
+            x, y = sw-w-16, max(0, (sh-h)//2)
+        elif sh >= 1050:
+            h = min(h, sh-325)
+            x, y = max(0, (sw-w)//2), 270
+        else:
+            x, y = sw-w-16, max(0, (sh-h)//2)
+        r.geometry(f"{w}x{h}+{x}+{y}")
+        # On compact screens the presenter can drag the caption panel aside.
         self.panel.lift()
 
     def cancel(self):
@@ -201,7 +210,14 @@ class Presentation:
 
     def apply(self, key):
         a = self.app
-        if key == "home":
+        dialog = getattr(a, "_quick_search_dialog", None)
+        if dialog is not None and dialog.winfo_exists():
+            dialog.event_generate("<Escape>")
+        if key == "palette":
+            a.show_tab("home")
+            a._open_global_search()
+            a._palette_entry.insert(0, "> extra DEMO-1042")
+        elif key == "home":
             a.show_tab("home")
         elif key == "extra":
             a._extra_excel_path = str(self.workbook)
@@ -252,7 +268,7 @@ class Presentation:
         self.app.root.destroy()
 
 
-def run(api):
+def run(api, *, smoke=False):
     """Run the isolated demo automatically from the FORMGT application entry."""
     from . import portable_storage, network_tools, dashdash_ports, dashdash_mac
     from . import extra_soc_outlook
@@ -268,11 +284,14 @@ def run(api):
             raise RuntimeError("Disabled in FORMGT demo")
         dashdash_mac.lookup_remote_macs = blocked
         network_tools.download_ieee_database = blocked
-        extra_soc_outlook.open_draft = blocked
+        def block_outlook(*args, **kwargs):
+            raise extra_soc_outlook.OutlookUnavailable("Outlook is disabled in FORMGT demo")
+        extra_soc_outlook.open_draft = block_outlook
         # Never browse the host's workbooks or write exports from this demo.
         filedialog.askopenfilename = lambda *a, **kw: ""
         filedialog.askopenfilenames = lambda *a, **kw: ()
         filedialog.asksaveasfilename = lambda *a, **kw: ""
+        filedialog.askdirectory = lambda *a, **kw: ""
         workbook = seed_profile(api, folder)
         class DemoApp(api["PocketDesk"]):
             def _clipboard_poll(self):
@@ -290,6 +309,34 @@ def run(api):
         app = DemoApp(preview=True)
         for snippet in ("DEMO-1042", "192.0.2.10", "show ip interface brief"):
             api["clipboard_add"](app.clipboard_items, snippet)
-        Presentation(app, api, workbook)
-        app.run()
+        presentation = Presentation(app, api, workbook, auto_start=not smoke)
+        if smoke:
+            try:
+                presentation.paused = True
+                for i, step in enumerate(STEPS):
+                    presentation.go(i)
+                    app.root.update()
+                    deadline = time.monotonic() + 12
+                    while (app.scanning or api["extra_excel_ui"].session(app)["busy"]):
+                        if time.monotonic() > deadline:
+                            raise AssertionError("Demo worker timed out: " + step[4])
+                        app.root.update()
+                        time.sleep(0.03)
+                    if presentation.sub.cget("text").startswith("DEMO PAUSED:"):
+                        raise AssertionError(presentation.sub.cget("text"))
+                    if step[4] in ("extra", "return_extra"):
+                        assert api["extra_excel_ui"].session(app)["hits"], "EXTRA demo record missing"
+                    if step[4] == "commands":
+                        assert app.command_filtered, "CLI results missing"
+                    if step[4] == "subnet":
+                        assert app.subnet_details, "Subnet calculation missing"
+                    if step[4] == "ports":
+                        assert len(app.port_results) == 3, "Simulated TCP results missing"
+                    if step[4] == "mac":
+                        assert app.mac_results, "MAC results missing"
+                print("FORMGT smoke: all presentation steps completed")
+            finally:
+                presentation.close()
+        else:
+            app.run()
     return 0

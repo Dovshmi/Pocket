@@ -62,16 +62,17 @@ def _query_terms(query: str):
     return sorted(f"g{length}:{gram}" for gram in grams)[:MAX_QUERY_TERMS]
 
 
-def _source_sheets(path, cancelled):
+def _source_sheets(path, cancelled, on_total=None):
     """Reuse the tested Local Excel reader, including protected Office COM."""
     path = Path(path)
     if path.suffix.lower() == ".xls":
-        yield from lookup._xls_sheets(path)
+        yield from lookup._xls_sheets(path, **({"on_total": on_total} if on_total else {}))
     elif is_zipfile(path):
-        yield from lookup._xlsx_sheets(path)
+        yield from lookup._xlsx_sheets(path, **({"on_total": on_total} if on_total else {}))
     else:
         from .extra_excel_com import iter_open_excel_sheets
-        yield from iter_open_excel_sheets(path, cancelled=cancelled)
+        yield from iter_open_excel_sheets(path, cancelled=cancelled,
+                                        **({"on_total": on_total} if on_total else {}))
 
 
 def _readonly_connection(path):
@@ -188,7 +189,7 @@ def _init_schema(con):
                 (SCHEMA_VERSION,))
 
 
-def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None):
+def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None, on_scan=None):
     """Explicit user-requested full sync with atomic replacement.
 
     Existing (even legacy encrypted) index is preserved on failure/cancel.
@@ -212,6 +213,14 @@ def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None
     os.close(handle)
     con = None
     rows_count = 0
+    scanned = 0
+    total = None
+
+    def set_total(value):
+        nonlocal total
+        total = value
+        on_scan(scanned, total, "read")
+
     try:
         con = sqlite3.connect(temporary, timeout=10)
         _init_schema(con)
@@ -231,7 +240,9 @@ def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None
             row_batch.clear()
             token_batch.clear()
 
-        with closing(_source_sheets(source, cancelled)) as sheets:
+        iterator = (_source_sheets(source, cancelled, set_total) if on_scan is not None
+                    else _source_sheets(source, cancelled))
+        with closing(iterator) as sheets:
             for sheet_name, sheet_rows in sheets:
                 headers_and_rows = iter(sheet_rows)
                 first = list(islice(headers_and_rows, 10))
@@ -239,6 +250,9 @@ def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None
                 for row_number, row in chain(first, headers_and_rows):
                     if cancelled is not None and cancelled():
                         return None
+                    scanned += 1
+                    if on_scan is not None and scanned % 64 == 0:
+                        on_scan(scanned, total, "read")
                     if row_number == header_number:
                         continue
                     fields = lookup._columns(row, headers)
@@ -258,6 +272,8 @@ def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None
                             on_progress(rows_count)
                 if on_progress is not None:
                     on_progress(rows_count)
+                if on_scan is not None:
+                    on_scan(scanned, total, "read")
 
         if cancelled is not None and cancelled():
             return None
@@ -274,6 +290,9 @@ def sync_database(source_path, db_path=None, *, cancelled=None, on_progress=None
         con = None
         if cancelled is not None and cancelled():
             return None
+
+        if on_scan is not None:
+            on_scan(scanned, total, "verify")
 
         # Never replace an existing database until the new one passes
         # a complete on-disk validation via the normal search/read path.

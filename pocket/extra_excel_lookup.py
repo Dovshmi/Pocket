@@ -104,21 +104,26 @@ def _columns(row, headers):
     return tuple(fields)
 
 
-def _xlsx_sheets(path):
+def _xlsx_sheets(path, *, on_total=None):
     from openpyxl import load_workbook
     workbook = load_workbook(filename=str(path), read_only=True,
                              data_only=True, keep_links=False)
     try:
+        if on_total is not None:
+            sizes = [sheet.max_row for sheet in workbook.worksheets]
+            on_total(sum(sizes) if all(n is not None for n in sizes) else None)
         for sheet in workbook.worksheets:
             yield sheet.title, enumerate(sheet.iter_rows(values_only=True), start=1)
     finally:
         workbook.close()
 
 
-def _xls_sheets(path):
+def _xls_sheets(path, *, on_total=None):
     import xlrd
     workbook = xlrd.open_workbook(str(path), on_demand=True)
     try:
+        if on_total is not None:
+            on_total(sum(workbook.sheet_by_index(i).nrows for i in range(workbook.nsheets)))
         for index in range(workbook.nsheets):
             sheet = workbook.sheet_by_index(index)
 

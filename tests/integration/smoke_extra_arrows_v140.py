@@ -146,5 +146,24 @@ try:
         check(result_list.curselection() == (0,),
               "Left arrow in Selected Row did not move backward")
         print("PASS: Extra arrows, no wheel scrolling in Matches, thin scrollbar, merged Sync")
+        # Rebuild the Extra view exactly as navigation does, without searching again.
+        result_list.selection_clear(0, "end")
+        result_list.selection_set(8)
+        result_list.see(8)
+        result_list.event_generate("<<ListboxSelect>>")
+        root.update()
+        before = result_list.yview()[0]
+        extra_excel_ui.detach(app)
+        for child in outer.winfo_children():
+            child.destroy()
+        extra_excel_ui.build(app, outer)
+        root.update()
+        restored = next(w for w in widgets(outer) if isinstance(w, tk.Listbox))
+        check(restored.size() == len(hits), "EXTRA lost results on navigation")
+        check(restored.curselection() == (8,), "EXTRA lost selected row")
+        check(abs(restored.yview()[0] - before) < 0.01, "EXTRA lost scroll position")
+        check(extra_excel_ui.session(app)["query"] == "cofix", "EXTRA lost search query")
+        print("PASS: EXTRA session survives view rebuild")
+
 finally:
     root.destroy()

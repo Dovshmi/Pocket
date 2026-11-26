@@ -15,7 +15,26 @@ from . import extra_soc_outlook as soc
 from . import pocket_design as design
 
 
+def session(app):
+    """Only the current view and operation, never persisted or logged."""
+    if not hasattr(app, "_extra_session"):
+        app._extra_session = dict(query="", hits=[], selected=None, status="",
+                                  list_y=0., detail_y=0., page_y=0., mode=None,
+                                  busy=False, kind=None, scanned=0, total=None,
+                                  indexed=0, phase="", revision=0)
+    return app._extra_session
+
+
+def detach(app):
+    snapshot = getattr(app, "_extra_snapshot", None)
+    if snapshot is not None:
+        snapshot()
+    app._extra_snapshot = None
+    app._extra_render = None
+
+
 def build(app, parent):
+    state = session(app)
     colors = design.colors(app.theme)
     wide = app.display_mode == "dashboard"
     compact = app.display_mode == "mini"
@@ -92,11 +111,15 @@ def build(app, parent):
         source_name.configure(text=source_display())
 
     def choose_file():
+        if state["busy"]:
+            return
         path = filedialog.askopenfilename(
             parent=app.root, title="Choose local Excel workbook",
             filetypes=[("Excel workbooks", "*.xlsx *.xlsm *.xls *.xltx *.xltm"),
                        ("All files", "*.*")])
-        if path:
+        if path and not state["busy"]:
+            if path != path_var.get():
+                clear_results()
             path_var.set(path)
 
     source_name.bind("<Button-1>", lambda _event: choose_file())
@@ -114,6 +137,8 @@ def build(app, parent):
     db_info_label = label(db_section, "", size=8, muted=True,
                           bg=colors["PANEL"], wraplength=650 if wide else 290)
     db_info_label.pack(fill="x", pady=(0, 2 if compact else 4))
+    sync_bar = tk.Frame(db_section, height=3, bg=colors["CARD"])
+    sync_fill = tk.Frame(sync_bar, bg=colors["ACCENT"])
     db_actions = tk.Frame(db_section, bg=colors["PANEL"])
     db_actions.pack(fill="x", pady=(0, 0 if compact else 1))
 
@@ -121,7 +146,7 @@ def build(app, parent):
     search_panel.pack(fill="x", pady=(0, 6 if compact else 10))
     label(search_panel, "SMART SEARCH", bold=True, size=9,
           bg=colors["PANEL"]).pack(anchor="w", padx=11, pady=(7 if compact else 9, 4 if compact else 6))
-    search_var = tk.StringVar(master=app.root)
+    search_var = tk.StringVar(master=app.root, value=state["query"])
     search_line = tk.Frame(search_panel, bg=colors["PANEL"])
     search_line.pack(fill="x", padx=10, pady=(0, 4 if compact else 6))
     entry = design.entry(search_line, search_var, app.theme, compact=compact)
@@ -237,14 +262,17 @@ def build(app, parent):
     details.configure(state="disabled")
 
     hits = []
-    busy = False
+    rendered_revision = -1
+    busy = state["busy"]
+    page_canvas = getattr(app, "_tool_scroll_canvas", None)
 
     def set_status(text):
         # Keep Matches compact: counts and progress live in the heading.
         # Preserve full diagnostic messages on hover instead of allocating
         # a blank row before every search.
+        state["status"] = str(text or "")
         if state_label.winfo_exists():
-            full = str(text or "")
+            full = state["status"]
             if " matching rows" in full and full.split(" ", 1)[0].isdigit():
                 preview = full.split(" ", 1)[0] + " rows"
             elif len(full) > (27 if compact else 65):
@@ -416,6 +444,8 @@ def build(app, parent):
     def clear_results():
         nonlocal hits
         hits = []
+        state.update(hits=[], selected=None, list_y=0., detail_y=0.)
+        state["revision"] += 1
         result_list.delete(0, "end")
         show_details(None)
 
@@ -441,15 +471,17 @@ def build(app, parent):
             set_status(str(exc))
             return None
 
-    def apply_mode():
+    def apply_mode(*, restoring=False):
         app._extra_excel_mode = mode_var.get()
         if mode_var.get() == "database":
             db_section.pack(fill="x", padx=9, pady=(0, 4 if compact else 9))
-            set_status("")
+            if not restoring:
+                set_status("")
             update_db_info()
         else:
             db_section.pack_forget()
-            set_status("")
+            if not restoring:
+                set_status("")
         # Render a single switch, not two mode buttons.
         database_active = mode_var.get() == "database"
         mode_switch.delete("all")
@@ -464,7 +496,9 @@ def build(app, parent):
             fg=colors["WHITE"] if not database_active else colors["MUTED"])
         database_caption.configure(
             fg=colors["WHITE"] if database_active else colors["MUTED"])
-        clear_results()
+        if not restoring:
+            clear_results()
+        state["mode"] = mode_var.get()
 
     def change_mode(mode):
         if busy:
@@ -493,97 +527,150 @@ def build(app, parent):
         caption.bind("<Button-1>", lambda _event, choice=value: change_mode(choice))
         caption.configure(cursor="hand2")
 
-    def work(kind, operation, *, progress=None):
-        """One worker at a time, with all Tk calls on the GUI thread."""
-        nonlocal busy, hits
-        if busy:
-            set_status("An operation is already running.")
+    def snapshot():
+        if not result_list.winfo_exists():
             return
-        busy = True
-        if hasattr(app, "_extra_excel_cancel"):
-            app._extra_excel_cancel.set()
-        cancel = threading.Event()
-        app._extra_excel_cancel = cancel
-        app._extra_excel_work_token = getattr(app, "_extra_excel_work_token", 0) + 1
-        work_id = app._extra_excel_work_token
-        search_button.configure(state="disabled")
-        sync_button.configure(state="disabled")
-        delete_button.configure(state="disabled")
-        import_button.configure(state="disabled")
-        messages = queue.Queue(maxsize=1)
-        counter = {"rows": 0}
+        selected_rows = result_list.curselection()
+        state.update(query=search_var.get(), selected=selected_rows[0] if selected_rows else None,
+                     list_y=result_list.yview()[0], detail_y=details.yview()[0])
+        if page_canvas is not None and page_canvas.winfo_exists():
+            state["page_y"] = page_canvas.yview()[0]
 
-        def worker():
-            try:
-                value = operation(cancel, lambda count: counter.__setitem__("rows", count))
-                messages.put(("ok", value))
-            except (OSError, ValueError, ImportError, RuntimeError) as exc:
-                messages.put(("error", f"{type(exc).__name__}: {exc}"))
-            except Exception as exc:
-                messages.put(("error", "Operation failed (" +
-                              type(exc).__name__ + ")."))
+    def restore_scroll():
+        if not result_list.winfo_exists():
+            return
+        result_list.yview_moveto(state["list_y"])
+        details.yview_moveto(state["detail_y"])
+        if page_canvas is not None and page_canvas.winfo_exists():
+            page_canvas.yview_moveto(state["page_y"])
 
-        threading.Thread(target=worker, daemon=True,
-                         name="pocket-extra-" + kind).start()
-
-        def poll():
-            nonlocal busy, hits
-            if (cancel.is_set() or work_id != app._extra_excel_work_token
-                    or not state_label.winfo_exists()):
-                cancel.set()
-                busy = False
-                return
-            try:
-                status, value = messages.get_nowait()
-            except queue.Empty:
-                if kind == "sync":
-                    set_status(f"Syncing SQLite database: {counter['rows']:,} rows read…")
-                app.root.after(120, poll)
-                return
-            busy = False
-            search_button.configure(state="normal")
-            sync_button.configure(state="normal")
-            delete_button.configure(state="normal")
-            import_button.configure(state="normal")
-            if status == "error":
-                if kind in ("sync", "import"):
-                    update_db_info()
-                set_status(value + (" Existing database was preserved."
-                                    if kind in ("sync", "import") else ""))
-                return
-            if kind in ("sync", "import"):
-                if value is None:
-                    set_status("Cancelled. Existing database was preserved.")
+    def render(*, restore=False):
+        nonlocal busy, hits, rendered_revision
+        if not result_list.winfo_exists():
+            return
+        busy = state["busy"]
+        for button in (search_button, sync_button, import_button, delete_button):
+            button.configure(state="disabled" if busy else "normal")
+        if busy and state["kind"] == "sync":
+            scanned, total = state["scanned"], state["total"]
+            if state["phase"] == "verify":
+                db_info_label.configure(text="Sync · verifying database…")
+                if total and scanned == total:
+                    sync_fill.place(relwidth=1, relheight=1)
                 else:
-                    verified = update_db_info()
-                    if verified is None:
-                        set_status("Unable to read the new database. Check status above.")
-                    else:
-                        set_status("Database loaded successfully." if kind == "import"
-                                   else "Sync completed successfully.")
-                return
-            hits, capped = value
-            if not hits:
-                set_status("No matches found.")
-                return
+                    sync_fill.place_forget()
+            elif total and scanned <= total:
+                percent = min(100, int(scanned * 100 / total))
+                db_info_label.configure(text=f"Sync · {scanned:,}/{total:,} rows · {percent}%")
+                sync_fill.place(relwidth=percent/100, relheight=1)
+            else:
+                db_info_label.configure(text=f"Sync · {scanned:,} rows scanned")
+                sync_fill.place_forget()
+            if not sync_bar.winfo_manager():
+                sync_bar.pack(fill="x", before=db_actions, pady=(0, 2))
+        else:
+            if sync_bar.winfo_manager():
+                sync_bar.pack_forget()
+            if not busy and state["kind"] in ("sync", "import"):
+                saved_status = state["status"]
+                update_db_info()
+                state["status"] = saved_status
+        if rendered_revision != state["revision"]:
+            hits = state["hits"]
+            result_list.delete(0, "end")
             for hit in hits:
                 preview = next((value for field, value in hit.fields
                                 if field in hit.matched_columns), "")
                 preview = preview.replace("\r", " ").replace("\n", " ")
-                result_list.insert("end",
-                                   f"{hit.sheet} · Row {hit.row} · {preview[:56]}")
-            set_status(f"{len(hits)} matching rows" +
-                       (" (first results; narrow the query)" if capped else "") +
-                       (". Source file not accessed." if kind == "database" else
-                        ". Source file not modified."))
-            result_list.selection_set(0)
-            result_list.see(0)
-            show_details(0)
+                result_list.insert("end", f"{hit.sheet} · Row {hit.row} · {preview[:56]}")
+            index = state["selected"]
+            if index is not None and 0 <= index < len(hits):
+                result_list.selection_set(index)
+                result_list.activate(index)
+            show_details(index)
+            rendered_revision = state["revision"]
+            if restore:
+                app.root.after_idle(restore_scroll)
+            else:
+                result_list.yview_moveto(0)
+        set_status(state["status"])
 
+    def work(kind, operation, *, progress=None):
+        """The worker belongs to the session, not to a disposable tab."""
+        if state["busy"]:
+            return
+        cancel = threading.Event()
+        app._extra_excel_cancel = cancel
+        state.update(busy=True, kind=kind, scanned=0, total=None, indexed=0, phase="read")
+        messages = queue.Queue(maxsize=1)
+        progress_lock = threading.Lock()
+        latest = {"indexed": 0, "scanned": 0, "total": None, "phase": "read"}
+
+        def report(count):
+            with progress_lock:
+                latest["indexed"] = count
+
+        def scan_report(scanned, total, phase):
+            with progress_lock:
+                latest.update(scanned=scanned, total=total, phase=phase)
+
+        def worker():
+            try:
+                value = operation(cancel, report, scan_report)
+                messages.put(("ok", value))
+            except (OSError, ValueError, ImportError, RuntimeError) as exc:
+                messages.put(("error", f"{type(exc).__name__}: {exc}"))
+            except Exception as exc:
+                messages.put(("error", "Operation failed (" + type(exc).__name__ + ")."))
+
+        def refresh_visible():
+            callback = getattr(app, "_extra_render", None)
+            if callback is not None:
+                callback()
+
+        def poll():
+            if cancel.is_set():
+                state["busy"] = False
+                return
+            with progress_lock:
+                state.update(latest)
+            try:
+                status, value = messages.get_nowait()
+            except queue.Empty:
+                refresh_visible()
+                app.root.after(120, poll)
+                return
+            state["busy"] = False
+            if status == "error":
+                state["status"] = value + (" Existing database was preserved."
+                                            if kind in ("sync", "import") else "")
+            elif kind in ("sync", "import"):
+                if value is None:
+                    state["status"] = "Cancelled. Existing database was preserved."
+                else:
+                    state.update(hits=[], selected=None, list_y=0., detail_y=0.)
+                    state["revision"] += 1
+                    state["status"] = ("Database loaded successfully." if kind == "import"
+                                       else "")
+            else:
+                new_hits, capped = value
+                state.update(hits=new_hits, selected=0 if new_hits else None,
+                             list_y=0., detail_y=0.)
+                state["revision"] += 1
+                state["status"] = (f"{len(new_hits)} matching rows" +
+                                   (" (first results; narrow the query)" if capped else "")
+                                   if new_hits else "No matches found.")
+            refresh_visible()
+
+        render()
+        threading.Thread(target=worker, daemon=True, name="pocket-extra-" + kind).start()
         app.root.after(120, poll)
 
     def start_search(_event=None):
+        if state["busy"]:
+            return
         term = search_var.get().strip()
+        state["query"] = search_var.get()
         source_path = path_var.get().strip().strip('"')
         if len(term) < 2:
             set_status("Enter at least two characters to search.")
@@ -594,7 +681,7 @@ def build(app, parent):
                 return
             clear_results()
             set_status("Searching Excel locally…")
-            work("local", lambda cancel, report: lookup.search_workbook(
+            work("local", lambda cancel, report, scan: lookup.search_workbook(
                 source_path, term, cancelled=cancel.is_set))
             return
         try:
@@ -610,7 +697,7 @@ def build(app, parent):
             return
         clear_results()
         set_status("Searching the local SQLite index…")
-        work("database", lambda cancel, report: db.search_database(
+        work("database", lambda cancel, report, scan: db.search_database(
             term, cancelled=cancel.is_set))
 
     search_button = design.button(search_line, "Search", start_search,
@@ -619,6 +706,8 @@ def build(app, parent):
     entry.bind("<Return>", start_search)
 
     def palette_search(term):
+        if state["busy"]:
+            return
         search_var.set(term)
         # Database is local; a live workbook may be on a network share.
         # For Local mode leave the query ready for an explicit Search click.
@@ -646,8 +735,8 @@ def build(app, parent):
             icon="warning", parent=app.root):
             return
         set_status("Syncing from Excel…")
-        work("sync", lambda cancel, report: db.sync_database(
-            source_path, cancelled=cancel.is_set, on_progress=report))
+        work("sync", lambda cancel, report, scan: db.sync_database(
+            source_path, cancelled=cancel.is_set, on_progress=report, on_scan=scan))
 
     def load_index():
         """Import an existing Pocket Extra SQLite file after full validation."""
@@ -669,7 +758,7 @@ def build(app, parent):
             return
         clear_results()
         set_status("Validating and loading database…")
-        work("import", lambda cancel, report: db.import_database(
+        work("import", lambda cancel, report, scan: db.import_database(
             selected_file, cancelled=cancel.is_set))
 
     def delete_index():
@@ -698,7 +787,11 @@ def build(app, parent):
     import_button = design.button(db_actions, "Load DB", load_index,
                                   app.theme, compact=True)
     import_button.pack(side="right", padx=(0, 4))
-    apply_mode()
+    same_mode = state["mode"] in (None, mode_var.get())
+    apply_mode(restoring=same_mode)
+    app._extra_snapshot = snapshot
+    app._extra_render = render
+    render(restore=True)
 
     if compact:
         # Only the externally allocated viewport determines list height.

@@ -1,3 +1,15 @@
+## v1.43.0 — main source (not a published Windows release)
+
+- Verification: the previous portable build passed, but the strict Windows native-focus regression and the refreshed GUI suite require verification. v1.42.0 remains the latest published Windows release.
+- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
+- Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
+- Windows palette uses an activatable tool window with a real native EDIT, and explicitly bridges Enter/Escape/Tab/arrows to Tk. This replaces the earlier focus-only attempt that failed the real Windows regression.
+- Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
+- Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.
+- EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.
+- Ctrl+K supports direct Windows text editing, including copy/paste and a context menu. Both `>` and `<` open Action Mode; Tab completes action prefixes. `> extra cofix` searches the offline database, while live Excel remains explicitly initiated.
+- Sync shows scanned/total physical worksheet rows (including blanks and headings) in a temporary 3px progress bar; unknown totals show a count only. The bar disappears on completion and the existing Last sync timestamp returns. Existing database replacement remains atomic.
+
 # Pocket v1.42.0 — Command Palette & adaptive workspace
 
 Official Windows release combining the v1.41 adaptive workspace and v1.42 productivity updates. Settings displays **v1.42**.

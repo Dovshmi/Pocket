@@ -8,7 +8,7 @@
 
 A compact, local-first desktop workspace for network operations, support teams, and everyday productivity.
 
-[![Source version](https://img.shields.io/badge/Main%20source-v1.42.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
+[![Source version](https://img.shields.io/badge/Main%20source-v1.43.0-3273DC?style=flat-square)](https://github.com/Dovshmi/Pocket/tree/main)
 [![Stable download](https://img.shields.io/badge/Stable%20Windows-v1.42.0-6755D8?style=flat-square)](https://github.com/Dovshmi/Pocket/releases/tag/v1.42.0)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?style=flat-square&logo=windows&logoColor=white)
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
@@ -46,6 +46,15 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 - **Built for real workflows:** TCP and MAC diagnostics, Excel record lookup, and optional unsent Outlook SOC drafts.
 - **Opt in to remote checks:** DashDash is used only when you choose the remote source and run a check. Local tools never require a Pocket account.
 
+## What's new in v1.43.0
+
+- **Minimal Command Palette:** borderless, keyboard-first search with Pocket tool icons, adaptive height, a drag rail and no redundant title or buttons.
+- **Appearance:** independent 60–100% opacity and remembered, monitor-clamped palette position.
+- **Smart Clipboard:** right-click Suggestions for recognized text, while Copy remains first.
+- **EXTRA:** retain current results across navigation and show temporary row progress during Sync.
+
+The main source is v1.43.0; the latest published Windows downloads remain v1.42.0 until a new release is verified and published.
+
 ## What's new in v1.42.0
 
 **Command Palette, adaptive window sizes and smarter network tools.** This official release includes both the v1.41 workspace improvements and the v1.42 updates. [Full release notes](docs/releases/v1.42.0.md).
@@ -61,7 +70,7 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 
 ### Command Palette examples
 
-With Pocket open, press **Ctrl+K**, type an action or search term, use Up/Down and Enter, and close with Esc. A leading `>` restricts results to internal commands.
+With Pocket open, press **Ctrl+K**, type an action or search term, use Up/Down and Enter, and close with Esc. A leading `>` or `<` restricts results to internal commands. Tab completes action prefixes; drag the small top rail to move the popup. Set opacity and saved position in Settings → Appearance → Command Palette.
 
 | Input | Action |
 | :--- | :--- |
@@ -219,6 +228,7 @@ For authorized remote checks, Pocket can use the configured Windows proxy/PAC wi
 
 | Version | Highlights | Distribution |
 | :--- | :--- | :--- |
+| **v1.43.0 — main source** | Minimal borderless Ctrl+K, dynamic icons, opacity and saved position; Smart Clipboard; EXTRA session retention and Sync progress. | Source; Windows release pending verification |
 | **v1.42.0 — latest stable** | Command Palette, smart inputs and internal actions, TCP ranges/colors/progress, MAC counts/filtering, Database-first Extranet. | **Official Windows ZIP / EXE** |
 | **v1.41** | Adaptive window sizing, named profiles, responsive/reorderable navigation and compact Clipboard. | Included in v1.42.0 |
 | **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | Previous stable release |
@@ -256,3 +266,14 @@ GitHub Actions runs Windows/Linux unit and GUI checks and Windows portable runti
 Made by Rony Shmidov · [GPL-3.0](LICENSE) · Windows 10/11
 
 </div>
+
+## v1.43.0 — source updates (not a published Windows release)
+
+- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
+- Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
+- Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
+- Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.
+- EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.
+- Ctrl+K supports direct Windows text editing, including copy/paste and a context menu. Both `>` and `<` open Action Mode; Tab completes action prefixes. `> extra cofix` searches the offline database, while live Excel remains explicitly initiated.
+- Sync shows scanned/total physical worksheet rows (including blanks and headings) in a temporary 3px progress bar; unknown totals show a count only. The bar disappears on completion and the existing Last sync timestamp returns. Existing database replacement remains atomic.
+

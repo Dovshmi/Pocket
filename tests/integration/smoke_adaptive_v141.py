@@ -387,14 +387,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
             check(dialog.winfo_exists(), "Command palette did not open")
             app._palette_entry.insert(0, query)
             app.root.update()
-            def children(widget):
-                for child in widget.winfo_children():
-                    yield child
-                    yield from children(child)
-            buttons = [w for w in children(dialog)
-                       if isinstance(w, tk.Button) and w.cget("text") == "Open"]
-            check(buttons, "Palette action button missing")
-            buttons[0].invoke()
+            app._palette_entry.event_generate("<Return>")
             app.root.update()
             check(app._quick_search_dialog is None, "Palette did not close")
 
@@ -451,14 +444,29 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app._palette_entry.event_generate("<Control-x>")
         app.root.update()
         check(app._quick_search_dialog is dialog, "Ctrl+X must not dismiss palette")
+        check(app._palette_entry.get() == "", "Ctrl+X must cut selected text")
+        app._palette_entry.event_generate("<Control-v>")
+        app.root.update()
+        check(app._palette_entry.get() == "notes", "Ctrl+V must paste into the palette")
+        app._palette_entry.selection_range(0, "end")
+        app._palette_entry.event_generate("<Control-c>")
+        app.root.update()
+        check(app.root.clipboard_get() == "notes", "Ctrl+C must copy palette selection")
+        app._palette_entry.delete(0, "end")
+        app._palette_entry.insert(0, "< ex")
+        app._palette_entry.event_generate("<Tab>")
+        app.root.update()
+        check(app._palette_entry.get() == "< extra ", "Tab must complete Action Mode alias")
         def descendants(widget):
             for child in widget.winfo_children():
                 yield child
                 yield from descendants(child)
-        close_buttons = [w for w in descendants(dialog)
-                         if isinstance(w, tk.Button) and w.cget("text") == "Close"]
-        check(close_buttons, "Close button missing")
-        close_buttons[0].invoke()
+        controls = list(descendants(dialog))
+        check(not any(isinstance(w, tk.Button) for w in controls),
+              "Minimal palette must not show Open/Close or header buttons")
+        check(not any(isinstance(w, tk.Label) and w.cget("text") in ("Pocket Search", "Ctrl+K")
+                      for w in controls), "Palette must not duplicate a title or shortcut badge")
+        app._palette_entry.event_generate("<Escape>")
         app.root.update()
         dialog = reopen_with_key()
         app._palette_entry.insert(0, "> open notes")
@@ -469,6 +477,6 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         dialog = reopen_with_key()
         app._palette_entry.event_generate("<Escape>")
         app.root.update()
-        print("PASS: repeated Ctrl+K, Escape, Close, Enter, topmost and normal Ctrl+X")
+        print("PASS: minimal palette, repeated Ctrl+K, Escape, Enter, topmost and normal Ctrl+X")
     finally:
         app.root.destroy()

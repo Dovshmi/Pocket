@@ -712,20 +712,22 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                     sample_menu = clipboard_gallery.build_text_context_menu(
                         app, menu_colors, {"text": "8.8.8.8", "pinned": False})
                     main_labels = menu_labels(sample_menu)
-                    check("Copy full text" in main_labels and
-                          "Use text in Pocket" in main_labels and
+                    check(main_labels[0] == "Copy full text" and
+                          "Suggestions" in main_labels and
                           "TRANSLATE EN/HE" not in main_labels,
                           f"{mode}: Clipboard right-click groups missing")
                     tool_path = sample_menu.entrycget(
-                        main_labels.index("Use text in Pocket"), "menu")
+                        main_labels.index("Suggestions"), "menu")
                     tool_menu = app.root.nametowidget(tool_path)
                     tool_labels = menu_labels(tool_menu)
                     check("TRANSLATE EN/HE" in tool_labels,
-                          f"{mode}: clipboard translation must be inside Use text in Pocket")
+                          f"{mode}: clipboard translation must be inside Suggestions")
                     check("Prepare TCP port check" in tool_labels and
                           "Open Subnet Calculator" in tool_labels and
                           "Create a new Note from text" in tool_labels,
                           f"{mode}: Clipboard context tool actions missing")
+                    if "extra" in app.settings["visible_tabs"]:
+                        check("Search in EXTRA" in tool_labels, f"{mode}: EXTRA suggestion missing")
                     check("Open MAC lookup with address" not in tool_labels,
                           f"{mode}: irrelevant MAC action should be hidden for IP")
                     # The new nine-slot action must stay inside the
@@ -759,7 +761,7 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
                         app, menu_colors, {"text": "akuo", "pinned": False})
                     labels = menu_labels(converted_menu)
                     submenu_name = converted_menu.entrycget(
-                        labels.index("Use text in Pocket"), "menu")
+                        labels.index("Suggestions"), "menu")
                     convert_submenu = app.root.nametowidget(submenu_name)
                     convert_labels = menu_labels(convert_submenu)
                     convert_submenu.invoke(convert_labels.index("TRANSLATE EN/HE"))
@@ -1753,12 +1755,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(len(entries) == 1, working + ": search input absent")
             entries[0].insert(0, "notes")
             app.root.update()
-            lists = [w for w in widgets(dialog) if isinstance(w, tk.Listbox)]
-            check(lists and lists[0].size() > 0, working + ": missing local matches")
-            open_buttons = [w for w in widgets(dialog)
-                            if isinstance(w, tk.Button) and w.cget("text") == "Open"]
-            check(open_buttons, working + ": Quick Search missing Open control")
-            open_buttons[0].invoke()
+            lists = [w for w in widgets(dialog) if isinstance(w, tk.Canvas)
+                     and w.winfo_name() == "palette_results"]
+            check(lists and any(lists[0].type(item) == "text" and
+                                "Notes" in lists[0].itemcget(item, "text")
+                                for item in lists[0].find_all()),
+                  working + ": missing local Notes match")
+            check(not any(isinstance(w, tk.Button) for w in widgets(dialog)),
+                  working + ": minimal search must not have action buttons")
+            entries[0].event_generate("<Return>")
             app.root.update()
             check(app._quick_search_dialog is None, working + ": search popup did not close")
             check(app.current_tab == "notes", working + ": local tool result did not navigate")

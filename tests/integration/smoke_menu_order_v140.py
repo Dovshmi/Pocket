@@ -168,8 +168,8 @@ with tempfile.TemporaryDirectory(prefix="pocket-v140-direct-menus-") as home:
               "Direct menu toggle missing for Ports")
         check("create_pocket_backup" in app.settings_controls,
               "Settings backup control was lost")
-        check(app.settings_footer_version.cget("text") == "Version v1.42",
-              "Settings must report v1.42")
+        check(app.settings_footer_version.cget("text") == "Version v1.43",
+              "Settings must report v1.43")
         check("menu_order" in app.settings,
               "Reordered icon positions must be stored in Settings backup")
         # Settings buttons also append a hidden tool at the end when enabled.

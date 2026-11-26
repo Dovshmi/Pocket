@@ -67,6 +67,34 @@ def has_native_focus():
     return False
 
 
+def focus_tk_input(widget):
+    """Activate a palette window and transfer actual native keyboard ownership."""
+    if not widget.winfo_exists():
+        return
+    host = widget.winfo_toplevel()
+    if IS_WINDOWS:
+        user = ctypes.WinDLL("user32", use_last_error=True)
+        for name in ("GetAncestor",):
+            getattr(user, name).argtypes = (ctypes.c_void_p, ctypes.c_uint)
+            getattr(user, name).restype = ctypes.c_void_p
+        user.GetFocus.restype = ctypes.c_void_p
+        for name in ("SetActiveWindow", "SetFocus", "SetForegroundWindow"):
+            getattr(user, name).argtypes = (ctypes.c_void_p,)
+            getattr(user, name).restype = ctypes.c_int if name == "SetForegroundWindow" else ctypes.c_void_p
+        host_id = user.GetAncestor(host.winfo_id(), 2) or host.winfo_id()
+        user.SetForegroundWindow(host_id)
+        user.SetActiveWindow(host_id)
+        widget.focus_force()
+        # A native palette EDIT is itself the real keyboard destination.
+        # Never rely solely on Tk bookkeeping to release a native source.
+        native_id = getattr(widget, "native_hwnd", None)
+        user.SetFocus(native_id or host_id)
+        if native_id is None:
+            widget.focus_force()
+    else:
+        widget.focus_force()
+
+
 def sync_all_native():
     """Flush pending Win32 text into StringVar before Tk button callbacks."""
     for widget in list(_NATIVE_WIDGETS):
@@ -88,6 +116,8 @@ class _NativeMixin:
         self._native_last_text = ""
         self._native_multiline = multiline
         self._native_pending_palette = False
+        self._native_palette_keys = None
+        self._native_palette_events = []
         self._native_pending_ctrl_return = False
         self._native_skip_ctrl_return_char = False
         self._native_ctrl_return_callback = None
@@ -262,6 +292,19 @@ class _NativeMixin:
                 self._write_native("")
         elif msg == WM_KILLFOCUS:
             self._native_pending_focus = False
+        if self._native_palette_keys is not None:
+            if msg == WM_KEYDOWN:
+                control = bool(self._u.GetKeyState(VK_CONTROL) & 0x8000)
+                shift = bool(self._u.GetKeyState(VK_SHIFT) & 0x8000)
+                key = ({0x0D: "enter", 0x1B: "escape", 0x09: "tab",
+                        0x26: "up", 0x28: "down"}.get(wp) if not control else
+                       {ord("K"): "focus", ord("Z"): "redo" if shift else "undo",
+                        ord("Y"): "redo", 0x08: "delete_word"}.get(wp))
+                if key:
+                    self._native_palette_events.append(key)
+                    return 0
+            if msg == WM_CHAR and wp in (9, 13, 27, 11, 26, 25, 127):
+                return 0
         if msg == WM_KEYDOWN and self._u.GetKeyState(VK_CONTROL) & 0x8000:
             if wp == ord("K"):
                 self._native_pending_palette = True
@@ -504,6 +547,12 @@ class _NativeMixin:
         if not self._native_active or not self.winfo_exists():
             return
         focused = self.has_native_focus()
+        palette_target = getattr(self.winfo_toplevel(), "_pocket_palette_target", None)
+        if focused and palette_target is not None and palette_target.winfo_exists():
+            # An owner-input timer must not reclaim focus from the palette.
+            self.sync_native()
+            focus_tk_input(palette_target)
+            focused = False
         if focused:
             self._native_clear_placeholder_on_focus()
         if focused or self._native_last_focus:
@@ -520,6 +569,15 @@ class _NativeMixin:
                     self.event_generate("<FocusOut>")
             except tk.TclError:
                 pass
+        if self._native_palette_events:
+            events, self._native_palette_events = self._native_palette_events, []
+            self.sync_native()
+            for key in events:
+                callback = self._native_palette_keys.get(key)
+                if callback is not None:
+                    callback()
+                if not self._native_active or not self.winfo_exists():
+                    return
         if self._native_pending_palette:
             self._native_pending_palette = False
             callback = getattr(self.winfo_toplevel(), "_pocket_palette_callback", None)
@@ -592,6 +650,10 @@ class _NativeMixin:
         if event.widget is self:
             self._native_cleanup()
 
+    def set_palette_keys(self, callbacks):
+        """Opt in to deferred palette navigation; ordinary inputs unchanged."""
+        self._native_palette_keys = callbacks
+
     def focus_set(self):
         tk.Misc.focus_set(self)
         if self._native_active:
@@ -635,6 +697,13 @@ class NativeEntry(_NativeMixin, tk.Entry):
         result = tk.Entry.delete(self, first, last)
         self._sync_native_from_tk()
         return result
+
+    def icursor(self, index):
+        tk.Entry.icursor(self, index)
+        if self._native_active:
+            # Native EDIT uses UTF-16 offsets, not Python code point counts.
+            offset = len(self.get().encode("utf-16-le")) // 2 if index == tk.END else int(index)
+            self._send(EM_SETSEL, offset, offset)
 
     def selection_range(self, start, end):
         tk.Entry.selection_range(self, start, end)

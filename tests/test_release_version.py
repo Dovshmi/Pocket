@@ -96,18 +96,33 @@ class ReleaseVersionTests(unittest.TestCase):
         self.assertIn("not encrypted", release_notes)
         self.assertIn("Excel", release_notes)
 
+    def test_v142_release_workflow(self):
+        workflow = (ROOT / ".github" / "workflows" /
+                    "release-v1.42.0.yml").read_text(encoding="utf-8")
+        for marker in ("[release v1.42.0]", "inputs.confirm_version == 'v1.42.0'",
+                       "app_info.VERSION == '1.42.0'", "github.ref == 'refs/heads/main'",
+                       "smoke_adaptive_v141.py", "smoke_native_inputs.py",
+                       "check_packaged_release.py --version v1.42.0",
+                       "tag_name: v1.42.0", "make_latest: true",
+                       "Pocket-Portable-v1.42.0.zip", "Pocket-v1.42.0.exe",
+                       "SHA256SUMS.txt", "fail_on_unmatched_files: true"):
+            self.assertIn(marker, workflow)
+        notes = (ROOT / "docs" / "releases" / "v1.42.0.md").read_text(encoding="utf-8")
+        for marker in ("Ctrl+K", "not encrypted", "v1.41", "MAC Vendor"):
+            self.assertIn(marker, notes)
+
     def test_readme_and_release_notes_point_to_new_assets(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn("/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip",
+        self.assertIn("/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip",
                       readme)
-        self.assertIn("/releases/download/v1.40.0/Pocket-v1.40.0.exe", readme)
+        self.assertIn("/releases/download/v1.42.0/Pocket-v1.42.0.exe", readme)
         self.assertIn("# Pocket v1.39.8", notes)
         self.assertIn("Database", notes)
         self.assertIn("Clipboard", notes)
-        self.assertIn("/releases/download/v1.40.0/Pocket-Portable-v1.40.0.zip", readme)
-        self.assertIn("/releases/download/v1.40.0/Pocket-v1.40.0.exe", readme)
-        self.assertIn("/releases/download/v1.40.0/SHA256SUMS.txt", readme)
+        self.assertIn("/releases/download/v1.42.0/Pocket-Portable-v1.42.0.zip", readme)
+        self.assertIn("/releases/download/v1.42.0/Pocket-v1.42.0.exe", readme)
+        self.assertIn("/releases/download/v1.42.0/SHA256SUMS.txt", readme)
         self.assertIn("Quick Slots", readme)
         self.assertIn("Backup & Restore", readme)
         release_body = (ROOT / "docs" / "releases" / "v1.39.8.md").read_text(encoding="utf-8")

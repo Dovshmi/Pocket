@@ -1,3 +1,40 @@
+# Pocket v1.42.0 — Command Palette & adaptive workspace
+
+Official Windows release combining the v1.41 adaptive workspace and v1.42 productivity updates. Settings displays **v1.42**.
+
+## What's new
+
+- **Command Palette (Ctrl+K):** a themed, keyboard-first overlay above Pocket. Search enabled tools, Notes, saved shortcuts and CLI references. Use Up/Down, Enter and Esc; closing restores keyboard focus for repeated Ctrl+K use.
+- **Internal actions:** create notes/reminders, change theme or window size, pin/unpin, pause/resume clipboard capture, open backup and switch Extranet modes. No shell or CLI execution.
+- **Smart input:** recognize IPs, IPv4 CIDR, MAC addresses and port lists; prepare TCP/MAC checks, calculate subnets and search Extranet. Network checks still require an explicit run; IEEE updates require confirmation.
+- **Adaptive workspace (v1.41):** resize Mini, Normal and Dashboard with automatic layout transitions, saved geometry, named size profiles and responsive/reorderable tool icons. Extra Mini remains a fixed launcher. Only the bottom-right resize triangle is visible.
+- **TCP Port Checker:** mixed input such as `80,554,2079-2084,22,21`, up to 16 distinct ports, open-first sorting, green OPEN/red unsuccessful results and a slim completion bar.
+- **MAC Vendor:** compact IEEE header, collapsible unique-MAC vendor counts, include/exclude filtering and Copy summary. Copy results and CSV retain the complete lookup batch.
+- **Extranet:** Database is the default mode; Local workbook search remains available. Improved responsive results and scrolling.
+- **Clipboard and Settings:** compact controls, responsive navigation and portable backup support for named window profiles.
+
+## Windows downloads
+
+- `Pocket-Portable-v1.42.0.zip` — recommended; extract the entire folder and run `Pocket-Portable/PocketDesk.exe`.
+- `Pocket-v1.42.0.exe` — standalone executable.
+- `SHA256SUMS.txt` — verify both packages.
+
+No Python installation is required on the target machine. Executables are **not code-signed**. Public binaries contain sanitized example commands, not private profiles, passwords, customer workbooks, clipboard history or local databases.
+
+## Upgrade
+
+Exit Pocket completely, including the tray process. Back up existing user data, extract into a new folder, and transfer only the existing `data/` folder (or use Settings → Backup & Restore). Do not mix runtime `_internal/` directories. Standalone users retain their existing `%APPDATA%\\PocketDesk\\` profile.
+
+## Privacy and verification
+
+Most tools work offline. DashDash requests are opt-in; the palette does not run shell commands or silently initiate network scans. Excel SQLite, clipboard database and backup ZIP files are **not encrypted**. Use approved storage and workplace permissions.
+
+Publication is gated on Windows unit and GUI tests, including adaptive sizing and repeated palette keyboard navigation, portable ZIP integrity and runtime checks, standalone dependency/startup checks and SHA-256 generation. Real enterprise proxy, protected Excel and Outlook compatibility still require authorized workstation testing.
+
+Previous stable [v1.40.0](https://github.com/Dovshmi/Pocket/releases/tag/v1.40.0) remains available for rollback.
+
+---
+
 # Pocket v1.40.0 — Official Windows Release
 
 **Windows distribution:** Official Portable ZIP and standalone EXE, built from `main` with release validation and SHA-256 checksums. The previous v1.39.9 release remains available for rollback. [Full v1.40.0 release notes](docs/releases/v1.40.0.md).

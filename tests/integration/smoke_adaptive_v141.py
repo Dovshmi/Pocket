@@ -419,42 +419,56 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         check(app.display_mode == "mini", "Palette size change failed")
         print("PASS: command palette dispatches real internal actions without network")
 
-        # The real app window is topmost; the palette must not sit beneath it.
+        # Reopen with the actual keyboard binding, not a direct function call.
+        # The owner must regain focus after Escape, Close and action dispatch.
         app.root.attributes("-topmost", True)
-        app._open_global_search()
+        app.root.focus_force()
         app.root.update()
-        dialog = app._quick_search_dialog
-        check(dialog.winfo_viewable(), "Palette must be visible")
-        if sys.platform == "win32":
-            check(bool(dialog.attributes("-topmost")), "Palette must be topmost on Windows")
-        check(dialog.focus_get() == app._palette_entry, "Palette entry must receive focus")
+        def reopen_with_key():
+            focused = app.root.focus_get()
+            check(focused is not None and focused.winfo_toplevel() == app.root,
+                  "Pocket must regain keyboard focus before reopening")
+            focused.event_generate("<Control-k>")
+            app.root.update()
+            dialog = app._quick_search_dialog
+            check(dialog is not None and dialog.winfo_viewable(),
+                  "Ctrl+K did not reopen the palette")
+            if sys.platform == "win32":
+                check(bool(dialog.attributes("-topmost")), "Palette must remain topmost")
+            check(dialog.focus_get() == app._palette_entry, "Palette entry must receive focus")
+            return dialog
+
+        for cycle in range(3):
+            dialog = reopen_with_key()
+            app._palette_entry.insert(0, "notes")
+            app._palette_entry.event_generate("<Escape>")
+            app.root.update()
+            check(app._quick_search_dialog is None and not app._modal,
+                  "Escape did not close palette and clear modal state")
+        dialog = reopen_with_key()
         app._palette_entry.insert(0, "notes")
+        app._palette_entry.selection_range(0, "end")
         app._palette_entry.event_generate("<Control-x>")
         app.root.update()
-        check(app._quick_search_dialog is None and not app._modal,
-              "Ctrl+X did not close the palette from its entry")
-        app._open_global_search()
-        app.root.update()
-        dialog = app._quick_search_dialog
-        def find_list(widget):
+        check(app._quick_search_dialog is dialog, "Ctrl+X must not dismiss palette")
+        def descendants(widget):
             for child in widget.winfo_children():
-                if isinstance(child, tk.Listbox):
-                    return child
-                result = find_list(child)
-                if result is not None:
-                    return result
-            return None
-        listing = find_list(dialog)
-        listing.focus_force()
+                yield child
+                yield from descendants(child)
+        close_buttons = [w for w in descendants(dialog)
+                         if isinstance(w, tk.Button) and w.cget("text") == "Close"]
+        check(close_buttons, "Close button missing")
+        close_buttons[0].invoke()
         app.root.update()
-        listing.event_generate("<Control-x>")
+        dialog = reopen_with_key()
+        app._palette_entry.insert(0, "> open notes")
+        app._palette_entry.event_generate("<Return>")
         app.root.update()
-        check(app._quick_search_dialog is None, "Ctrl+X did not close from results")
-        app._open_global_search()
-        app.root.update()
+        check(app.current_tab == "notes" and app._quick_search_dialog is None,
+              "Enter did not run the selected action")
+        dialog = reopen_with_key()
         app._palette_entry.event_generate("<Escape>")
         app.root.update()
-        check(app._quick_search_dialog is None, "Escape no longer closes palette")
-        print("PASS: topmost palette, focus and Ctrl+X / Escape dismissal")
+        print("PASS: repeated Ctrl+K, Escape, Close, Enter, topmost and normal Ctrl+X")
     finally:
         app.root.destroy()

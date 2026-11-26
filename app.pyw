@@ -668,7 +668,9 @@ class PocketDesk:
         self._install_resize_handles()
         self.root.bind("<Control-n>", lambda _e: self.add_note())
         self.root.bind("<Control-s>", lambda _e: self._write_now())
+        self.root._pocket_palette_callback = self._open_global_search
         self.root.bind("<Control-k>", self._open_global_search)
+        self.root.bind("<Control-K>", self._open_global_search)
         self.root.bind("<Control-f>", self._handle_find_shortcut)
         self.root.bind("<Escape>", lambda _e: self.hide())
         # Wheel events from all child widgets bubble through the root binding.
@@ -919,6 +921,10 @@ class PocketDesk:
             self._command_focus_in()
             self.command_query.set(args[0])
             self._focus_command_search()
+
+    def _palette_keypress(self, event):
+        if event.keysym.lower() in ("k", "hebrew_lamed") or (sys.platform == "win32" and event.keycode == 75):
+            return self._open_global_search(event)
 
     def _open_global_search(self, _event=None):
         """Open the local command palette in every window layout."""
@@ -6605,6 +6611,7 @@ class PocketDesk:
             self._resize_tag = f"PocketResize{ id(self) }"
             self._resize_cursor_widget = None
             self._resize_cursor_original = ""
+            self.root.bind_class(self._resize_tag, "<Control-KeyPress>", self._palette_keypress)
             self.root.bind_class(self._resize_tag, "<Motion>", self._resize_hover)
             self.root.bind_class(self._resize_tag, "<Leave>", self._restore_resize_cursor)
             self.root.bind_class(self._resize_tag, "<ButtonPress-1>", self._resize_hit_press)

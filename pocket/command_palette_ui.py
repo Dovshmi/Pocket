@@ -35,7 +35,13 @@ def open_palette(app):
     tk.Label(top, text="Ctrl+K", bg=c["CARD"], fg=c["SECONDARY"],
              font=("Segoe UI", 8), padx=5).pack(side="right")
     query = tk.StringVar(master=dialog)
-    entry = design.entry(frame, query, app.theme)
+    # Keep palette navigation in Tk: native EDIT controls consume Return,
+    # Escape and arrow keys before Tk can dispatch their bindings.
+    entry = tk.Entry(frame, textvariable=query, bg=c["INPUT"], fg=c["WHITE"],
+                     insertbackground=c["WHITE"], selectbackground=c["ACCENT_DARK"],
+                     relief="flat", bd=0, highlightthickness=1,
+                     highlightbackground=c["BORDER"], highlightcolor=c["ACCENT"],
+                     font=("Segoe UI", 10))
     app._palette_entry = entry
     entry.pack(fill="x", padx=12, ipady=7)
     status = tk.Label(frame, bg=c["BG"], fg=c["MUTED"], anchor="w",

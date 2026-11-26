@@ -340,8 +340,7 @@ def build_text_context_menu(app, colors, selected):
     """Explicitly grouped actions, showing only valid Pocket destinations."""
     c = colors
     content = selected["text"] if selected else ""
-    destinations = clipboard_routing.destination_values(content)
-    enabled = set(app.settings["visible_tabs"])
+    suggestions = clipboard_routing.suggestions(content, app.settings["visible_tabs"])
     style = dict(
         tearoff=False, bg=c["PANEL"], fg=c["WHITE"],
         activebackground=c["ACCENT_DARK"], activeforeground=c["WHITE"],
@@ -379,22 +378,12 @@ def build_text_context_menu(app, colors, selected):
     menu.add_separator()
     if selected:
         pocket = menu_style.Menu(menu, **style)
-        labels = (
-            ("ports", "Prepare TCP port check"),
-            ("mac", "Open MAC lookup with address"),
-            ("subnet", "Open Subnet Calculator"),
-            ("notes", "Create a new Note from text"))
-        for destination, label in labels:
-            if destination in enabled and destination in destinations:
-                pocket.add_command(
-                    label=label,
-                    command=lambda tool=destination, data=content:
-                        clipboard_routing.send_to_tool(app, tool, data))
-        pocket.add_command(
-            label="TRANSLATE EN/HE",
-            command=lambda value=content: app._convert_clipboard_text(value))
+        for suggestion in suggestions:
+            pocket.add_command(
+                label=suggestion[1],
+                command=lambda item=suggestion: clipboard_routing.run_suggestion(app, item))
         if pocket.index("end") is not None:
-            menu.add_cascade(label="Use text in Pocket", menu=pocket)
+            menu.add_cascade(label="Suggestions", menu=pocket)
         else:
             pocket.destroy()
             menu.add_command(

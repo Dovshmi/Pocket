@@ -99,5 +99,42 @@ class ClipboardRoutingTests(unittest.TestCase):
         app.show_tab.assert_not_called()
 
 
+class SmartClipboardTests(unittest.TestCase):
+    def keys(self, value, enabled=("ports", "mac", "subnet", "extra", "notes")):
+        return {item[0] for item in clipboard_routing.suggestions(value, enabled)}
+
+    def test_ip_mac_and_cidr(self):
+        self.assertEqual(self.keys("192.0.2.5"), {"ports", "subnet", "extra", "notes", "translate"})
+        self.assertEqual(self.keys("2001:db8::1"), {"ports", "extra", "notes", "translate"})
+        self.assertEqual(self.keys("0011.2233.4455"), {"mac", "extra", "notes", "translate"})
+        self.assertEqual(self.keys("192.0.2.5/27"), {"subnet", "notes", "translate"})
+
+    def test_phone_line_ports_and_url(self):
+        for value in ("050-1234567", "+972501234567", "82-123456"):
+            self.assertIn("extra", self.keys(value))
+            self.assertNotIn("port_list", self.keys(value))
+        self.assertIn("port_list", self.keys("80,443,2079-2084"))
+        self.assertIn("port_list", self.keys("2079-2084"))
+        self.assertIn("url", self.keys("https://example.test/path"))
+        for value in ("javascript:alert(1)", "https://user:secret@example.test", "https://example.test:99999"):
+            self.assertNotIn("url", self.keys(value))
+
+    def test_hidden_tools_and_unstructured_text(self):
+        self.assertEqual(self.keys("192.0.2.5", ("notes",)), {"notes", "translate"})
+        self.assertEqual(self.keys("router 192.0.2.5\nshow config"), {"notes", "translate"})
+        self.assertEqual(self.keys(""), set())
+
+    def test_extra_dispatch_is_explicit(self):
+        app = SimpleNamespace(settings={"visible_tabs": ["extra"]}, _run_palette_action=Mock())
+        choice = next(i for i in clipboard_routing.suggestions("82-123456", ["extra"]) if i[0] == "extra")
+        app._run_palette_action.assert_not_called()
+        self.assertTrue(clipboard_routing.run_suggestion(app, choice))
+        app._run_palette_action.assert_called_once_with(
+            {"kind": "action", "id": "extra", "destination": "extra", "args": ("82-123456",)})
+        app.settings["visible_tabs"] = []
+        self.assertFalse(clipboard_routing.run_suggestion(app, choice))
+        self.assertEqual(app._run_palette_action.call_count, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 ## v1.43.0 — development branch (not a published release)
 
+- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
 - Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
 - Windows palette uses an activatable tool window with a real native EDIT, and explicitly bridges Enter/Escape/Tab/arrows to Tk. This replaces the earlier focus-only attempt that failed the real Windows regression.
 - Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.

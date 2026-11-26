@@ -259,6 +259,7 @@ Made by Rony Shmidov · [GPL-3.0](LICENSE) · Windows 10/11
 
 ## v1.43.0 — development branch (not a published release)
 
+- Minimal Ctrl+K popup: remove Windows caption and system buttons without switching to an unmanaged Windows popup; remove internal title, shortcut badge and action buttons. Keep a small drag rail, keyboard hints, Enter/Esc, double-click, tool icons, opacity and saved position.
 - Modern Ctrl+K: two-line results with original Pocket tool icons, dynamic search icon, compact adaptive height, draggable header, persistent monitor-safe position and independent 60–100% opacity (95% default) in Appearance. Native keyboard handling is retained.
 - Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
 - Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.

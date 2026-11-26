@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from . import command_palette as palette
-from . import icon_themes, pocket_design as design, tool_icons, text_editing, native_inputs, palette_preferences as prefs
+from . import icon_themes, tool_icons, text_editing, native_inputs, palette_preferences as prefs
 
 def open_palette(app):
     old = getattr(app, "_quick_search_dialog", None)
@@ -36,7 +36,7 @@ def open_palette(app):
     area = app._screen_work_area(*anchor)
     width, height = prefs.dimensions(area, 6)
     x, y = anchor if position else (anchor[0] + (app.root.winfo_width()-width)//2, anchor[1]+40)
-    x, y = prefs.clamp(x, y, width, height + 30, area)
+    x, y = prefs.clamp(x, y, width, height, area)
     dialog.geometry(f"{width}x{height}{x:+d}{y:+d}")
     prefs.apply_opacity(dialog, saved["palette_opacity"])
     initial_xy = (x, y)
@@ -74,7 +74,7 @@ def open_palette(app):
         moving[0] = None
         px, py = prefs.window_xy(dialog)
         work = app._screen_work_area(event.x_root, event.y_root)
-        px, py = prefs.clamp(px, py, dialog.winfo_width(), dialog.winfo_height()+30, work)
+        px, py = prefs.clamp(px, py, dialog.winfo_width(), dialog.winfo_height(), work)
         prefs.move(dialog, px, py)
         store_position()
 
@@ -82,23 +82,19 @@ def open_palette(app):
     frame = tk.Frame(dialog, bg=c["BG"])
     frame.pack(fill="both", expand=True, padx=1, pady=1)
     tk.Frame(frame, bg=c["ACCENT"], height=2).pack(fill="x")
-    top = tk.Frame(frame, bg=c["BG"])
-    top.pack(fill="x", padx=14, pady=(12, 8))
-    brand = tool_icons.label(top, "search", c["ACCENT"], c["BG"], size=18)
-    brand.pack(side="left", padx=(0, 7))
-    heading = tk.Label(top, text="Pocket Search", bg=c["BG"], fg=c["WHITE"],
-                       font=("Segoe UI", 11, "bold"), cursor="fleur")
-    heading.pack(side="left")
-    grip = tk.Label(top, text="······", bg=c["BG"], fg=c["MUTED"],
-                    font=("Segoe UI", 12, "bold"), cursor="fleur")
-    grip.pack(side="left", expand=True, fill="x")
-    for target in (top, brand, heading, grip):
-        target.bind("<ButtonPress-1>", drag_begin)
-        target.bind("<B1-Motion>", drag_move)
-        target.bind("<ButtonRelease-1>", drag_end)
-    design.button(top, "×", lambda: close(), app.theme, compact=True).pack(side="right")
-    tk.Label(top, text="Ctrl+K", bg=c["CARD"], fg=c["SECONDARY"],
-             font=("Segoe UI", 8), padx=6, pady=3).pack(side="right", padx=(0, 6))
+    # The only header is a tiny drag rail, not a title/toolbar.
+    grip = tk.Canvas(frame, height=12, bg=c["BG"], bd=0,
+                     highlightthickness=0, cursor="fleur")
+    grip.pack(fill="x", padx=1)
+    def draw_grip(event):
+        grip.delete("all")
+        mid = event.width // 2
+        grip.create_line(mid-14, 6, mid+14, 6, fill=c["MUTED"],
+                         width=2, capstyle="round")
+    grip.bind("<Configure>", draw_grip)
+    grip.bind("<ButtonPress-1>", drag_begin)
+    grip.bind("<B1-Motion>", drag_move)
+    grip.bind("<ButtonRelease-1>", drag_end)
     query = tk.StringVar(master=dialog)
     # Use a real Win32 search EDIT, with navigation marshalled to Tk.
     # Non-Windows keeps the ordinary Tk Entry.
@@ -206,7 +202,7 @@ def open_palette(app):
     status.pack(fill="x", padx=15, pady=(10, 5))
     footer = tk.Frame(frame, bg=c["BG"])
     footer.pack(side="bottom", fill="x", padx=12, pady=7)
-    tk.Label(footer, text="↑ ↓ Navigate  ·  Tab Complete  ·  Esc", bg=c["BG"],
+    tk.Label(footer, text="↑ ↓ Navigate  ·  Enter Open  ·  Tab Complete  ·  Esc Close", bg=c["BG"],
              fg=c["MUTED"], font=("Segoe UI", 8)).pack(side="left")
     list_frame = tk.Frame(frame, bg=c["BG"])
     list_frame.pack(fill="both", expand=True, padx=14)
@@ -301,7 +297,7 @@ def open_palette(app):
         # Footer and header stay fixed; only six results fit before scrolling.
         dialog.geometry(f"{w}x{h}")
         if ready[0]:
-            px, py = prefs.clamp(px, py, w, h+30, work)
+            px, py = prefs.clamp(px, py, w, h, work)
             prefs.move(dialog, px, py)
         if len(matches) > 6:
             if not scroll.winfo_manager():
@@ -376,8 +372,6 @@ def open_palette(app):
             reveal_selection()
         return "break"
 
-    design.button(footer, "Close", close, app.theme, compact=True).pack(side="right")
-    design.button(footer, "Open", launch, app.theme, primary=True, compact=True).pack(side="right", padx=4)
     query.trace_add("write", refresh)
     for widget in (entry, results, dialog):
         widget.bind("<Escape>", close)
@@ -410,6 +404,7 @@ def open_palette(app):
     refresh()
     dialog.deiconify()
     dialog.update_idletasks()
+    prefs.remove_window_chrome(dialog)
     prefs.move(dialog, *initial_xy)
     ready[0] = True
     dialog.lift()
@@ -420,6 +415,7 @@ def open_palette(app):
     def raise_after_map():
         if app._quick_search_dialog is dialog and dialog.winfo_exists():
             dialog.attributes("-topmost", True)
+            prefs.remove_window_chrome(dialog)
             dialog.lift()
             native_inputs.focus_tk_input(entry)
 

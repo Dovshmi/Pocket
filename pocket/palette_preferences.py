@@ -36,8 +36,8 @@ def clamp(x, y, width, height, area):
 def dimensions(area, count):
     left, top, right, bottom = area
     width = min(550, max(180, right - left - 18))
-    # 2-line rows, capped at six, plus search/header/status/footer.
-    height = min(180 + 48 * max(1, min(6, count)), max(180, bottom - top - 50))
+    # Two-line rows, capped at six, plus the grip, search and footer.
+    height = min(132 + 48 * max(1, min(6, count)), max(150, bottom - top - 18))
     return width, height
 
 
@@ -82,3 +82,34 @@ def apply_opacity(window, value):
         window.attributes("-alpha", opacity(value) / 100)
     except tk.TclError:
         pass
+
+
+def remove_window_chrome(window):
+    """Hide Win32 nonclient chrome without changing Tk window management.
+
+    Keep the managed tool window and its activation semantics; do not switch
+    the Windows palette to override-redirect or add WS_EX_NOACTIVATE.
+    """
+    import sys
+    if sys.platform != "win32":
+        return True
+    import ctypes
+    user = ctypes.WinDLL("user32", use_last_error=True)
+    user.GetAncestor.argtypes = (ctypes.c_void_p, ctypes.c_uint)
+    user.GetAncestor.restype = ctypes.c_void_p
+    user.GetWindowLongW.argtypes = (ctypes.c_void_p, ctypes.c_int)
+    user.GetWindowLongW.restype = ctypes.c_long
+    user.SetWindowLongW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_long)
+    user.SetWindowLongW.restype = ctypes.c_long
+    user.SetWindowPos.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int,
+                                 ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_uint)
+    user.SetWindowPos.restype = ctypes.c_int
+    hwnd = user.GetAncestor(window.winfo_id(), 2) or window.winfo_id()
+    # WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+    chrome = 0x00C00000 | 0x00040000 | 0x00080000 | 0x00020000 | 0x00010000
+    style = user.GetWindowLongW(hwnd, -16)
+    if style & chrome:
+        user.SetWindowLongW(hwnd, -16, style & ~chrome)
+        # SWP_FRAMECHANGED | NOMOVE | NOSIZE | NOZORDER | NOACTIVATE
+        user.SetWindowPos(hwnd, None, 0, 0, 0, 0, 0x0020 | 0x0002 | 0x0001 | 0x0004 | 0x0010)
+    return not bool(user.GetWindowLongW(hwnd, -16) & chrome)

@@ -25,6 +25,8 @@ def run():
     user.GetFocus.restype = ctypes.c_void_p
     user.GetAncestor.argtypes = (ctypes.c_void_p, ctypes.c_uint)
     user.GetAncestor.restype = ctypes.c_void_p
+    user.GetWindowLongW.argtypes = (ctypes.c_void_p, ctypes.c_int)
+    user.GetWindowLongW.restype = ctypes.c_long
     user.keybd_event.argtypes = (ctypes.c_ubyte, ctypes.c_ubyte, ctypes.c_uint32, ctypes.c_size_t)
 
     def pump(seconds=.15):
@@ -52,6 +54,9 @@ def run():
         pump(.25)
         dialog = app._quick_search_dialog
         assert dialog is not None and dialog.winfo_exists(), "Ctrl+K did not open palette"
+        window = user.GetAncestor(dialog.winfo_id(), 2)
+        assert not user.GetWindowLongW(window, -16) & 0x00C00000, "Windows title bar still present"
+        assert not dialog.overrideredirect(), "Keep Windows palette managed and activatable"
         entry = app._palette_entry
         assert entry.native_hwnd, "Palette must use a real Windows EDIT"
         assert user.GetFocus() == entry.native_hwnd, f"Keyboard focus {user.GetFocus()} is not palette HWND {entry.native_hwnd}"

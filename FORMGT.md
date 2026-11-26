@@ -1,34 +1,43 @@
-# Pocket | FORMGT (Management demonstration)
- 
-This branch is deliberately separate from production. Based on v1.43 source, every normal launch opens the real Pocket Dashboard and automatically starts a guided, roughly 90-second presentation. No external service is required for playback.
- 
-## Start
- 
+# Pocket | FORMGT — Management demonstration
+
+This separate branch is based on Pocket v1.43. Each normal launch opens the real application in its original **Mini mode** (346 × 530), then automatically runs a guided tour with short Hebrew explanation cards inside the Pocket window. No separate controller window or network service is needed.
+
+## Run
+
 ```powershell
 git clone -b FORMGT https://github.com/Dovshmi/Pocket.git Pocket-FORMGT
 cd Pocket-FORMGT
 py -3 -m pip install -r requirements.txt
 .\RUN-FORMGT.bat
 ```
- 
-To build a separate Windows distribution, run `BUILD-FORMGT.bat` on a Windows development machine with Python 3.11 x64. Open `dist\FORMGT\Pocket-FORMGT\Pocket-FORMGT.exe` and keep the entire folder (including _internal). This is a local build recipe, not a published release. Use only on approved workstations; the binary is unsigned.
- 
+
+Build on a Windows development PC with Python 3.11 x64 using `BUILD-FORMGT.bat`. Run `dist\FORMGT\Pocket-FORMGT\Pocket-FORMGT.exe` from the complete output folder. The binary is unsigned; use only on approved workstations. The FORMGT GitHub Actions workflow also attempts a Windows artifact build after the GUI smoke test passes.
+
 ## Presentation
- 
-Dashboard → Ctrl+K → Extra (real SQLite lookup of synthetic records) → Commands → Subnet → simulated TCP → offline MAC → restore Extra → Notes → Clipboard → Reminders → Shortcuts → business impact.
- 
-Use Previous, Next, Pause / Resume, Replay or Exit in the floating presenter panel. On smaller screens, drag the panel away from the application. Timings are playback intervals, **not measured productivity gains**. The final slide is an illustrative calculation, not a pilot result.
- 
-## Data isolation
- 
-A disposable synthetic profile, command catalog, Excel workbook and SQLite index are generated at launch. No existing Pocket profile or private command catalog is loaded. Clipboard polling, tray hotkeys, external links, Outlook, workbook selection and vendor downloading are disabled for the walkthrough. TCP statuses are simulated, not evidence of real connectivity. MAC resolution uses a tiny local fixture. No production CLI is executed. The temporary directory is removed on normal exit; an interrupted process may leave synthetic files.
- 
-This is a presentation mode, not a security sandbox or production release. Do not enter real customer details. Use the main branch for normal work.
- 
-## Test
- 
+
+Mini introduction → Notes → Shortcuts → Commands → Subnet → simulated Ports → MAC → Clipboard → Reminders → Extra → switch tools → restore Extra → Ctrl+K → Dashboard business impact.
+
+The explanation card appears across the header for about 2.6 seconds, then clears before the tool action. Long results are scrolled into view automatically. The slim controller stays inside Pocket. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
+
+| Control | Keyboard |
+| --- | --- |
+| Replay | F5 |
+| Pause / resume | F6 |
+| Back | F7 |
+| Next | F8 |
+| Show explanation again | F9 |
+| Exit | Esc |
+
+The real Ctrl+K popup has its own keyboard focus; use its Escape key to dismiss it before using the presenter hotkeys. The automatic run takes about 90 seconds, ending at the summary. Replay returns to Mini.
+
+## Isolation and limits
+
+The demo creates a fresh temporary synthetic profile, command catalog, Excel workbook and local SQLite index. No existing Pocket profile or private commands are loaded. Clipboard capture, tray hotkeys, external links, Outlook, workbook selection and IEEE downloads are disabled in the walkthrough. TCP outcomes and timings are simulated and labeled. MAC lookup uses a small local fixture. CLI references are not executed. Temporary data is removed on normal exit. This is a presentation mode, not a security sandbox; do not enter real customer details.
+
+## Verification
+
 ```powershell
 py -3 app.pyw --formgt-smoke
 ```
- 
-The smoke flag visits all steps and verifies the real Extra search, CLI matches, subnet math, simulated TCP results and MAC output. GitHub Actions workflow is scoped to FORMGT. Test on the intended Windows display before the meeting.
+
+The smoke check visits every chapter, checks Mini mode, integrated controls, Extra results/selection, CLI matching, subnet calculation, simulated TCP, offline MAC, palette navigation and replay. A separate workflow builds a Windows distribution only after the smoke test passes. Before presenting, manually verify Hebrew layout, native Windows focus and display scaling on the intended machine.

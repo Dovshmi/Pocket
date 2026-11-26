@@ -18,7 +18,11 @@ def open_palette(app):
     app._modal = True
     dialog.withdraw()
     dialog.title("Pocket · Command Palette")
-    dialog.overrideredirect(True)
+    dialog.overrideredirect(not native_inputs.IS_WINDOWS)
+    if native_inputs.IS_WINDOWS:
+        # A managed tool window is activatable by Windows; the previous
+        # override-redirect popup could retain the owner EDIT keyboard HWND.
+        dialog.attributes("-toolwindow", True)
     dialog.transient(app.root)
     # Pocket itself is topmost in normal tray operation. A transient
     # override-redirect child must also be topmost to appear above its owner.
@@ -42,8 +46,8 @@ def open_palette(app):
     tk.Label(top, text="Ctrl+K", bg=c["CARD"], fg=c["SECONDARY"],
              font=("Segoe UI", 8), padx=6, pady=3).pack(side="right", padx=(0, 6))
     query = tk.StringVar(master=dialog)
-    # Keep palette navigation in Tk: native EDIT controls consume Return,
-    # Escape and arrow keys before Tk can dispatch their bindings.
+    # Use a real Win32 search EDIT, with navigation marshalled to Tk.
+    # Non-Windows keeps the ordinary Tk Entry.
     search = tk.Frame(frame, bg=c["INPUT"], highlightthickness=1,
                       highlightbackground=c["BORDER"])
     search.pack(fill="x", padx=14)
@@ -52,7 +56,7 @@ def open_palette(app):
     glass.create_oval(7, 6, 18, 17, outline=c["MUTED"], width=2)
     glass.create_line(16, 15, 21, 20, fill=c["MUTED"], width=2)
     glass.pack(side="left", padx=(4, 0))
-    entry = tk.Entry(search, textvariable=query, exportselection=False, bg=c["INPUT"], fg=c["WHITE"],
+    entry = native_inputs.Entry(search, textvariable=query, exportselection=False, bg=c["INPUT"], fg=c["WHITE"],
                      insertbackground=c["WHITE"], selectbackground=c["ACCENT_DARK"],
                      relief="flat", bd=0, highlightthickness=0,
                      font=("Segoe UI", 12))
@@ -79,6 +83,8 @@ def open_palette(app):
     query.trace_add("write", remember)
 
     def edit(operation):
+        if getattr(entry, "native_hwnd", None):
+            entry.sync_native()
         if operation in ("undo", "redo"):
             source, target = ((undo_stack, redo_stack) if operation == "undo"
                               else (redo_stack, undo_stack))
@@ -103,7 +109,22 @@ def open_palette(app):
         entry.bind(f"<Control-KeyPress-{key}>", edit_key)
     entry.bind("<Control-Shift-KeyPress-Z>", edit_key)
 
-    def delete_word(_event):
+    def delete_word(_event=None):
+        if getattr(entry, "native_hwnd", None):
+            entry.sync_native()
+            if entry.selection_present():
+                entry.native_action("delete")
+            else:
+                import ctypes, re
+                start, end = ctypes.c_uint32(), ctypes.c_uint32()
+                entry._send(native_inputs.EM_GETSEL, ctypes.addressof(start), ctypes.addressof(end))
+                prefix = entry.get().encode("utf-16-le")[:start.value * 2].decode("utf-16-le", errors="ignore")
+                match = re.search(r"\S+\s*$|\s+$", prefix)
+                if match:
+                    offset = len(prefix[:match.start()].encode("utf-16-le")) // 2
+                    entry._send(native_inputs.EM_SETSEL, offset, start.value)
+                    entry.native_action("delete")
+            return "break"
         if entry.selection_present():
             entry.delete("sel.first", "sel.last")
         else:
@@ -214,6 +235,8 @@ def open_palette(app):
         return "break"
 
     def launch(_event=None):
+        if getattr(entry, "native_hwnd", None):
+            entry.sync_native()
         chosen = results.curselection()
         if chosen and chosen[0] < len(matches):
             hit = matches[chosen[0]]
@@ -259,6 +282,14 @@ def open_palette(app):
     entry.bind("<Up>", lambda _e: move(-1))
     results.bind("<Double-1>", launch)
     dialog.protocol("WM_DELETE_WINDOW", close)
+    if getattr(entry, "native_hwnd", None):
+        entry.set_palette_keys({
+            "enter": launch, "escape": close, "tab": complete,
+            "up": lambda: move(-1), "down": lambda: move(1),
+            "focus": lambda: native_inputs.focus_tk_input(entry),
+            "undo": lambda: edit("undo"), "redo": lambda: edit("redo"),
+            "delete_word": delete_word,
+        })
     refresh()
     dialog.deiconify()
     dialog.update_idletasks()
@@ -280,9 +311,10 @@ def open_palette(app):
         # Do not steal focus from results or an external application. Retry
         # only if another Pocket input still owns focus after the handoff.
         bidi = getattr(app, "bidi_editor", None)
-        if (native_inputs.has_native_focus()
+        if (not getattr(entry, "has_native_focus", lambda: False)() and (
+                native_inputs.has_native_focus()
                 or (bidi is not None and bidi.winfo_exists() and bidi.has_focus())
-                or (focused is not None and focused.winfo_toplevel() == app.root)):
+                or (focused is not None and focused.winfo_toplevel() == app.root))):
             native_inputs.focus_tk_input(entry)
 
     dialog.after_idle(raise_after_map)

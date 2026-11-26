@@ -34,6 +34,7 @@ def run():
             time.sleep(.01)
 
     def test_source(source, getter, hwnd, send):
+        print("Testing source:", type(source).__name__, flush=True)
         source.focus_force() if hasattr(source, "native_hwnd") else source.focus_set()
         pump()
         assert user.GetFocus() == hwnd, "Source must have real Windows focus"
@@ -52,7 +53,8 @@ def run():
         dialog = app._quick_search_dialog
         assert dialog is not None and dialog.winfo_exists(), "Ctrl+K did not open palette"
         entry = app._palette_entry
-        assert root.focus_get() is entry, "Tk search field lacks focus"
+        assert entry.native_hwnd, "Palette must use a real Windows EDIT"
+        assert user.GetFocus() == entry.native_hwnd, f"Keyboard focus {user.GetFocus()} is not palette HWND {entry.native_hwnd}"
         assert user.GetFocus() != hwnd, "Source still owns actual keyboard focus"
         assert user.GetAncestor(user.GetFocus(), 2) == user.GetAncestor(dialog.winfo_id(), 2), "Keyboard not in palette window"
         # Actual keyboard input (not entry.insert or a widget-targeted Tk event).
@@ -61,7 +63,8 @@ def run():
         pump()
         assert entry.get(), "Real keystroke did not reach search field"
         assert getter() == before, "Search typing changed the original field"
-        entry.event_generate("<Escape>")
+        user.keybd_event(0x1B, 0, 0, 0)
+        user.keybd_event(0x1B, 0, 2, 0)
         pump()
         assert app._quick_search_dialog is None
         assert root._pocket_palette_target is None

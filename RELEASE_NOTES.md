@@ -1,5 +1,6 @@
 ## v1.43.0 — development branch (not a published release)
 
+- Windows palette uses an activatable tool window with a real native EDIT, and explicitly bridges Enter/Escape/Tab/arrows to Tk. This replaces the earlier focus-only attempt that failed the real Windows regression.
 - Ctrl+K explicitly transfers Windows keyboard focus from embedded EDIT/RichEdit controls to the palette search field, including when the palette is already open; owner-input polling no longer reclaims focus.
 - Smart Clipboard: right-click **Suggestions** classifies the selected text locally (IP, MAC, CIDR, phone, line ID, port list, HTTP(S) URL). Copy stays first; pins, slots, deletion, Notes and EN/HE translation remain available. Network checks never start automatically; the browser only opens on explicit selection.
 - EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.

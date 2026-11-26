@@ -104,7 +104,7 @@ from pocket import pocket_design as design
 from pocket import menu_style
 from pocket import text_editing
 from pocket import picker_selection
-from pocket import quick_search, command_palette
+from pocket import quick_search, command_palette, palette_preferences
 from pocket import clipboard_policy
 from pocket import clipboard_images
 from pocket import clipboard_database as clipdb
@@ -236,6 +236,7 @@ def default_data() -> dict:
         "settings": {"visible_tabs": ["notes","links","ports","mac","commands","subnet","clipboard","reminders","extra"],
                      "reminders_menu_configured": True, "extra_menu_configured": True,
                      "display_mode": "mini", "window_profiles": {}, "window_profile": "Mini",
+                     **palette_preferences.normalize(None),
                      "extra_mini_enabled": False,
                      "extra_mini_tiles": ["commands", "notes", "clipboard", "subnet"],
                      "menu_order": list(menu_order.DEFAULT_ORDER),
@@ -294,6 +295,7 @@ def normalize_settings(raw):
         raw.get("quick_slots_paste_prefix", raw.get("quick_slots_prefix")),
         raw.get("quick_slots_copy_prefix"))
     return {"visible_tabs": visible,
+            **palette_preferences.normalize(raw),
             "menu_order": menu_order.normalize(raw.get("menu_order")),
             "reminders_menu_configured": True,
             "extra_menu_configured": True,

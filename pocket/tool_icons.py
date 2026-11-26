@@ -25,7 +25,11 @@ def _drawing(name, color, size):
                             outline=color, width=max(2, round(width * size * scale / 24)))
     def oval(a, b, fill=None):
         d.ellipse([p(*a), p(*b)], fill=fill or color)
-    if name == "plus":
+    if name == "search":
+        d.ellipse([p(3, 3), p(16, 16)], outline=color,
+                  width=max(2, round(2 * size * scale / 24)))
+        line([(15, 15), (21, 21)], width=2)
+    elif name == "plus":
         line([(12, 3), (12, 21)], width=2.4)
         line([(3, 12), (21, 12)], width=2.4)
     elif name == "more":

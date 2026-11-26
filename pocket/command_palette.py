@@ -154,6 +154,30 @@ def completions(raw, enabled):
     return [prefix + " " + verb + " " for verb, dest in ACTION_PREFIXES
             if verb.startswith(term) and (dest is None or dest == "settings" or dest in enabled)]
 
+def result_icon(hit):
+    """Use the actual Pocket navigation icon for every known destination."""
+    if not hit:
+        return None
+    dest = hit.get("destination")
+    if dest:
+        return dest
+    if hit.get("kind") == "completion":
+        verb = hit["id"].strip()[1:].strip().split(" ", 1)[0]
+        return dict(ACTION_PREFIXES).get(verb) or "commands"
+    return "clipboard" if hit.get("id") == "copy" else "commands"
+
+
+def search_icon(raw, hit=None):
+    q = raw.strip()
+    if not q:
+        return "search"
+    if hit:
+        return result_icon(hit) or "search"
+    if q.startswith((">", "<")):
+        return "commands"
+    return "search"
+
+
 def results(data, commands, raw, enabled, settings, limit=18):
     q = raw.strip()[:1024]
     mode = q.startswith((">", "<"))

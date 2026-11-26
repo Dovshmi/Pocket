@@ -15,7 +15,7 @@ from . import adaptive_window as adaptive
 from . import mini_layout
 from . import quick_slots
 from . import pocket_design as design
-from . import tool_icons
+from . import tool_icons, palette_preferences
 from . import extra_excel_db as extra_db
 
 FONT = "Segoe UI"
@@ -345,7 +345,70 @@ def _appearance(parent, app, c, *, wide=False, compact=False):
     _mode_picker(card, app, c, wide=wide, compact=compact)
     _divider(card, c)
     _theme_picker(card, app, c, wide=wide, compact=compact)
+    _palette_preferences(parent, app, c, wide=wide, compact=compact)
 
+
+
+def _palette_preferences(parent, app, c, *, compact=False, wide=False):
+    card = _section(parent, c, "Command Palette · Ctrl+K",
+                    "Opacity and window position are independent of Pocket.",
+                    compact=compact, wide=wide)
+    line = tk.Frame(card, bg=c["PANEL"])
+    line.pack(fill="x", padx=11, pady=(1, 0))
+    _label(line, "Window opacity", c, bold=True).pack(side="left")
+    value = tk.IntVar(master=card, value=palette_preferences.opacity(app.settings.get("palette_opacity")))
+    percentage = _label(line, f"{value.get()}%", c, bold=True)
+    percentage.pack(side="right")
+
+    def change(raw):
+        percent = palette_preferences.opacity(round(float(raw)))
+        percentage.configure(text=f"{percent}%")
+        app.settings["palette_opacity"] = percent
+        window = getattr(app, "_quick_search_dialog", None)
+        if window is not None and window.winfo_exists():
+            palette_preferences.apply_opacity(window, percent)
+        app.schedule_save()
+
+    slider = tk.Scale(card, from_=60, to=100, resolution=1, orient="horizontal",
+                      showvalue=False, variable=value, command=change,
+                      bg=c["PANEL"], fg=c["WHITE"], troughcolor=c["CARD"],
+                      activebackground=c["ACCENT"], highlightthickness=0,
+                      bd=0, sliderlength=18)
+    slider.pack(fill="x", padx=10, pady=(0, 5))
+    _register(app, "palette_opacity", slider)
+    remember = tk.BooleanVar(master=card, value=app.settings.get("palette_remember_position", True))
+
+    def toggle():
+        app.settings["palette_remember_position"] = bool(remember.get())
+        if not remember.get():
+            app.settings["palette_position"] = None
+        app.schedule_save()
+
+    switch = tk.Checkbutton(card, text="Remember window position", variable=remember,
+                            command=toggle, bg=c["PANEL"], fg=c["WHITE"],
+                            activebackground=c["PANEL"], activeforeground=c["WHITE"],
+                            selectcolor=c["CARD"], font=(FONT, 9), anchor="w",
+                            highlightthickness=0, bd=0)
+    switch.pack(fill="x", padx=10, pady=(0, 5))
+    _register(app, "palette_remember_position", switch)
+    actions = tk.Frame(card, bg=c["PANEL"])
+    actions.pack(fill="x", padx=10, pady=(0, 8))
+
+    def reset_position():
+        app.settings["palette_position"] = None
+        app.schedule_save()
+
+    def reset():
+        value.set(palette_preferences.DEFAULT_OPACITY)
+        change(palette_preferences.DEFAULT_OPACITY)
+        remember.set(True)
+        toggle()
+        reset_position()
+
+    _register(app, "palette_reset_position", _button(actions, "Reset position", reset_position, c,
+              compact=True)).pack(side="left", fill="x", expand=True, padx=(0, 4))
+    _register(app, "palette_reset_defaults", _button(actions, "Defaults", reset, c,
+              compact=True)).pack(side="right", fill="x", expand=True)
 
 
 def _tool_visibility(parent, app, c, *, compact=False, wide=False):

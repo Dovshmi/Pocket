@@ -418,5 +418,43 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         palette_run("> size mini")
         check(app.display_mode == "mini", "Palette size change failed")
         print("PASS: command palette dispatches real internal actions without network")
+
+        # The real app window is topmost; the palette must not sit beneath it.
+        app.root.attributes("-topmost", True)
+        app._open_global_search()
+        app.root.update()
+        dialog = app._quick_search_dialog
+        check(dialog.winfo_viewable(), "Palette must be visible")
+        if sys.platform == "win32":
+            check(bool(dialog.attributes("-topmost")), "Palette must be topmost on Windows")
+        check(dialog.focus_get() == app._palette_entry, "Palette entry must receive focus")
+        app._palette_entry.insert(0, "notes")
+        app._palette_entry.event_generate("<Control-x>")
+        app.root.update()
+        check(app._quick_search_dialog is None and not app._modal,
+              "Ctrl+X did not close the palette from its entry")
+        app._open_global_search()
+        app.root.update()
+        dialog = app._quick_search_dialog
+        def find_list(widget):
+            for child in widget.winfo_children():
+                if isinstance(child, tk.Listbox):
+                    return child
+                result = find_list(child)
+                if result is not None:
+                    return result
+            return None
+        listing = find_list(dialog)
+        listing.focus_force()
+        app.root.update()
+        listing.event_generate("<Control-x>")
+        app.root.update()
+        check(app._quick_search_dialog is None, "Ctrl+X did not close from results")
+        app._open_global_search()
+        app.root.update()
+        app._palette_entry.event_generate("<Escape>")
+        app.root.update()
+        check(app._quick_search_dialog is None, "Escape no longer closes palette")
+        print("PASS: topmost palette, focus and Ctrl+X / Escape dismissal")
     finally:
         app.root.destroy()

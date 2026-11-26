@@ -137,9 +137,26 @@ def smart(q):
             pass
     return items
 
+ACTION_PREFIXES = (
+    ("extra", "extra"), ("mac", "mac"), ("ports", "ports"),
+    ("subnet", "subnet"), ("cli", "commands"), ("note", "notes"),
+    ("remind", "reminders"), ("theme", "settings"), ("size", "settings"),
+    ("open", None), ("pin", None), ("unpin", None), ("backup", "settings"),
+)
+
+def completions(raw, enabled):
+    q = raw.lstrip()
+    if not q.startswith((">", "<")):
+        return []
+    prefix, term = q[0], q[1:].strip().casefold()
+    if " " in term:
+        return []
+    return [prefix + " " + verb + " " for verb, dest in ACTION_PREFIXES
+            if verb.startswith(term) and (dest is None or dest == "settings" or dest in enabled)]
+
 def results(data, commands, raw, enabled, settings, limit=18):
     q = raw.strip()[:1024]
-    mode = q.startswith(">")
+    mode = q.startswith((">", "<"))
     if mode:
         q = q[1:].strip()
     exact = command(q, settings)
@@ -148,9 +165,14 @@ def results(data, commands, raw, enabled, settings, limit=18):
         found += [{"kind":"tool", "id":key, "destination":key, "title":label,
                    "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION
                   if key != "home" and q.casefold() in (key.casefold(), label.casefold())]
+    if mode and not exact:
+        found += [{"kind":"completion", "id":value, "title":value.strip(),
+                   "subtitle":"Tab / Enter to complete", "destination":None}
+                  for value in completions(raw, enabled)
+                  if value.strip()[1:].strip() not in (q.casefold(), "pin", "unpin", "backup")]
     if not mode:
         found += smart(q)
-    if not q:
+    if not q and not mode:
         found += [{"kind":"tool", "id":key, "destination":key, "title":label,
                    "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION if key != "home"]
     for hit in catalog(settings):

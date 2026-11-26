@@ -763,6 +763,7 @@ class PocketDesk:
             pass
         if self.tray:
             self.tray.set_icon(self.theme_icons[name]["ico"])
+        extra_excel_ui.detach(self)
         for child in self.root.winfo_children():
             child.destroy()
         self._header_context_menu = None
@@ -893,7 +894,9 @@ class PocketDesk:
             if approved:
                 self._update_vendors()
         elif key in ("extra_database", "extra_local"):
-            self._extra_excel_mode = "database" if key == "extra_database" else "local"
+            extra_excel_ui.detach(self)
+            if not extra_excel_ui.session(self)["busy"]:
+                self._extra_excel_mode = "database" if key == "extra_database" else "local"
             self.show_tab("extra")
         elif key == "ports":
             self.show_tab("ports")
@@ -1135,6 +1138,7 @@ class PocketDesk:
             self.root.after_cancel(self._save_job)
             self._save_job = None
         self.scan_cancel.set()
+        self._extra_excel_cancel.set()
         if self.tasks is not None:
             self.tasks.stop()
         if self.tray:
@@ -1789,8 +1793,7 @@ class PocketDesk:
     def show_tab(self, which):
         if self.display_mode == "compact" and which != "home":
             return self._open_compact_tool(which)
-        if self.current_tab == "extra":
-            self._extra_excel_cancel.set()
+        extra_excel_ui.detach(self)
         self._flush_current_note()
         if self.current_tab == "mac" and hasattr(self, "mac_input") and self.mac_input.winfo_exists():
             self.mac_draft = self.mac_input.get("1.0", "end-1c")
@@ -2151,6 +2154,7 @@ class PocketDesk:
 
     def _build_shell_refresh(self):
         self._flush_current_note()
+        extra_excel_ui.detach(self)
         for child in self.root.winfo_children():
             child.destroy()
         self._header_context_menu = None

@@ -1,3 +1,9 @@
+## v1.43.0 — development branch (not a published release)
+
+- EXTRA keeps the current query, results, selection and scroll in memory when changing tools or layouts; running searches and Sync continue across navigation. No search history is written.
+- Ctrl+K supports direct Windows text editing, including copy/paste and a context menu. Both `>` and `<` open Action Mode; Tab completes action prefixes. `> extra cofix` searches the offline database, while live Excel remains explicitly initiated.
+- Sync shows scanned/total physical worksheet rows (including blanks and headings) in a temporary 3px progress bar; unknown totals show a count only. The bar disappears on completion and the existing Last sync timestamp returns. Existing database replacement remains atomic.
+
 # Pocket v1.42.0 — Command Palette & adaptive workspace
 
 Official Windows release combining the v1.41 adaptive workspace and v1.42 productivity updates. Settings displays **v1.42**.

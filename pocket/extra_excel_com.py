@@ -54,7 +54,7 @@ def _find_open_book(excel, selected, cancelled=None):
     return None
 
 
-def iter_open_excel_sheets(path, *, cancelled=None):
+def iter_open_excel_sheets(path, *, cancelled=None, on_total=None):
     """Yield (sheet name, (physical row, values)) from Excel without saving.
 
     Prefer an exact already-open workbook; otherwise create a separate hidden
@@ -121,6 +121,13 @@ def iter_open_excel_sheets(path, *, cancelled=None):
                 ) from exc
 
         try:
+            if on_total is not None:
+                total = 0
+                for sheet in workbook.Worksheets:
+                    if cancelled is not None and cancelled():
+                        return
+                    total += int(sheet.UsedRange.Rows.Count)
+                on_total(total)
             for sheet in workbook.Worksheets:
                 if cancelled is not None and cancelled():
                     return

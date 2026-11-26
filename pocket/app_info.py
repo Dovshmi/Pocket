@@ -1,7 +1,7 @@
 """Pocket author credit and current application version."""
 
 AUTHOR_CREDIT = "By. Rony Shmidov"
-VERSION = "1.42.0"
+VERSION = "1.43.0"
 
 
 def version_label() -> str:

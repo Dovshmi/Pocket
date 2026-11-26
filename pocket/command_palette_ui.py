@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 from . import command_palette as palette
-from . import icon_themes, pocket_design as design, tool_icons
+from . import icon_themes, pocket_design as design, tool_icons, text_editing
 
 def open_palette(app):
     old = getattr(app, "_quick_search_dialog", None)
@@ -52,7 +52,7 @@ def open_palette(app):
     glass.create_oval(7, 6, 18, 17, outline=c["MUTED"], width=2)
     glass.create_line(16, 15, 21, 20, fill=c["MUTED"], width=2)
     glass.pack(side="left", padx=(4, 0))
-    entry = tk.Entry(search, textvariable=query, bg=c["INPUT"], fg=c["WHITE"],
+    entry = tk.Entry(search, textvariable=query, exportselection=False, bg=c["INPUT"], fg=c["WHITE"],
                      insertbackground=c["WHITE"], selectbackground=c["ACCENT_DARK"],
                      relief="flat", bd=0, highlightthickness=0,
                      font=("Segoe UI", 12))
@@ -61,12 +61,79 @@ def open_palette(app):
     entry.bind("<FocusIn>", lambda _e: search.configure(highlightbackground=c["ACCENT"]))
     entry.bind("<FocusOut>", lambda _e: search.configure(highlightbackground=c["BORDER"]))
     glass.bind("<Button-1>", lambda _e: entry.focus_set())
+    # Widget-level handlers run before Tk class / toplevel shortcuts.
+    undo_stack, redo_stack = [], []
+    previous = [query.get()]
+    replaying = [False]
+
+    def remember(*_):
+        value = query.get()
+        if value != previous[0]:
+            if not replaying[0]:
+                undo_stack.append(previous[0])
+                del undo_stack[:-100]
+                redo_stack.clear()
+            previous[0] = value
+
+    query.trace_add("write", remember)
+
+    def edit(operation):
+        if operation in ("undo", "redo"):
+            source, target = ((undo_stack, redo_stack) if operation == "undo"
+                              else (redo_stack, undo_stack))
+            if source:
+                target.append(query.get())
+                replaying[0] = True
+                try:
+                    query.set(source.pop())
+                    entry.icursor("end")
+                finally:
+                    replaying[0] = False
+            return "break"
+        return text_editing.perform(entry, operation)
+
+    def edit_key(event):
+        operation = text_editing._shortcut_operation(event)
+        if operation:
+            return edit(operation)
+
+    entry.bind("<Control-KeyPress>", edit_key)
+    for key in "acvxyz":
+        entry.bind(f"<Control-KeyPress-{key}>", edit_key)
+    entry.bind("<Control-Shift-KeyPress-Z>", edit_key)
+
+    def delete_word(_event):
+        if entry.selection_present():
+            entry.delete("sel.first", "sel.last")
+        else:
+            import re
+            index = entry.index("insert")
+            match = re.search(r"\S+\s*$|\s+$", entry.get()[:index])
+            if match:
+                entry.delete(match.start(), index)
+        return "break"
+
+    entry.bind("<Control-BackSpace>", delete_word)
+
+    def context_menu(event):
+        menu = tk.Menu(dialog, tearoff=False, bg=c["PANEL"], fg=c["WHITE"])
+        for caption, operation in (("Copy", "copy"), ("Paste", "paste"), ("Cut", "cut"),
+                                   ("Select All", "select_all"), ("Undo", "undo"), ("Redo", "redo")):
+            menu.add_command(label=caption, command=lambda op=operation: edit(op))
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+            menu.destroy()
+        return "break"
+
+    entry.bind("<Button-3>", context_menu)
     status = tk.Label(frame, bg=c["BG"], fg=c["MUTED"], anchor="w",
                       font=("Segoe UI", 8))
     status.pack(fill="x", padx=14, pady=(9, 5))
     footer = tk.Frame(frame, bg=c["BG"])
     footer.pack(side="bottom", fill="x", padx=12, pady=8)
-    tk.Label(footer, text="↑ ↓ Select · Enter run · Esc close", bg=c["BG"],
+    tk.Label(footer, text="Tab complete · ↑ ↓ Select · Enter run · Esc", bg=c["BG"],
              fg=c["MUTED"], font=("Segoe UI", 8)).pack(side="left")
     preview = tk.Frame(frame, bg=c["PANEL"])
     preview.pack(side="bottom", fill="x", padx=12, pady=(4, 0))
@@ -108,7 +175,7 @@ def open_palette(app):
             results.insert("end", f"{mark}  {hit['title']}    ·  {hit['subtitle']}")
         if matches:
             results.selection_set(0)
-        status.configure(text=("COMMANDS" if query.get().lstrip().startswith(">") else
+        status.configure(text=("COMMANDS" if query.get().lstrip().startswith((">", "<")) else
                                "QUICK ACTIONS" if not query.get().strip() else "SEARCH RESULTS")
                               + f"  ·  {len(matches)}")
         update_preview()
@@ -148,6 +215,11 @@ def open_palette(app):
         chosen = results.curselection()
         if chosen and chosen[0] < len(matches):
             hit = matches[chosen[0]]
+            if hit["kind"] == "completion":
+                query.set(hit["id"])
+                entry.icursor("end")
+                entry.focus_set()
+                return "break"
             close(launching=True)
             app._run_palette_action(hit)
         return "break"
@@ -170,6 +242,17 @@ def open_palette(app):
     for widget in (entry, results, dialog):
         widget.bind("<Escape>", close)
         widget.bind("<Return>", launch)
+    def complete(_event=None):
+        choices = palette.completions(query.get(), app.settings["visible_tabs"])
+        if choices:
+            chosen = results.curselection()
+            hit = matches[chosen[0]] if chosen else {}
+            value = hit["id"] if hit.get("kind") == "completion" else choices[0]
+            query.set(value)
+            entry.icursor("end")
+        return "break"
+
+    entry.bind("<Tab>", complete)
     entry.bind("<Down>", lambda _e: move(1))
     entry.bind("<Up>", lambda _e: move(-1))
     results.bind("<Double-1>", launch)

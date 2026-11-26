@@ -7733,7 +7733,5 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    if "--preview" in sys.argv:
-        sys.exit(main())  # Existing integration tests only.
     from pocket import management_demo
-    sys.exit(management_demo.run(globals()))
+    sys.exit(management_demo.run(globals(), smoke="--formgt-smoke" in sys.argv))

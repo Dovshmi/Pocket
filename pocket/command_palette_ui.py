@@ -66,7 +66,7 @@ def open_palette(app):
     status.pack(fill="x", padx=14, pady=(9, 5))
     footer = tk.Frame(frame, bg=c["BG"])
     footer.pack(side="bottom", fill="x", padx=12, pady=8)
-    tk.Label(footer, text="↑ ↓ Select · Enter run · Ctrl+X / Esc close", bg=c["BG"],
+    tk.Label(footer, text="↑ ↓ Select · Enter run · Esc close", bg=c["BG"],
              fg=c["MUTED"], font=("Segoe UI", 8)).pack(side="left")
     preview = tk.Frame(frame, bg=c["PANEL"])
     preview.pack(side="bottom", fill="x", padx=12, pady=(4, 0))
@@ -113,18 +113,42 @@ def open_palette(app):
                               + f"  ·  {len(matches)}")
         update_preview()
 
-    def close(_event=None):
+    def restore_owner_focus():
+        """Return keyboard ownership to Pocket, not the previously active app."""
+        if not app.root.winfo_exists() or app.root.state() != "normal":
+            return
+        app.root.lift()
+        app.root.focus_force()
+
+    def close(_event=None, *, launching=False):
+        if app._quick_search_dialog is not dialog:
+            return "break"
+        # Keep auto-hide suppressed during the native focus handoff. Destroying
+        # an active topmost popup alone can leave the owner visible but unfocused.
         if dialog.winfo_exists():
             dialog.destroy()
         app._quick_search_dialog = None
-        app._modal = was_modal
+        app._palette_entry = None
+        try:
+            restore_owner_focus()
+        finally:
+            app._modal = was_modal
+        if not launching:
+            def settle_owner():
+                # Never steal focus from a newly opened palette or another
+                # Pocket modal. Retry after Windows finishes destroying the popup.
+                if (app._quick_search_dialog is None and not app._modal
+                        and app.root.winfo_exists() and app.root.state() == "normal"
+                        and app.root.focus_displayof() is None):
+                    restore_owner_focus()
+            app.root.after_idle(settle_owner)
         return "break"
 
     def launch(_event=None):
         chosen = results.curselection()
         if chosen and chosen[0] < len(matches):
             hit = matches[chosen[0]]
-            close()
+            close(launching=True)
             app._run_palette_action(hit)
         return "break"
 
@@ -145,8 +169,6 @@ def open_palette(app):
     results.bind("<<ListboxSelect>>", update_preview)
     for widget in (entry, results, dialog):
         widget.bind("<Escape>", close)
-        widget.bind("<Control-x>", close)
-        widget.bind("<Control-X>", close)
         widget.bind("<Return>", launch)
     entry.bind("<Down>", lambda _e: move(1))
     entry.bind("<Up>", lambda _e: move(-1))

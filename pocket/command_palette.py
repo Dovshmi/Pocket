@@ -165,7 +165,7 @@ def results(data, commands, raw, enabled, settings, limit=18):
         found += [{"kind":"tool", "id":key, "destination":key, "title":label,
                    "subtitle":"Open tool"} for key, _, label in compact.NAVIGATION
                   if key != "home" and q.casefold() in (key.casefold(), label.casefold())]
-    if mode and not exact:
+    if mode and q and not exact:
         found += [{"kind":"completion", "id":value, "title":value.strip(),
                    "subtitle":"Tab / Enter to complete", "destination":None}
                   for value in completions(raw, enabled)

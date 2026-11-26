@@ -120,11 +120,11 @@ def open_palette(app):
         for caption, operation in (("Copy", "copy"), ("Paste", "paste"), ("Cut", "cut"),
                                    ("Select All", "select_all"), ("Undo", "undo"), ("Redo", "redo")):
             menu.add_command(label=caption, command=lambda op=operation: edit(op))
+        menu.bind("<Unmap>", lambda _e: menu.after_idle(menu.destroy))
         try:
             menu.tk_popup(event.x_root, event.y_root)
         finally:
             menu.grab_release()
-            menu.destroy()
         return "break"
 
     entry.bind("<Button-3>", context_menu)
@@ -250,7 +250,7 @@ def open_palette(app):
             value = hit["id"] if hit.get("kind") == "completion" else choices[0]
             query.set(value)
             entry.icursor("end")
-        return "break"
+        return "break" if query.get().lstrip().startswith((">", "<")) else None
 
     entry.bind("<Tab>", complete)
     entry.bind("<Down>", lambda _e: move(1))

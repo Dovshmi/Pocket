@@ -555,9 +555,12 @@ def build(app, parent):
             scanned, total = state["scanned"], state["total"]
             if state["phase"] == "verify":
                 db_info_label.configure(text="Sync · verifying database…")
-                sync_fill.place(relwidth=0.99, relheight=1)
+                if total and scanned == total:
+                    sync_fill.place(relwidth=1, relheight=1)
+                else:
+                    sync_fill.place_forget()
             elif total and scanned <= total:
-                percent = min(99, int(scanned * 100 / total))
+                percent = min(100, int(scanned * 100 / total))
                 db_info_label.configure(text=f"Sync · {scanned:,}/{total:,} rows · {percent}%")
                 sync_fill.place(relwidth=percent/100, relheight=1)
             else:

@@ -451,6 +451,19 @@ with tempfile.TemporaryDirectory(prefix="pocket-adaptive-") as profile:
         app._palette_entry.event_generate("<Control-x>")
         app.root.update()
         check(app._quick_search_dialog is dialog, "Ctrl+X must not dismiss palette")
+        check(app._palette_entry.get() == "", "Ctrl+X must cut selected text")
+        app._palette_entry.event_generate("<Control-v>")
+        app.root.update()
+        check(app._palette_entry.get() == "notes", "Ctrl+V must paste into the palette")
+        app._palette_entry.selection_range(0, "end")
+        app._palette_entry.event_generate("<Control-c>")
+        app.root.update()
+        check(app.root.clipboard_get() == "notes", "Ctrl+C must copy palette selection")
+        app._palette_entry.delete(0, "end")
+        app._palette_entry.insert(0, "< ex")
+        app._palette_entry.event_generate("<Tab>")
+        app.root.update()
+        check(app._palette_entry.get() == "< extra ", "Tab must complete Action Mode alias")
         def descendants(widget):
             for child in widget.winfo_children():
                 yield child

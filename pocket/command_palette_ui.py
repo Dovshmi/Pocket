@@ -206,7 +206,7 @@ def open_palette(app):
              fg=c["MUTED"], font=("Segoe UI", 8)).pack(side="left")
     list_frame = tk.Frame(frame, bg=c["BG"])
     list_frame.pack(fill="both", expand=True, padx=14)
-    results = tk.Canvas(list_frame, bg=c["BG"], highlightthickness=0, bd=0,
+    results = tk.Canvas(list_frame, name="palette_results", bg=c["BG"], highlightthickness=0, bd=0,
                         takefocus=True, yscrollincrement=48)
     scroll = ttk.Scrollbar(list_frame, command=results.yview,
                            style="Pocket.Vertical.TScrollbar")

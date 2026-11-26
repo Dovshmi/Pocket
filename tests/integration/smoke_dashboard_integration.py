@@ -1755,12 +1755,15 @@ with tempfile.TemporaryDirectory(prefix="pocket-ui-audit-") as profile:
             check(len(entries) == 1, working + ": search input absent")
             entries[0].insert(0, "notes")
             app.root.update()
-            lists = [w for w in widgets(dialog) if isinstance(w, tk.Listbox)]
-            check(lists and lists[0].size() > 0, working + ": missing local matches")
-            open_buttons = [w for w in widgets(dialog)
-                            if isinstance(w, tk.Button) and w.cget("text") == "Open"]
-            check(open_buttons, working + ": Quick Search missing Open control")
-            open_buttons[0].invoke()
+            lists = [w for w in widgets(dialog) if isinstance(w, tk.Canvas)
+                     and w.winfo_name() == "palette_results"]
+            check(lists and any(lists[0].type(item) == "text" and
+                                "Notes" in lists[0].itemcget(item, "text")
+                                for item in lists[0].find_all()),
+                  working + ": missing local Notes match")
+            check(not any(isinstance(w, tk.Button) for w in widgets(dialog)),
+                  working + ": minimal search must not have action buttons")
+            entries[0].event_generate("<Return>")
             app.root.update()
             check(app._quick_search_dialog is None, working + ": search popup did not close")
             check(app.current_tab == "notes", working + ": local tool result did not navigate")

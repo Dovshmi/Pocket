@@ -14,7 +14,7 @@ A compact, local-first desktop workspace for network operations, support teams, 
 ![Offline-first](https://img.shields.io/badge/Offline--first-Yes-14866D?style=flat-square)
 [![License](https://img.shields.io/badge/License-GPL--3.0-556276?style=flat-square)](LICENSE)
 
-**[Download latest Windows release (Portable ZIP / EXE)](https://github.com/Dovshmi/Pocket/releases/latest)** · [All releases](https://github.com/Dovshmi/Pocket/releases)
+**[Latest stable Windows release (Portable ZIP / EXE)](https://github.com/Dovshmi/Pocket/releases/latest)** · [All releases, including v1.43 previews](https://github.com/Dovshmi/Pocket/releases)
 
 <sub>Download the published Windows packages from GitHub Releases. Previous versions remain available for rollback.</sub>
 
@@ -57,7 +57,7 @@ Pocket keeps the small tools you reach for all day **in one tray application**. 
 | **EXTRA** | Keep the current query, matches, selected row and scroll in RAM when switching tools; no saved search history. Local searches and Sync continue across navigation. |
 | **EXTRA Sync** | A temporary 3 px progress bar with scanned/total worksheet rows when known; returns to Last sync status after completion. |
 
-[Full v1.43.0 release notes](docs/releases/v1.43.0.md) · [Latest published Windows packages](https://github.com/Dovshmi/Pocket/releases/latest). Source and packaged release versions are independent; publication requires successful release checks.
+[Full v1.43.0 release notes](docs/releases/v1.43.0.md) · [Latest published Windows packages](https://github.com/Dovshmi/Pocket/releases/latest). Source and packaged versions are independent. A v1.43 preview may be published if the strict native focus regression is unresolved, provided the other GUI, package and runtime checks pass. It will be labeled as a prerelease; the stable download link will continue to point to the last stable build.
 
 ## What's new in v1.42.0
 
@@ -232,7 +232,7 @@ For authorized remote checks, Pocket can use the configured Windows proxy/PAC wi
 
 | Version | Highlights | Distribution |
 | :--- | :--- | :--- |
-| **v1.43.0 — current source** | Minimal borderless Ctrl+K, dynamic icons, opacity and saved position; Smart Clipboard; EXTRA session retention and Sync progress. | [Release status](https://github.com/Dovshmi/Pocket/releases/latest) |
+| **v1.43.0 — current source** | Minimal borderless Ctrl+K, dynamic icons, opacity and saved position; Smart Clipboard; EXTRA session retention and Sync progress. | [Releases / previews](https://github.com/Dovshmi/Pocket/releases) |
 | **v1.42.0** | Command Palette, smart inputs and internal actions, TCP ranges/colors/progress, MAC counts/filtering, Database-first Extranet. | **Official Windows ZIP / EXE** |
 | **v1.41** | Adaptive window sizing, named profiles, responsive/reorderable navigation and compact Clipboard. | Included in v1.42.0 |
 | **v1.40.0** | Extra Excel / SQLite lookup, Outlook SOC draft, smart Excel shortcut reuse, movable Mini menus, compact Show / Hide, improved scrolling. | Previous stable release |

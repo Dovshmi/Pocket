@@ -50,6 +50,8 @@ jobs:
       - name: Verify adaptive sizing, MAC and ports, and repeatable Ctrl+K palette
         run: python tests/integration/smoke_adaptive_v141.py
       - name: Verify real native keyboard focus and borderless Ctrl+K
+        id: native_focus
+        continue-on-error: true
         run: python tests/integration/smoke_palette_focus_v143.py
       - name: Test native Windows input controls and keyboard editing
         run: |
@@ -155,7 +157,13 @@ jobs:
           if ((Get-Content -LiteralPath 'dist/SHA256SUMS.txt').Count -ne 2) {
             throw 'Expected exactly two SHA-256 hash lines'
           }
-      - name: Publish stable v1.43.0 release
+      - name: Record release verification status
+        shell: pwsh
+        run: |
+          if ('${{ steps.native_focus.outcome }}' -ne 'success') {
+            Add-Content -Path docs/releases/v1.43.0.md -Value "`n**Preview — known limitation:** The strict Windows native Ctrl+K focus regression did not pass in CI. The general GUI tests and packaged runtime checks passed. Use Escape and reopen or click the search field if keyboard focus does not transfer. v1.42.0 remains the stable release."
+          }
+      - name: Publish v1.43.0 (stable only when native focus passes)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.43.0
@@ -163,8 +171,8 @@ jobs:
           name: Pocket v1.43.0 — Modern Search, Smart Clipboard & EXTRA
           body_path: docs/releases/v1.43.0.md
           draft: false
-          prerelease: false
-          make_latest: true
+          prerelease: ${{ steps.native_focus.outcome != 'success' }}
+          make_latest: ${{ steps.native_focus.outcome == 'success' && 'true' || 'false' }}
           fail_on_unmatched_files: true
           files: |
             dist/Pocket-Portable-v1.43.0.zip

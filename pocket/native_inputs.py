@@ -84,7 +84,7 @@ def focus_tk_input(widget):
         host_id = user.GetAncestor(host.winfo_id(), 2) or host.winfo_id()
         user.SetForegroundWindow(host_id)
         user.SetActiveWindow(host_id)
-        tk.Misc.focus_force(widget)
+        widget.focus_force()
         # A native palette EDIT is itself the real keyboard destination.
         # Never rely solely on Tk bookkeeping to release a native source.
         native_id = getattr(widget, "native_hwnd", None)
@@ -93,33 +93,6 @@ def focus_tk_input(widget):
             widget.focus_force()
     else:
         widget.focus_force()
-
-
-def settle_palette_focus(widget, owner):
-    """Repair delayed Tk focus transfers within the two Pocket windows only."""
-    if not IS_WINDOWS or not widget.winfo_exists() or not widget.native_hwnd:
-        return
-    user = ctypes.WinDLL("user32", use_last_error=True)
-    user.GetAncestor.argtypes = (ctypes.c_void_p, ctypes.c_uint)
-    user.GetAncestor.restype = ctypes.c_void_p
-    user.GetFocus.restype = ctypes.c_void_p
-    user.GetForegroundWindow.restype = ctypes.c_void_p
-    user.SetFocus.argtypes = (ctypes.c_void_p,)
-    user.SetFocus.restype = ctypes.c_void_p
-    target = widget.native_hwnd
-    if user.GetFocus() == target:
-        return
-    dialog = widget.winfo_toplevel()
-    palette_hwnd = user.GetAncestor(dialog.winfo_id(), 2)
-    owner_hwnd = user.GetAncestor(owner.winfo_id(), 2)
-    foreground = user.GetForegroundWindow()
-    if foreground not in (palette_hwnd, owner_hwnd):
-        return
-    # No Tk focus_force here: it can enqueue the very transfer we repair.
-    if foreground == palette_hwnd:
-        user.SetFocus(target)
-    else:
-        focus_tk_input(widget)
 
 
 def sync_all_native():
@@ -589,12 +562,8 @@ class _NativeMixin:
             try:
                 if focused:
                     # Preserve Pocket's Tk focus callbacks for search fields.
-                    # The palette already established logical Tk focus during
-                    # opening. Calling focus_force again queues another Tk
-                    # focus transfer that can replace the real EDIT HWND.
-                    if self._native_palette_keys is None:
-                        tk.Misc.focus_force(self)
-                        self._u.SetFocus(ctypes.c_void_p(self._native_hwnd))
+                    tk.Misc.focus_force(self)
+                    self._u.SetFocus(ctypes.c_void_p(self._native_hwnd))
                     self.event_generate("<FocusIn>")
                 else:
                     self.event_generate("<FocusOut>")

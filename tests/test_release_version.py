@@ -117,7 +117,8 @@ class ReleaseVersionTests(unittest.TestCase):
         for marker in ("[release v1.43.0]", "inputs.confirm_version == 'v1.43.0'",
                        "app_info.VERSION == '1.43.0'", "smoke_palette_focus_v143.py",
                        "check_packaged_release.py --version v1.43.0",
-                       "tag_name: v1.43.0", "make_latest: true",
+                       "tag_name: v1.43.0", "steps.native_focus.outcome == 'success'",
+                       "steps.native_focus.outcome != 'success'",
                        "Pocket-Portable-v1.43.0.zip", "Pocket-v1.43.0.exe",
                        "SHA256SUMS.txt", "fail_on_unmatched_files: true"):
             self.assertIn(marker, workflow)

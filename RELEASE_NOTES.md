@@ -29,7 +29,7 @@ Fully exit Pocket including the tray process. Back up the previous profile, extr
 
 Pocket is local-first. Network diagnostics are explicit; the palette does not execute shell commands. Excel SQLite, optional clipboard databases and backup ZIP files are **not encrypted**. Use only authorized data and approved storage. Protected Excel, Outlook, Windows proxy/PAC and enterprise controls require authorized workstation testing.
 
-Publication requires Windows unit tests, GUI regressions including real native Ctrl+K focus, ZIP integrity/privacy checks, packaged runtime and standalone startup tests. Until these pass and publication succeeds, the latest release page continues to point to the previous published build.
+Publication requires Windows unit tests, general GUI regressions, ZIP integrity/privacy checks, packaged runtime and standalone startup tests. The strict native Ctrl+K focus check additionally gates stable status: if it fails, the build is published only as a clearly labeled prerelease with the limitation documented. The latest stable release page continues to point to the previous stable build until the strict check passes.
 
 Previous stable [v1.42.0](https://github.com/Dovshmi/Pocket/releases/tag/v1.42.0) remains available for rollback.
 

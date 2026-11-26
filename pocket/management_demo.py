@@ -84,9 +84,9 @@ def seed_profile(api, folder):
     book = Workbook()
     sheet = book.active
     sheet.title = "Demo services"
-    sheet.append(["Service ID", "Customer", "Site", "Device", "IP address"])
-    sheet.append(["DEMO-1042", "Example Business", "Training site A", "Cisco", "192.0.2.10"])
-    sheet.append(["DEMO-1043", "Example Business", "Training site B", "Juniper", "192.0.2.20"])
+    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "IP address"])
+    sheet.append(["DEMO-1042", "Example Business", "DEMO-G01", "DEMO-VRF", "Training site A", "Cisco", "192.0.2.10"])
+    sheet.append(["DEMO-1043", "Example Business", "DEMO-G02", "DEMO-VRF", "Training site B", "Juniper", "192.0.2.20"])
     path = folder / "demo-services.xlsx"
     book.save(path)
     book.close()
@@ -149,11 +149,11 @@ class Presentation:
                 font=("Segoe UI", 8, "bold"), text="FORMGT")
             self.step_label.pack(side="left", padx=(2, 3))
             for text, handler in (("×", self.close), ("?", self.explain),
-                                  ("↻", self.restart), ("›", self.next)):
+                                  ("↻", self.restart), ("Next", self.next)):
                 self.button(bar, text, handler).pack(side="right", padx=1)
-            self.pause_button = self.button(bar, "Ⅱ", self.toggle)
+            self.pause_button = self.button(bar, "Pause", self.toggle)
             self.pause_button.pack(side="right", padx=1)
-            self.button(bar, "‹", self.previous).pack(side="right", padx=1)
+            self.button(bar, "Back", self.previous).pack(side="right", padx=1)
         if not self.widget_alive(self.overlay):
             self.overlay = tk.Frame(self.root, bg=self.CARD,
                                     highlightbackground=self.ACCENT, highlightthickness=1)
@@ -236,7 +236,7 @@ class Presentation:
             return
         if self.paused:
             self.paused = False
-            self.pause_button.configure(text="Ⅱ")
+            self.pause_button.configure(text="Pause")
             if self.error:
                 self.go(self.index)
                 return
@@ -248,7 +248,7 @@ class Presentation:
             self.remaining = max(0, int((self.deadline-time.monotonic())*1000))
             self.paused = True
             self.cancel()
-            self.pause_button.configure(text="▶")
+            self.pause_button.configure(text="Play")
             self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d} · PAUSE")
 
     def restart(self):
@@ -272,6 +272,20 @@ class Presentation:
         a = self.app
         if a.display_mode != "mini" and key != "summary":
             a._set_display_mode("mini")
+        if key == "ports":
+            if a.scanning:
+                a.scan_cancel.set()
+                a.scan_token += 1
+                a.scanning = False
+            a.port_results = []
+        if key == "mac":
+            a.mac_results = []
+        if key == "extra":
+            state = self.api["extra_excel_ui"].session(a)
+            if not state["busy"]:
+                self.api["extra_excel_ui"].detach(a)
+                state.update(query="", hits=[], selected=None, status="", page_y=0., list_y=0., detail_y=0.)
+                state["revision"] += 1
         if key == "summary":
             a._set_display_mode("dashboard")
             a.show_tab("home" if a.display_mode == "dashboard" else "notes")
@@ -293,8 +307,8 @@ class Presentation:
         try:
             self.show_tool(key)
             self.root.update_idletasks()
-            self.step_label.configure(text=f"DEMO {index+1:02d}/{len(STEPS):02d}")
-            self.pause_button.configure(text="▶" if self.paused else "Ⅱ")
+            self.step_label.configure(text=f"{index+1:02d}/{len(STEPS):02d} · " + ("SIM" if key == "ports" else "DEMO"))
+            self.pause_button.configure(text="Play" if self.paused else "Ⅱ")
             self.explain()
             if self.smoke:
                 self.hide_card()
@@ -318,7 +332,7 @@ class Presentation:
         self.paused = True
         self.error = f"Demo paused: {type(exc).__name__}: {exc}"
         self.ensure_chrome()
-        self.pause_button.configure(text="▶")
+        self.pause_button.configure(text="Play")
         self.explain()
 
     def scroll_to(self, widget=None, fraction=None):
@@ -389,9 +403,23 @@ class Presentation:
                 self.later(1000, lambda: self.scroll_to(fraction=0.48))
         elif key == "palette":
             a._open_global_search()
-            a._palette_entry.insert(0, "> extra DEMO-1042")
+            a._palette_entry.insert(0, "> subnet 192.0.2.10/26")
+            if not self.smoke:
+                self.later(2400, self.execute_palette_demo)
         elif key == "summary":
             self.explain()
+
+    def execute_palette_demo(self):
+        a = self.app
+        dialog = getattr(a, "_quick_search_dialog", None)
+        if not self.widget_alive(dialog):
+            return
+        hit = self.api["command_palette"].command("subnet 192.0.2.10/26", a.settings)
+        if hit is None:
+            self.fail(ValueError("Demo palette action not recognized"))
+            return
+        self.close_palette()
+        a._run_palette_action(hit)
 
     def close(self):
         if self.closed:
@@ -471,7 +499,13 @@ def run(api, *, smoke=False):
                         assert app.display_mode == "mini", "Expected Mini mode"
                     assert presentation.footer.winfo_ismapped(), "Missing integrated controller"
                     if step[4] in ("extra", "return_extra"):
-                        assert api["extra_excel_ui"].session(app)["hits"], "EXTRA demo record missing"
+                        state = api["extra_excel_ui"].session(app)
+                        assert state["hits"] and state["query"] == "DEMO-1042", "EXTRA demo record missing"
+                        assert state["selected"] == 0, "EXTRA selection missing"
+                    if step[4] == "palette":
+                        assert app._quick_search_dialog is not None, "Palette did not open"
+                        presentation.execute_palette_demo()
+                        assert app.current_tab == "subnet", "Palette action did not navigate"
                     if step[4] == "commands":
                         assert app.command_filtered, "CLI results missing"
                     if step[4] == "subnet":
@@ -480,6 +514,12 @@ def run(api, *, smoke=False):
                         assert len(app.port_results) == 3, "Simulated TCP results missing"
                     if step[4] == "mac":
                         assert app.mac_results, "MAC results missing"
+                    if step[4] == "summary":
+                        assert presentation.overlay.winfo_ismapped(), "Missing final impact card"
+                presentation.restart()
+                app.root.update()
+                assert app.display_mode == "mini", "Replay did not restore Mini"
+                assert presentation.footer.winfo_ismapped(), "Replay controller missing"
                 print("FORMGT smoke: all presentation steps completed")
             finally:
                 presentation.close()

@@ -1,0 +1,19 @@
+name: FORMGT demonstration smoke
+on:
+  push:
+    branches: [FORMGT]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gui:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - run: python -m py_compile app.pyw pocket/management_demo.py
+      - run: python app.pyw --formgt-smoke

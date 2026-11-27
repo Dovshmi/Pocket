@@ -1,6 +1,6 @@
 # Pocket | FORMGT — Management demonstration
 
-This separate branch is based on Pocket v1.43. Each normal launch opens the real application in its original **Mini mode** (346 × 530), then automatically runs a guided tour with short Hebrew explanation cards inside the Pocket window. No separate controller window or network service is needed.
+This separate branch is based on Pocket v1.43. Each normal launch opens the real application in its original **Mini mode** (346 × 530), then automatically runs a guided tour with rounded Hebrew speech bubbles centered on the desktop, with a separate left-side presenter bar. No network service is needed.
 
 ## Run
 
@@ -17,7 +17,7 @@ Build on a Windows development PC with Python 3.11 x64 using `BUILD-FORMGT.bat`.
 
 Mini introduction → Notes → Shortcuts → Commands → Subnet → simulated Ports → MAC → Clipboard → Reminders → Extra → switch tools → restore Extra → Ctrl+K → Dashboard business impact.
 
-The explanation card appears across the header for about 2.6 seconds, then clears before the tool action. Long results are scrolled into view automatically. The slim controller stays inside Pocket. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
+The speech bubble appears at desktop center, fades in, then clears before the tool action. Long results are scrolled into view automatically. The left-side controller is independent of Pocket's window layout. Speed (0.5×–3×) rescales the active timeline, including bubble dwell, typing and auto-advance. Manual mode completes the current step but waits for Next. Pause freezes the presentation timeline, not already-started local workers. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
 
 | Control | Keyboard |
 | --- | --- |
@@ -26,9 +26,24 @@ The explanation card appears across the header for about 2.6 seconds, then clear
 | Back | F7 |
 | Next | F8 |
 | Show explanation again | F9 |
-| Exit | Esc |
+| Toggle Auto / Manual | F10 |
+| Faster | Ctrl+Up |
+| Slower | Ctrl+Down |
+| Exit | Esc or side button |
 
-The real Ctrl+K popup has its own keyboard focus; use its Escape key to dismiss it before using the presenter hotkeys. The automatic run takes about 90 seconds, ending at the summary. Replay returns to Mini.
+Presenter shortcuts work while a FORMGT process window has focus; the real Ctrl+K popup uses Escape to dismiss itself. The automatic run takes about 90 seconds, ending at the summary. Replay returns to Mini.
+
+## Local scenario (optional)
+
+Place an approved, private `formgt-scenario.local.json` alongside `app.pyw` or `Pocket-FORMGT.exe`. This file is intentionally gitignored and is not bundled in CI artifacts. Without it the demo runs entirely with generic public sample identifiers. The JSON schema is:
+
+```json
+{"customer":"Example Business","circuit":"90021400","vrf":"Training","public_ip":"192.0.2.52"}
+```
+
+Only the selected local scenario feeds Notes, Extra, Reminders, Clipboard and simulated TCP checks. Never commit customer identifiers, or show them to audiences who are not authorized to view them. No real scan is performed, even for a public IPv4 address.
+
+The MAC example uses four synthetic device addresses with real vendor prefixes: two Cisco, one Alcatel-Lucent Enterprise and one Fortinet (FortiGate). All are local fixture lookups, not actual discovered devices.
 
 ## Isolation and limits
 

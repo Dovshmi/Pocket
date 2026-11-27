@@ -2,29 +2,59 @@
 from __future__ import annotations
 
 import json
+import ipaddress
+import sys
 import tempfile
 import time
 import tkinter as tk
 from datetime import datetime, timedelta
 from pathlib import Path
-from tkinter import ttk
+
+
+SPEEDS = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
+DEFAULT_SCENARIO = {"customer": "Orion Logistics", "circuit": "90021400",
+                    "vrf": "VRF-BUS-ERP", "public_ip": "192.0.2.52"}
+WAN_IP = "10.178.24.14"
+MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
+        "00:80:9F:24:71:13", "00:09:0F:24:71:14")
+VENDORS = {"00000C": ["Cisco Systems, Inc.", "MA-L"],
+           "000142": ["Cisco Systems, Inc.", "MA-L"],
+           "00809F": ["Alcatel-Lucent Enterprise (ALE)", "MA-L"],
+           "00090F": ["Fortinet, Inc. (FortiGate)", "MA-L"]}
+
+
+def load_scenario():
+    """Read presentation-only overrides beside the EXE/source, never commit them."""
+    base = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+    path = base / "formgt-scenario.local.json"
+    if not path.is_file():
+        return dict(DEFAULT_SCENARIO)
+    data = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(data, dict) or set(data) != set(DEFAULT_SCENARIO):
+        raise ValueError("Invalid FORMGT scenario fields")
+    if any(not isinstance(v, str) or not v.strip() or len(v) > 80 or not v.isprintable() for v in data.values()):
+        raise ValueError("Invalid FORMGT scenario values")
+    if not data["circuit"].isascii() or not data["circuit"].isdigit():
+        raise ValueError("Circuit must contain digits only")
+    data["public_ip"] = str(ipaddress.IPv4Address(data["public_ip"]))
+    return data
 
 
 STEPS = (
-    ("WELCOME", "כל הכלים במקום אחד", "סביבת עבודה קומפקטית לצד מערכות העבודה", 5500, "intro"),
-    ("NOTES", "תיעוד תוך כדי שיחה", "פרטי הטיפול נשארים זמינים בלי לפתוח קובץ נוסף", 6500, "notes"),
-    ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "קישורים, קבצים ותהליכים במקום מרכזי", 6000, "links"),
-    ("COMMANDS", "הידע המקצועי במרחק חיפוש", "איתור פקודת Cisco בלי לחפש בקובצי Excel", 8500, "commands"),
-    ("SUBNET", "חישוב מהיר ומדויק", "טווח כתובות ומסכת רשת ללא מחשבון חיצוני", 8000, "subnet"),
-    ("PORTS", "בדיקות מרוכזות", "תוצאות TCP לדוגמה בלבד · ללא חיבור לרשת", 8500, "ports"),
-    ("MAC", "זיהוי ציוד בשניות", "חיפוש יצרן מתוך מאגר מקומי לדוגמה", 7500, "mac"),
-    ("CLIPBOARD", "פחות הקלדה חוזרת", "מידע לדוגמה זמין לשימוש חוזר", 6500, "clipboard"),
-    ("REMINDERS", "משימות המשך לא נשכחות", "תזכורת לחזרה ללקוח כחלק מתהליך הטיפול", 6500, "reminders"),
-    ("EXTRA", "איתור מידע תפעולי", "חיפוש רשומת שירות במסד הנתונים המקומי", 9500, "extra"),
-    ("WORKFLOW", "מעבר בין כלים בלי לאבד מידע", "בדיקה נוספת וחזרה לתוצאת החיפוש", 5000, "switch_extra"),
-    ("EXTRA", "ממשיכים בדיוק מהמקום שעצרנו", "החיפוש והתוצאה נשמרים במעבר בין הכלים", 6500, "return_extra"),
-    ("CTRL+K", "קיצור דרך לכל סביבת העבודה", "חיפוש חכם מכל כלי באמצעות המקלדת", 7500, "palette"),
-    ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "30 שניות חיסכון לפנייה עשויות להצטבר לשעות עבודה", 0, "summary"),
+    ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת שמרכזת את הכלים הדרושים לנציג.", 5500, "intro"),
+    ("NOTES", "מתעדים תוך כדי טיפול", "שמירת פרטי הלקוח והתקלה ללא מעבר בין יישומים.", 7000, "notes"),
+    ("SHORTCUTS", "הגישה למידע מתחילה בלחיצה", "ריכוז קישורים, מערכות ונהלים מקצועיים.", 6000, "links"),
+    ("COMMANDS", "הידע המקצועי תמיד בהישג יד", "פחות חיפוש פקודות, יותר זמן לאבחון התקלה.", 9000, "commands"),
+    ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישובי רשת מדויקים ללא שימוש בכלים חיצוניים.", 8000, "subnet"),
+    ("PORTS", "אבחון ממוקד ומהיר", "תוצאות TCP מדומות בלבד · ללא תעבורה לרשת.", 9000, "ports"),
+    ("MAC", "מזהים את הציוד בשניות", "זיהוי יצרנים מקומי וסיכום ציוד לפי יצרן.", 8000, "mac"),
+    ("CLIPBOARD", "לא מקלידים את אותו מידע פעמיים", "שימוש חוזר במידע שכבר נאסף במהלך הטיפול.", 7000, "clipboard"),
+    ("REMINDERS", "הטיפול לא מסתיים בשיחה", "מעקב אחר משימות פתוחות והתחייבויות ללקוח.", 7000, "reminders"),
+    ("EXTRA", "המידע הנכון, ברגע הנכון", "איתור פרטי השירות ללא מעבר בין קבצים ומערכות.", 10000, "extra"),
+    ("WORKFLOW", "רצף עבודה ללא הפרעות", "מעבר לבדיקת פורטים בלי לאבד את המידע שכבר נמצא.", 5000, "switch_extra"),
+    ("EXTRA", "ממשיכים בדיוק מהמקום שעצרנו", "תוצאות החיפוש נשארות זמינות לאורך הטיפול.", 6000, "return_extra"),
+    ("CTRL+K", "כל פעולה במרחק קיצור אחד", "גישה ישירה וחכמה לכלי העבודה.", 8000, "palette"),
+    ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "קיצור פעולות תפעוליות ויצירת סביבת עבודה אחידה.", 0, "summary"),
 )
 
 
@@ -42,30 +72,38 @@ def simulated_ports(ip, ports, *, cancel=None, **kwargs):
                "ms": 12 if port in (22, 443) else 35}
 
 
-def seed_profile(api, folder):
+def seed_profile(api, folder, scenario):
     """Create a new synthetic profile and index; never import a real library."""
     from openpyxl import Workbook
     from . import extra_excel_db, reminder_store
+    customer, circuit, vrf, public_ip = (scenario[k] for k in ("customer", "circuit", "vrf", "public_ip"))
     data = api["default_data"]()
     data["settings"].update(display_mode="mini", window_profile="Mini",
                             clipboard_paused=True, clipboard_storage="ram",
                             quick_slots_enabled=False, convert_enabled=False)
     data["last_tab"] = "notes"
-    note = api["new_note"]("DEMO-1042 | Business connectivity",
-        "DEMO DATA ONLY\nCustomer reports application unavailable.\n"
-        "Service: DEMO-1042 | Cisco router\n"
-        "Lab subnet: 192.0.2.0/26\n"
-        "Example TCP results: 443 OPEN; 8080 CLOSED (simulated).\n"
-        "Next action: confirm application service with customer.")
+    note = api["new_note"](f"{customer} | ERP connectivity",
+        f"DEMONSTRATION ONLY\nCustomer: {customer}\nCircuit: {circuit}\nVRF: {vrf}\n"
+        f"Customer reports ERP access failure.\nCisco ISR 4331 | WAN {WAN_IP}/29\n"
+        f"Public target: {public_ip}\n"
+        "Next: validate interfaces, review TCP results, arrange callback.")
     data["notes"] = [note]
     data["active_note"] = note["id"]
-    data["links"] = [api["new_link"]("Network procedures (demo)", "https://example.invalid/procedures"),
-                     api["new_link"]("Service knowledge base (demo)", "https://example.invalid/kb")]
-    data["shortcut_folders"] = api["shortcut_folders"].normalize(None, data["links"])
-    data["reminders"] = [reminder_store.make_reminder("DEMO-1042 | Customer follow-up",
-        "Confirm service status with the customer (example only).",
-        (datetime.now().astimezone() + timedelta(days=1)).isoformat())]
-    data["tools"].update(target="192.0.2.10", source="local", mac_source="local",
+    data["links"] = [api["new_link"](name, "https://example.invalid/" + slug)
+                     for name, slug in (("Network procedures", "procedures"), ("IPVPN service portal", "ipvpn"),
+                                        ("Equipment knowledge base", "kb"), ("Diagnostics center", "diagnostics"))]
+    layout = api["shortcut_folders"].normalize(None, data["links"])
+    for name, items in (("Operational systems", data["links"][1::2]),
+                        ("Knowledge & procedures", data["links"][::2])):
+        fid = api["shortcut_folders"].add_folder(layout, name)
+        for link in items:
+            api["shortcut_folders"].move(layout, api["shortcut_folders"].link_key(link["id"]),
+                                         api["shortcut_folders"].folder_key(fid), "inside")
+    data["shortcut_folders"] = layout
+    data["reminders"] = [reminder_store.make_reminder(f"{customer} | Customer follow-up",
+        f"Check ERP connectivity and return call. Circuit: {circuit} (demo only).",
+        (datetime.now().astimezone() + timedelta(minutes=30)).isoformat())]
+    data["tools"].update(target=public_ip, source="local", mac_source="local",
                          ports_input="22,443,8080")
     api["save_data"](folder / "data.json", data)
     commands = [
@@ -80,13 +118,13 @@ def seed_profile(api, folder):
         dict(id="demo-"+str(i), machine=m, category=c, description=d, command=cmd)
         for i, (m,c,d,cmd) in enumerate(commands)]}, ensure_ascii=False), encoding="utf-8")
     (folder / "vendors.json").write_text(json.dumps({"updated":"DEMO",
-        "vendors":{"00000C":["Cisco Systems, Inc.", "MA-L"]}}), encoding="utf-8")
+        "vendors":VENDORS}), encoding="utf-8")
     book = Workbook()
     sheet = book.active
     sheet.title = "Demo services"
-    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "IP address"])
-    sheet.append(["DEMO-1042", "Example Business", "DEMO-G01", "DEMO-VRF", "Training site A", "Cisco", "192.0.2.10"])
-    sheet.append(["DEMO-1043", "Example Business", "DEMO-G02", "DEMO-VRF", "Training site B", "Juniper", "192.0.2.20"])
+    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG"])
+    sheet.append([circuit, customer, "DEMO-G01", vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120"])
+    sheet.append(["90021401", "Training customer", "DEMO-G02", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121"])
     path = folder / "demo-services.xlsx"
     book.save(path)
     book.close()
@@ -95,175 +133,257 @@ def seed_profile(api, folder):
 
 
 class Presentation:
-    """A lightweight, in-window guided tour; all widgets live in Pocket's root."""
+    """Desktop-centered speech bubble and independent left-side presenter bar."""
     BG = "#101b30"
     CARD = "#172943"
     ACCENT = "#79e4cf"
     TEXT = "#f5f8ff"
     MUTED = "#b0c1d9"
+    KEY = "#010203"
 
-    def __init__(self, app, api, workbook, *, auto_start=True):
-        self.app, self.api, self.workbook = app, api, workbook
+    def __init__(self, app, api, workbook, scenario, *, auto_start=True):
+        self.app, self.api, self.workbook, self.scenario = app, api, workbook, scenario
         self.index = -1
         self.job = None
-        self.pending = set()
+        self.events = []
+        self.elapsed = 0.
+        self.last = time.monotonic()
+        self.speed = 1.
+        self.manual = False
         self.paused = False
         self.closed = False
         self.smoke = not auto_start
-        self.footer = self.overlay = None
         self.error = ""
         self.action_pending = False
         self.action = None
-        self.deadline = 0
-        self.remaining = 0
         self.root = app.root
         self.root.title("Pocket | FORMGT — DEMO ONLY")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
-        self.root.bind("<Escape>", lambda e: self.close())
-        self.root.bind("<F5>", lambda e: self.restart())
-        self.root.bind("<F6>", lambda e: self.toggle())
-        self.root.bind("<F7>", lambda e: self.previous())
-        self.root.bind("<F8>", lambda e: self.next())
-        self.root.bind("<F9>", lambda e: self.explain())
-        self.ensure_chrome()
+        self.side = tk.Toplevel(self.root)
+        self.side.overrideredirect(True)
+        self.side.attributes("-topmost", True)
+        self.side.configure(bg=self.BG, highlightthickness=1, highlightbackground="#334761")
+        self.side.protocol("WM_DELETE_WINDOW", self.close)
+        self.bubble = tk.Toplevel(self.root)
+        self.bubble.withdraw()
+        self.bubble.overrideredirect(True)
+        self.bubble.attributes("-topmost", True)
+        self.bubble.configure(bg=self.KEY)
+        if sys.platform == "win32":
+            self.bubble.attributes("-transparentcolor", self.KEY)
+        self.canvas = tk.Canvas(self.bubble, bg=self.KEY, highlightthickness=0, bd=0)
+        self.canvas.pack(fill="both", expand=True)
+        self.canvas.bind("<Button-1>", lambda e: self.hide_card())
+        self.card_visible = False
+        self.fade_job = None
+        self.reveal_until = None
+        self.build_side()
+        for seq, handler in (("<F5>", self.restart), ("<F6>", self.toggle),
+                             ("<F7>", self.previous), ("<F8>", self.next),
+                             ("<F9>", self.repeat_card), ("<F10>", self.toggle_mode),
+                             ("<Control-Up>", lambda: self.change_speed(1)),
+                             ("<Control-Down>", lambda: self.change_speed(-1)),
+                             ("<Escape>", self.close)):
+            def key(event, callback=handler):
+                callback()
+                return "break"
+            self.root.bind_all(seq, key, add="+")
+        # Remove the original app Escape handler, otherwise it precedes bind_all.
+        self.root.unbind("<Escape>")
+        self.position()
         if auto_start:
-            self.job = self.root.after(700, self.next)
+            self.root.after(700, self.restart)
+            self.job = self.root.after(50, self.tick)
 
     def widget_alive(self, widget):
         return widget is not None and widget.winfo_exists()
 
-    def ensure_chrome(self):
-        if not self.widget_alive(self.footer):
-            # Reserve only one slim row, rather than covering tool content.
-            outer = next(w for w in self.root.winfo_children()
-                         if w.winfo_manager() == "pack")
-            self.footer = tk.Frame(self.root, bg=self.BG)
-            self.footer.pack(side="bottom", fill="x", before=outer)
-            self.track = tk.Canvas(self.footer, height=3, bg="#293a50",
-                                   highlightthickness=0, bd=0)
-            self.track.pack(fill="x")
-            self.track.bind("<Configure>", lambda e: self.draw_progress())
-            bar = tk.Frame(self.footer, bg=self.BG)
-            bar.pack(fill="x", padx=5, pady=3)
-            self.step_label = tk.Label(bar, bg=self.BG, fg=self.ACCENT,
-                font=("Segoe UI", 8, "bold"), text="FORMGT")
-            self.step_label.pack(side="left", padx=(2, 3))
-            for text, handler in (("×", self.close), ("?", self.explain),
-                                  ("↻", self.restart), ("Next", self.next)):
-                self.button(bar, text, handler).pack(side="right", padx=1)
-            self.pause_button = self.button(bar, "Pause", self.toggle)
-            self.pause_button.pack(side="right", padx=1)
-            self.button(bar, "Back", self.previous).pack(side="right", padx=1)
-        if not self.widget_alive(self.overlay):
-            self.overlay = tk.Frame(self.root, bg=self.CARD,
-                                    highlightbackground=self.ACCENT, highlightthickness=1)
-            self.kicker = tk.Label(self.overlay, bg=self.CARD, fg=self.ACCENT,
-                                   anchor="w", font=("Segoe UI", 9, "bold"))
-            self.kicker.pack(fill="x", padx=11, pady=(6, 0))
-            self.heading = tk.Label(self.overlay, bg=self.CARD, fg=self.TEXT,
-                                    anchor="e", justify="right", font=("Segoe UI", 13, "bold"))
-            self.heading.pack(fill="x", padx=11, pady=(2, 0))
-            self.detail = tk.Label(self.overlay, bg=self.CARD, fg=self.MUTED,
-                                   anchor="e", justify="right", font=("Segoe UI", 10))
-            self.detail.pack(fill="x", padx=11, pady=(1, 7))
-            for w in (self.overlay, self.kicker, self.heading, self.detail):
-                w.bind("<Button-1>", lambda e: self.hide_card())
-        self.draw_progress()
+    def build_side(self):
+        def label(text, size=9, fg=None):
+            w = tk.Label(self.side, text=text, bg=self.BG, fg=fg or self.MUTED,
+                         font=("Segoe UI", size, "bold"))
+            w.pack(fill="x", padx=5, pady=3)
+            return w
+        label("FORMGT", 9, self.ACCENT)
+        self.step_label = label("00 / 14", 10, self.TEXT)
+        self.track = tk.Canvas(self.side, height=4, bg="#293a50", highlightthickness=0)
+        self.track.pack(fill="x", padx=8, pady=(0, 6))
+        self.pause_button = self.button("Pause", self.toggle)
+        for text, cb in (("Next ›", self.next), ("‹ Back", self.previous),
+                         ("Replay", self.restart), ("Explain", self.repeat_card)):
+            self.button(text, cb)
+        self.mode_button = self.button("AUTO", self.toggle_mode)
+        self.button("+ Faster", lambda: self.change_speed(1))
+        self.speed_label = label("1×", 15, self.ACCENT)
+        self.button("− Slower", lambda: self.change_speed(-1))
+        self.button("Exit", self.close)
+        label("F5–F10", 8)
 
-    def button(self, parent, label, handler):
-        return tk.Button(parent, text=label, command=handler, bg="#243852", fg=self.TEXT,
-                         activebackground="#385778", activeforeground=self.TEXT,
-                         relief="flat", bd=0, padx=7, pady=2, cursor="hand2",
-                         font=("Segoe UI", 9, "bold"), takefocus=True)
+    def button(self, text, callback):
+        w = tk.Button(self.side, text=text, command=callback, bg="#243852", fg=self.TEXT,
+                      activebackground="#385778", activeforeground=self.TEXT,
+                      relief="flat", bd=0, padx=6, pady=5, cursor="hand2",
+                      font=("Segoe UI", 9, "bold"))
+        w.pack(fill="x", padx=7, pady=2)
+        return w
+
+    def area(self):
+        r = self.root
+        r.update_idletasks()
+        return self.app._screen_work_area(r.winfo_rootx()+r.winfo_width()//2,
+                                          r.winfo_rooty()+r.winfo_height()//2)
+
+    def position(self):
+        left, top, right, bottom = self.area()
+        self.side.update_idletasks()
+        h = self.side.winfo_reqheight()
+        self.side.geometry(f"108x{h}{left+12:+d}{top+max(5,(bottom-top-h)//2):+d}")
+        self.side.lift()
 
     def draw_progress(self):
-        if not self.widget_alive(self.footer):
-            return
+        width = max(1, self.track.winfo_width())
         self.track.delete("all")
-        width = self.track.winfo_width()
-        self.track.create_rectangle(0, 0, width * max(0, self.index+1)/len(STEPS),
-                                    3, fill=self.ACCENT, outline="")
+        self.track.create_rectangle(0, 0, width*(self.index+1)/len(STEPS), 4,
+                                    fill=self.ACCENT, outline="")
+
+    def refresh(self):
+        status = "SIM" if self.action == "ports" else ("MAN" if self.manual else "DEMO")
+        self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d} {status}")
+        self.pause_button.configure(text="Play" if self.paused else "Pause")
+        self.mode_button.configure(text="MANUAL" if self.manual else "AUTO")
+        self.speed_label.configure(text=f"{self.speed:g}×")
+        self.draw_progress()
+
+    def change_speed(self, amount):
+        self.speed = SPEEDS[max(0, min(len(SPEEDS)-1, SPEEDS.index(self.speed)+amount))]
+        self.refresh()
+
+    def toggle_mode(self):
+        self.manual = not self.manual
+        self.refresh()
+
+    def toggle(self):
+        self.paused = not self.paused
+        self.last = time.monotonic()
+        self.refresh()
 
     def later(self, ms, callback):
-        """Cancel stale delayed actions when a presenter skips or restarts."""
-        marker = [None]
-        def run():
-            self.pending.discard(marker[0])
-            if not self.closed:
-                callback()
-        marker[0] = self.root.after(ms, run)
-        self.pending.add(marker[0])
+        self.events.append((self.elapsed + ms, callback))
 
     def cancel(self):
-        if self.job is not None:
-            self.root.after_cancel(self.job)
-            self.job = None
-        for marker in self.pending:
-            self.root.after_cancel(marker)
-        self.pending.clear()
+        self.events.clear()
+
+    def tick(self):
+        if self.closed:
+            return
+        now = time.monotonic()
+        delta = min(250., (now-self.last)*1000)
+        self.last = now
+        if not self.paused:
+            self.elapsed += delta*self.speed
+            try:
+                while self.events:
+                    due, cb = min(self.events, key=lambda item: item[0])
+                    if due > self.elapsed:
+                        break
+                    self.events.remove((due, cb))
+                    cb()
+                duration = STEPS[self.index][3] if self.index >= 0 else 0
+                if duration and self.elapsed >= duration and not self.manual and not self.events:
+                    state = self.api["extra_excel_ui"].session(self.app)
+                    if not (self.app.scanning or state["busy"]):
+                        self.next()
+            except Exception as exc:
+                self.fail(exc)
+        if self.reveal_until is not None and now >= self.reveal_until:
+            self.reveal_until = None
+            if self.action != "summary" and not self.error:
+                self.hide_card()
+        self.job = self.root.after(50, self.tick)
+
+    def fade(self, value=0.35):
+        if not self.card_visible:
+            return
+        try:
+            self.bubble.attributes("-alpha", value)
+        except tk.TclError:
+            return
+        if value < 0.96:
+            self.fade_job = self.root.after(30, lambda: self.fade(min(0.96,value+0.17)))
+        else:
+            self.fade_job = None
 
     def hide_card(self):
-        if self.widget_alive(self.overlay):
-            self.overlay.place_forget()
+        if self.fade_job is not None:
+            self.root.after_cancel(self.fade_job)
+            self.fade_job = None
+        self.card_visible = False
+        self.bubble.withdraw()
 
     def explain(self):
         if self.index < 0:
             return
-        self.ensure_chrome()
+        from PIL import Image, ImageDraw, ImageTk
         name, headline, detail, _, key = STEPS[self.index]
-        self.kicker.configure(text=f"FORMGT  /  {self.index+1:02d}   {name}")
-        self.heading.configure(text=headline, wraplength=max(260, self.root.winfo_width()-42))
-        if key == "summary":
-            detail = ("30 sec × 20 calls × 50 agents × 22 days = 183 hours/month\n"
-                      "תרחיש להמחשה בלבד · לא תוצאות מדידה")
         if self.error:
             detail = self.error
-        self.detail.configure(text=detail, wraplength=max(260, self.root.winfo_width()-42))
-        # Header/nav only; reveal the underlying tool before its action runs.
-        self.overlay.place(relx=0, rely=0, x=6, y=5, relwidth=1, width=-12)
-        self.overlay.lift()
+        left, top, right, bottom = self.area()
+        width = min(580, right-left-40)
+        height = 268 if key == "summary" else 166
+        self.canvas.configure(width=width, height=height)
+        # Render a truly rounded, transparent-key silhouette on Windows.
+        image = Image.new("RGB", (width, height), self.KEY)
+        draw = ImageDraw.Draw(image)
+        draw.rounded_rectangle((8, 7, width-8, height-8), radius=30,
+                               fill=self.CARD, outline="#628c9c", width=1)
+        self.bubble_photo = ImageTk.PhotoImage(image, master=self.bubble)
+        self.canvas.delete("all")
+        self.canvas.create_image(0, 0, image=self.bubble_photo, anchor="nw")
+        self.canvas.create_text(width/2, 29, text=f"{name}  •  {self.index+1:02d}/{len(STEPS):02d}",
+                                fill=self.ACCENT, font=("Segoe UI", 10, "bold"))
+        self.canvas.create_text(width/2, 64, text=headline, width=width-60,
+                                fill=self.TEXT, font=("Segoe UI", 18, "bold"), justify="center")
+        self.canvas.create_text(width/2, 108, text=detail, width=width-60,
+                                fill=self.MUTED, font=("Segoe UI", 12), justify="center")
+        if key == "summary":
+            self.canvas.create_text(width/2, 154, text="183 שעות בחודש", fill=self.ACCENT,
+                                    font=("Segoe UI", 26, "bold"))
+            self.canvas.create_text(width/2, 192, text="30 sec × 20 calls × 50 agents × 22 days",
+                                    fill=self.TEXT, font=("Segoe UI", 11))
+            self.canvas.create_text(width/2, 222, text="תרחיש להמחשה בלבד · לא תוצאות מדידה",
+                                    fill=self.MUTED, font=("Segoe UI", 11))
+        else:
+            self.canvas.create_line(width/2-35, 143, width/2+35, 143,
+                                    fill=self.ACCENT, width=3, capstyle="round")
+        self.bubble.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{top+(bottom-top-height)//2:+d}")
+        if self.fade_job is not None:
+            self.root.after_cancel(self.fade_job)
+            self.fade_job = None
+        self.card_visible = True
+        self.bubble.deiconify()
+        self.bubble.lift()
+        self.side.lift()
+        if not self.smoke:
+            self.fade()
+
+    def repeat_card(self):
+        self.explain()
+        self.reveal_until = time.monotonic()+3.0/self.speed
 
     def next(self):
-        if self.index == len(STEPS)-1:
-            return
-        self.go(self.index+1)
+        if self.index < len(STEPS)-1:
+            self.go(self.index+1)
 
     def previous(self):
-        self.go(max(0, self.index-1))
-
-    def toggle(self):
-        if self.index < 0 or self.index == len(STEPS)-1:
-            return
-        if self.paused:
-            self.paused = False
-            self.pause_button.configure(text="Pause")
-            if self.error:
-                self.go(self.index)
-                return
-            if self.action_pending:
-                self.perform_action()
-            self.hide_card()
-            self.schedule(max(1000, self.remaining))
-        else:
-            self.remaining = max(0, int((self.deadline-time.monotonic())*1000))
-            self.paused = True
-            self.cancel()
-            self.pause_button.configure(text="Play")
-            self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d} · PAUSE")
+        self.go(max(0,self.index-1))
 
     def restart(self):
-        self.cancel()
         self.paused = False
         self.go(0)
 
-    def schedule(self, delay):
-        self.deadline = time.monotonic() + delay/1000
-        self.job = self.root.after(delay, self.next)
-
     def close_palette(self):
         dialog = getattr(self.app, "_quick_search_dialog", None)
-        if dialog is not None and dialog.winfo_exists():
-            # Invoke the palette's real close handler (native focus cleanup).
+        if self.widget_alive(dialog):
             handler = dialog.protocol("WM_DELETE_WINDOW")
             if handler:
                 dialog.tk.call(handler)
@@ -290,40 +410,34 @@ class Presentation:
             a._set_display_mode("dashboard")
             a.show_tab("home" if a.display_mode == "dashboard" else "notes")
         else:
-            tab = {"intro":"notes", "palette":"notes", "switch_extra":"subnet",
+            tab = {"intro":"notes", "palette":"notes", "switch_extra":"ports",
                    "return_extra":"extra"}.get(key, key)
             a.show_tab(tab)
-        self.ensure_chrome()
+        self.position()
 
     def go(self, index):
         self.cancel()
         self.close_palette()
         self.hide_card()
+        self.reveal_until = None
         self.index = index
+        self.elapsed = 0.
+        self.last = time.monotonic()
         self.error = ""
         self.action_pending = True
-        _, _, _, delay, key = STEPS[index]
-        self.action = key
+        self.action = STEPS[index][4]
         try:
-            self.show_tool(key)
-            self.root.update_idletasks()
-            self.step_label.configure(text=f"{index+1:02d}/{len(STEPS):02d} · " + ("SIM" if key == "ports" else "DEMO"))
-            self.pause_button.configure(text="Play" if self.paused else "Ⅱ")
+            self.show_tool(self.action)
+            self.refresh()
             self.explain()
-            if self.smoke:
+            if self.action == "summary":
+                self.action_pending = False
+            elif self.smoke or self.paused:
                 self.hide_card()
                 self.perform_action()
-            elif not self.paused:
-                if key != "summary":
-                    self.later(2600, self.hide_card)
-                    self.later(2800, self.perform_action)
-                else:
-                    self.action_pending = False
             else:
-                self.hide_card()
-                self.perform_action()
-            if delay and not self.paused:
-                self.schedule(delay)
+                self.later(2300, self.hide_card)
+                self.later(2500, self.perform_action)
         except Exception as exc:
             self.fail(exc)
 
@@ -331,8 +445,7 @@ class Presentation:
         self.cancel()
         self.paused = True
         self.error = f"Demo paused: {type(exc).__name__}: {exc}"
-        self.ensure_chrome()
-        self.pause_button.configure(text="Play")
+        self.refresh()
         self.explain()
 
     def scroll_to(self, widget=None, fraction=None):
@@ -365,8 +478,8 @@ class Presentation:
             a.command_query.set("show ip interface brief")
             a._refresh_command_results()
         elif key == "subnet":
-            a.subnet_ip_var.set("192.0.2.10")
-            a.subnet_prefix_var.set("26")
+            a.subnet_ip_var.set(WAN_IP)
+            a.subnet_prefix_var.set("29")
             a._calculate_subnet()
             if not self.smoke:
                 self.later(900, lambda: self.scroll_to(a.subnet_fact_labels["cidr"]))
@@ -377,7 +490,7 @@ class Presentation:
                 a.scan_token += 1
                 a.scanning = False
             a.port_source.set("local")
-            a.host_var.set("192.0.2.10")
+            a.host_var.set(self.scenario["public_ip"])
             a.ports_var.set("22,443,8080")
             a._start_scan()
             if not self.smoke:
@@ -385,25 +498,25 @@ class Presentation:
         elif key == "mac":
             a.mac_source.set("local")
             a.mac_input.delete("1.0", "end")
-            a.mac_input.insert("1.0", "00:00:0C:12:34:56")
+            a.mac_input.insert("1.0", "\n".join(MACS))
             a._run_mac_lookup()
             if not self.smoke:
                 self.later(900, lambda: self.scroll_to(a.mac_tree))
         elif key == "extra":
             a._extra_excel_path = str(self.workbook)
-            a._extra_palette_search("DEMO-1042")
+            a._extra_palette_search(self.scenario["circuit"])
             if not self.smoke:
                 self.later(1500, lambda: self.scroll_to(fraction=0.48))
         elif key == "return_extra":
             # Manual jumps may reach this chapter before the first search.
             state = self.api["extra_excel_ui"].session(a)
             if not state["hits"] and not state["busy"]:
-                a._extra_palette_search("DEMO-1042")
+                a._extra_palette_search(self.scenario["circuit"])
             if not self.smoke:
                 self.later(1000, lambda: self.scroll_to(fraction=0.48))
         elif key == "palette":
             a._open_global_search()
-            a._palette_entry.insert(0, "> subnet 192.0.2.10/26")
+            a._palette_entry.insert(0, "< extra " + self.scenario["circuit"])
             if not self.smoke:
                 self.later(2400, self.execute_palette_demo)
         elif key == "summary":
@@ -414,7 +527,7 @@ class Presentation:
         dialog = getattr(a, "_quick_search_dialog", None)
         if not self.widget_alive(dialog):
             return
-        hit = self.api["command_palette"].command("subnet 192.0.2.10/26", a.settings)
+        hit = self.api["command_palette"].command("extra " + self.scenario["circuit"], a.settings)
         if hit is None:
             self.fail(ValueError("Demo palette action not recognized"))
             return
@@ -426,6 +539,9 @@ class Presentation:
             return
         self.closed = True
         self.cancel()
+        if self.job is not None:
+            self.root.after_cancel(self.job)
+        self.hide_card()
         self.app._extra_excel_cancel.set()
         self.app.scan_cancel.set()
         self.app.tasks.stop()
@@ -456,7 +572,8 @@ def run(api, *, smoke=False):
         filedialog.askopenfilenames = lambda *a, **kw: ()
         filedialog.asksaveasfilename = lambda *a, **kw: ""
         filedialog.askdirectory = lambda *a, **kw: ""
-        workbook = seed_profile(api, folder)
+        scenario = dict(DEFAULT_SCENARIO) if smoke else load_scenario()
+        workbook = seed_profile(api, folder, scenario)
         class DemoApp(api["PocketDesk"]):
             def hide(self):
                 controller = getattr(self, "_formgt", None)
@@ -477,9 +594,9 @@ def run(api, *, smoke=False):
             def _update_vendors(self):
                 pass
         app = DemoApp(preview=True)
-        for snippet in ("DEMO-1042", "192.0.2.10", "show ip interface brief"):
+        for snippet in (scenario["circuit"], scenario["public_ip"], WAN_IP, "show ip interface brief"):
             api["clipboard_add"](app.clipboard_items, snippet)
-        presentation = Presentation(app, api, workbook, auto_start=not smoke)
+        presentation = Presentation(app, api, workbook, scenario, auto_start=not smoke)
         app._formgt = presentation
         if smoke:
             try:
@@ -497,15 +614,15 @@ def run(api, *, smoke=False):
                         raise AssertionError(presentation.error)
                     if step[4] != "summary":
                         assert app.display_mode == "mini", "Expected Mini mode"
-                    assert presentation.footer.winfo_ismapped(), "Missing integrated controller"
+                    assert presentation.side.winfo_ismapped(), "Missing integrated controller"
                     if step[4] in ("extra", "return_extra"):
                         state = api["extra_excel_ui"].session(app)
-                        assert state["hits"] and state["query"] == "DEMO-1042", "EXTRA demo record missing"
+                        assert state["hits"] and state["query"] == scenario["circuit"], "EXTRA demo record missing"
                         assert state["selected"] == 0, "EXTRA selection missing"
                     if step[4] == "palette":
                         assert app._quick_search_dialog is not None, "Palette did not open"
                         presentation.execute_palette_demo()
-                        assert app.current_tab == "subnet", "Palette action did not navigate"
+                        assert app.current_tab == "extra", "Palette action did not navigate"
                     if step[4] == "commands":
                         assert app.command_filtered, "CLI results missing"
                     if step[4] == "subnet":
@@ -513,13 +630,13 @@ def run(api, *, smoke=False):
                     if step[4] == "ports":
                         assert len(app.port_results) == 3, "Simulated TCP results missing"
                     if step[4] == "mac":
-                        assert app.mac_results, "MAC results missing"
+                        assert len(app.mac_results) == 4, "Expected four MAC results"
                     if step[4] == "summary":
-                        assert presentation.overlay.winfo_ismapped(), "Missing final impact card"
+                        assert presentation.bubble.winfo_ismapped(), "Missing final impact card"
                 presentation.restart()
                 app.root.update()
                 assert app.display_mode == "mini", "Replay did not restore Mini"
-                assert presentation.footer.winfo_ismapped(), "Replay controller missing"
+                assert presentation.side.winfo_ismapped(), "Replay controller missing"
                 print("FORMGT smoke: all presentation steps completed")
             finally:
                 presentation.close()

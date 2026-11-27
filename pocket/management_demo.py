@@ -158,6 +158,7 @@ class Presentation:
         self.action = None
         self.root = app.root
         self.root.title("Pocket | FORMGT — DEMO ONLY")
+        self.root.attributes("-topmost", True)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.side = tk.Toplevel(self.root)
         self.side.overrideredirect(True)
@@ -190,10 +191,40 @@ class Presentation:
             self.root.bind_all(seq, key, add="+")
         # Remove the original app Escape handler, otherwise it precedes bind_all.
         self.root.unbind("<Escape>")
+        if sys.platform == "win32":
+            # Native EDIT/RichEdit controls may consume Tk key events. Poll only
+            # presenter keys, only while a window of THIS process has focus.
+            self.win_keys = {}
+            self.root.after(40, self.poll_presenter_keys)
+            for seq in ("<F5>", "<F6>", "<F7>", "<F8>", "<F9>", "<F10>", "<Control-Up>", "<Control-Down>"):
+                self.root.unbind_all(seq)
         self.position()
         if auto_start:
             self.root.after(700, self.restart)
             self.job = self.root.after(50, self.tick)
+
+    def poll_presenter_keys(self):
+        if self.closed:
+            return
+        import ctypes
+        from ctypes import wintypes
+        import os
+        user = ctypes.windll.user32
+        user.GetForegroundWindow.restype = wintypes.HWND
+        pid = wintypes.DWORD()
+        user.GetWindowThreadProcessId(user.GetForegroundWindow(), ctypes.byref(pid))
+        ctrl = bool(user.GetAsyncKeyState(0x11) & 0x8000)
+        actions = {0x74: self.restart, 0x75: self.toggle, 0x76: self.previous,
+                   0x77: self.next, 0x78: self.repeat_card, 0x79: self.toggle_mode,
+                   0x26: lambda: self.change_speed(1), 0x28: lambda: self.change_speed(-1)}
+        for vk, callback in actions.items():
+            down = bool(user.GetAsyncKeyState(vk) & 0x8000)
+            pressed = down and not self.win_keys.get(vk, False)
+            self.win_keys[vk] = down
+            if pid.value == os.getpid() and pressed and (vk not in (0x26,0x28) or ctrl):
+                callback()
+        if not self.closed:
+            self.root.after(40, self.poll_presenter_keys)
 
     def widget_alive(self, widget):
         return widget is not None and widget.winfo_exists()
@@ -263,6 +294,10 @@ class Presentation:
         self.refresh()
 
     def toggle(self):
+        if self.error:
+            self.paused = False
+            self.go(self.index)
+            return
         self.paused = not self.paused
         self.last = time.monotonic()
         self.refresh()
@@ -471,12 +506,26 @@ class Presentation:
         except Exception as exc:
             self.fail(exc)
 
+    def type_text(self, setter, value, done=None):
+        if self.smoke or self.paused:
+            setter(value)
+            if done:
+                done()
+            return
+        setter("")
+        for i in range(1, len(value)+1, 2):
+            self.later(65*i, lambda n=i: setter(value[:n]))
+        self.later(65*(len(value)+1), lambda: setter(value))
+        if done:
+            self.later(65*(len(value)+2), done)
+
     def apply(self, key):
         a = self.app
         if key == "commands":
             a._command_focus_in()
-            a.command_query.set("show ip interface brief")
-            a._refresh_command_results()
+            a.machine_var.set("Cisco")
+            a._change_machine()
+            self.type_text(a.command_query.set, "show ip interface brief", a._refresh_command_results)
         elif key == "subnet":
             a.subnet_ip_var.set(WAN_IP)
             a.subnet_prefix_var.set("29")
@@ -500,8 +549,10 @@ class Presentation:
             a.mac_input.delete("1.0", "end")
             a.mac_input.insert("1.0", "\n".join(MACS))
             a._run_mac_lookup()
+            if not a.mac_vendor_expanded:
+                a._toggle_mac_summary()
             if not self.smoke:
-                self.later(900, lambda: self.scroll_to(a.mac_tree))
+                self.later(900, lambda: self.scroll_to(a.mac_summary_panel))
         elif key == "extra":
             a._extra_excel_path = str(self.workbook)
             a._extra_palette_search(self.scenario["circuit"])
@@ -516,9 +567,12 @@ class Presentation:
                 self.later(1000, lambda: self.scroll_to(fraction=0.48))
         elif key == "palette":
             a._open_global_search()
-            a._palette_entry.insert(0, "< extra " + self.scenario["circuit"])
+            def set_palette(value):
+                a._palette_entry.delete(0, "end")
+                a._palette_entry.insert(0, value)
+            self.type_text(set_palette, "< extra " + self.scenario["circuit"])
             if not self.smoke:
-                self.later(2400, self.execute_palette_demo)
+                self.later(2300, self.execute_palette_demo)
         elif key == "summary":
             self.explain()
 
@@ -559,6 +613,7 @@ def run(api, *, smoke=False):
         portable_storage.data_directory = lambda *a, **kw: folder
         portable_storage.is_portable = lambda *a, **kw: True
         network_tools.scan_tcp_ports = simulated_ports
+        network_tools.check_tcp_port = lambda ip, port, *a, **kw: next(simulated_ports(ip, [port]))
         dashdash_ports.check_remote_ports = lambda ip, ports, **kw: list(simulated_ports(ip, ports))
         def blocked(*args, **kwargs):
             raise RuntimeError("Disabled in FORMGT demo")
@@ -575,6 +630,24 @@ def run(api, *, smoke=False):
         scenario = dict(DEFAULT_SCENARIO) if smoke else load_scenario()
         workbook = seed_profile(api, folder, scenario)
         class DemoApp(api["PocketDesk"]):
+            def _build_shell_refresh(self):
+                # Preserve independent presenter windows across layout rebuilds.
+                self._flush_current_note()
+                api["extra_excel_ui"].detach(self)
+                for child in self.root.winfo_children():
+                    if not isinstance(child, tk.Toplevel):
+                        child.destroy()
+                self._header_context_menu = None
+                self._build_shell()
+                self.show_tab(self.current_tab)
+                self._install_resize_handles()
+                self._place_popup(self._last_tray_xy)
+            def _choose_theme(self, name):
+                pass  # Keep the presentation styling stable.
+            def _poll_events(self):
+                super()._poll_events()
+                if self.current_tab == "ports" and not self.scanning and self.port_results:
+                    self.scan_info.config(text="SIMULATED TCP results · no network traffic")
             def hide(self):
                 controller = getattr(self, "_formgt", None)
                 if controller is not None:
@@ -631,8 +704,17 @@ def run(api, *, smoke=False):
                         assert len(app.port_results) == 3, "Simulated TCP results missing"
                     if step[4] == "mac":
                         assert len(app.mac_results) == 4, "Expected four MAC results"
+                        names = [row["vendor"] for row in app.mac_results]
+                        assert sum("Cisco" in name for name in names) == 2
+                        assert sum("Alcatel" in name for name in names) == 1
+                        assert sum("FortiGate" in name for name in names) == 1
                     if step[4] == "summary":
                         assert presentation.bubble.winfo_ismapped(), "Missing final impact card"
+                presentation.change_speed(1)
+                assert presentation.speed == 1.25
+                presentation.toggle_mode()
+                assert presentation.manual
+                presentation.toggle_mode()
                 presentation.restart()
                 app.root.update()
                 assert app.display_mode == "mini", "Replay did not restore Mini"

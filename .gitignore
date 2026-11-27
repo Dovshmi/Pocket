@@ -50,3 +50,6 @@ preview-*.png
 **/extra_excel_index.sqlite3
 **/extra_excel_index.sqlite3-*
 **/.pocket-extra-*.sqlite3
+
+# Local management-demo scenario may contain approved internal identifiers.
+**/formgt-scenario.local.json

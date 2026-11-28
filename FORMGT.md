@@ -17,7 +17,7 @@ Build on a Windows development PC with Python 3.11 x64 using `BUILD-FORMGT.bat`.
 
 Mini introduction → Notes → Shortcuts → Commands → Subnet → simulated Ports → MAC → Clipboard → Reminders → Extra → switch tools → restore Extra → Ctrl+K → Dashboard business impact.
 
-The speech bubble appears at desktop center, fades in, then clears before the tool action. Long results are scrolled into view automatically. The left-side controller is independent of Pocket's window layout. Speed (0.5×–3×) rescales the active timeline, including bubble dwell, typing and auto-advance. Manual mode completes the current step but waits for Next. Pause freezes the presentation timeline, not already-started local workers. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
+The speech bubble appears at desktop center, fades in, then clears before the tool action. Long results are scrolled into view automatically. The left-side controller is independent of Pocket's window layout. Five independent timing channels (Step, Bubble Hold, Fade In, Fade Out and Typing) support 0.10×, 0.25×, 0.50×, 0.75×, 1×, 1.25×, 1.5×, 2× and 3×, with live changes. Step controls result dwell; bubble fade/hold and typing finish before automatic advance. Pocket uses the original borderless window style. Larger Hebrew captions are designed for projection; optional Dim darkens the desktop only while a bubble is visible. Temporary result outlines draw attention to the active tool. Manual mode completes the current step but waits for Next. Pause freezes the presentation timeline, not already-started local workers. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
 
 | Control | Keyboard |
 | --- | --- |
@@ -27,11 +27,13 @@ The speech bubble appears at desktop center, fades in, then clears before the to
 | Next | F8 |
 | Show explanation again | F9 |
 | Toggle Auto / Manual | F10 |
-| Faster | Ctrl+Up |
-| Slower | Ctrl+Down |
+| Select timing channel | F11 |
+| Reset all rates | F12 |
+| Faster (selected channel) | Ctrl+Up |
+| Slower (selected channel) | Ctrl+Down |
 | Exit | Esc or side button |
 
-Presenter shortcuts work while a FORMGT process window has focus; the real Ctrl+K popup uses Escape to dismiss itself. The automatic run takes about 90 seconds, ending at the summary. Replay returns to Mini.
+Presenter shortcuts work while a FORMGT process window has focus; the real Ctrl+K popup uses Escape to dismiss itself. The automatic run takes roughly 90 seconds at default timing, ending at the summary. Replay returns to Mini.
 
 ## Local scenario (optional)
 
@@ -55,4 +57,4 @@ The demo creates a fresh temporary synthetic profile, command catalog, Excel wor
 py -3 app.pyw --formgt-smoke
 ```
 
-The smoke check visits every chapter, checks Mini mode, integrated controls, Extra results/selection, CLI matching, subnet calculation, simulated TCP, offline MAC, palette navigation and replay. A separate workflow builds a Windows distribution only after the smoke test passes. Before presenting, manually verify Hebrew layout, native Windows focus and display scaling on the intended machine.
+The smoke check visits every chapter, checks Mini mode, independent timing clocks, borderless appearance, side controls, Extra results/selection, CLI matching, subnet calculation, simulated TCP, offline MAC, palette navigation and replay. A separate workflow builds a Windows distribution only after the smoke test passes. Before presenting, manually verify Hebrew layout, native Windows focus and display scaling on the intended machine.

@@ -31,6 +31,9 @@ def detach(app):
         snapshot()
     app._extra_snapshot = None
     app._extra_render = None
+    app._formgt_extra_input = None
+    app._formgt_extra_results = None
+    app._formgt_extra_details = None
 
 
 def build(app, parent):
@@ -151,6 +154,8 @@ def build(app, parent):
     search_line.pack(fill="x", padx=10, pady=(0, 4 if compact else 6))
     entry = design.entry(search_line, search_var, app.theme, compact=compact)
     entry.pack(side="left", fill="x", expand=True, padx=(0, 6))
+    # Presentation-only handles; normal search behavior is unchanged.
+    app._formgt_extra_input = (entry, search_var)
     if not compact:
         label(search_panel, "Any column · group code · customer · IP · VRF · VDOM · VLAN",
               bg=colors["PANEL"], muted=True, size=8,
@@ -202,6 +207,7 @@ def build(app, parent):
     result_list.configure(yscrollcommand=list_scroll.set)
     list_scroll.pack(side="right", fill="y", padx=(3, 0) if compact else (0, 0))
     result_list.pack(side="left", fill="both", expand=True)
+    app._formgt_extra_results = result_list
 
     if compact:
         def scroll_outer_instead_of_matches(event):
@@ -240,6 +246,7 @@ def build(app, parent):
     # columns are available on demand in a bounded, scrollable text area.
     detail_wrap = tk.Frame(details_panel, bg=colors["INPUT"])
     detail_wrap.pack(fill="x", padx=9, pady=(0, 7))
+    app._formgt_extra_details = detail_wrap
     overview_content = tk.Frame(detail_wrap, bg=colors["INPUT"])
     overview_content.pack(fill="x", padx=9, pady=(6, 4))
     expand_button = design.button(

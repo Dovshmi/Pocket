@@ -281,6 +281,14 @@ def convert_selection(converter, *, target_hwnd, owner_hwnd=0, backend=None):
         raise MarkError("The original text window is no longer active.")
     if not backend.wait_keys_up():
         raise MarkError("Release the shortcut keys and try again.")
+    # Match Quick Slots: allow the original modifier key-up messages to
+    # reach the focused control before injecting Ctrl+C. Never copy from
+    # a newly focused window, including while OLE takes its snapshot.
+    settle = getattr(backend, "settle_hotkey_release", None)
+    if settle is not None:
+        settle()
+    if backend.foreground() != target_hwnd:
+        raise MarkError("The active window changed before the text was copied.")
 
     with backend.preserve_clipboard() as restore:
         copied_sequence = None
@@ -288,6 +296,8 @@ def convert_selection(converter, *, target_hwnd, owner_hwnd=0, backend=None):
         result = None
         try:
             before = backend.sequence()
+            if backend.foreground() != target_hwnd:
+                return MarkResult(False, "The active window changed before the text was copied.")
             backend.send_key("C")
             if not backend.wait_for_sequence_change(before):
                 result = MarkResult(False, "Select text first; no fresh copy was detected.")

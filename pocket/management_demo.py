@@ -16,7 +16,8 @@ CHANNELS = ("step", "hold", "appear", "disappear", "typing")
 CHANNEL_LABELS = {"step": "STEP", "hold": "BUBBLE HOLD", "appear": "FADE IN",
                   "disappear": "FADE OUT", "typing": "TYPING"}
 DEFAULT_SCENARIO = {"customer": "Orion Logistics", "circuit": "90021400",
-                    "vrf": "VRF-BUS-ERP", "public_ip": "192.0.2.52"}
+                    "vrf": "VRF-BUS-ERP", "public_ip": "192.0.2.52",
+                    "vpn_users": "ALEX, JORDAN", "phone": "", "port": "10443"}
 WAN_IP = "10.178.24.14"
 MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
         "00:80:9F:24:71:13", "00:09:0F:24:71:14")
@@ -33,31 +34,37 @@ def load_scenario():
     if not path.is_file():
         return dict(DEFAULT_SCENARIO)
     data = json.loads(path.read_text(encoding="utf-8-sig"))
-    if not isinstance(data, dict) or set(data) != set(DEFAULT_SCENARIO):
+    if not isinstance(data, dict) or not {"customer", "circuit", "vrf", "public_ip"} <= set(data) <= set(DEFAULT_SCENARIO):
         raise ValueError("Invalid FORMGT scenario fields")
-    if any(not isinstance(v, str) or not v.strip() or len(v) > 80 or not v.isprintable() for v in data.values()):
+    data = {**DEFAULT_SCENARIO, **data}
+    if any(not isinstance(v, str) or (k != "phone" and not v.strip()) or len(v) > 80 or (v and not v.isprintable()) for k, v in data.items()):
         raise ValueError("Invalid FORMGT scenario values")
     if not data["circuit"].isascii() or not data["circuit"].isdigit():
         raise ValueError("Circuit must contain digits only")
     data["public_ip"] = str(ipaddress.IPv4Address(data["public_ip"]))
+    if not data["port"].isascii() or not data["port"].isdigit() or not 1 <= int(data["port"]) <= 65535:
+        raise ValueError("Invalid demo port")
     return data
 
 
+def note_text(scenario):
+    users = "\n".join(name.strip() for name in scenario["vpn_users"].split(",") if name.strip())
+    return f"לקוח ביקש להוסיף יוזר VPN\n{users}\n\nIP: {scenario['public_ip']}\nPORT: {scenario['port']}\n\nDEMO בלבד"
+
+
 STEPS = (
-    ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת שמרכזת את הכלים הדרושים לנציג.", 5500, "intro"),
-    ("NOTES", "מתעדים תוך כדי טיפול", "שמירת פרטי הלקוח והתקלה ללא מעבר בין יישומים.", 7000, "notes"),
-    ("SHORTCUTS", "הגישה למידע מתחילה בלחיצה", "ריכוז קישורים, מערכות ונהלים מקצועיים.", 6000, "links"),
-    ("COMMANDS", "הידע המקצועי תמיד בהישג יד", "פחות חיפוש פקודות, יותר זמן לאבחון התקלה.", 9000, "commands"),
-    ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישובי רשת מדויקים ללא שימוש בכלים חיצוניים.", 8000, "subnet"),
-    ("PORTS", "אבחון ממוקד ומהיר", "תוצאות TCP מדומות בלבד · ללא תעבורה לרשת.", 9000, "ports"),
-    ("MAC", "מזהים את הציוד בשניות", "זיהוי יצרנים מקומי וסיכום ציוד לפי יצרן.", 8000, "mac"),
-    ("CLIPBOARD", "לא מקלידים את אותו מידע פעמיים", "שימוש חוזר במידע שכבר נאסף במהלך הטיפול.", 7000, "clipboard"),
-    ("REMINDERS", "הטיפול לא מסתיים בשיחה", "מעקב אחר משימות פתוחות והתחייבויות ללקוח.", 7000, "reminders"),
-    ("EXTRA", "המידע הנכון, ברגע הנכון", "איתור פרטי השירות ללא מעבר בין קבצים ומערכות.", 10000, "extra"),
-    ("WORKFLOW", "רצף עבודה ללא הפרעות", "מעבר לבדיקת פורטים בלי לאבד את המידע שכבר נמצא.", 5000, "switch_extra"),
-    ("EXTRA", "ממשיכים בדיוק מהמקום שעצרנו", "תוצאות החיפוש נשארות זמינות לאורך הטיפול.", 6000, "return_extra"),
-    ("CTRL+K", "כל פעולה במרחק קיצור אחד", "גישה ישירה וחכמה לכלי העבודה.", 8000, "palette"),
-    ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "קיצור פעולות תפעוליות ויצירת סביבת עבודה אחידה.", 0, "summary"),
+    ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת לצד מערכות העבודה הקיימות.", 5500, "intro"),
+    ("NOTES", "מתעדים תוך כדי טיפול", "תיעוד בקשת VPN ושמירה אוטומטית של פרטי הטיפול.", 11000, "notes"),
+    ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "נהלים ומערכות מסודרים בתיקיות מוכנות לשימוש.", 6500, "links"),
+    ("COMMANDS", "הידע המקצועי בהישג יד", "חיפוש פקודות לפי יצרן ושמירת פקודה לשימוש חוזר.", 11000, "commands"),
+    ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישוב רשת וטווח כתובות, כולל חלוקה לתת־רשתות.", 12000, "subnet"),
+    ("PORTS", "אבחון ממוקד ומהיר", "בדיקת יעד ופורטים · תוצאות מדומות בלבד.", 11500, "ports"),
+    ("MAC VENDOR", "מזהים ארבעה התקנים בפעולה אחת", "שני Cisco, אחד Alcatel ואחד Fortinet · סיכום וסינון לפי יצרן.", 16000, "mac"),
+    ("CLIPBOARD", "מידע נשאר זמין לשימוש חוזר", "היסטוריית טקסטים, תמונות וצילומי מסך לדוגמה.", 13500, "clipboard"),
+    ("REMINDERS", "התחייבויות ללקוח בשליטה", "מעקב אחר תזכורת מקושרת להערה ומשימת המשך.", 7500, "reminders"),
+    ("EXTRA NET", "המידע הנכון, ברגע הנכון", "שליפת פרטי קו ושירות מתוך מאגר מקומי.", 11000, "extra"),
+    ("CTRL+K", "כל פעולה במרחק קיצור אחד", "ניווט ישיר בחזרה לתיעוד הטיפול.", 8500, "palette"),
+    ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "סביבת עבודה אחידה שמחברת את שלבי הטיפול.", 0, "summary"),
 )
 
 
@@ -85,11 +92,9 @@ def seed_profile(api, folder, scenario):
                             clipboard_paused=True, clipboard_storage="ram",
                             quick_slots_enabled=False, convert_enabled=False)
     data["last_tab"] = "notes"
-    note = api["new_note"](f"{customer} | ERP connectivity",
-        f"DEMONSTRATION ONLY\nCustomer: {customer}\nCircuit: {circuit}\nVRF: {vrf}\n"
-        f"Customer reports ERP access failure.\nCisco ISR 4331 | WAN {WAN_IP}/29\n"
-        f"Public target: {public_ip}\n"
-        "Next: validate interfaces, review TCP results, arrange callback.")
+    note = api["new_note"](customer, note_text(scenario), scenario["phone"])
+    note.update(direction="rtl", reminder_enabled=True,
+                reminder_at=(datetime.now().astimezone()+timedelta(minutes=30)).isoformat())
     data["notes"] = [note]
     data["active_note"] = note["id"]
     data["links"] = [api["new_link"](name, "https://example.invalid/" + slug)
@@ -104,10 +109,10 @@ def seed_profile(api, folder, scenario):
                                          api["shortcut_folders"].folder_key(fid), "inside")
     data["shortcut_folders"] = layout
     data["reminders"] = [reminder_store.make_reminder(f"{customer} | Customer follow-up",
-        f"Check ERP connectivity and return call. Circuit: {circuit} (demo only).",
+        f"Validate VPN access and return call. Circuit: {circuit} (demo only).",
         (datetime.now().astimezone() + timedelta(minutes=30)).isoformat())]
     data["tools"].update(target=public_ip, source="local", mac_source="local",
-                         ports_input="22,443,8080")
+                         ports_input=f"22,443,{scenario['port']}")
     api["save_data"](folder / "data.json", data)
     commands = [
         ("Cisco", "Interfaces", "Display interface addresses and status", "show ip interface brief"),
@@ -125,14 +130,45 @@ def seed_profile(api, folder, scenario):
     book = Workbook()
     sheet = book.active
     sheet.title = "Demo services"
-    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG"])
-    sheet.append([circuit, customer, "DEMO-G01", vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120"])
+    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG", "Service port", "Service"])
+    sheet.append([circuit, customer, "DEMO-G01", vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
     sheet.append(["90021401", "Training customer", "DEMO-G02", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121"])
     path = folder / "demo-services.xlsx"
     book.save(path)
     book.close()
     extra_excel_db.sync_database(path, db_path=folder / extra_excel_db.FILE_NAME)
     return path
+
+
+def sample_images(scenario):
+    """Original mock screenshots, not captures of the host desktop."""
+    from PIL import Image, ImageDraw, ImageFont
+    try:
+        font = ImageFont.truetype("segoeui.ttf", 23)
+        large = ImageFont.truetype("segoeuib.ttf", 30)
+    except OSError:
+        font, large = ImageFont.load_default(), ImageFont.load_default()
+    layouts = [
+        ("VPN ACCESS REQUEST", [("REQUEST", "Add VPN users"), ("USERS", scenario["vpn_users"]),
+                                ("DESTINATION", scenario["public_ip"]), ("TCP PORT", scenario["port"])]),
+        ("SERVICE DETAILS", [("CIRCUIT", scenario["circuit"]), ("VRF", scenario["vrf"]),
+                             ("SERVICE", "Business IPVPN"), ("DEVICE", "Cisco ISR 4331")]),
+        ("CONNECTIVITY REVIEW", [("TARGET", scenario["public_ip"]), ("TCP PORT", scenario["port"]),
+                                 ("RESULT", "CLOSED / simulated"), ("NEXT", "Validate access policy")]),
+    ]
+    for title, rows in layouts:
+        image = Image.new("RGB", (850, 480), "#101b30")
+        d = ImageDraw.Draw(image)
+        d.rounded_rectangle((24,24,826,456), radius=20, fill="#1b2b42", outline="#435b75", width=2)
+        d.text((48,45), title, font=large, fill="#ffffff")
+        d.text((48,93), "POCKET  /  DEMONSTRATION IMAGE", font=font, fill="#79e4cf")
+        for i,(label,value) in enumerate(rows):
+            y=149+i*65
+            d.rounded_rectangle((45,y-8,805,y+46),radius=8,fill="#101b30")
+            d.text((63,y), label, font=font, fill="#a9bed7")
+            d.text((340,y), value, font=font, fill="#ffffff")
+        d.text((48,421), "Synthetic screenshot - not a live system", font=font, fill="#a9bed7")
+        yield image
 
 
 class Presentation:
@@ -493,17 +529,17 @@ class Presentation:
         if self.widget_alive(self.highlight):
             self.highlight.withdraw()
 
-    def focus_result(self, widget):
+    def focus_result(self, widget, caption="RESULT", kind="result"):
         if self.smoke or not self.widget_alive(widget) or not widget.winfo_ismapped():
             return
         self.root.update_idletasks()
-        r = self.root
+        r = widget.winfo_toplevel()
         x = max(widget.winfo_rootx(), r.winfo_rootx()+2)
         y = max(widget.winfo_rooty(), r.winfo_rooty()+2)
         right = min(widget.winfo_rootx()+widget.winfo_width(), r.winfo_rootx()+r.winfo_width()-2)
         bottom = min(widget.winfo_rooty()+widget.winfo_height(), r.winfo_rooty()+r.winfo_height()-2)
         canvas = getattr(self.app, "_tool_scroll_canvas", None)
-        if self.widget_alive(canvas):
+        if r == self.root and self.widget_alive(canvas):
             x = max(x, canvas.winfo_rootx())
             y = max(y, canvas.winfo_rooty())
             right = min(right, canvas.winfo_rootx()+canvas.winfo_width())
@@ -511,7 +547,7 @@ class Presentation:
         if right-x < 20 or bottom-y < 16 or sys.platform != "win32":
             return
         if not self.widget_alive(self.highlight):
-            self.highlight = tk.Toplevel(r)
+            self.highlight = tk.Toplevel(self.root)
             self.highlight.withdraw()
             self.highlight.overrideredirect(True)
             self.highlight.attributes("-topmost", True)
@@ -519,13 +555,27 @@ class Presentation:
             self.outline = tk.Canvas(self.highlight, bg=self.KEY, highlightthickness=0, bd=0)
             self.outline.pack(fill="both", expand=True)
         w,h = right-x,bottom-y
-        self.highlight.geometry(f"{w}x{h}{x:+d}{y:+d}")
+        # Draw outside the control where possible, with a pointer and label.
+        left,top,screen_right,screen_bottom = self.area()
+        margin = min(10,max(0,x-left),max(0,screen_right-right))
+        above = min(24,max(0,y-top))
+        total_w, total_h = w+2*margin,h+above+4
+        self.highlight.geometry(f"{total_w}x{total_h}{x-margin:+d}{y-above:+d}")
         self.outline.delete("all")
-        self.outline.create_rectangle(2,2,w-2,h-2,outline=self.ACCENT,width=3)
+        color = "#FFD47A" if kind == "input" else self.ACCENT
+        self.outline.create_rectangle(margin+2,above+2,margin+w-2,above+h-2,outline=color,width=3)
+        # Corner marks and an attention ring indicate the relevant region.
+        if w >= 65 and h >= 20:
+            self.outline.create_oval(margin+5,above+5,margin+19,above+19,outline=color,width=2)
+        if above >= 20 and total_w >= 92:
+            label_w=min(total_w-6,max(85,len(caption)*8+12))
+            self.outline.create_rectangle(3,1,label_w,above-5,fill="#101b30",outline=color)
+            self.outline.create_text(8, (above-4)/2,text=caption,anchor="w",fill=color,font=("Segoe UI",8,"bold"))
+            self.outline.create_polygon(13,above-5,23,above-5,18,above+3,fill=color)
         self.highlight.deiconify()
         self.passive_window(self.highlight)
         self.highlight.lift()
-        self.highlight_until = self.clocks["step"]+1800
+        self.highlight_until = self.clocks["step"]+2200
 
     def dismiss_card(self):
         self.hide_card()
@@ -673,11 +723,11 @@ class Presentation:
         self.explain()
         self.set_alpha(.98)
 
-    def scroll_to(self, widget=None, fraction=None):
+    def scroll_to(self, widget=None, fraction=None, caption="RESULT", kind="result"):
         a = self.app
         canvas = getattr(a, "_tool_scroll_canvas", None)
         if not self.widget_alive(canvas):
-            self.focus_result(widget)
+            self.focus_result(widget, caption, kind)
             return
         self.root.update_idletasks()
         if fraction is not None:
@@ -687,7 +737,7 @@ class Presentation:
             if region and region[3] > region[1]:
                 y = widget.winfo_rooty()-canvas.winfo_rooty()+canvas.canvasy(0)
                 canvas.yview_moveto(max(0, (y-16)/(region[3]-region[1])))
-            self.focus_result(widget)
+            self.focus_result(widget, caption, kind)
 
     def perform_action(self):
         if not self.action_pending:
@@ -698,101 +748,209 @@ class Presentation:
         except Exception as exc:
             self.fail(exc)
 
-    def type_text(self, setter, value, done=None):
+    def type_text(self, setter, value, done=None, widget=None):
+        if self.widget_alive(widget):
+            self.scroll_to(widget, caption="INPUT", kind="input")
         if self.smoke or self.paused:
             setter(value)
             if done:
                 done()
             return
         setter("")
-        for i in range(1, len(value)+1, 2):
-            self.later(65*i, lambda n=i: setter(value[:n]), "typing")
-        self.later(65*(len(value)+1), lambda: setter(value), "typing")
+        for i in range(1, len(value)+1):
+            self.later(42*i, lambda n=i: setter(value[:n]), "typing")
+        self.later(42*(len(value)+1), lambda: setter(value), "typing")
         if done:
-            self.later(65*(len(value)+2), done, "typing")
+            self.later(42*(len(value)+2), done, "typing")
+
+    def find_entry(self, variable, parent=None):
+        """Find the actual input bound to a Tk variable, including native wrappers."""
+        parent = parent or self.app.body
+        for w in parent.winfo_children():
+            try:
+                if str(w.cget("textvariable")) == str(variable):
+                    return w
+            except tk.TclError:
+                pass
+            found = self.find_entry(variable, w)
+            if found is not None:
+                return found
+        return None
+
+    def after_result(self, delay, callback):
+        if self.smoke or self.paused:
+            callback()
+        else:
+            self.later(delay, callback)
+
+    def write_note(self, text):
+        a = self.app
+        if a._bidi_active():
+            a.bidi_editor.set_text(text)
+        else:
+            a.note_body.delete("1.0","end")
+            a.note_body.insert("1.0",text)
+            a.note_body.tag_add("note_alignment","1.0","end")
+        a.active_note()["body"] = text
+        a._edit_dirty()
 
     def apply(self, key):
         a = self.app
-        if key == "commands":
+        if key == "notes":
+            target = a.bidi_editor if a._bidi_active() else a.note_body
+            def title_done():
+                self.type_text(self.write_note,note_text(self.scenario),note_done,target)
+            def note_done():
+                a._flush_current_note()
+                self.focus_result(a.reminder_action, "FOLLOW-UP")
+            self.type_text(a.title_var.set,self.scenario["customer"],title_done,a.title_entry)
+        elif key == "links":
+            self.focus_result(a.body,"ORGANIZED SHORTCUTS")
+        elif key == "commands":
             a._command_focus_in()
             a.machine_var.set("Cisco")
             a._change_machine()
             def cli_done():
                 a._refresh_command_results()
-                self.focus_result(a.command_search_entry)
-            self.type_text(a.command_query.set, "show ip interface brief", cli_done)
+                self.focus_result(a.command_code,"COMMAND FOUND")
+                def saved():
+                    selected = getattr(a, "_selected_command", None)
+                    # Leave saved state stable on repeated playback.
+                    if getattr(a, "command_star", None) is not None:
+                        text = a.command_star.cget("text")
+                        if "☆" in text:
+                            a._toggle_command_favorite()
+                        self.focus_result(a.command_star,"SAVED COMMAND")
+                self.after_result(1200,saved)
+            self.type_text(a.command_query.set,"show ip interface brief",cli_done,a.command_search_entry)
         elif key == "subnet":
-            a.subnet_ip_var.set(WAN_IP)
-            a.subnet_prefix_var.set("29")
-            a._calculate_subnet()
-            if not self.smoke:
-                self.later(900, lambda: self.scroll_to(a.subnet_fact_labels["cidr"]))
+            def prefix_done():
+                a._calculate_subnet()
+                def calculated():
+                    self.scroll_to(a.subnet_fact_labels["cidr"].master,caption="NETWORK RANGE")
+                    def split():
+                        a.subnet_split_var.set("/30")
+                        a._split_subnet()
+                        self.scroll_to(a.subnet_tree,caption="2 SUBNETS")
+                    self.after_result(1600,split)
+                self.after_result(500,calculated)
+            def ip_done():
+                self.type_text(a.subnet_prefix_var.set,"29",prefix_done,self.find_entry(a.subnet_prefix_var))
+            self.type_text(a.subnet_ip_var.set,WAN_IP,ip_done,self.find_entry(a.subnet_ip_var))
         elif key == "ports":
-            # A quick jump/replay must not leave a previous simulated scan active.
             if a.scanning:
                 a.scan_cancel.set()
                 a.scan_token += 1
                 a.scanning = False
             a.port_source.set("local")
-            a.host_var.set(self.scenario["public_ip"])
-            a.ports_var.set("22,443,8080")
-            a._start_scan()
-            if not self.smoke:
-                self.later(1400, lambda: self.scroll_to(a.port_tree))
+            def ports_done():
+                a._start_scan()
+                if not self.smoke:
+                    self.later(1500,lambda: self.scroll_to(a.port_tree,caption="SIMULATED TCP"))
+            def host_done():
+                self.type_text(a.ports_var.set,"22,443,"+self.scenario["port"],ports_done,a.ports_entry)
+            self.type_text(a.host_var.set,self.scenario["public_ip"],host_done,self.find_entry(a.host_var))
         elif key == "mac":
             a.mac_source.set("local")
-            a.mac_input.delete("1.0", "end")
-            a.mac_input.insert("1.0", "\n".join(MACS))
-            a._run_mac_lookup()
-            if not a.mac_vendor_expanded:
+            a.mac_vendor_filter = None
+            a.mac_vendor_exclude = False
+            if a.mac_vendor_expanded:
                 a._toggle_mac_summary()
-            if not self.smoke:
-                self.later(900, lambda: self.scroll_to(a.mac_summary_panel))
+            def mac_text(value):
+                a.mac_input.delete("1.0","end")
+                a.mac_input.insert("1.0",value)
+            def mac_done():
+                a._run_mac_lookup()
+                def show_table():
+                    # Compact vendor labels preserve all four rows in Mini.
+                    tree = a.mac_tree
+                    tree.configure(height=4)
+                    tree.column("#1",width=132,minwidth=110,stretch=False)
+                    tree.column("#2",width=132,minwidth=80,stretch=True)
+                    tree.column("#3",width=46,minwidth=30,stretch=False)
+                    self.scroll_to(tree,caption="4 MAC RESULTS")
+                    def summary():
+                        if not a.mac_vendor_expanded:
+                            a._toggle_mac_summary()
+                        self.scroll_to(a.mac_summary_list,caption="3 VENDOR GROUPS")
+                        def filter_cisco():
+                            cisco = next((name for name,count in a.mac_summary_groups if "Cisco" in name),None)
+                            if cisco:
+                                a._set_mac_vendor_filter(cisco)
+                                self.scroll_to(a.mac_tree,caption="2 CISCO DEVICES")
+                            def all_results():
+                                a._set_mac_vendor_filter(None)
+                                if a.mac_vendor_expanded:
+                                    a._toggle_mac_summary()
+                                self.scroll_to(a.mac_tree,caption="ALL 4 MACS")
+                            self.after_result(1600,all_results)
+                        self.after_result(1800,filter_cisco)
+                    self.after_result(2000,summary)
+                self.after_result(600,show_table)
+            self.type_text(mac_text,"\n".join(MACS),mac_done,a.mac_input)
+        elif key == "clipboard":
+            gallery = self.api["clipboard_gallery"]
+            gallery.show_page(a,"text")
+            def text_done():
+                if a.clipboard_list.size():
+                    a.clipboard_list.selection_set(0)
+                    a._update_clipboard_text_status()
+                self.focus_result(a.clipboard_list,"TEXT HISTORY")
+                def show_images():
+                    gallery.show_page(a,"images")
+                    self.root.update_idletasks()
+                    gallery.refresh_images(a,force=True)
+                    if a.clipboard_images:
+                        gallery.select_image(a,a.clipboard_images[0]["id"])
+                    self.focus_result(a.clipboard_images_canvas,"SAVED IMAGES")
+                    def next_image():
+                        gallery.move_selection(a,1)
+                        self.focus_result(a.clipboard_images_canvas,"NEXT IMAGE")
+                    self.after_result(1900,next_image)
+                self.after_result(1600,show_images)
+            self.type_text(a.clipboard_query.set,self.scenario["circuit"],text_done,a.clipboard_query_entry)
+        elif key == "reminders":
+            fields = getattr(a,"_reminders_inline_fields",{})
+            if fields:
+                self.scroll_to(next(iter(fields.values()))[0],caption="FOLLOW-UP TASK")
+            else:
+                self.focus_result(a.body,caption="REMINDERS")
         elif key == "extra":
-            a._extra_excel_path = str(self.workbook)
             term = self.scenario["circuit"]
             def search_done():
                 a._extra_palette_search(term)
-                if not self.smoke:
-                    self.later(1200, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
-            field = getattr(a, "_formgt_extra_input", None)
+                def hits():
+                    self.scroll_to(getattr(a,"_formgt_extra_results",None),caption="MATCH FOUND")
+                    self.after_result(1500,lambda: self.scroll_to(getattr(a,"_formgt_extra_details",None),caption="SERVICE DETAILS"))
+                self.after_result(1200,hits)
+            field = getattr(a,"_formgt_extra_input",None)
             if field and self.widget_alive(field[0]):
-                self.scroll_to(field[0])
-                self.type_text(field[1].set, term, search_done)
+                self.type_text(field[1].set,term,search_done,field[0])
             else:
                 search_done()
-        elif key == "return_extra":
-            # Manual jumps may reach this chapter before the first search.
-            state = self.api["extra_excel_ui"].session(a)
-            if not state["hits"] and not state["busy"]:
-                a._extra_palette_search(self.scenario["circuit"])
-            if not self.smoke:
-                self.later(1000, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
         elif key == "palette":
             a._open_global_search()
             def set_palette(value):
-                a._palette_entry.delete(0, "end")
-                a._palette_entry.insert(0, value)
+                if self.widget_alive(a._palette_entry):
+                    a._palette_entry.delete(0,"end")
+                    a._palette_entry.insert(0,value)
             def typed():
                 if not self.smoke:
-                    self.later(900, self.execute_palette_demo)
-            self.type_text(set_palette, "< extra " + self.scenario["circuit"], typed)
-        elif key == "summary":
-            self.explain()
+                    self.later(1200,self.execute_palette_demo)
+            self.type_text(set_palette,"> open notes",typed,a._palette_entry)
 
     def execute_palette_demo(self):
         a = self.app
-        dialog = getattr(a, "_quick_search_dialog", None)
+        dialog = getattr(a,"_quick_search_dialog",None)
         if not self.widget_alive(dialog):
             return
-        hit = self.api["command_palette"].command("extra " + self.scenario["circuit"], a.settings)
+        hit = self.api["command_palette"].command("open notes",a.settings)
         if hit is None:
             self.fail(ValueError("Demo palette action not recognized"))
             return
         self.close_palette()
         a._run_palette_action(hit)
-        if not self.smoke:
-            self.later(1200, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
+        self.focus_result(a.title_entry,"BACK TO NOTES")
 
     def close(self):
         if self.closed:
@@ -874,8 +1032,10 @@ def run(api, *, smoke=False):
             def _update_vendors(self):
                 pass
         app = DemoApp(preview=True)
-        for snippet in (scenario["circuit"], scenario["public_ip"], WAN_IP, "show ip interface brief"):
+        for snippet in (scenario["vrf"], scenario["port"], scenario["public_ip"], "show ip interface brief", scenario["circuit"]):
             api["clipboard_add"](app.clipboard_items, snippet)
+        for image in sample_images(scenario):
+            app._clipboard_on_new_image(image)
         presentation = Presentation(app, api, workbook, scenario, auto_start=not smoke)
         app._formgt = presentation
         if smoke:
@@ -902,7 +1062,11 @@ def run(api, *, smoke=False):
                     if step[4] == "palette":
                         assert app._quick_search_dialog is not None, "Palette did not open"
                         presentation.execute_palette_demo()
-                        assert app.current_tab == "extra", "Palette action did not navigate"
+                        assert app.current_tab == "notes", "Palette action did not navigate"
+                    if step[4] == "clipboard":
+                        assert app.clipboard_page == "images" and len(app.clipboard_images) == 3
+                    if step[4] == "notes":
+                        assert app.active_note()["body"] == note_text(scenario)
                     if step[4] == "commands":
                         assert app.command_filtered, "CLI results missing"
                     if step[4] == "subnet":

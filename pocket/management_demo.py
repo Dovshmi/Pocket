@@ -18,7 +18,7 @@ CHANNEL_LABELS = {"step": "STEP", "hold": "BUBBLE HOLD", "appear": "FADE IN",
 DEFAULT_SCENARIO = {"customer": "CLALIT", "circuit": "90021400",
                     "vrf": "clalit", "public_ip": "192.0.2.52",
                     "vpn_users": "ALEX, JORDAN", "phone": "", "port": "10443",
-                    "vdom": "training", "forti_ip": "10.238.2.25"}
+                    "vdom": "TRAINING", "forti_ip": "10.238.2.25", "group": "DEMO-G01"}
 WAN_IP = "10.178.24.14"
 MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
         "00:80:9F:24:71:13", "00:09:0F:24:71:14")
@@ -74,7 +74,7 @@ def demo_notes(api, scenario):
                  reminder_at=(datetime.now().astimezone()+timedelta(minutes=30)).isoformat())
     line = api["new_note"]("פרטי קו",
         f"לקוח: {note_title(scenario)}\n\nקוד קו / קוד קישור:\n{scenario['circuit']}\n\n"
-        f"VRF: {scenario['vrf']}\nVDOM: {scenario['vdom']}\nFORTI: {scenario['forti_ip']}")
+        f"VRF: {scenario['vrf']}\nVDOM: {scenario['vdom']}\nFORTI: {scenario['forti_ip']}\nקוד קבוצה: {scenario['group']}")
     checks = api["new_note"]("בדיקות",
         f"בדיקות מתוכננות — דוגמה בלבד\n\nIP: {scenario['public_ip']}\nPORT: {scenario['port']}\n\n"
         "show ip interface brief\n\nCisco / Alcatel / Fortinet")
@@ -87,16 +87,15 @@ def demo_notes(api, scenario):
 STEPS = (
     ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת לצד מערכות העבודה הקיימות.", 5500, "intro"),
     ("NOTES", "כל התיעוד בהישג יד", "דפדוף בין ארבע הערות — בקשת VPN, פרטי קו, בדיקות ומשימות.", 10500, "notes"),
-    ("NOTEPAD", "עורכים גם מחוץ לאפליקציה", "עריכה בקובץ טקסט ושמירה שמסתנכרנת בחזרה ל־Pocket.", 9500, "notepad"),
     ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "נהלים ומערכות מסודרים בתיקיות מוכנות לשימוש.", 6500, "links"),
-    ("COMMANDS", "הידע המקצועי בהישג יד", "חיפוש פקודות לפי יצרן ושמירת פקודה לשימוש חוזר.", 11000, "commands"),
+    ("COMMANDS", "הידע המקצועי בהישג יד", "חיפוש ממשקים אחד — פקודות שונות למגוון סוגי ציוד.", 14000, "commands"),
     ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישוב רשת וטווח כתובות, כולל חלוקה לתת־רשתות.", 12000, "subnet"),
     ("PORTS", "אבחון ממוקד ומהיר", "בדיקת יעד ופורטים · תוצאות מדומות בלבד.", 11500, "ports"),
     ("MAC VENDOR", "מזהים ארבעה התקנים בפעולה אחת", "שני Cisco, אחד Alcatel ואחד Fortinet · סיכום וסינון לפי יצרן.", 16000, "mac"),
-    ("CLIPBOARD", "מידע נשאר זמין לשימוש חוזר", "היסטוריית טקסטים, תמונות וצילומי מסך לדוגמה.", 13500, "clipboard"),
+    ("CLIPBOARD", "מידע נשאר זמין לשימוש חוזר", "כתובות, פקודות, מספרי קו ותמונות שנאספו במהלך הטיפול.", 14000, "clipboard"),
     ("REMINDERS", "התחייבויות ללקוח בשליטה", "מעקב אחר תזכורת מקושרת להערה ומשימת המשך.", 7500, "reminders"),
     ("EXTRA NET", "המידע הנכון, ברגע הנכון", "שליפת פרטי קו ושירות מתוך מאגר מקומי.", 11000, "extra"),
-    ("CTRL+K", "כל פעולה במרחק קיצור אחד", "ניווט ישיר בחזרה לתיעוד הטיפול.", 8500, "palette"),
+    ("CTRL+K", "כל פעולה במרחק קיצור אחד", "חיפוש חכם לפי כתובת, פקודה או כלי — בלי לעבור בתפריטים.", 10000, "palette"),
     ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "סביבת עבודה אחידה שמחברת את שלבי הטיפול.", 0, "summary"),
 )
 
@@ -145,12 +144,14 @@ def seed_profile(api, folder, scenario):
                          ports_input=f"22,443,{scenario['port']}")
     api["save_data"](folder / "data.json", data)
     commands = [
-        ("Cisco", "Interfaces", "Display interface addresses and status", "show ip interface brief"),
-        ("Cisco", "Routing", "Display routing table", "show ip route"),
-        ("Cisco", "Diagnostics", "Display system logs", "show logging"),
-        ("Cisco", "VLAN / L2", "Display MAC address table", "show mac address-table"),
-        ("Juniper SRX", "Interfaces", "Display interfaces", "show interfaces terse"),
-        ("Fortigate", "Routing", "Display routing table", "get router info routing-table all"),
+        ("Alcatel-Lucent SR", "Interfaces", "Display router interface status", "show router interface"),
+        ("Cisco IOS", "Interfaces", "Display interface addresses and status", "show ip interface brief"),
+        ("FortiGate", "Interfaces", "Display interface configuration", "show system interface"),
+        ("Huawei VRP", "Interfaces", "Display IP interface summary", "display ip interface brief"),
+        ("Juniper SRX", "Interfaces", "Display interface addresses and status", "show interfaces terse"),
+        ("Nokia SR OS", "Interfaces", "Display port and interface details", "show router interface detail"),
+        ("Cisco IOS", "Routing", "Display routing table", "show ip route"),
+        ("Cisco IOS", "Diagnostics", "Display system logs", "show logging"),
     ]
     (folder / "commands.json").write_text(json.dumps({"schema": 1, "commands": [
         dict(id="demo-"+str(i), machine=m, category=c, description=d, command=cmd)
@@ -162,7 +163,7 @@ def seed_profile(api, folder, scenario):
     # EXTRA derives the FortiGate IP from the real worksheet naming convention.
     sheet.title = "FG" + scenario["forti_ip"].split(".")[-1]
     sheet.append(["קוד קישור", "Customer", "Group ID", "VDOM", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG", "Service port", "Service"])
-    sheet.append([circuit, customer, "DEMO-G01", scenario["vdom"], vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
+    sheet.append([circuit, customer, scenario["group"], scenario["vdom"], vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
     sheet.append(["90021401", "Training customer", "DEMO-G02", "training", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121", "443", "Training"])
     path = folder / "demo-services.xlsx"
     book.save(path)
@@ -200,6 +201,25 @@ def sample_images(scenario):
             d.text((340,y), value, font=font, fill="#ffffff")
         d.text((48,421), "Synthetic screenshot - not a live system", font=font, fill="#a9bed7")
         yield image
+    image = Image.new("RGB",(850,480),"#101b30")
+    d = ImageDraw.Draw(image)
+    d.text((45,38),"NETWORK TOPOLOGY / DEMO",font=large,fill="#79e4cf")
+    nodes = [(45,185,235,275,"Customer LAN"),(330,185,520,275,"IPVPN / VRF"),(615,185,805,275,"FortiGate")]
+    for x1,y1,x2,y2,title in nodes:
+        d.rounded_rectangle((x1,y1,x2,y2),radius=14,fill="#253952",outline="#79e4cf",width=2)
+        d.text((x1+12,y1+30),title,font=font,fill="white")
+    d.line((235,230,330,230),fill="#79e4cf",width=4)
+    d.line((520,230,615,230),fill="#79e4cf",width=4)
+    d.text((45,330),"Illustrative connection path - no live network data",font=font,fill="#a9bed7")
+    yield image
+    image = Image.new("RGB",(850,480),"#0b1220")
+    d = ImageDraw.Draw(image)
+    d.rectangle((0,0,850,50),fill="#263952")
+    d.text((20,10),"TERMINAL / DEMO OUTPUT",font=font,fill="white")
+    lines=["Router# show ip interface brief","Interface       IP-Address     Status","Gi0/0           "+WAN_IP+"    up","Gi0/1           unassigned     down","","Synthetic CLI output - not executed"]
+    for i,line in enumerate(lines):
+        d.text((30,85+i*53),line,font=font,fill="#79e4cf" if i==0 else "#d7e5f4")
+    yield image
 
 
 class Presentation:
@@ -235,8 +255,8 @@ class Presentation:
         self.closed = False
         self.smoke = not auto_start
         self.error = ""
-        self.external_editor = None
         self.native_wait = None
+        self.palette_demo_active = False
         self.action_pending = False
         self.highlight_channel = "step"
         self.action = None
@@ -421,7 +441,7 @@ class Presentation:
         self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d}  {status}")
         self.chapter.configure(text=STEPS[self.index][0] if self.index >= 0 else "PRESENTER")
         if hasattr(self, "native_button"):
-            self.native_button.configure(state="normal" if self.action == "notepad" and not self.native_wait else "disabled")
+            self.native_button.configure(state="normal" if self.action == "notes" and not self.native_wait else "disabled")
         self.pause_button.configure(text="Play  ·  F6" if self.paused else "Pause  ·  F6")
         self.mode_button.configure(text=("MANUAL" if self.manual else "AUTO")+"  ·  F10")
         for channel, label in self.rate_labels.items():
@@ -479,7 +499,9 @@ class Presentation:
                     self.bubble_phase = "hold"
                     self.phase_elapsed = 0.
             elif channel == "hold":
-                if self.phase_elapsed >= 2300 and self.action != "summary" and not self.error:
+                if self.action == "palette" and self.phase_elapsed >= 2300 and self.action_pending:
+                    self.perform_action()
+                if self.phase_elapsed >= 2300 and self.action != "summary" and not self.error and not self.palette_demo_active:
                     self.bubble_phase = "disappear"
                     self.phase_start_alpha = self.alpha
                     self.phase_elapsed = 0.
@@ -499,10 +521,10 @@ class Presentation:
             self.clear_highlight()
         if self.native_wait is not None:
             note_id, baseline = self.native_wait
-            self.app._notepad_poll()
             note = next((n for n in self.app.data["notes"] if n["id"] == note_id), None)
             if note and note["body"] != baseline:
                 self.native_wait = None
+                self.app._write_now()
                 self.root.lift()
                 self.focus_result(self.app.bidi_editor if self.app._bidi_active() else self.app.note_body, "SYNCED TO POCKET")
                 self.refresh()
@@ -675,7 +697,8 @@ class Presentation:
         else:
             self.canvas.create_line(width/2-45, 207, width/2+45, 207,
                                     fill=self.ACCENT, width=3, capstyle="round")
-        self.bubble.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{top+(bottom-top-height)//2:+d}")
+        y = top+8 if key == "palette" else top+(bottom-top-height)//2
+        self.bubble.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{y:+d}")
         self.card_visible = True
         self.bubble_phase = "appear"
         self.phase_elapsed = 0.
@@ -741,8 +764,8 @@ class Presentation:
 
     def go(self, index):
         self.cancel()
-        self.close_external_editor()
         self.native_wait = None
+        self.palette_demo_active = False
         self.close_palette()
         self.hide_card()
         self.clear_highlight()
@@ -859,11 +882,6 @@ class Presentation:
         a.mini_note_picker.configure(justify="right")
         a.root.update_idletasks()
 
-    def close_external_editor(self):
-        if self.widget_alive(self.external_editor):
-            self.external_editor.destroy()
-        self.external_editor = None
-
     def prepare_text_session(self):
         """Use Pocket's real note-sync working file and session, without launching a process."""
         a = self.app
@@ -882,92 +900,45 @@ class Presentation:
             note["notepad_filename"] = path.name
         return note, session
 
-    def demo_notepad(self):
-        a = self.app
-        note, session = self.prepare_text_session()
-        original = note["body"]
-        # Replay/back does not keep adding the same line.
-        base = original.split(NOTEPAD_ADDITION,1)[0]
-        updated = base + NOTEPAD_ADDITION
-        def save():
-            self.cancel()
-            self.api["note_sync"].write_text(session["path"],updated)
-            a._notepad_poll()
-            if a.active_note()["body"] != updated:
-                raise AssertionError("Notepad working-file edit did not synchronize")
-            a._write_now()
-            self.close_external_editor()
-            self.root.lift()
-            self.focus_result(a.bidi_editor if a._bidi_active() else a.note_body,"SYNCED TO POCKET")
-        if self.smoke or self.paused:
-            save()
-            return
-        win = self.external_editor = tk.Toplevel(self.root)
-        win.title("Notepad — automatic demo editor")
-        win.configure(bg="#f3f5f8")
-        win.attributes("-topmost",True)
-        win.protocol("WM_DELETE_WINDOW",lambda: (self.cancel(),self.close_external_editor()))
-        left,top,right,bottom = self.area()
-        width=min(560,right-left-60)
-        height=min(410,bottom-top-60)
-        win.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{top+(bottom-top-height)//2:+d}")
-        bar = tk.Frame(win,bg="#e5ebf3")
-        bar.pack(fill="x")
-        tk.Label(bar,text=session["path"].name+"  ·  DEMO EDITOR",bg="#e5ebf3",fg="#18283b",
-                 font=("Segoe UI",12,"bold"),anchor="e").pack(side="right",padx=12,pady=9)
-        save_button = tk.Button(bar,text="Save  /  Ctrl+S",command=save,bg="#176a8d",fg="white",
-                                relief="flat",padx=9,pady=4)
-        save_button.pack(side="left",padx=8)
-        from . import native_bidi
-        editor = None
-        if sys.platform == "win32":
-            try:
-                editor = native_bidi.NativeBidiEditor(win,background="#ffffff",foreground="#172033",
-                                                      context_menu=lambda e: None)
-                editor.pack(fill="both",expand=True,padx=9,pady=9)
-                editor.set_direction("rtl")
-            except (OSError,RuntimeError,tk.TclError):
-                editor = None
-        if editor is not None:
-            setter = editor.set_text
-        else:
-            editor = tk.Text(win,font=("Segoe UI",14),wrap="word",bg="white",fg="#172033")
-            editor.pack(fill="both",expand=True,padx=9,pady=9)
-            editor.tag_configure("rtl",justify="right")
-            def setter(text):
-                editor.delete("1.0","end")
-                editor.insert("1.0",text,"rtl")
-        setter(base)
-        self.root.update_idletasks()
-        self.focus_result(editor,"EDIT TEXT FILE","input")
-        def typed():
-            self.focus_result(save_button,"SAVE")
-            self.after_result(1000,save)
-        def type_addition():
-            self.type_text(lambda suffix: setter(base+suffix),NOTEPAD_ADDITION,typed,editor)
-        win.bind("<Control-s>",lambda e: save())
-        self.after_result(1300,type_addition)
-
     def native_notepad(self):
-        """Explicit presenter action: launch Windows Notepad, wait for a real saved edit."""
-        if self.action != "notepad" or self.native_wait is not None:
+        """Optional real Windows Notepad; never imitate or inject keys into it."""
+        if self.action != "notes" or self.native_wait is not None or sys.platform != "win32":
             return
         self.cancel()
-        self.close_external_editor()
         self.hide_card()
         self.action_pending = False
         self.select_note(3)
         a = self.app
         note, session = self.prepare_text_session()
-        baseline = note["body"]
-        if sys.platform != "win32":
-            return
-        self.native_wait = (note["id"],baseline)
+        self.native_wait = (note["id"],note["body"])
         self.action_finished_at = None
         self.paused = False
         self.refresh()
-        # Original production button opens only the isolated working file.
         a.open_notepad()
+
+    def palette_position(self):
+        dialog = getattr(self.app,"_quick_search_dialog",None)
+        if not self.widget_alive(dialog):
+            return
+        from . import palette_preferences as prefs
+        left,top,right,bottom = self.area()
+        dialog.update_idletasks()
+        width,height = dialog.winfo_width(),dialog.winfo_height()
+        x = left + (right-left-width)//2
+        y = top + 265
+        x,y = prefs.clamp(x,y,width,height,(left,top,right,bottom))
+        prefs.move(dialog,x,y)
+        dialog.lift()
+
+    def clipboard_text(self):
+        a = self.app
+        snippets = [self.scenario["customer"], self.scenario["vrf"], self.scenario["vdom"],
+                    self.scenario["group"], self.scenario["forti_ip"], self.scenario["circuit"],
+                    "show ip interface brief", WAN_IP+"/29", "22,443,"+self.scenario["port"],
+                    "\n".join(MACS), *MACS, self.scenario["public_ip"], self.scenario["port"],
+                    self.scenario["public_ip"]+":"+self.scenario["port"]]
+        for item in snippets:
+            self.api["clipboard_add"](a.clipboard_items,item)
 
     def apply(self, key):
         a = self.app
@@ -985,27 +956,26 @@ class Presentation:
                     self.after_result(1000,lambda: self.focus_result(
                         a.bidi_editor if a._bidi_active() else a.note_body,"TASK LIST"))
             self.after_result(1800,lambda: page(1))
-        elif key == "notepad":
-            self.select_note(3)
-            self.demo_notepad()
         elif key == "links":
             self.focus_result(a.body,"ORGANIZED SHORTCUTS")
         elif key == "commands":
             a._command_focus_in()
-            a.machine_var.set("Cisco")
+            a.machine_var.set(self.api["ch"].ALL_MACHINES)
             a._change_machine()
+            a._set_command_mode("all")
             def cli_done():
                 a._refresh_command_results()
-                self.focus_result(a.command_code,"COMMAND FOUND")
-                def saved():
-                    # Leave saved state stable on repeated playback.
-                    if getattr(a, "command_star", None) is not None:
-                        text = a.command_star.cget("text")
-                        if "☆" in text:
-                            a._toggle_command_favorite()
-                        self.focus_result(a.command_star,"SAVED COMMAND")
-                self.after_result(1200,saved)
-            self.type_text(a.command_query.set,"show ip interface brief",cli_done,a.command_search_entry)
+                if len(a.command_filtered) < 5:
+                    raise AssertionError("Expected at least five interface matches")
+                def show_page(index):
+                    if index:
+                        a._move_mini_command(1)
+                    item = a._selected_command()
+                    self.focus_result(a.command_code,f"{item['machine']}  {index+1}/{len(a.command_filtered)}")
+                    if index < min(5,len(a.command_filtered)-1):
+                        self.after_result(2000,lambda: show_page(index+1))
+                show_page(0)
+            self.type_text(a.command_query.set,"interface",cli_done,a.command_search_entry)
         elif key == "subnet":
             def prefix_done():
                 a._calculate_subnet()
@@ -1074,25 +1044,37 @@ class Presentation:
             self.type_text(mac_text,"\n".join(MACS),mac_done,a.mac_input)
         elif key == "clipboard":
             gallery = self.api["clipboard_gallery"]
+            self.clipboard_text()
             gallery.show_page(a,"text")
-            def text_done():
+            a.clipboard_query.set("")
+            a._refresh_clipboard()
+            if a.clipboard_list.size():
+                a.clipboard_list.selection_set(0)
+                a._update_clipboard_text_status()
+            self.focus_result(a.clipboard_list,"TEXT HISTORY")
+            def show_more():
                 if a.clipboard_list.size():
-                    a.clipboard_list.selection_set(0)
+                    row=min(7,a.clipboard_list.size()-1)
+                    a.clipboard_list.selection_clear(0,"end")
+                    a.clipboard_list.selection_set(row)
+                    a.clipboard_list.see(row)
                     a._update_clipboard_text_status()
-                self.focus_result(a.clipboard_list,"TEXT HISTORY")
-                def show_images():
-                    gallery.show_page(a,"images")
-                    self.root.update_idletasks()
-                    gallery.refresh_images(a,force=True)
-                    if a.clipboard_images:
-                        gallery.select_image(a,a.clipboard_images[0]["id"])
-                    self.focus_result(a.clipboard_images_canvas,"SAVED IMAGES")
-                    def next_image():
-                        gallery.move_selection(a,1)
-                        self.focus_result(a.clipboard_images_canvas,"NEXT IMAGE")
-                    self.after_result(1900,next_image)
-                self.after_result(1600,show_images)
-            self.type_text(a.clipboard_query.set,self.scenario["circuit"],text_done,a.clipboard_query_entry)
+                self.focus_result(a.clipboard_list,"IP / MAC / CLI")
+                self.after_result(2200,show_images)
+            def show_images():
+                gallery.show_page(a,"images")
+                self.root.update_idletasks()
+                gallery.refresh_images(a,force=True)
+                if a.clipboard_images:
+                    gallery.select_image(a,a.clipboard_images[0]["id"])
+                self.focus_result(a.clipboard_images_canvas,"SAVED IMAGES")
+                def next_image(i):
+                    gallery.move_selection(a,1)
+                    self.focus_result(a.clipboard_images_canvas,f"IMAGE {i+1}/{len(a.clipboard_images)}")
+                    if i < len(a.clipboard_images)-1:
+                        self.after_result(1800,lambda: next_image(i+1))
+                self.after_result(1800,lambda: next_image(1))
+            self.after_result(2600,show_more)
         elif key == "reminders":
             fields = getattr(a,"_reminders_inline_fields",{})
             if fields:
@@ -1100,7 +1082,7 @@ class Presentation:
             else:
                 self.focus_result(a.body,caption="REMINDERS")
         elif key == "extra":
-            term = self.scenario["circuit"]
+            term = self.scenario["customer"].lower()
             def search_done():
                 a._extra_palette_search(term)
                 def hits():
@@ -1113,15 +1095,33 @@ class Presentation:
             else:
                 search_done()
         elif key == "palette":
+            self.palette_demo_active = True
             a._open_global_search()
+            self.palette_position()
+            queries = [self.scenario["public_ip"], "< cli interface",
+                       "< subnet "+WAN_IP+"/29", "< extra "+self.scenario["customer"].lower(),
+                       "> open notes"]
             def set_palette(value):
                 if self.widget_alive(a._palette_entry):
                     a._palette_entry.delete(0,"end")
                     a._palette_entry.insert(0,value)
-            def typed():
-                if not self.smoke:
-                    self.later(1200,self.execute_palette_demo)
-            self.type_text(set_palette,"> open notes",typed,a._palette_entry)
+            def example(index):
+                if not self.widget_alive(a._palette_entry):
+                    self.palette_demo_active = False
+                    self.hide_card()
+                    return
+                def typed():
+                    self.palette_position()
+                    if self.smoke:
+                        if index < len(queries)-1:
+                            example(index+1)
+                        return
+                    if index < len(queries)-1:
+                        self.after_result(1700,lambda: example(index+1))
+                    else:
+                        self.after_result(1800,self.execute_palette_demo)
+                self.type_text(set_palette,queries[index],typed,a._palette_entry)
+            example(0)
 
     def execute_palette_demo(self):
         a = self.app
@@ -1133,6 +1133,11 @@ class Presentation:
             self.fail(ValueError("Demo palette action not recognized"))
             return
         self.close_palette()
+        self.palette_demo_active = False
+        if self.card_visible:
+            self.bubble_phase = "disappear"
+            self.phase_start_alpha = self.alpha
+            self.phase_elapsed = 0.
         a._run_palette_action(hit)
         self.select_note(0)
         self.focus_result(a.title_entry,"BACK TO NOTES")
@@ -1142,7 +1147,6 @@ class Presentation:
             return
         self.closed = True
         self.cancel()
-        self.close_external_editor()
         if self.job is not None:
             self.root.after_cancel(self.job)
         self.hide_card()
@@ -1219,12 +1223,11 @@ def run(api, *, smoke=False):
             def _update_vendors(self):
                 pass
         app = DemoApp(preview=True)
-        for snippet in (scenario["vrf"], scenario["port"], scenario["public_ip"], "show ip interface brief", scenario["circuit"]):
-            api["clipboard_add"](app.clipboard_items, snippet)
         for image in sample_images(scenario):
             app._clipboard_on_new_image(image)
         presentation = Presentation(app, api, workbook, scenario, auto_start=not smoke)
         app._formgt = presentation
+        presentation.clipboard_text()
         if smoke:
             try:
                 presentation.paused = True
@@ -1244,30 +1247,30 @@ def run(api, *, smoke=False):
                     assert presentation.side.winfo_ismapped(), "Missing integrated controller"
                     if step[4] in ("extra", "return_extra"):
                         state = api["extra_excel_ui"].session(app)
-                        assert state["hits"] and state["query"] == scenario["circuit"], "EXTRA demo record missing"
+                        assert state["hits"] and state["query"] == scenario["customer"].lower(), "EXTRA demo record missing"
                         assert state["selected"] == 0, "EXTRA selection missing"
                         from .extra_excel_presentation import row_overview
                         overview = row_overview(state["hits"][0])
                         pairs = {cell.label:cell.value for pair in overview.pairs for cell in pair}
                         assert pairs["קוד קישור"] == scenario["circuit"]
                         assert pairs["VDOM"] == scenario["vdom"] and pairs["FortiGate IP"] == scenario["forti_ip"]
+                        assert pairs["קוד קבוצה"] == scenario["group"]
                     if step[4] == "palette":
                         assert app._quick_search_dialog is not None, "Palette did not open"
                         presentation.execute_palette_demo()
                         assert app.current_tab == "notes", "Palette action did not navigate"
                     if step[4] == "clipboard":
-                        assert app.clipboard_page == "images" and len(app.clipboard_images) == 3
+                        assert app.clipboard_page == "images" and len(app.clipboard_images) >= 4
+                        assert all(mac in [item["text"] for item in app.clipboard_items] for mac in MACS)
                     if step[4] == "intro":
                         assert app.active_note()["title"] == note_title(scenario), "Hebrew demo title missing"
                     if step[4] == "notes":
                         assert len(app.data["notes"]) == 4 and app.active_note()["title"] == "משימות"
                         assert app.mini_note_page.cget("text").strip() == "4 / 4"
                         assert all(n["direction"] == "rtl" for n in app.data["notes"])
-                    if step[4] == "notepad":
-                        assert app.active_note()["body"] == TASKS_TEXT + NOTEPAD_ADDITION
-                        assert api["note_sync"].read_text(app._notepad_sessions[app.active_note()["id"]]["path"]) == app.active_note()["body"]
                     if step[4] == "commands":
-                        assert app.command_filtered, "CLI results missing"
+                        assert len(app.command_filtered) >= 5, "CLI results missing"
+                        assert len({row["machine"] for row in app.command_filtered}) >= 5
                     if step[4] == "subnet":
                         assert app.subnet_details, "Subnet calculation missing"
                     if step[4] == "ports":

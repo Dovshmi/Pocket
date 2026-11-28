@@ -44,7 +44,7 @@ def load_scenario():
     data["public_ip"] = str(ipaddress.IPv4Address(data["public_ip"]))
     if not data["port"].isascii() or not data["port"].isdigit() or not 1 <= int(data["port"]) <= 65535:
         raise ValueError("Invalid demo port")
-    if data["customer"].strip().casefold() in ("orion logistics", "clalit", "כללית", "clalit / כללית", "כללית / clalit"):
+    if data["customer"].strip().casefold() in ("orion logistics", "clalit", "כללית", "clalit / כללית", "כללית / clalit", "כללית clalit", "clalit כללית"):
         data["customer"] = "CLALIT"
         data["vrf"] = "clalit"
     return data

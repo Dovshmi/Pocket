@@ -109,6 +109,7 @@ STEPS = (
     ("REMINDERS", "התחייבויות ללקוח בשליטה", "מעקב אחר תזכורת מקושרת להערה ומשימת המשך.", 7500, "reminders"),
     ("EXTRA NET", "המידע הנכון, ברגע הנכון", "שליפת פרטי קו ושירות מתוך מאגר מקומי.", 11000, "extra"),
     ("CTRL+K", "כל פעולה במרחק קיצור אחד", "חיפוש חכם לפי כתובת, פקודה או כלי — בלי לעבור בתפריטים.", 10000, "palette"),
+    ("DISPLAY MODES", "שלושה מצבי תצוגה. אותם כלים.", "מחלון Mini קומפקטי, דרך Normal ועד סביבת Dashboard מלאה.", 6400, "modes"),
     ("BUSINESS IMPACT", "פחות חיפוש. יותר טיפול.", "סביבת עבודה אחידה שמחברת את שלבי הטיפול.", 0, "summary"),
 )
 
@@ -792,10 +793,11 @@ class Presentation:
                 state.update(query="", hits=[], selected=None, status="", page_y=0., list_y=0., detail_y=0.)
                 state["revision"] += 1
         if key == "summary":
-            a._set_display_mode("dashboard")
+            if a.display_mode != "dashboard":
+                a._set_display_mode("dashboard")
             a.show_tab("home" if a.display_mode == "dashboard" else "notes")
         else:
-            tab = {"intro":"notes", "notepad":"notes", "palette":"extra", "switch_extra":"ports",
+            tab = {"intro":"notes", "modes":"notes", "notepad":"notes", "palette":"extra", "switch_extra":"ports",
                    "return_extra":"extra"}.get(key, key)
             a.show_tab(tab)
             if key in ("intro", "notes", "notepad"):
@@ -901,14 +903,42 @@ class Presentation:
 
     def write_note(self, text):
         a = self.app
+        note = a.active_note()
+        note["direction"] = "rtl"
+        # WM_SETTEXT recreates RichEdit paragraphs with default alignment.
+        # Reapply native paragraph direction after EVERY animation frame.
         if a._bidi_active():
             a.bidi_editor.set_text(text)
+            a.bidi_editor.set_direction("rtl")
         else:
             a.note_body.delete("1.0","end")
-            a.note_body.insert("1.0",text)
+            a.note_body.tag_configure("note_alignment",justify="right")
+            a.note_body.insert("1.0",text,"note_alignment")
             a.note_body.tag_add("note_alignment","1.0","end")
-        a.active_note()["body"] = text
+        note["body"] = text
         a._edit_dirty()
+
+    def verify_note_rtl(self):
+        """Check actual paragraph style rather than only the saved note flag."""
+        a = self.app
+        if a._bidi_active():
+            import ctypes
+            from .native_bidi import PARAFORMAT2
+            editor = a.bidi_editor
+            start,end = editor.selection_range()
+            editor.select_all()
+            try:
+                para = PARAFORMAT2()
+                para.cbSize = ctypes.sizeof(para)
+                editor._send(editor.WM_USER+61,0,ctypes.addressof(para))
+                assert para.dwMask & editor.PFM_ALIGNMENT and para.wAlignment == 2, "RichEdit lost right alignment"
+                assert para.dwMask & editor.PFM_RTLPARA and para.wEffects & 1, "RichEdit lost RTL paragraph direction"
+            finally:
+                editor._send(editor.EM_SETSEL,start,end)
+        else:
+            assert a.note_body.tag_cget("note_alignment","justify") == "right"
+            assert "note_alignment" in a.note_body.tag_names("1.0")
+
 
     def select_note(self, index):
         a = self.app
@@ -989,6 +1019,8 @@ class Presentation:
             self.focus_result(a.mini_note_picker,"NOTE 1 / 4")
             def page(index):
                 a._move_mini_note(1)
+                a.title_entry.configure(justify="right")
+                a.mini_note_picker.configure(justify="right")
                 self.focus_result(a.mini_note_picker,f"NOTE {index+1} / 4")
                 if index < 3:
                     self.after_result(2000,lambda: page(index+1))
@@ -998,10 +1030,16 @@ class Presentation:
                         original = a._editor_text()
                         base = original.removesuffix(NOTE_ADDITION)
                         def saved():
+                            a._apply_note_direction(a.active_note())
                             a._flush_current_note()
                             a._write_now()
                             self.focus_result(a.save_status.master,"AUTOSAVED")
+                        if self.smoke:
+                            self.write_note(base+NOTE_ADDITION[:9])
+                            self.verify_note_rtl()
                         self.type_text(lambda suffix: self.write_note(base+suffix), NOTE_ADDITION,saved,target)
+                        if self.smoke:
+                            self.verify_note_rtl()
                     self.after_result(1000,add_sentence)
             self.after_result(1800,lambda: page(1))
         elif key == "links":
@@ -1171,6 +1209,8 @@ class Presentation:
                 self.type_text(field[1].set,term,search_done,field[0])
             else:
                 search_done()
+        elif key == "modes":
+            self.preview_modes()
         elif key == "palette":
             self.palette_demo_active = True
             a._open_global_search()
@@ -1199,6 +1239,43 @@ class Presentation:
                         self.after_result(1800,self.execute_palette_demo)
                 self.type_text(set_palette,queries[index],typed,a._palette_entry)
             example(0)
+
+    def preview_modes(self):
+        """Fast real-tool tour across the three factory layouts, with no scans."""
+        a = self.app
+        modes = ("mini","normal","dashboard")
+        tools = ("notes","links","commands","subnet","ports","mac","clipboard","reminders","extra")
+        self.mode_trace = []
+        def show_mode(i):
+            mode = modes[i]
+            self.clear_highlight()
+            if a.display_mode != mode:
+                a._set_display_mode(mode)
+            a.root.update_idletasks()
+            self.position()
+            # Never relabel a responsive Normal window as a Dashboard.
+            actual = a.display_mode
+            self.chapter.configure(text=actual.upper()+"  ·  "+str(i+1)+"/3")
+            self.focus_result(a.header_icon,actual.upper()+" MODE")
+            def visit(j):
+                self.clear_highlight()
+                tab = tools[j]
+                a.show_tab(tab)
+                a.root.update_idletasks()
+                self.mode_trace.append((a.display_mode,tab))
+                self.chapter.configure(text=f"{a.display_mode.upper()}  ·  {tab.upper()}")
+                if j+1 < len(tools):
+                    self.after_result(620,lambda: visit(j+1))
+                elif i+1 < len(modes):
+                    self.after_result(850,lambda: show_mode(i+1))
+                else:
+                    def finish():
+                        a.show_tab("home" if a.display_mode == "dashboard" else "notes")
+                        a.root.update_idletasks()
+                        self.chapter.configure(text=a.display_mode.upper()+"  ·  OVERVIEW")
+                    self.after_result(800,finish)
+            self.after_result(1100,lambda: visit(0))
+        show_mode(0)
 
     def execute_palette_demo(self):
         a = self.app
@@ -1338,8 +1415,12 @@ def run(api, *, smoke=False):
                         time.sleep(0.03)
                     if presentation.error:
                         raise AssertionError(presentation.error)
-                    if step[4] != "summary":
+                    if step[4] not in ("summary","modes"):
                         assert app.display_mode == "mini", "Expected Mini mode"
+                    if step[4] == "modes":
+                        assert len(presentation.mode_trace) == 27, "Mode tour missed tools"
+                        assert {mode for mode,tab in presentation.mode_trace} == {"mini","normal","dashboard"}, "Expected three factory layouts"
+                        assert app.current_tab == "home", "Dashboard overview missing"
                     assert presentation.side.winfo_ismapped(), "Missing integrated controller"
                     if step[4] in ("extra", "return_extra"):
                         state = api["extra_excel_ui"].session(app)

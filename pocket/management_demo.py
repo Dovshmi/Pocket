@@ -11,7 +11,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
-SPEEDS = (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
+SPEEDS = (0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
+CHANNELS = ("step", "hold", "appear", "disappear", "typing")
+CHANNEL_LABELS = {"step": "STEP", "hold": "BUBBLE HOLD", "appear": "FADE IN",
+                  "disappear": "FADE OUT", "typing": "TYPING"}
 DEFAULT_SCENARIO = {"customer": "Orion Logistics", "circuit": "90021400",
                     "vrf": "VRF-BUS-ERP", "public_ip": "192.0.2.52"}
 WAN_IP = "10.178.24.14"
@@ -148,7 +151,19 @@ class Presentation:
         self.events = []
         self.elapsed = 0.
         self.last = time.monotonic()
-        self.speed = 1.
+        self.rates = dict.fromkeys(CHANNELS, 1.)
+        self.selected_channel = "step"
+        self.clocks = dict.fromkeys(CHANNELS, 0.)
+        self.bubble_phase = "hidden"
+        self.phase_elapsed = 0.
+        self.phase_start_alpha = 0.
+        self.alpha = 0.
+        self.action_finished_at = None
+        self.dim_enabled = False
+        self.dim = None
+        self.highlight = None
+        self.highlight_until = None
+        self.started = False
         self.manual = False
         self.paused = False
         self.closed = False
@@ -157,7 +172,10 @@ class Presentation:
         self.action_pending = False
         self.action = None
         self.root = app.root
+        self.root.withdraw()
+        self.root.overrideredirect(True)
         self.root.title("Pocket | FORMGT — DEMO ONLY")
+        self.root.deiconify()
         self.root.attributes("-topmost", True)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.side = tk.Toplevel(self.root)
@@ -174,14 +192,15 @@ class Presentation:
             self.bubble.attributes("-transparentcolor", self.KEY)
         self.canvas = tk.Canvas(self.bubble, bg=self.KEY, highlightthickness=0, bd=0)
         self.canvas.pack(fill="both", expand=True)
-        self.canvas.bind("<Button-1>", lambda e: self.hide_card())
+        self.canvas.bind("<Button-1>", lambda e: self.dismiss_card())
         self.card_visible = False
-        self.fade_job = None
-        self.reveal_until = None
+        self.reveal_only = False
         self.build_side()
         for seq, handler in (("<F5>", self.restart), ("<F6>", self.toggle),
                              ("<F7>", self.previous), ("<F8>", self.next),
                              ("<F9>", self.repeat_card), ("<F10>", self.toggle_mode),
+                             ("<F11>", self.cycle_channel),
+                             ("<F12>", self.reset_rates),
                              ("<Control-Up>", lambda: self.change_speed(1)),
                              ("<Control-Down>", lambda: self.change_speed(-1)),
                              ("<Escape>", self.close)):
@@ -196,7 +215,7 @@ class Presentation:
             # presenter keys, only while a window of THIS process has focus.
             self.win_keys = {}
             self.root.after(40, self.poll_presenter_keys)
-            for seq in ("<F5>", "<F6>", "<F7>", "<F8>", "<F9>", "<F10>", "<Control-Up>", "<Control-Down>"):
+            for seq in ("<F5>", "<F6>", "<F7>", "<F8>", "<F9>", "<F10>", "<F11>", "<F12>", "<Control-Up>", "<Control-Down>"):
                 self.root.unbind_all(seq)
         self.position()
         if auto_start:
@@ -216,6 +235,7 @@ class Presentation:
         ctrl = bool(user.GetAsyncKeyState(0x11) & 0x8000)
         actions = {0x74: self.restart, 0x75: self.toggle, 0x76: self.previous,
                    0x77: self.next, 0x78: self.repeat_card, 0x79: self.toggle_mode,
+                   0x7A: self.cycle_channel, 0x7B: self.reset_rates,
                    0x26: lambda: self.change_speed(1), 0x28: lambda: self.change_speed(-1)}
         for vk, callback in actions.items():
             down = bool(user.GetAsyncKeyState(vk) & 0x8000)
@@ -229,34 +249,83 @@ class Presentation:
     def widget_alive(self, widget):
         return widget is not None and widget.winfo_exists()
 
+    @property
+    def speed(self):
+        return self.rates["step"]
+
     def build_side(self):
         def label(text, size=9, fg=None):
             w = tk.Label(self.side, text=text, bg=self.BG, fg=fg or self.MUTED,
                          font=("Segoe UI", size, "bold"))
-            w.pack(fill="x", padx=5, pady=3)
+            w.pack(fill="x", padx=6, pady=2)
             return w
-        label("FORMGT", 9, self.ACCENT)
-        self.step_label = label("00 / 14", 10, self.TEXT)
+        label("P O C K E T   /   FORMGT", 9, self.ACCENT)
+        self.step_label = label("00 / 14", 11, self.TEXT)
+        self.chapter = label("PRESENTER", 9)
         self.track = tk.Canvas(self.side, height=4, bg="#293a50", highlightthickness=0)
         self.track.pack(fill="x", padx=8, pady=(0, 6))
-        self.pause_button = self.button("Pause", self.toggle)
-        for text, cb in (("Next ›", self.next), ("‹ Back", self.previous),
-                         ("Replay", self.restart), ("Explain", self.repeat_card)):
-            self.button(text, cb)
-        self.mode_button = self.button("AUTO", self.toggle_mode)
-        self.button("+ Faster", lambda: self.change_speed(1))
-        self.speed_label = label("1×", 15, self.ACCENT)
-        self.button("− Slower", lambda: self.change_speed(-1))
+        self.pause_button = self.button("Pause  ·  F6", self.toggle)
+        nav = tk.Frame(self.side, bg=self.BG)
+        nav.pack(fill="x", padx=5)
+        self.button("‹ Back", self.previous, nav).pack(side="left", fill="x", expand=True, padx=1)
+        self.button("Next ›", self.next, nav).pack(side="left", fill="x", expand=True, padx=1)
+        nav2 = tk.Frame(self.side, bg=self.BG)
+        nav2.pack(fill="x", padx=5, pady=2)
+        self.button("Replay", self.restart, nav2).pack(side="left", fill="x", expand=True, padx=1)
+        self.button("Explain", self.repeat_card, nav2).pack(side="left", fill="x", expand=True, padx=1)
+        self.mode_button = self.button("AUTO  ·  F10", self.toggle_mode)
+        label("INDEPENDENT TIMING", 8, self.ACCENT)
+        self.rate_labels, self.rate_rows = {}, {}
+        for channel in CHANNELS:
+            row = tk.Frame(self.side, bg=self.BG)
+            row.pack(fill="x", padx=6, pady=2)
+            self.rate_rows[channel] = row
+            caption = tk.Label(row, text=CHANNEL_LABELS[channel], font=("Segoe UI", 8, "bold"),
+                               bg=self.BG, fg=self.MUTED, anchor="w", cursor="hand2")
+            caption.pack(fill="x")
+            caption.bind("<Button-1>", lambda e, ch=channel: self.select_channel(ch))
+            controls = tk.Frame(row, bg=self.BG)
+            controls.pack(fill="x")
+            self.button("−", lambda ch=channel: self.adjust(ch,-1), controls).pack(side="left")
+            value = tk.Label(controls, bg=self.BG, fg=self.ACCENT, font=("Segoe UI", 11, "bold"),
+                             cursor="hand2")
+            value.pack(side="left", fill="x", expand=True)
+            value.bind("<Button-1>", lambda e, ch=channel: self.select_channel(ch))
+            self.rate_labels[channel] = value
+            self.button("+", lambda ch=channel: self.adjust(ch,1), controls).pack(side="right")
+        self.dim_button = self.button("Dim: OFF", self.toggle_dim)
+        self.button("Reset timing · F12", self.reset_rates)
         self.button("Exit", self.close)
-        label("F5–F10", 8)
+        label("F11: select rate", 8)
+        label("Ctrl ↑ / ↓: adjust", 8)
+        self.refresh()
 
-    def button(self, text, callback):
-        w = tk.Button(self.side, text=text, command=callback, bg="#243852", fg=self.TEXT,
+    def button(self, text, callback, parent=None):
+        w = tk.Button(parent or self.side, text=text, command=callback, bg="#243852", fg=self.TEXT,
                       activebackground="#385778", activeforeground=self.TEXT,
-                      relief="flat", bd=0, padx=6, pady=5, cursor="hand2",
+                      relief="flat", bd=0, padx=6, pady=3, cursor="hand2",
                       font=("Segoe UI", 9, "bold"))
-        w.pack(fill="x", padx=7, pady=2)
+        if parent is None:
+            w.pack(fill="x", padx=7, pady=2)
         return w
+
+    def select_channel(self, channel):
+        self.selected_channel = channel
+        self.refresh()
+
+    def cycle_channel(self):
+        self.select_channel(CHANNELS[(CHANNELS.index(self.selected_channel)+1)%len(CHANNELS)])
+
+    def adjust(self, channel, amount):
+        self.selected_channel = channel
+        i = SPEEDS.index(self.rates[channel])
+        self.rates[channel] = SPEEDS[max(0, min(len(SPEEDS)-1, i+amount))]
+        self.refresh()
+
+    def reset_rates(self):
+        self.rates.update(dict.fromkeys(CHANNELS, 1.))
+        self.selected_channel = "step"
+        self.refresh()
 
     def area(self):
         r = self.root
@@ -268,7 +337,7 @@ class Presentation:
         left, top, right, bottom = self.area()
         self.side.update_idletasks()
         h = self.side.winfo_reqheight()
-        self.side.geometry(f"108x{h}{left+12:+d}{top+max(5,(bottom-top-h)//2):+d}")
+        self.side.geometry(f"180x{min(h,bottom-top-10)}{left+12:+d}{top+max(5,(bottom-top-h)//2):+d}")
         self.side.lift()
 
     def draw_progress(self):
@@ -278,16 +347,20 @@ class Presentation:
                                     fill=self.ACCENT, outline="")
 
     def refresh(self):
-        status = "SIM" if self.action == "ports" else ("MAN" if self.manual else "DEMO")
-        self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d} {status}")
-        self.pause_button.configure(text="Play" if self.paused else "Pause")
-        self.mode_button.configure(text="MANUAL" if self.manual else "AUTO")
-        self.speed_label.configure(text=f"{self.speed:g}×")
+        status = "SIM" if self.action in ("ports", "switch_extra") else ("MAN" if self.manual else "DEMO")
+        self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d}  {status}")
+        self.chapter.configure(text=STEPS[self.index][0] if self.index >= 0 else "PRESENTER")
+        self.pause_button.configure(text="Play  ·  F6" if self.paused else "Pause  ·  F6")
+        self.mode_button.configure(text=("MANUAL" if self.manual else "AUTO")+"  ·  F10")
+        for channel, label in self.rate_labels.items():
+            rate = self.rates[channel]
+            selected = channel == self.selected_channel
+            label.configure(text=("› " if selected else "")+f"{rate:.2f}×",
+                            fg=self.ACCENT if selected else self.TEXT)
         self.draw_progress()
 
     def change_speed(self, amount):
-        self.speed = SPEEDS[max(0, min(len(SPEEDS)-1, SPEEDS.index(self.speed)+amount))]
-        self.refresh()
+        self.adjust(self.selected_channel, amount)
 
     def toggle_mode(self):
         self.manual = not self.manual
@@ -302,8 +375,8 @@ class Presentation:
         self.last = time.monotonic()
         self.refresh()
 
-    def later(self, ms, callback):
-        self.events.append((self.elapsed + ms, callback))
+    def later(self, ms, callback, channel="step"):
+        self.events.append((channel, self.clocks[channel]+ms, callback))
 
     def cancel(self):
         self.events.clear()
@@ -315,45 +388,157 @@ class Presentation:
         delta = min(250., (now-self.last)*1000)
         self.last = now
         if not self.paused:
-            self.elapsed += delta*self.speed
             try:
-                while self.events:
-                    due, cb = min(self.events, key=lambda item: item[0])
-                    if due > self.elapsed:
-                        break
-                    self.events.remove((due, cb))
-                    cb()
-                duration = STEPS[self.index][3] if self.index >= 0 else 0
-                if duration and self.elapsed >= duration and not self.manual and not self.events:
-                    state = self.api["extra_excel_ui"].session(self.app)
-                    if not (self.app.scanning or state["busy"]):
-                        self.next()
+                self.advance(delta)
             except Exception as exc:
                 self.fail(exc)
-        if self.reveal_until is not None and now >= self.reveal_until:
-            self.reveal_until = None
-            if self.action != "summary" and not self.error:
-                self.hide_card()
-        self.job = self.root.after(50, self.tick)
+        self.job = self.root.after(40, self.tick)
 
-    def fade(self, value=0.35):
-        if not self.card_visible:
+    def advance(self, delta):
+        for channel in CHANNELS:
+            self.clocks[channel] += delta*self.rates[channel]
+        # Bubble has its own timeline, independent of time on the tool.
+        if self.bubble_phase in ("appear", "hold", "disappear"):
+            channel = self.bubble_phase
+            self.phase_elapsed += delta*self.rates[channel]
+            if channel == "appear":
+                self.set_alpha(min(.98, .98*self.phase_elapsed/240))
+                if self.phase_elapsed >= 240:
+                    self.bubble_phase = "hold"
+                    self.phase_elapsed = 0.
+            elif channel == "hold":
+                if self.phase_elapsed >= 2300 and self.action != "summary" and not self.error:
+                    self.bubble_phase = "disappear"
+                    self.phase_start_alpha = self.alpha
+                    self.phase_elapsed = 0.
+            elif channel == "disappear":
+                self.set_alpha(max(0., self.phase_start_alpha*(1-self.phase_elapsed/280)))
+                if self.phase_elapsed >= 280:
+                    self.hide_card()
+                    if self.action_pending:
+                        self.perform_action()
+        while True:
+            due = next((e for e in self.events if e[1] <= self.clocks[e[0]]), None)
+            if due is None:
+                break
+            self.events.remove(due)
+            due[2]()
+        if self.highlight_until is not None and self.clocks["step"] >= self.highlight_until:
+            self.clear_highlight()
+        if self.index < 0 or self.action == "summary" or self.action_pending or self.events:
             return
+        state = self.api["extra_excel_ui"].session(self.app)
+        if self.app.scanning or state["busy"] or getattr(self.app,"mac_lookup_running",False):
+            return
+        if self.action_finished_at is None:
+            self.action_finished_at = self.clocks["step"]
+        # Readable result dwell is separate from typing, fade and worker completion.
+        duration = max(1800, STEPS[self.index][3]-4200)
+        if (not self.manual and self.bubble_phase == "hidden" and
+                self.clocks["step"]-self.action_finished_at >= duration):
+            self.next()
+
+    def set_alpha(self, value):
+        self.alpha = value
         try:
             self.bubble.attributes("-alpha", value)
+            if self.dim_enabled and self.widget_alive(self.dim):
+                self.dim.attributes("-alpha", value*.18)
         except tk.TclError:
+            pass
+
+    def passive_window(self, w):
+        if sys.platform != "win32":
             return
-        if value < 0.96:
-            self.fade_job = self.root.after(30, lambda: self.fade(min(0.96,value+0.17)))
-        else:
-            self.fade_job = None
+        # No focus activation; pointer passes through the visual overlay.
+        import ctypes
+        from ctypes import wintypes
+        u = ctypes.windll.user32
+        u.GetParent.argtypes = [wintypes.HWND]
+        u.GetParent.restype = wintypes.HWND
+        hwnd = u.GetParent(w.winfo_id()) or w.winfo_id()
+        get = u.GetWindowLongW
+        put = u.SetWindowLongW
+        get.argtypes = [wintypes.HWND, ctypes.c_int]
+        put.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_long]
+        put(hwnd, -20, get(hwnd,-20) | 0x08000000 | 0x00080000 | 0x20)
+
+    def toggle_dim(self):
+        self.dim_enabled = not self.dim_enabled
+        self.dim_button.configure(text="Dim: ON" if self.dim_enabled else "Dim: OFF")
+        if self.dim_enabled and self.card_visible:
+            self.show_dim()
+            self.bubble.lift()
+            self.side.lift()
+        elif self.widget_alive(self.dim):
+            self.dim.withdraw()
+
+    def show_dim(self):
+        if not self.dim_enabled:
+            return
+        if not self.widget_alive(self.dim):
+            self.dim = tk.Toplevel(self.root)
+            self.dim.withdraw()
+            self.dim.overrideredirect(True)
+            self.dim.configure(bg="black")
+            self.dim.attributes("-topmost", True)
+        left, top, right, bottom = self.area()
+        self.dim.geometry(f"{right-left}x{bottom-top}{left:+d}{top:+d}")
+        self.dim.attributes("-alpha", self.alpha*.18)
+        self.dim.deiconify()
+        self.passive_window(self.dim)
+        self.dim.lift()
+
+    def clear_highlight(self):
+        self.highlight_until = None
+        if self.widget_alive(self.highlight):
+            self.highlight.withdraw()
+
+    def focus_result(self, widget):
+        if self.smoke or not self.widget_alive(widget) or not widget.winfo_ismapped():
+            return
+        self.root.update_idletasks()
+        r = self.root
+        x = max(widget.winfo_rootx(), r.winfo_rootx()+2)
+        y = max(widget.winfo_rooty(), r.winfo_rooty()+2)
+        right = min(widget.winfo_rootx()+widget.winfo_width(), r.winfo_rootx()+r.winfo_width()-2)
+        bottom = min(widget.winfo_rooty()+widget.winfo_height(), r.winfo_rooty()+r.winfo_height()-2)
+        canvas = getattr(self.app, "_tool_scroll_canvas", None)
+        if self.widget_alive(canvas):
+            x = max(x, canvas.winfo_rootx())
+            y = max(y, canvas.winfo_rooty())
+            right = min(right, canvas.winfo_rootx()+canvas.winfo_width())
+            bottom = min(bottom, canvas.winfo_rooty()+canvas.winfo_height())
+        if right-x < 20 or bottom-y < 16 or sys.platform != "win32":
+            return
+        if not self.widget_alive(self.highlight):
+            self.highlight = tk.Toplevel(r)
+            self.highlight.withdraw()
+            self.highlight.overrideredirect(True)
+            self.highlight.attributes("-topmost", True)
+            self.highlight.attributes("-transparentcolor", self.KEY)
+            self.outline = tk.Canvas(self.highlight, bg=self.KEY, highlightthickness=0, bd=0)
+            self.outline.pack(fill="both", expand=True)
+        w,h = right-x,bottom-y
+        self.highlight.geometry(f"{w}x{h}{x:+d}{y:+d}")
+        self.outline.delete("all")
+        self.outline.create_rectangle(2,2,w-2,h-2,outline=self.ACCENT,width=3)
+        self.highlight.deiconify()
+        self.passive_window(self.highlight)
+        self.highlight.lift()
+        self.highlight_until = self.clocks["step"]+1800
+
+    def dismiss_card(self):
+        self.hide_card()
+        if self.action_pending:
+            self.perform_action()
 
     def hide_card(self):
-        if self.fade_job is not None:
-            self.root.after_cancel(self.fade_job)
-            self.fade_job = None
         self.card_visible = False
+        self.bubble_phase = "hidden"
         self.bubble.withdraw()
+        if self.widget_alive(self.dim):
+            self.dim.withdraw()
 
     def explain(self):
         if self.index < 0:
@@ -363,47 +548,49 @@ class Presentation:
         if self.error:
             detail = self.error
         left, top, right, bottom = self.area()
-        width = min(580, right-left-40)
-        height = 268 if key == "summary" else 166
+        width = min(760, right-left-40)
+        height = 350 if key == "summary" else 236
         self.canvas.configure(width=width, height=height)
         # Render a truly rounded, transparent-key silhouette on Windows.
         image = Image.new("RGB", (width, height), self.KEY)
         draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle((8, 7, width-8, height-8), radius=30,
+        draw.rounded_rectangle((8, 7, width-8, height-8), radius=40,
                                fill=self.CARD, outline="#628c9c", width=1)
         self.bubble_photo = ImageTk.PhotoImage(image, master=self.bubble)
         self.canvas.delete("all")
         self.canvas.create_image(0, 0, image=self.bubble_photo, anchor="nw")
-        self.canvas.create_text(width/2, 29, text=f"{name}  •  {self.index+1:02d}/{len(STEPS):02d}",
-                                fill=self.ACCENT, font=("Segoe UI", 10, "bold"))
-        self.canvas.create_text(width/2, 64, text=headline, width=width-60,
-                                fill=self.TEXT, font=("Segoe UI", 18, "bold"), justify="center")
-        self.canvas.create_text(width/2, 108, text=detail, width=width-60,
-                                fill=self.MUTED, font=("Segoe UI", 12), justify="center")
+        self.canvas.create_text(width/2, 37, text=f"{name}  •  {self.index+1:02d}/{len(STEPS):02d}",
+                                fill=self.ACCENT, font=("Segoe UI", 14, "bold"))
+        self.canvas.create_text(width/2, 89, text=headline, width=width-60,
+                                fill=self.TEXT, font=("Segoe UI", 25, "bold"), justify="center")
+        self.canvas.create_text(width/2, 155, text=detail, width=width-60,
+                                fill=self.MUTED, font=("Segoe UI", 17), justify="center")
         if key == "summary":
-            self.canvas.create_text(width/2, 154, text="183 שעות בחודש", fill=self.ACCENT,
-                                    font=("Segoe UI", 26, "bold"))
-            self.canvas.create_text(width/2, 192, text="30 sec × 20 calls × 50 agents × 22 days",
-                                    fill=self.TEXT, font=("Segoe UI", 11))
-            self.canvas.create_text(width/2, 222, text="תרחיש להמחשה בלבד · לא תוצאות מדידה",
-                                    fill=self.MUTED, font=("Segoe UI", 11))
+            self.canvas.create_text(width/2, 219, text="183 שעות בחודש", fill=self.ACCENT,
+                                    font=("Segoe UI", 34, "bold"))
+            self.canvas.create_text(width/2, 270, text="30 sec × 20 calls × 50 agents × 22 days",
+                                    fill=self.TEXT, font=("Segoe UI", 15))
+            self.canvas.create_text(width/2, 310, text="תרחיש להמחשה בלבד · לא תוצאות מדידה",
+                                    fill=self.MUTED, font=("Segoe UI", 14))
         else:
-            self.canvas.create_line(width/2-35, 143, width/2+35, 143,
+            self.canvas.create_line(width/2-45, 207, width/2+45, 207,
                                     fill=self.ACCENT, width=3, capstyle="round")
         self.bubble.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{top+(bottom-top-height)//2:+d}")
-        if self.fade_job is not None:
-            self.root.after_cancel(self.fade_job)
-            self.fade_job = None
         self.card_visible = True
+        self.bubble_phase = "appear"
+        self.phase_elapsed = 0.
+        self.set_alpha(.98 if self.smoke else .03)
+        self.show_dim()
         self.bubble.deiconify()
         self.bubble.lift()
         self.side.lift()
-        if not self.smoke:
-            self.fade()
 
     def repeat_card(self):
         self.explain()
-        self.reveal_until = time.monotonic()+3.0/self.speed
+        # Repeat is useful even while paused: make the message immediately legible.
+        if self.paused:
+            self.set_alpha(.98)
+            self.bubble_phase = "hold"
 
     def next(self):
         if self.index < len(STEPS)-1:
@@ -454,9 +641,10 @@ class Presentation:
         self.cancel()
         self.close_palette()
         self.hide_card()
-        self.reveal_until = None
+        self.clear_highlight()
         self.index = index
-        self.elapsed = 0.
+        self.clocks = dict.fromkeys(CHANNELS, 0.)
+        self.action_finished_at = None
         self.last = time.monotonic()
         self.error = ""
         self.action_pending = True
@@ -470,9 +658,7 @@ class Presentation:
             elif self.smoke or self.paused:
                 self.hide_card()
                 self.perform_action()
-            else:
-                self.later(2300, self.hide_card)
-                self.later(2500, self.perform_action)
+            # Otherwise the independent bubble timeline starts the action.
         except Exception as exc:
             self.fail(exc)
 
@@ -482,6 +668,7 @@ class Presentation:
         self.error = f"Demo paused: {type(exc).__name__}: {exc}"
         self.refresh()
         self.explain()
+        self.set_alpha(.98)
 
     def scroll_to(self, widget=None, fraction=None):
         a = self.app
@@ -496,6 +683,7 @@ class Presentation:
             if region and region[3] > region[1]:
                 y = widget.winfo_rooty()-canvas.winfo_rooty()+canvas.canvasy(0)
                 canvas.yview_moveto(max(0, (y-16)/(region[3]-region[1])))
+            self.focus_result(widget)
 
     def perform_action(self):
         if not self.action_pending:
@@ -514,10 +702,10 @@ class Presentation:
             return
         setter("")
         for i in range(1, len(value)+1, 2):
-            self.later(65*i, lambda n=i: setter(value[:n]))
-        self.later(65*(len(value)+1), lambda: setter(value))
+            self.later(65*i, lambda n=i: setter(value[:n]), "typing")
+        self.later(65*(len(value)+1), lambda: setter(value), "typing")
         if done:
-            self.later(65*(len(value)+2), done)
+            self.later(65*(len(value)+2), done, "typing")
 
     def apply(self, key):
         a = self.app
@@ -570,9 +758,10 @@ class Presentation:
             def set_palette(value):
                 a._palette_entry.delete(0, "end")
                 a._palette_entry.insert(0, value)
-            self.type_text(set_palette, "< extra " + self.scenario["circuit"])
-            if not self.smoke:
-                self.later(2300, self.execute_palette_demo)
+            def typed():
+                if not self.smoke:
+                    self.later(900, self.execute_palette_demo)
+            self.type_text(set_palette, "< extra " + self.scenario["circuit"], typed)
         elif key == "summary":
             self.explain()
 
@@ -596,6 +785,7 @@ class Presentation:
         if self.job is not None:
             self.root.after_cancel(self.job)
         self.hide_card()
+        self.clear_highlight()
         self.app._extra_excel_cancel.set()
         self.app.scan_cancel.set()
         self.app.tasks.stop()
@@ -712,6 +902,12 @@ def run(api, *, smoke=False):
                         assert presentation.bubble.winfo_ismapped(), "Missing final impact card"
                 presentation.change_speed(1)
                 assert presentation.speed == 1.25
+                presentation.select_channel("hold")
+                presentation.change_speed(-4)
+                assert presentation.rates["hold"] == .1 and presentation.speed == 1.25
+                presentation.reset_rates()
+                assert all(rate == 1. for rate in presentation.rates.values())
+                assert app.root.overrideredirect(), "Pocket must be borderless"
                 presentation.toggle_mode()
                 assert presentation.manual
                 presentation.toggle_mode()

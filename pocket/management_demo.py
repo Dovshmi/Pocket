@@ -163,7 +163,6 @@ class Presentation:
         self.dim = None
         self.highlight = None
         self.highlight_until = None
-        self.started = False
         self.manual = False
         self.paused = False
         self.closed = False
@@ -194,7 +193,6 @@ class Presentation:
         self.canvas.pack(fill="both", expand=True)
         self.canvas.bind("<Button-1>", lambda e: self.dismiss_card())
         self.card_visible = False
-        self.reveal_only = False
         self.build_side()
         for seq, handler in (("<F5>", self.restart), ("<F6>", self.toggle),
                              ("<F7>", self.previous), ("<F8>", self.next),
@@ -282,14 +280,15 @@ class Presentation:
             self.rate_rows[channel] = row
             caption = tk.Label(row, text=CHANNEL_LABELS[channel], font=("Segoe UI", 8, "bold"),
                                bg=self.BG, fg=self.MUTED, anchor="w", cursor="hand2")
-            caption.pack(fill="x")
+            caption.pack(side="left", fill="x", expand=True)
             caption.bind("<Button-1>", lambda e, ch=channel: self.select_channel(ch))
             controls = tk.Frame(row, bg=self.BG)
-            controls.pack(fill="x")
+            controls.pack(side="right")
             self.button("−", lambda ch=channel: self.adjust(ch,-1), controls).pack(side="left")
             value = tk.Label(controls, bg=self.BG, fg=self.ACCENT, font=("Segoe UI", 11, "bold"),
                              cursor="hand2")
-            value.pack(side="left", fill="x", expand=True)
+            value.configure(width=6)
+            value.pack(side="left")
             value.bind("<Button-1>", lambda e, ch=channel: self.select_channel(ch))
             self.rate_labels[channel] = value
             self.button("+", lambda ch=channel: self.adjust(ch,1), controls).pack(side="right")
@@ -337,7 +336,7 @@ class Presentation:
         left, top, right, bottom = self.area()
         self.side.update_idletasks()
         h = self.side.winfo_reqheight()
-        self.side.geometry(f"180x{min(h,bottom-top-10)}{left+12:+d}{top+max(5,(bottom-top-h)//2):+d}")
+        self.side.geometry(f"236x{min(h,bottom-top-10)}{left+12:+d}{top+max(5,(bottom-top-h)//2):+d}")
         self.side.lift()
 
     def draw_progress(self):
@@ -547,9 +546,11 @@ class Presentation:
         name, headline, detail, _, key = STEPS[self.index]
         if self.error:
             detail = self.error
+        if key == "intro" and not self.error:
+            detail = "Pocket | Management Demo\n" + detail
         left, top, right, bottom = self.area()
         width = min(760, right-left-40)
-        height = 350 if key == "summary" else 236
+        height = 374 if key == "summary" else 250
         self.canvas.configure(width=width, height=height)
         # Render a truly rounded, transparent-key silhouette on Windows.
         image = Image.new("RGB", (width, height), self.KEY)
@@ -563,15 +564,17 @@ class Presentation:
                                 fill=self.ACCENT, font=("Segoe UI", 14, "bold"))
         self.canvas.create_text(width/2, 89, text=headline, width=width-60,
                                 fill=self.TEXT, font=("Segoe UI", 25, "bold"), justify="center")
-        self.canvas.create_text(width/2, 155, text=detail, width=width-60,
+        self.canvas.create_text(width/2, 158, text=detail, width=width-60,
                                 fill=self.MUTED, font=("Segoe UI", 17), justify="center")
         if key == "summary":
-            self.canvas.create_text(width/2, 219, text="183 שעות בחודש", fill=self.ACCENT,
+            self.canvas.create_text(width/2, 220, text="183 שעות בחודש", fill=self.ACCENT,
                                     font=("Segoe UI", 34, "bold"))
-            self.canvas.create_text(width/2, 270, text="30 sec × 20 calls × 50 agents × 22 days",
+            self.canvas.create_text(width/2, 267, text="30 sec × 20 calls × 50 agents × 22 days",
                                     fill=self.TEXT, font=("Segoe UI", 15))
-            self.canvas.create_text(width/2, 310, text="תרחיש להמחשה בלבד · לא תוצאות מדידה",
+            self.canvas.create_text(width/2, 335, text="תרחיש להמחשה בלבד · לא תוצאות מדידה",
                                     fill=self.MUTED, font=("Segoe UI", 14))
+            self.canvas.create_text(width/2, 302, text="AHT  •  ACW  •  QUALITY",
+                                    fill=self.ACCENT, font=("Segoe UI", 13, "bold"))
         else:
             self.canvas.create_line(width/2-45, 207, width/2+45, 207,
                                     fill=self.ACCENT, width=3, capstyle="round")
@@ -674,6 +677,7 @@ class Presentation:
         a = self.app
         canvas = getattr(a, "_tool_scroll_canvas", None)
         if not self.widget_alive(canvas):
+            self.focus_result(widget)
             return
         self.root.update_idletasks()
         if fraction is not None:
@@ -713,7 +717,10 @@ class Presentation:
             a._command_focus_in()
             a.machine_var.set("Cisco")
             a._change_machine()
-            self.type_text(a.command_query.set, "show ip interface brief", a._refresh_command_results)
+            def cli_done():
+                a._refresh_command_results()
+                self.focus_result(a.command_search_entry)
+            self.type_text(a.command_query.set, "show ip interface brief", cli_done)
         elif key == "subnet":
             a.subnet_ip_var.set(WAN_IP)
             a.subnet_prefix_var.set("29")
@@ -743,16 +750,24 @@ class Presentation:
                 self.later(900, lambda: self.scroll_to(a.mac_summary_panel))
         elif key == "extra":
             a._extra_excel_path = str(self.workbook)
-            a._extra_palette_search(self.scenario["circuit"])
-            if not self.smoke:
-                self.later(1500, lambda: self.scroll_to(fraction=0.48))
+            term = self.scenario["circuit"]
+            def search_done():
+                a._extra_palette_search(term)
+                if not self.smoke:
+                    self.later(1200, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
+            field = getattr(a, "_formgt_extra_input", None)
+            if field and self.widget_alive(field[0]):
+                self.scroll_to(field[0])
+                self.type_text(field[1].set, term, search_done)
+            else:
+                search_done()
         elif key == "return_extra":
             # Manual jumps may reach this chapter before the first search.
             state = self.api["extra_excel_ui"].session(a)
             if not state["hits"] and not state["busy"]:
                 a._extra_palette_search(self.scenario["circuit"])
             if not self.smoke:
-                self.later(1000, lambda: self.scroll_to(fraction=0.48))
+                self.later(1000, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
         elif key == "palette":
             a._open_global_search()
             def set_palette(value):
@@ -776,6 +791,8 @@ class Presentation:
             return
         self.close_palette()
         a._run_palette_action(hit)
+        if not self.smoke:
+            self.later(1200, lambda: self.scroll_to(getattr(a, "_formgt_extra_details", None)))
 
     def close(self):
         if self.closed:
@@ -907,6 +924,31 @@ def run(api, *, smoke=False):
                 assert presentation.rates["hold"] == .1 and presentation.speed == 1.25
                 presentation.reset_rates()
                 assert all(rate == 1. for rate in presentation.rates.values())
+                # Deterministic independent-clock check, without real waiting.
+                presentation.go(0)
+                presentation.action_pending = True
+                presentation.explain()
+                presentation.bubble_phase = "appear"
+                presentation.phase_elapsed = 0.
+                presentation.rates["appear"] = .25
+                presentation.manual = True
+                presentation.advance(480)
+                assert presentation.bubble_phase == "appear" and presentation.phase_elapsed == 120
+                presentation.advance(480)
+                assert presentation.bubble_phase == "hold"
+                presentation.rates["hold"] = .1
+                presentation.advance(1000)
+                assert presentation.bubble_phase == "hold" and presentation.phase_elapsed == 100
+                presentation.rates["hold"] = 1.
+                presentation.advance(2200)
+                assert presentation.bubble_phase == "disappear"
+                presentation.rates["disappear"] = .25
+                presentation.advance(560)
+                assert presentation.bubble_phase == "disappear" and presentation.card_visible
+                presentation.advance(560)
+                assert presentation.bubble_phase == "hidden" and not presentation.action_pending
+                presentation.manual = False
+                presentation.reset_rates()
                 assert app.root.overrideredirect(), "Pocket must be borderless"
                 presentation.toggle_mode()
                 assert presentation.manual

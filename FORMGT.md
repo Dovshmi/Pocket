@@ -15,9 +15,9 @@ Build on a Windows development PC with Python 3.11 x64 using `BUILD-FORMGT.bat`.
 
 ## Presentation
 
-Mini introduction → Notes → Shortcuts → Commands → Subnet → simulated Ports → MAC → Clipboard → Reminders → Extra → switch tools → restore Extra → Ctrl+K → Dashboard business impact.
+Mini introduction → animated RTL VPN note → organized Shortcuts → CLI search and favorite → Subnet calculation and /30 split → simulated TCP → four-MAC table, vendor summary and Cisco filter → Clipboard text and image carousel → linked reminder → Extra Net → Ctrl+K back to Notes → Dashboard business impact.
 
-The speech bubble appears at desktop center, fades in, then clears before the tool action. Long results are scrolled into view automatically. The left-side controller is independent of Pocket's window layout. Five independent timing channels (Step, Bubble Hold, Fade In, Fade Out and Typing) support 0.10×, 0.25×, 0.50×, 0.75×, 1×, 1.25×, 1.5×, 2× and 3×, with live changes. Step controls result dwell; bubble fade/hold and typing finish before automatic advance. Pocket uses the original borderless window style. Larger Hebrew captions are designed for projection; optional Dim darkens the desktop only while a bubble is visible. Temporary result outlines draw attention to the active tool. Manual mode completes the current step but waits for Next. Pause freezes the presentation timeline, not already-started local workers. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
+The speech bubble appears at desktop center, fades in, then clears before the tool action. Long results are scrolled into view automatically. The left-side controller is independent of Pocket's window layout. Five independent timing channels (Step, Bubble Hold, Fade In, Fade Out and Typing) support 0.10×, 0.25×, 0.50×, 0.75×, 1×, 1.25×, 1.5×, 2× and 3×, with live changes. Step controls result dwell; bubble fade/hold and typing finish before automatic advance. Pocket uses the original borderless window style. Larger Hebrew captions are designed for projection; optional Dim darkens the desktop only while a bubble is visible. Gold input markers and turquoise result outlines with a pointer and label guide attention. Typing is animated for note title/body, CLI search, subnet, TCP target/ports, four MACs, clipboard search, Extra Net and palette. Manual mode completes the current step but waits for Next. Pause freezes the presentation timeline, not already-started local workers. The final dashboard shows a clearly labeled illustrative capacity scenario, not measured AHT improvement.
 
 | Control | Keyboard |
 | --- | --- |
@@ -33,17 +33,17 @@ The speech bubble appears at desktop center, fades in, then clears before the to
 | Slower (selected channel) | Ctrl+Down |
 | Exit | Esc or side button |
 
-Presenter shortcuts work while a FORMGT process window has focus; the real Ctrl+K popup uses Escape to dismiss itself. The automatic run takes roughly 90 seconds at default timing, ending at the summary. Replay returns to Mini.
+Presenter shortcuts work while a FORMGT process window has focus; the real Ctrl+K popup uses Escape to dismiss itself. The automatic run takes roughly two minutes at default timing, ending at the summary. Replay returns to Mini.
 
 ## Local scenario (optional)
 
 Place an approved, private `formgt-scenario.local.json` alongside `app.pyw` or `Pocket-FORMGT.exe`. This file is intentionally gitignored and is not bundled in CI artifacts. Without it the demo runs entirely with generic public sample identifiers. The JSON schema is:
 
 ```json
-{"customer":"Example Business","circuit":"90021400","vrf":"Training","public_ip":"192.0.2.52"}
+{"customer":"Example Business","circuit":"90021400","vrf":"Training","public_ip":"192.0.2.52","port":"10443","vpn_users":"ALEX, JORDAN","phone":""}
 ```
 
-Only the selected local scenario feeds Notes, Extra, Reminders, Clipboard and simulated TCP checks. Never commit customer identifiers, or show them to audiences who are not authorized to view them. No real scan is performed, even for a public IPv4 address.
+The optional port, vpn_users and phone fields are backward compatible. Three original mock screenshots are generated in RAM and displayed by Pocket’s actual image gallery; no host clipboard is read. Only the selected local scenario feeds Notes, Extra, Reminders, Clipboard and simulated TCP checks. Never commit customer identifiers, or show them to audiences who are not authorized to view them. No real scan is performed, even for a public IPv4 address.
 
 The MAC example uses four synthetic device addresses with real vendor prefixes: two Cisco, one Alcatel-Lucent Enterprise and one Fortinet (FortiGate). All are local fixture lookups, not actual discovered devices.
 
@@ -57,4 +57,4 @@ The demo creates a fresh temporary synthetic profile, command catalog, Excel wor
 py -3 app.pyw --formgt-smoke
 ```
 
-The smoke check visits every chapter, checks Mini mode, independent timing clocks, borderless appearance, side controls, Extra results/selection, CLI matching, subnet calculation, simulated TCP, offline MAC, palette navigation and replay. A separate workflow builds a Windows distribution only after the smoke test passes. Before presenting, manually verify Hebrew layout, native Windows focus and display scaling on the intended machine.
+The smoke check visits every chapter, checks Mini mode, independent timing clocks, borderless appearance, side controls, Extra results/selection, CLI matching, subnet calculation, simulated TCP, four offline MAC results and vendor grouping, three image records, note content, palette navigation and replay. A separate workflow builds a Windows distribution only after the smoke test passes. Before presenting, manually verify Hebrew layout, native Windows focus and display scaling on the intended machine.

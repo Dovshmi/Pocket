@@ -17,7 +17,8 @@ CHANNEL_LABELS = {"step": "STEP", "hold": "BUBBLE HOLD", "appear": "FADE IN",
                   "disappear": "FADE OUT", "typing": "TYPING"}
 DEFAULT_SCENARIO = {"customer": "CLALIT", "circuit": "90021400",
                     "vrf": "clalit", "public_ip": "192.0.2.52",
-                    "vpn_users": "ALEX, JORDAN", "phone": "", "port": "10443"}
+                    "vpn_users": "ALEX, JORDAN", "phone": "", "port": "10443",
+                    "vdom": "training", "forti_ip": "10.238.2.25"}
 WAN_IP = "10.178.24.14"
 MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
         "00:80:9F:24:71:13", "00:09:0F:24:71:14")
@@ -42,6 +43,9 @@ def load_scenario():
     if not data["circuit"].isascii() or not data["circuit"].isdigit():
         raise ValueError("Circuit must contain digits only")
     data["public_ip"] = str(ipaddress.IPv4Address(data["public_ip"]))
+    data["forti_ip"] = str(ipaddress.IPv4Address(data["forti_ip"]))
+    if not data["forti_ip"].startswith("10.238.2.") or not 1 <= int(data["forti_ip"].split(".")[-1]) <= 254:
+        raise ValueError("Demo FortiGate must use the 10.238.2.x sheet convention")
     if not data["port"].isascii() or not data["port"].isdigit() or not 1 <= int(data["port"]) <= 65535:
         raise ValueError("Invalid demo port")
     if data["customer"].strip().casefold() in ("orion logistics", "clalit", "כללית", "clalit / כללית", "כללית / clalit", "כללית clalit", "clalit כללית"):
@@ -60,9 +64,30 @@ def note_text(scenario):
     return f"לקוח ביקש להוסיף יוזר VPN\n{users}\n\nIP: {scenario['public_ip']}\nPORT: {scenario['port']}\n\nDEMO בלבד"
 
 
+TASKS_TEXT = "משימות\n\n1. לחמם את הבאכש\n2. להוסיף יוזר VPN\n3. לחזור ללקוח\n4. לאמת גישה"
+NOTEPAD_ADDITION = "\n5. לעדכן את תיעוד הטיפול"
+
+
+def demo_notes(api, scenario):
+    first = api["new_note"](note_title(scenario), note_text(scenario), scenario["phone"])
+    first.update(reminder_enabled=True,
+                 reminder_at=(datetime.now().astimezone()+timedelta(minutes=30)).isoformat())
+    line = api["new_note"]("פרטי קו",
+        f"לקוח: {note_title(scenario)}\n\nקוד קו / קוד קישור:\n{scenario['circuit']}\n\n"
+        f"VRF: {scenario['vrf']}\nVDOM: {scenario['vdom']}\nFORTI: {scenario['forti_ip']}")
+    checks = api["new_note"]("בדיקות",
+        f"בדיקות מתוכננות — דוגמה בלבד\n\nIP: {scenario['public_ip']}\nPORT: {scenario['port']}\n\n"
+        "show ip interface brief\n\nCisco / Alcatel / Fortinet")
+    tasks = api["new_note"]("משימות", TASKS_TEXT)
+    for n in (first,line,checks,tasks):
+        n["direction"] = "rtl"
+    return [first,line,checks,tasks]
+
+
 STEPS = (
     ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת לצד מערכות העבודה הקיימות.", 5500, "intro"),
-    ("NOTES", "מתעדים תוך כדי טיפול", "תיעוד בקשת VPN ושמירה אוטומטית של פרטי הטיפול.", 11000, "notes"),
+    ("NOTES", "כל התיעוד בהישג יד", "דפדוף בין ארבע הערות — בקשת VPN, פרטי קו, בדיקות ומשימות.", 10500, "notes"),
+    ("NOTEPAD", "עורכים גם מחוץ לאפליקציה", "עריכה בקובץ טקסט ושמירה שמסתנכרנת בחזרה ל־Pocket.", 9500, "notepad"),
     ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "נהלים ומערכות מסודרים בתיקיות מוכנות לשימוש.", 6500, "links"),
     ("COMMANDS", "הידע המקצועי בהישג יד", "חיפוש פקודות לפי יצרן ושמירת פקודה לשימוש חוזר.", 11000, "commands"),
     ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישוב רשת וטווח כתובות, כולל חלוקה לתת־רשתות.", 12000, "subnet"),
@@ -100,11 +125,8 @@ def seed_profile(api, folder, scenario):
                             clipboard_paused=True, clipboard_storage="ram",
                             quick_slots_enabled=False, convert_enabled=False)
     data["last_tab"] = "notes"
-    note = api["new_note"](note_title(scenario), note_text(scenario), scenario["phone"])
-    note.update(direction="rtl", reminder_enabled=True,
-                reminder_at=(datetime.now().astimezone()+timedelta(minutes=30)).isoformat())
-    data["notes"] = [note]
-    data["active_note"] = note["id"]
+    data["notes"] = demo_notes(api, scenario)
+    data["active_note"] = data["notes"][0]["id"]
     data["links"] = [api["new_link"](name, "https://example.invalid/" + slug)
                      for name, slug in (("Network procedures", "procedures"), ("IPVPN service portal", "ipvpn"),
                                         ("Equipment knowledge base", "kb"), ("Diagnostics center", "diagnostics"))]
@@ -137,10 +159,11 @@ def seed_profile(api, folder, scenario):
         "vendors":VENDORS}), encoding="utf-8")
     book = Workbook()
     sheet = book.active
-    sheet.title = "Demo services"
-    sheet.append(["Circuit ID", "Customer", "Group ID", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG", "Service port", "Service"])
-    sheet.append([circuit, customer, "DEMO-G01", vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
-    sheet.append(["90021401", "Training customer", "DEMO-G02", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121"])
+    # EXTRA derives the FortiGate IP from the real worksheet naming convention.
+    sheet.title = "FG" + scenario["forti_ip"].split(".")[-1]
+    sheet.append(["קוד קישור", "Customer", "Group ID", "VDOM", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG", "Service port", "Service"])
+    sheet.append([circuit, customer, "DEMO-G01", scenario["vdom"], vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
+    sheet.append(["90021401", "Training customer", "DEMO-G02", "training", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121", "443", "Training"])
     path = folder / "demo-services.xlsx"
     book.save(path)
     book.close()
@@ -212,6 +235,8 @@ class Presentation:
         self.closed = False
         self.smoke = not auto_start
         self.error = ""
+        self.external_editor = None
+        self.native_wait = None
         self.action_pending = False
         self.highlight_channel = "step"
         self.action = None
@@ -338,6 +363,7 @@ class Presentation:
             self.rate_labels[channel] = value
             self.button("+", lambda ch=channel: self.adjust(ch,1), controls).pack(side="right")
         self.dim_button = self.button("Dim: OFF", self.toggle_dim)
+        self.native_button = self.button("Windows Notepad", self.native_notepad)
         self.button("Reset timing · F12", self.reset_rates)
         self.button("Exit", self.close)
         label("F11: select rate", 8)
@@ -394,6 +420,8 @@ class Presentation:
         status = "SIM" if self.action in ("ports", "switch_extra") else ("MAN" if self.manual else "DEMO")
         self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d}  {status}")
         self.chapter.configure(text=STEPS[self.index][0] if self.index >= 0 else "PRESENTER")
+        if hasattr(self, "native_button"):
+            self.native_button.configure(state="normal" if self.action == "notepad" and not self.native_wait else "disabled")
         self.pause_button.configure(text="Play  ·  F6" if self.paused else "Pause  ·  F6")
         self.mode_button.configure(text=("MANUAL" if self.manual else "AUTO")+"  ·  F10")
         for channel, label in self.rate_labels.items():
@@ -469,6 +497,17 @@ class Presentation:
             due[2]()
         if self.highlight_until is not None and self.clocks[self.highlight_channel] >= self.highlight_until:
             self.clear_highlight()
+        if self.native_wait is not None:
+            note_id, baseline = self.native_wait
+            self.app._notepad_poll()
+            note = next((n for n in self.app.data["notes"] if n["id"] == note_id), None)
+            if note and note["body"] != baseline:
+                self.native_wait = None
+                self.root.lift()
+                self.focus_result(self.app.bidi_editor if self.app._bidi_active() else self.app.note_body, "SYNCED TO POCKET")
+                self.refresh()
+            else:
+                return
         if self.index < 0 or self.action == "summary" or self.action_pending or self.events:
             return
         state = self.api["extra_excel_ui"].session(self.app)
@@ -693,13 +732,15 @@ class Presentation:
             a._set_display_mode("dashboard")
             a.show_tab("home" if a.display_mode == "dashboard" else "notes")
         else:
-            tab = {"intro":"notes", "palette":"extra", "switch_extra":"ports",
+            tab = {"intro":"notes", "notepad":"notes", "palette":"extra", "switch_extra":"ports",
                    "return_extra":"extra"}.get(key, key)
             a.show_tab(tab)
         self.position()
 
     def go(self, index):
         self.cancel()
+        self.close_external_editor()
+        self.native_wait = None
         self.close_palette()
         self.hide_card()
         self.clear_highlight()
@@ -804,16 +845,144 @@ class Presentation:
         a.active_note()["body"] = text
         a._edit_dirty()
 
+    def select_note(self, index):
+        a = self.app
+        if a.current_tab != "notes":
+            a.show_tab("notes")
+        a._flush_current_note()
+        a.data["active_note"] = a.data["notes"][index]["id"]
+        a.refresh_note_list()
+        a._load_selected_note()
+        a.root.update_idletasks()
+
+    def close_external_editor(self):
+        if self.widget_alive(self.external_editor):
+            self.external_editor.destroy()
+        self.external_editor = None
+
+    def prepare_text_session(self):
+        """Use Pocket's real note-sync working file and session, without launching a process."""
+        a = self.app
+        a._flush_current_note()
+        note = a.active_note()
+        sync = self.api["note_sync"]
+        session = a._notepad_sessions.get(note["id"])
+        if session is None:
+            path = a._unique_note_path(note,note["title"])
+            if path.exists():
+                sync.write_text(path,note["body"])
+            else:
+                sync.create_text(path,note["body"])
+            session = {"path":path,"baseline":note["body"]}
+            a._notepad_sessions[note["id"]] = session
+            note["notepad_filename"] = path.name
+        return note, session
+
+    def demo_notepad(self):
+        a = self.app
+        note, session = self.prepare_text_session()
+        original = note["body"]
+        # Replay/back does not keep adding the same line.
+        base = original.split(NOTEPAD_ADDITION,1)[0]
+        updated = base + NOTEPAD_ADDITION
+        def save():
+            self.api["note_sync"].write_text(session["path"],updated)
+            a._notepad_poll()
+            if a.active_note()["body"] != updated:
+                raise AssertionError("Notepad working-file edit did not synchronize")
+            a._write_now()
+            self.close_external_editor()
+            self.root.lift()
+            self.focus_result(a.bidi_editor if a._bidi_active() else a.note_body,"SYNCED TO POCKET")
+        if self.smoke or self.paused:
+            save()
+            return
+        win = self.external_editor = tk.Toplevel(self.root)
+        win.title("Notepad — automatic demo editor")
+        win.configure(bg="#f3f5f8")
+        win.attributes("-topmost",True)
+        win.protocol("WM_DELETE_WINDOW",self.close_external_editor)
+        left,top,right,bottom = self.area()
+        width=min(560,right-left-60)
+        height=min(410,bottom-top-60)
+        win.geometry(f"{width}x{height}{left+(right-left-width)//2:+d}{top+(bottom-top-height)//2:+d}")
+        bar = tk.Frame(win,bg="#e5ebf3")
+        bar.pack(fill="x")
+        tk.Label(bar,text=session["path"].name+"  ·  DEMO EDITOR",bg="#e5ebf3",fg="#18283b",
+                 font=("Segoe UI",12,"bold"),anchor="e").pack(side="right",padx=12,pady=9)
+        save_button = tk.Button(bar,text="Save  /  Ctrl+S",command=save,bg="#176a8d",fg="white",
+                                relief="flat",padx=9,pady=4)
+        save_button.pack(side="left",padx=8)
+        from . import native_bidi
+        editor = None
+        if sys.platform == "win32":
+            try:
+                editor = native_bidi.NativeBidiEditor(win,background="#ffffff",foreground="#172033",
+                                                      context_menu=lambda e: None)
+                editor.pack(fill="both",expand=True,padx=9,pady=9)
+                editor.set_direction("rtl")
+            except (OSError,RuntimeError,tk.TclError):
+                editor = None
+        if editor is not None:
+            setter = editor.set_text
+        else:
+            editor = tk.Text(win,font=("Segoe UI",14),wrap="word",bg="white",fg="#172033")
+            editor.pack(fill="both",expand=True,padx=9,pady=9)
+            editor.tag_configure("rtl",justify="right")
+            def setter(text):
+                editor.delete("1.0","end")
+                editor.insert("1.0",text,"rtl")
+        setter(base)
+        self.root.update_idletasks()
+        self.focus_result(editor,"EDIT TEXT FILE","input")
+        def typed():
+            self.focus_result(save_button,"SAVE")
+            self.after_result(1000,save)
+        def type_addition():
+            self.type_text(lambda suffix: setter(base+suffix),NOTEPAD_ADDITION,typed,editor)
+        win.bind("<Control-s>",lambda e: save())
+        self.after_result(1300,type_addition)
+
+    def native_notepad(self):
+        """Explicit presenter action: launch Windows Notepad, wait for a real saved edit."""
+        if self.action != "notepad" or self.native_wait is not None:
+            return
+        self.cancel()
+        self.close_external_editor()
+        self.hide_card()
+        self.action_pending = False
+        self.select_note(3)
+        a = self.app
+        note, session = self.prepare_text_session()
+        baseline = note["body"]
+        if sys.platform != "win32":
+            return
+        self.native_wait = (note["id"],baseline)
+        self.action_finished_at = None
+        self.paused = False
+        self.refresh()
+        # Original production button opens only the isolated working file.
+        a.open_notepad()
+
     def apply(self, key):
         a = self.app
-        if key == "notes":
-            target = a.bidi_editor if a._bidi_active() else a.note_body
-            def title_done():
-                self.type_text(self.write_note,note_text(self.scenario),note_done,target)
-            def note_done():
-                a._flush_current_note()
-                self.focus_result(a.reminder_action, "FOLLOW-UP")
-            self.type_text(a.title_var.set,note_title(self.scenario),title_done,a.title_entry)
+        if key == "intro":
+            self.select_note(0)
+        elif key == "notes":
+            self.select_note(0)
+            self.focus_result(a.mini_note_picker,"NOTE 1 / 4")
+            def page(index):
+                a._move_mini_note(1)
+                self.focus_result(a.mini_note_picker,f"NOTE {index+1} / 4")
+                if index < 3:
+                    self.after_result(2000,lambda: page(index+1))
+                else:
+                    self.after_result(1000,lambda: self.focus_result(
+                        a.bidi_editor if a._bidi_active() else a.note_body,"TASK LIST"))
+            self.after_result(1800,lambda: page(1))
+        elif key == "notepad":
+            self.select_note(3)
+            self.demo_notepad()
         elif key == "links":
             self.focus_result(a.body,"ORGANIZED SHORTCUTS")
         elif key == "commands":
@@ -967,6 +1136,7 @@ class Presentation:
             return
         self.closed = True
         self.cancel()
+        self.close_external_editor()
         if self.job is not None:
             self.root.after_cancel(self.job)
         self.hide_card()
@@ -1038,7 +1208,8 @@ def run(api, *, smoke=False):
             def open_link(self, url):
                 pass
             def open_notepad(self):
-                pass
+                # Only open the isolated demo working file on explicit user action.
+                super().open_notepad()
             def _update_vendors(self):
                 pass
         app = DemoApp(preview=True)
@@ -1069,16 +1240,26 @@ def run(api, *, smoke=False):
                         state = api["extra_excel_ui"].session(app)
                         assert state["hits"] and state["query"] == scenario["circuit"], "EXTRA demo record missing"
                         assert state["selected"] == 0, "EXTRA selection missing"
+                        from .extra_excel_presentation import row_overview
+                        overview = row_overview(state["hits"][0])
+                        pairs = {cell.label:cell.value for pair in overview.pairs for cell in pair}
+                        assert pairs["קוד קישור"] == scenario["circuit"]
+                        assert pairs["VDOM"] == scenario["vdom"] and pairs["FortiGate IP"] == scenario["forti_ip"]
                     if step[4] == "palette":
                         assert app._quick_search_dialog is not None, "Palette did not open"
                         presentation.execute_palette_demo()
                         assert app.current_tab == "notes", "Palette action did not navigate"
                     if step[4] == "clipboard":
                         assert app.clipboard_page == "images" and len(app.clipboard_images) == 3
-                    if step[4] in ("intro", "notes"):
+                    if step[4] == "intro":
                         assert app.active_note()["title"] == note_title(scenario), "Hebrew demo title missing"
                     if step[4] == "notes":
-                        assert app.active_note()["body"] == note_text(scenario)
+                        assert len(app.data["notes"]) == 4 and app.active_note()["title"] == "משימות"
+                        assert app.mini_note_page.cget("text").strip() == "4 / 4"
+                        assert all(n["direction"] == "rtl" for n in app.data["notes"])
+                    if step[4] == "notepad":
+                        assert app.active_note()["body"] == TASKS_TEXT + NOTEPAD_ADDITION
+                        assert api["note_sync"].read_text(app._notepad_sessions[app.active_note()["id"]]["path"]) == app.active_note()["body"]
                     if step[4] == "commands":
                         assert app.command_filtered, "CLI results missing"
                     if step[4] == "subnet":

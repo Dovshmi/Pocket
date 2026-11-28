@@ -21,10 +21,10 @@ DEFAULT_SCENARIO = {"customer": "Orion Logistics", "circuit": "90021400",
 WAN_IP = "10.178.24.14"
 MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
         "00:80:9F:24:71:13", "00:09:0F:24:71:14")
-VENDORS = {"00000C": ["Cisco Systems, Inc.", "MA-L"],
-           "000142": ["Cisco Systems, Inc.", "MA-L"],
-           "00809F": ["Alcatel-Lucent Enterprise (ALE)", "MA-L"],
-           "00090F": ["Fortinet, Inc. (FortiGate)", "MA-L"]}
+VENDORS = {"00000C": ["Cisco", "MA-L"],
+           "000142": ["Cisco", "MA-L"],
+           "00809F": ["Alcatel-Lucent", "MA-L"],
+           "00090F": ["Fortinet (FortiGate)", "MA-L"]}
 
 
 def load_scenario():
@@ -205,6 +205,7 @@ class Presentation:
         self.smoke = not auto_start
         self.error = ""
         self.action_pending = False
+        self.highlight_channel = "step"
         self.action = None
         self.root = app.root
         self.root.withdraw()
@@ -294,7 +295,7 @@ class Presentation:
             w.pack(fill="x", padx=6, pady=2)
             return w
         label("P O C K E T   /   FORMGT", 9, self.ACCENT)
-        self.step_label = label("00 / 14", 11, self.TEXT)
+        self.step_label = label(f"00 / {len(STEPS)}", 11, self.TEXT)
         self.chapter = label("PRESENTER", 9)
         self.track = tk.Canvas(self.side, height=4, bg="#293a50", highlightthickness=0)
         self.track.pack(fill="x", padx=8, pady=(0, 6))
@@ -458,7 +459,7 @@ class Presentation:
                 break
             self.events.remove(due)
             due[2]()
-        if self.highlight_until is not None and self.clocks["step"] >= self.highlight_until:
+        if self.highlight_until is not None and self.clocks[self.highlight_channel] >= self.highlight_until:
             self.clear_highlight()
         if self.index < 0 or self.action == "summary" or self.action_pending or self.events:
             return
@@ -575,7 +576,8 @@ class Presentation:
         self.highlight.deiconify()
         self.passive_window(self.highlight)
         self.highlight.lift()
-        self.highlight_until = self.clocks["step"]+2200
+        self.highlight_until = self.clocks["typing"]+max(2200, 42*len("\n".join(MACS))+400) if kind == "input" else self.clocks["step"]+2200
+        self.highlight_channel = "typing" if kind == "input" else "step"
 
     def dismiss_card(self):
         self.hide_card()
@@ -685,7 +687,7 @@ class Presentation:
             a._set_display_mode("dashboard")
             a.show_tab("home" if a.display_mode == "dashboard" else "notes")
         else:
-            tab = {"intro":"notes", "palette":"notes", "switch_extra":"ports",
+            tab = {"intro":"notes", "palette":"extra", "switch_extra":"ports",
                    "return_extra":"extra"}.get(key, key)
             a.show_tab(tab)
         self.position()
@@ -814,8 +816,7 @@ class Presentation:
                 a._refresh_command_results()
                 self.focus_result(a.command_code,"COMMAND FOUND")
                 def saved():
-                    selected = getattr(a, "_selected_command", None)
-                    # Leave saved state stable on repeated playback.
+                            # Leave saved state stable on repeated playback.
                     if getattr(a, "command_star", None) is not None:
                         text = a.command_star.cget("text")
                         if "☆" in text:
@@ -859,15 +860,16 @@ class Presentation:
             def mac_text(value):
                 a.mac_input.delete("1.0","end")
                 a.mac_input.insert("1.0",value)
+                a.mac_input.see("end")
             def mac_done():
                 a._run_mac_lookup()
                 def show_table():
                     # Compact vendor labels preserve all four rows in Mini.
                     tree = a.mac_tree
                     tree.configure(height=4)
-                    tree.column("#1",width=132,minwidth=110,stretch=False)
-                    tree.column("#2",width=132,minwidth=80,stretch=True)
-                    tree.column("#3",width=46,minwidth=30,stretch=False)
+                    tree.configure(displaycolumns=("MAC address","Vendor / result"))
+                    tree.column("#1",width=135,minwidth=110,stretch=False)
+                    tree.column("#2",width=151,minwidth=100,stretch=True)
                     self.scroll_to(tree,caption="4 MAC RESULTS")
                     def summary():
                         if not a.mac_vendor_expanded:

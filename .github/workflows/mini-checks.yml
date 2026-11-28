@@ -79,13 +79,13 @@ jobs:
         if: runner.os == 'Linux'
         run: xvfb-run -a python tests/integration/smoke_extra_arrows_v140.py
       - name: Probe real Windows Quick Slots Ctrl+Win / Ctrl+Alt registrations
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: python tests/integration/probe_quick_slots_win32.py
       - name: Verify real selection copy and clipboard fallback (Windows)
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: python tests/integration/smoke_quick_slots_selection.py
       - name: Exercise real Windows ASCII and Hebrew Quick Slot paste
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: python tests/integration/smoke_quick_slots_paste.py
       - name: Exercise interactive Notes reminders on Windows
         if: runner.os == 'Windows'

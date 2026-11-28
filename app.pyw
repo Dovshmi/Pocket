@@ -2635,8 +2635,8 @@ class PocketDesk:
             self._notify_quick_slot("paste", f"Pocket · Paste [{number}] failed",
                                     "Slot is empty. Save text first.")
             return
-        self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
         owner = self.root.winfo_id()
+        self._mark_active = True  # Suppress capture of temporary Ctrl+C/V.
 
         def worker():
             try:
@@ -2667,8 +2667,13 @@ class PocketDesk:
                            else (number, None, "Quick Slot action failed.", paste_mode))
                 self.events.put((kind, payload))
 
-        threading.Thread(target=worker, name="PocketDeskQuickSlot",
-                         daemon=True).start()
+        try:
+            threading.Thread(target=worker, name="PocketDeskQuickSlot",
+                             daemon=True).start()
+        except RuntimeError:
+            self._finish_mark_operation()
+            self._notify_quick_slot("copy" if action == "save" else "paste",
+                                    "Pocket · Quick Slot failed", "Could not start the operation.")
 
     def _start_mark_conversion(self, target_hwnd):
         """One-shot, native selection conversion; never poll the keyboard."""
@@ -2680,8 +2685,8 @@ class PocketDesk:
         if not target_hwnd:
             self._notify("Pocket · Keyboard layout", "Select text in an application first.")
             return
-        self._mark_active = True
         owner = self.root.winfo_id()
+        self._mark_active = True
 
         def worker():
             try:
@@ -2694,8 +2699,19 @@ class PocketDesk:
             except Exception:
                 # Do not leak copied text or clipboard contents into debug logs.
                 self.events.put(("mark_result", "Could not correct the selection."))
-        threading.Thread(target=worker, name="PocketDeskMarkConversion",
-                         daemon=True).start()
+        try:
+            threading.Thread(target=worker, name="PocketDeskMarkConversion",
+                             daemon=True).start()
+        except RuntimeError:
+            self._finish_mark_operation()
+            self._notify("Pocket · Keyboard layout", "Could not start the operation.")
+
+    def _finish_mark_operation(self):
+        """Release the shared clipboard guard and recheck a deferred auto-hide."""
+        self._mark_active = False
+        if getattr(self, "_mark_hide_pending", False):
+            self._mark_hide_pending = False
+            self.root.after(170, self._maybe_hide)
 
     def _set_clipboard_paused(self, paused):
         self.settings["clipboard_paused"] = bool(paused)
@@ -6555,6 +6571,11 @@ class PocketDesk:
     def _maybe_hide(self):
         if self.preview or self.pinned or self._modal or self._dragging_window or self._resizing_window:
             return
+        if getattr(self, "_mark_active", False):
+            # Ctrl+C/V and clipboard ownership can briefly disturb Tk focus.
+            # Recheck after the operation, rather than hiding mid-paste.
+            self._mark_hide_pending = True
+            return
         if (self.current_tab == "notes" and getattr(self, "bidi_editor", None) is not None
                 and self.bidi_editor.has_focus()):
             return
@@ -6963,7 +6984,7 @@ class PocketDesk:
                         "Change its key combination in Settings.")
                 elif name == "quick_slot_save_result":
                     number, selected, error = xy
-                    self._mark_active = False
+                    self._finish_mark_operation()
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
                         self._notify_quick_slot(
@@ -6972,7 +6993,7 @@ class PocketDesk:
                         self._assign_clipboard_slot(number, selected)
                 elif name == "quick_slot_paste_result":
                     number, pasted_text, error, paste_mode = xy
-                    self._mark_active = False
+                    self._finish_mark_operation()
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     if error:
                         verb = "Copy" if paste_mode == "clipboard" else "Paste"
@@ -6984,7 +7005,7 @@ class PocketDesk:
                             "paste", *quick_slots.slot_notification(
                                 action, number, pasted_text))
                 elif name == "mark_result":
-                    self._mark_active = False
+                    self._finish_mark_operation()
                     # Prevent the history monitor from recording transient Mark data.
                     self._clipboard_sequence = clipboard_images.sequence_number()
                     self._notify("Pocket · Keyboard layout", xy)

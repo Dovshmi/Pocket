@@ -13,7 +13,7 @@ import time
 import tkinter as tk
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from pocket import quick_slots
+from pocket import quick_slots, marked_layout, keyboard_layout, native_inputs
 
 
 def run_on_worker(root, action):
@@ -130,6 +130,50 @@ def run():
         assert root.clipboard_get() == capture["text"]
         assert entry.get() == "", "Use Current Clipboard must not auto-copy"
         print("PASS: manual Save reads existing Hebrew clipboard without Ctrl+C")
+
+        # Real selected-text conversion in both ordinary Tk and Pocket's
+        # embedded Win32 EDIT control. The clipboard must survive, the
+        # original foreground window must remain active, and Quick Slots
+        # must still paste after the conversion returns.
+        native_entry = native_inputs.Entry(root, width=48)
+        native_entry.pack(padx=14, pady=4)
+        root.update()
+        assert native_entry.native_hwnd, "Expected native Pocket edit control"
+        user.GetFocus.restype = ctypes.c_void_p
+        for field in (entry, native_entry):
+            for original in ("akuo", "שלום"):
+                field.delete(0, tk.END)
+                field.insert(0, original)
+                field.focus_force()
+                field.selection_range(0, tk.END)
+                root.clipboard_clear()
+                root.clipboard_append("KEEP_ORIGINAL_CLIPBOARD")
+                root.update()
+                assert user.GetForegroundWindow() == target
+                original_focus = user.GetFocus()
+                assert original_focus, "No active edit control"
+                result = {}
+                def correct():
+                    result["mark"] = marked_layout.convert_selection(
+                        keyboard_layout.convert, target_hwnd=target,
+                        owner_hwnd=owner_hwnd)
+                owner_hwnd = root.winfo_id()
+                run_on_worker(root, correct)
+                root.update()
+                assert result["mark"].changed, result["mark"]
+                assert field.get() == keyboard_layout.convert(original), field.get()
+                assert root.clipboard_get() == "KEEP_ORIGINAL_CLIPBOARD"
+                assert user.GetForegroundWindow() == target, "Conversion changed foreground"
+                assert user.GetFocus() == original_focus, "Conversion changed focused control"
+
+                field.delete(0, tk.END)
+                field.focus_force()
+                root.update()
+                run_on_worker(root, lambda: quick_slots.paste_slot_text(
+                    "AFTER_MARK", target_hwnd=target, owner_hwnd=owner_hwnd))
+                root.update()
+                assert field.get() == "AFTER_MARK", field.get()
+        print("PASS: real Windows Mark conversion preserves focus and clipboard; Quick Slots still paste")
     finally:
         root.destroy()
 

@@ -75,6 +75,89 @@ class FakeSelectionBackend:
 
 
 class QuickSlotsTests(unittest.TestCase):
+    def test_auto_hide_waits_for_clipboard_operation_and_rechecks(self):
+        desk = object.__new__(Desk)
+        desk.preview = desk.pinned = desk._modal = False
+        desk._dragging_window = desk._resizing_window = False
+        desk.current_tab = "clipboard"
+        desk._mark_active = True
+        desk.root = Mock()
+        desk.root.state.return_value = "normal"
+        desk.root.focus_displayof.return_value = None
+        desk.hide = Mock()
+        desk._maybe_hide()
+        desk.hide.assert_not_called()
+        self.assertTrue(desk._mark_hide_pending)
+        desk._finish_mark_operation()
+        self.assertFalse(desk._mark_active)
+        self.assertFalse(desk._mark_hide_pending)
+        desk.root.after.assert_called_once_with(170, desk._maybe_hide)
+        with patch.object(APP["native_inputs"], "has_native_focus", return_value=False):
+            desk.root.focus_displayof.return_value = Mock()
+            desk._maybe_hide()
+            desk.hide.assert_not_called()
+            desk.root.focus_displayof.return_value = None
+            desk._maybe_hide()
+            desk.hide.assert_called_once()
+
+    def test_failed_quick_slot_worker_start_releases_guard(self):
+        desk = object.__new__(Desk)
+        desk.settings = {"quick_slots_enabled": True}
+        desk.clipboard_slots = {"1": "STORED"}
+        desk._mark_active = False
+        desk.root = Mock()
+        desk._notify = Mock()
+        with patch.object(APP["threading"], "Thread") as thread:
+            thread.return_value.start.side_effect = RuntimeError("start failed")
+            desk._quick_slot_hotkey("paste", 1, 100)
+        self.assertFalse(desk._mark_active)
+        desk._notify.assert_called_once()
+
+    def test_all_nine_slots_keep_numbered_labels_and_paste_modes(self):
+        slots = {str(n): f"slot {n}" if n % 2 else f"עברית {n} English"
+                 for n in quick_slots.SLOT_NUMBERS}
+        rows = quick_slots.merged_rows(slots, [])
+        self.assertEqual([row["slot"] for row in rows], list(range(1, 10)))
+        for row in rows:
+            number, value = row["slot"], row["text"]
+            with self.subTest(slot=number):
+                self.assertEqual(clipboard_gallery.text_row_label(row),
+                                 f"[{number}] {value}")
+                backend = FakeSelectionBackend()
+                quick_slots.paste_slot_text(value, target_hwnd=100, backend=backend)
+                if quick_slots.requires_clipboard_paste(value):
+                    self.assertEqual(backend.clipboard, value)
+                    self.assertEqual(backend.keys, ["V"])
+                else:
+                    self.assertEqual(backend.typed_text, [value])
+                    self.assertEqual(backend.clipboard, "OLD")
+
+    def test_mark_conversion_waits_and_preserves_clipboard(self):
+        from pocket.marked_layout import convert_selection
+        backend = FakeSelectionBackend(selection="wrong")
+        result = convert_selection(lambda text: "correct", target_hwnd=100,
+                                   backend=backend)
+        self.assertTrue(result.changed)
+        self.assertEqual(backend.settled, 1)
+        self.assertEqual(backend.keys, ["C", "V"])
+        self.assertEqual(backend.clipboard, "OLD")
+        self.assertEqual(backend.restored, 1)
+
+    def test_mark_conversion_never_copies_after_focus_change(self):
+        from pocket.marked_layout import convert_selection
+        backend = FakeSelectionBackend(selection="wrong")
+        backend.foreground = Mock(side_effect=[100, 200])
+        with self.assertRaises(MarkError):
+            convert_selection(lambda text: "correct", target_hwnd=100,
+                              backend=backend)
+        self.assertEqual(backend.keys, [])
+        backend.foreground = Mock(side_effect=[100, 100, 200])
+        result = convert_selection(lambda text: "correct", target_hwnd=100,
+                                   backend=backend)
+        self.assertFalse(result.changed)
+        self.assertEqual(backend.keys, [])
+        self.assertEqual(backend.clipboard, "OLD")
+
     def test_nine_numbers_no_names_or_untrusted_values(self):
         self.assertEqual(quick_slots.normalize_slots(
             {"1": "10.0.0.1", "2": "AA:BB", "label": "IP",

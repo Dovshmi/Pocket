@@ -1279,13 +1279,15 @@ def run(api, *, smoke=False):
                 if self.current_tab != "links" or not hasattr(self,"links_stack"):
                     return
                 translations = {"Quick shortcuts":"קיצורים מהירים", "Websites, files and folders":"אתרים, קבצים ותיקיות",
-                                "+ Add ▾":"+ הוספה ▾", "Search":"חיפוש", "Unfiled · drop here":"ללא תיקייה · גרירה לכאן"}
+                                "+ Add ▾":"+ הוספה ▾", "Search":"חיפוש", "Unfiled  ·  drop here":"ללא תיקייה · גרירה לכאן"}
                 def translate(widget):
                     for child in widget.winfo_children():
                         if isinstance(child,(tk.Label,tk.Button)):
-                            value = child.cget("text")
+                            value = str(child.cget("text"))
                             if value in translations:
                                 child.configure(text=translations[value])
+                            elif value in ("עבודה","לימודים","קישורים נוספים","קובץ סיסמאות","EXTRANET.XL","אתר בזק","קובץ BWIFI","קובץ BCAM","אתר הלימודים של סיסקו","מחשבון מקוון","חדשות טכנולוגיה","קובץ דוגמה"):
+                                child.configure(anchor="e",justify="right")
                             elif value.startswith(("FILE  ·", "URL  ·")):
                                 prefix = "קובץ" if value.startswith("FILE") else "אתר"
                                 child.configure(text=prefix+"  ·  "+value.split("·",1)[1].strip())

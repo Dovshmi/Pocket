@@ -15,8 +15,8 @@ SPEEDS = (0.1, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0)
 CHANNELS = ("step", "hold", "appear", "disappear", "typing")
 CHANNEL_LABELS = {"step": "STEP", "hold": "BUBBLE HOLD", "appear": "FADE IN",
                   "disappear": "FADE OUT", "typing": "TYPING"}
-DEFAULT_SCENARIO = {"customer": "Orion Logistics", "circuit": "90021400",
-                    "vrf": "VRF-BUS-ERP", "public_ip": "192.0.2.52",
+DEFAULT_SCENARIO = {"customer": "CLALIT", "circuit": "90021400",
+                    "vrf": "clalit", "public_ip": "192.0.2.52",
                     "vpn_users": "ALEX, JORDAN", "phone": "", "port": "10443"}
 WAN_IP = "10.178.24.14"
 MACS = ("00:00:0C:24:71:11", "00:01:42:24:71:12",
@@ -44,7 +44,15 @@ def load_scenario():
     data["public_ip"] = str(ipaddress.IPv4Address(data["public_ip"]))
     if not data["port"].isascii() or not data["port"].isdigit() or not 1 <= int(data["port"]) <= 65535:
         raise ValueError("Invalid demo port")
+    if data["customer"].strip().casefold() in ("orion logistics", "clalit", "כללית", "clalit / כללית", "כללית / clalit"):
+        data["customer"] = "CLALIT"
+        data["vrf"] = "clalit"
     return data
+
+
+def note_title(scenario):
+    """Use the Hebrew customer title consistently at startup and during replay."""
+    return "כללית" if scenario["customer"].casefold() == "clalit" else scenario["customer"]
 
 
 def note_text(scenario):
@@ -92,7 +100,7 @@ def seed_profile(api, folder, scenario):
                             clipboard_paused=True, clipboard_storage="ram",
                             quick_slots_enabled=False, convert_enabled=False)
     data["last_tab"] = "notes"
-    note = api["new_note"](customer, note_text(scenario), scenario["phone"])
+    note = api["new_note"](note_title(scenario), note_text(scenario), scenario["phone"])
     note.update(direction="rtl", reminder_enabled=True,
                 reminder_at=(datetime.now().astimezone()+timedelta(minutes=30)).isoformat())
     data["notes"] = [note]
@@ -565,9 +573,7 @@ class Presentation:
         self.outline.delete("all")
         color = "#FFD47A" if kind == "input" else self.ACCENT
         self.outline.create_rectangle(margin+2,above+2,margin+w-2,above+h-2,outline=color,width=3)
-        # Corner marks and an attention ring indicate the relevant region.
-        if w >= 65 and h >= 20:
-            self.outline.create_oval(margin+5,above+5,margin+19,above+19,outline=color,width=2)
+        # Keep the highlighted control entirely unobstructed; label and pointer stay outside.
         if above >= 20 and total_w >= 92:
             label_w=min(total_w-6,max(85,len(caption)*8+12))
             self.outline.create_rectangle(3,1,label_w,above-5,fill="#101b30",outline=color)
@@ -807,7 +813,7 @@ class Presentation:
             def note_done():
                 a._flush_current_note()
                 self.focus_result(a.reminder_action, "FOLLOW-UP")
-            self.type_text(a.title_var.set,self.scenario["customer"],title_done,a.title_entry)
+            self.type_text(a.title_var.set,note_title(self.scenario),title_done,a.title_entry)
         elif key == "links":
             self.focus_result(a.body,"ORGANIZED SHORTCUTS")
         elif key == "commands":
@@ -1069,6 +1075,8 @@ def run(api, *, smoke=False):
                         assert app.current_tab == "notes", "Palette action did not navigate"
                     if step[4] == "clipboard":
                         assert app.clipboard_page == "images" and len(app.clipboard_images) == 3
+                    if step[4] in ("intro", "notes"):
+                        assert app.active_note()["title"] == note_title(scenario), "Hebrew demo title missing"
                     if step[4] == "notes":
                         assert app.active_note()["body"] == note_text(scenario)
                     if step[4] == "commands":

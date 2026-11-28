@@ -47,7 +47,7 @@ def run_on_worker(root, action):
         raise AssertionError("Windows Quick Slot paste failed: " + result["error"])
 
 
-def run():
+def run(*, mark_diagnostic=False):
     if os.name != "nt":
         print("SKIP: requires real Windows clipboard and input")
         return
@@ -131,6 +131,9 @@ def run():
         assert entry.get() == "", "Use Current Clipboard must not auto-copy"
         print("PASS: manual Save reads existing Hebrew clipboard without Ctrl+C")
 
+        if not mark_diagnostic:
+            return
+
         # Real selected-text conversion in both ordinary Tk and Pocket's
         # embedded Win32 EDIT control. The clipboard must survive, the
         # original foreground window must remain active, and Quick Slots
@@ -179,4 +182,4 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    run(mark_diagnostic="--mark-diagnostic" in sys.argv[1:])

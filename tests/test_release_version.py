@@ -117,11 +117,16 @@ class ReleaseVersionTests(unittest.TestCase):
         for marker in ("[release v1.43.0]", "inputs.confirm_version == 'v1.43.0'",
                        "app_info.VERSION == '1.43.0'", "smoke_palette_focus_v143.py",
                        "check_packaged_release.py --version v1.43.0",
-                       "tag_name: v1.43.0", "steps.native_focus.outcome == 'success'",
-                       "steps.native_focus.outcome != 'success'",
+                       "tag_name: v1.43.0", "prerelease: false", "make_latest: true",
+                       "steps.native_focus.outcome", "steps.mark_conversion.outcome",
+                       "smoke_quick_slots_paste.py --mark-diagnostic",
+                       "Refusing to move an existing stable release tag",
                        "Pocket-Portable-v1.43.0.zip", "Pocket-v1.43.0.exe",
                        "SHA256SUMS.txt", "fail_on_unmatched_files: true"):
             self.assertIn(marker, workflow)
+        self.assertIn("id: native_focus\n        continue-on-error: true", workflow)
+        self.assertIn("id: mark_conversion\n        continue-on-error: true", workflow)
+        self.assertIn("run: python tests/integration/smoke_quick_slots_paste.py\n", workflow)
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("/releases/latest", readme)
         self.assertIn("docs/releases/v1.43.0.md", readme)

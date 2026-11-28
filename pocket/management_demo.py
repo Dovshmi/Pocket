@@ -32,8 +32,20 @@ def load_scenario():
     """Read presentation-only overrides beside the EXE/source, never commit them."""
     base = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
     path = base / "formgt-scenario.local.json"
-    if not path.is_file():
-        return dict(DEFAULT_SCENARIO)
+    if "--formgt-scenario" in sys.argv:
+        arg = sys.argv.index("--formgt-scenario")+1
+        if arg >= len(sys.argv):
+            raise ValueError("--formgt-scenario requires a JSON file path")
+        path = Path(sys.argv[arg]).expanduser().resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+    elif not path.is_file():
+        # Support the extracted onedir package with the configuration in its parent.
+        parent_config = base.parent / "formgt-scenario.local.json"
+        if parent_config.is_file():
+            path = parent_config
+        else:
+            return {**DEFAULT_SCENARIO, "_local": False}
     data = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict) or not {"customer", "circuit", "vrf", "public_ip"} <= set(data) <= set(DEFAULT_SCENARIO):
         raise ValueError("Invalid FORMGT scenario fields")
@@ -51,6 +63,7 @@ def load_scenario():
     if data["customer"].strip().casefold() in ("orion logistics", "clalit", "כללית", "clalit / כללית", "כללית / clalit", "כללית clalit", "clalit כללית"):
         data["customer"] = "CLALIT"
         data["vrf"] = "clalit"
+    data["_local"] = True
     return data
 
 
@@ -65,7 +78,7 @@ def note_text(scenario):
 
 
 TASKS_TEXT = "משימות\n\n1. לחמם את הבאכש\n2. להוסיף יוזר VPN\n3. לחזור ללקוח\n4. לאמת גישה"
-NOTEPAD_ADDITION = "\n5. לעדכן את תיעוד הטיפול"
+NOTE_ADDITION = "\n5. לעדכן את הלקוח לאחר סיום הבדיקות"
 
 
 def demo_notes(api, scenario):
@@ -86,8 +99,8 @@ def demo_notes(api, scenario):
 
 STEPS = (
     ("WELCOME", "כל הכלים. מקום אחד.", "סביבת עבודה אחת לצד מערכות העבודה הקיימות.", 5500, "intro"),
-    ("NOTES", "כל התיעוד בהישג יד", "דפדוף בין ארבע הערות — בקשת VPN, פרטי קו, בדיקות ומשימות.", 10500, "notes"),
-    ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "נהלים ומערכות מסודרים בתיקיות מוכנות לשימוש.", 6500, "links"),
+    ("NOTES", "כל התיעוד בהישג יד", "דפדוף בין ארבע הערות, הוספת משימה ושמירה אוטומטית.", 13000, "notes"),
+    ("SHORTCUTS", "גישה מהירה למשאבי עבודה", "קבצים ואתרים מסודרים בתיקיות עבודה, לימודים וקישורים נוספים.", 9000, "links"),
     ("COMMANDS", "הידע המקצועי בהישג יד", "חיפוש ממשקים אחד — פקודות שונות למגוון סוגי ציוד.", 14000, "commands"),
     ("SUBNET", "מחישוב ידני לתוצאה מיידית", "חישוב רשת וטווח כתובות, כולל חלוקה לתת־רשתות.", 12000, "subnet"),
     ("PORTS", "אבחון ממוקד ומהיר", "בדיקת יעד ופורטים · תוצאות מדומות בלבד.", 11500, "ports"),
@@ -126,20 +139,45 @@ def seed_profile(api, folder, scenario):
     data["last_tab"] = "notes"
     data["notes"] = demo_notes(api, scenario)
     data["active_note"] = data["notes"][0]["id"]
-    data["links"] = [api["new_link"](name, "https://example.invalid/" + slug)
-                     for name, slug in (("Network procedures", "procedures"), ("IPVPN service portal", "ipvpn"),
-                                        ("Equipment knowledge base", "kb"), ("Diagnostics center", "diagnostics"))]
-    layout = api["shortcut_folders"].normalize(None, data["links"])
-    for name, items in (("Operational systems", data["links"][1::2]),
-                        ("Knowledge & procedures", data["links"][::2])):
-        fid = api["shortcut_folders"].add_folder(layout, name)
-        for link in items:
-            api["shortcut_folders"].move(layout, api["shortcut_folders"].link_key(link["id"]),
-                                         api["shortcut_folders"].folder_key(fid), "inside")
+    # Actual file-type shortcuts, but only harmless temporary demonstration files.
+    demo_files = folder / "demo-files"
+    demo_files.mkdir(exist_ok=True)
+    password_book = Workbook()
+    password_book.active.append(["Demo file", "No credentials are stored here"])
+    password_book.save(demo_files / "סיסמאות.xlsx")
+    password_book.close()
+    for filename in ("BWIFI.txt", "BCAM.txt"):
+        (demo_files / filename).write_text("FORMGT — קובץ לימוד לדוגמה בלבד", encoding="utf-8")
+    groups = [
+        ("עבודה", [
+            ("קובץ סיסמאות", str(demo_files / "סיסמאות.xlsx"), "file"),
+            ("EXTRANET.XL", str(folder / "EXTRANET.xlsx"), "file"),
+            ("אתר בזק", "https://www.bezeq.co.il/", "url")]),
+        ("לימודים", [
+            ("קובץ BWIFI", str(demo_files / "BWIFI.txt"), "file"),
+            ("קובץ BCAM", str(demo_files / "BCAM.txt"), "file"),
+            ("אתר הלימודים של סיסקו", "https://www.netacad.com/", "url")]),
+        ("קישורים נוספים", [
+            ("מחשבון מקוון", "https://example.invalid/calculator", "url"),
+            ("חדשות טכנולוגיה", "https://example.invalid/technology", "url"),
+            ("קובץ דוגמה", str(demo_files / "BWIFI.txt"), "file")]),
+    ]
+    data["links"] = []
+    sf = api["shortcut_folders"]
+    layout = sf.normalize(None, [])
+    for index,(name,items) in enumerate(groups):
+        fid = sf.add_folder(layout,name)
+        for title,target,kind in items:
+            link = api["new_link"](title,target,kind)
+            data["links"].append(link)
+            sf.add_link(layout,link["id"],group=fid)
+        # add_link inserts at front; restore the authored order.
+        layout["children"][fid].reverse()
+        sf.set_expanded(layout,fid,index < 2)
     data["shortcut_folders"] = layout
-    data["reminders"] = [reminder_store.make_reminder(f"{customer} | Customer follow-up",
-        f"Validate VPN access and return call. Circuit: {circuit} (demo only).",
-        (datetime.now().astimezone() + timedelta(minutes=30)).isoformat())]
+    data["reminders"] = [reminder_store.make_reminder("REBAR – חזרה ללקוח",
+        "לבדוק את סטטוס התקלה, לעדכן את הלקוח ולתאם המשך טיפול.",
+        (datetime.now().astimezone() + timedelta(minutes=20)).isoformat())]
     data["tools"].update(target=public_ip, source="local", mac_source="local",
                          ports_input=f"22,443,{scenario['port']}")
     api["save_data"](folder / "data.json", data)
@@ -165,7 +203,7 @@ def seed_profile(api, folder, scenario):
     sheet.append(["קוד קישור", "Customer", "Group ID", "VDOM", "VRF", "Site", "Device", "WAN IP", "Public IP", "VLAN FG", "Service port", "Service"])
     sheet.append([circuit, customer, scenario["group"], scenario["vdom"], vrf, "South region (demo)", "Cisco ISR 4331", WAN_IP, public_ip, "120", scenario["port"], "Business IPVPN / VPN"])
     sheet.append(["90021401", "Training customer", "DEMO-G02", "training", "Training", "Lab B", "Juniper", "192.0.2.20", "192.0.2.53", "121", "443", "Training"])
-    path = folder / "demo-services.xlsx"
+    path = folder / "EXTRANET.xlsx"
     book.save(path)
     book.close()
     extra_excel_db.sync_database(path, db_path=folder / extra_excel_db.FILE_NAME)
@@ -348,6 +386,8 @@ class Presentation:
             w.pack(fill="x", padx=6, pady=2)
             return w
         label("P O C K E T   /   FORMGT", 9, self.ACCENT)
+        label("LOCAL SCENARIO" if self.scenario.get("_local") else "SAMPLE DATA", 8,
+              self.ACCENT if self.scenario.get("_local") else "#FFD47A")
         self.step_label = label(f"00 / {len(STEPS)}", 11, self.TEXT)
         self.chapter = label("PRESENTER", 9)
         self.track = tk.Canvas(self.side, height=4, bg="#293a50", highlightthickness=0)
@@ -953,11 +993,38 @@ class Presentation:
                 if index < 3:
                     self.after_result(2000,lambda: page(index+1))
                 else:
-                    self.after_result(1000,lambda: self.focus_result(
-                        a.bidi_editor if a._bidi_active() else a.note_body,"TASK LIST"))
+                    def add_sentence():
+                        target = a.bidi_editor if a._bidi_active() else a.note_body
+                        original = a._editor_text()
+                        base = original.removesuffix(NOTE_ADDITION)
+                        def saved():
+                            a._flush_current_note()
+                            a._write_now()
+                            self.focus_result(a.save_status.master,"AUTOSAVED")
+                        self.type_text(lambda suffix: self.write_note(base+suffix), NOTE_ADDITION,saved,target)
+                    self.after_result(1000,add_sentence)
             self.after_result(1800,lambda: page(1))
         elif key == "links":
-            self.focus_result(a.body,"ORGANIZED SHORTCUTS")
+            a.root.update_idletasks()
+            layout = a.data["shortcut_folders"]
+            for i,folder in enumerate(layout["folders"]):
+                self.api["shortcut_folders"].set_expanded(layout,folder["id"],i < 2)
+            a.refresh_links()
+            a.root.update_idletasks()
+            canvas = a.links_stack.master
+            def show_folder(index):
+                fid = layout["folders"][index]["id"]
+                bar = getattr(a,"shortcut_folder_headers",{}).get(fid)
+                if self.widget_alive(bar):
+                    region = canvas.bbox("all")
+                    if region and region[3] > region[1]:
+                        canvas.yview_moveto(max(0,(bar.winfo_y()-5)/(region[3]-region[1])))
+                    a.root.update_idletasks()
+                    self.focus_result(bar,("WORK","STUDY","MORE / CLOSED")[index])
+                if index < 2:
+                    self.after_result(2000,lambda: show_folder(index+1))
+            canvas.yview_moveto(0)
+            show_folder(0)
         elif key == "commands":
             a._command_focus_in()
             a.machine_var.set(self.api["ch"].ALL_MACHINES)
@@ -985,6 +1052,12 @@ class Presentation:
                         a.subnet_split_var.set("/30")
                         a._split_subnet()
                         self.scroll_to(a.subnet_tree,caption="2 SUBNETS")
+                        def back_to_top():
+                            self.clear_highlight()
+                            self.scroll_to(fraction=0.)
+                            a.root.update_idletasks()
+                            self.focus_result(a.subnet_fact_labels["cidr"].master,"NETWORK OVERVIEW")
+                        self.after_result(2100,back_to_top)
                     self.after_result(1600,split)
                 self.after_result(500,calculated)
             def ip_done():
@@ -1078,7 +1151,11 @@ class Presentation:
         elif key == "reminders":
             fields = getattr(a,"_reminders_inline_fields",{})
             if fields:
-                self.scroll_to(next(iter(fields.values()))[0],caption="FOLLOW-UP TASK")
+                title, details = next(iter(fields.values()))
+                title.configure(justify="right")
+                details.tag_configure("formgt_rtl",justify="right")
+                details.tag_add("formgt_rtl","1.0","end")
+                self.scroll_to(title,caption="FOLLOW-UP TASK")
             else:
                 self.focus_result(a.body,caption="REMINDERS")
         elif key == "extra":
@@ -1197,6 +1274,23 @@ def run(api, *, smoke=False):
                 self.show_tab(self.current_tab)
                 self._install_resize_handles()
                 self._place_popup(self._last_tray_xy)
+            def refresh_links(self):
+                super().refresh_links()
+                if self.current_tab != "links" or not hasattr(self,"links_stack"):
+                    return
+                translations = {"Quick shortcuts":"קיצורים מהירים", "Websites, files and folders":"אתרים, קבצים ותיקיות",
+                                "+ Add ▾":"+ הוספה ▾", "Search":"חיפוש", "Unfiled · drop here":"ללא תיקייה · גרירה לכאן"}
+                def translate(widget):
+                    for child in widget.winfo_children():
+                        if isinstance(child,(tk.Label,tk.Button)):
+                            value = child.cget("text")
+                            if value in translations:
+                                child.configure(text=translations[value])
+                            elif value.startswith(("FILE  ·", "URL  ·")):
+                                prefix = "קובץ" if value.startswith("FILE") else "אתר"
+                                child.configure(text=prefix+"  ·  "+value.split("·",1)[1].strip())
+                        translate(child)
+                translate(self.body)
             def _choose_theme(self, name):
                 pass  # Keep the presentation styling stable.
             def _poll_events(self):
@@ -1268,6 +1362,14 @@ def run(api, *, smoke=False):
                         assert len(app.data["notes"]) == 4 and app.active_note()["title"] == "משימות"
                         assert app.mini_note_page.cget("text").strip() == "4 / 4"
                         assert all(n["direction"] == "rtl" for n in app.data["notes"])
+                        assert app.active_note()["body"].endswith(NOTE_ADDITION), "Note addition missing"
+                    if step[4] == "links":
+                        folders = app.data["shortcut_folders"]["folders"]
+                        assert [f["title"] for f in folders] == ["עבודה","לימודים","קישורים נוספים"]
+                        assert [f["expanded"] for f in folders] == [True,True,False]
+                        assert all(len(app.data["shortcut_folders"]["children"][f["id"]]) == 3 for f in folders)
+                    if step[4] == "reminders":
+                        assert app.data["reminders"][0]["title"].startswith("REBAR")
                     if step[4] == "commands":
                         assert len(app.command_filtered) >= 5, "CLI results missing"
                         assert len({row["machine"] for row in app.command_filtered}) >= 5

@@ -576,7 +576,7 @@ class Presentation:
         self.highlight.deiconify()
         self.passive_window(self.highlight)
         self.highlight.lift()
-        self.highlight_until = self.clocks["typing"]+max(2200, 42*len("\n".join(MACS))+400) if kind == "input" else self.clocks["step"]+2200
+        self.highlight_until = self.clocks["typing"]+2200 if kind == "input" else self.clocks["step"]+2200
         self.highlight_channel = "typing" if kind == "input" else "step"
 
     def dismiss_card(self):
@@ -753,6 +753,8 @@ class Presentation:
     def type_text(self, setter, value, done=None, widget=None):
         if self.widget_alive(widget):
             self.scroll_to(widget, caption="INPUT", kind="input")
+            if self.highlight_until is not None:
+                self.highlight_until = self.clocks["typing"] + max(2200,42*(len(value)+2)+300)
         if self.smoke or self.paused:
             setter(value)
             if done:
@@ -816,7 +818,7 @@ class Presentation:
                 a._refresh_command_results()
                 self.focus_result(a.command_code,"COMMAND FOUND")
                 def saved():
-                            # Leave saved state stable on repeated playback.
+                    # Leave saved state stable on repeated playback.
                     if getattr(a, "command_star", None) is not None:
                         text = a.command_star.cget("text")
                         if "☆" in text:
@@ -887,7 +889,7 @@ class Presentation:
                                 self.scroll_to(a.mac_tree,caption="ALL 4 MACS")
                             self.after_result(1600,all_results)
                         self.after_result(1800,filter_cisco)
-                    self.after_result(2000,summary)
+                    self.after_result(2300,summary)
                 self.after_result(600,show_table)
             self.type_text(mac_text,"\n".join(MACS),mac_done,a.mac_input)
         elif key == "clipboard":

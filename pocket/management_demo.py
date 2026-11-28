@@ -417,7 +417,7 @@ class Presentation:
                                     fill=self.ACCENT, outline="")
 
     def refresh(self):
-        status = "SIM" if self.action in ("ports", "switch_extra") else ("MAN" if self.manual else "DEMO")
+        status = "SAVE" if self.native_wait else ("SIM" if self.action in ("ports", "switch_extra") else ("MAN" if self.manual else "DEMO"))
         self.step_label.configure(text=f"{self.index+1:02d}/{len(STEPS):02d}  {status}")
         self.chapter.configure(text=STEPS[self.index][0] if self.index >= 0 else "PRESENTER")
         if hasattr(self, "native_button"):
@@ -735,6 +735,8 @@ class Presentation:
             tab = {"intro":"notes", "notepad":"notes", "palette":"extra", "switch_extra":"ports",
                    "return_extra":"extra"}.get(key, key)
             a.show_tab(tab)
+            if key in ("intro", "notes", "notepad"):
+                self.select_note(3 if key == "notepad" else 0)
         self.position()
 
     def go(self, index):
@@ -853,6 +855,8 @@ class Presentation:
         a.data["active_note"] = a.data["notes"][index]["id"]
         a.refresh_note_list()
         a._load_selected_note()
+        a.title_entry.configure(justify="right")
+        a.mini_note_picker.configure(justify="right")
         a.root.update_idletasks()
 
     def close_external_editor(self):
@@ -886,6 +890,7 @@ class Presentation:
         base = original.split(NOTEPAD_ADDITION,1)[0]
         updated = base + NOTEPAD_ADDITION
         def save():
+            self.cancel()
             self.api["note_sync"].write_text(session["path"],updated)
             a._notepad_poll()
             if a.active_note()["body"] != updated:
@@ -901,7 +906,7 @@ class Presentation:
         win.title("Notepad — automatic demo editor")
         win.configure(bg="#f3f5f8")
         win.attributes("-topmost",True)
-        win.protocol("WM_DELETE_WINDOW",self.close_external_editor)
+        win.protocol("WM_DELETE_WINDOW",lambda: (self.cancel(),self.close_external_editor()))
         left,top,right,bottom = self.area()
         width=min(560,right-left-60)
         height=min(410,bottom-top-60)
@@ -1129,6 +1134,7 @@ class Presentation:
             return
         self.close_palette()
         a._run_palette_action(hit)
+        self.select_note(0)
         self.focus_result(a.title_entry,"BACK TO NOTES")
 
     def close(self):
